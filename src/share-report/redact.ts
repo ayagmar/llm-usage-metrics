@@ -45,10 +45,14 @@ function toPathName(value: string): string {
     : toBasename(value);
 }
 
-/**
- * A model as the share report shows it: path-like names, and any holding a path after a
- * colon or a standard home directory, become their basename.
- */
+/** Whether a model name holds a path: path-like, a path after a colon, or a standard home. */
+export function isPathShapedModel(model: string): boolean {
+  return (
+    isPathLike(model) || PATH_AFTER_COLON_PATTERN.test(model) || STANDARD_HOME_PATTERN.test(model)
+  );
+}
+
+/** A model as the share report shows it: a path-shaped name becomes its basename. */
 export function toShareModelLabel(model: string | undefined): string {
   const normalized = model?.trim().toLowerCase();
 
@@ -56,11 +60,7 @@ export function toShareModelLabel(model: string | undefined): string {
     return UNKNOWN_MODEL_LABEL;
   }
 
-  return isPathLike(normalized) ||
-    PATH_AFTER_COLON_PATTERN.test(normalized) ||
-    STANDARD_HOME_PATTERN.test(normalized)
-    ? toPathName(normalized)
-    : normalized;
+  return isPathShapedModel(normalized) ? toPathName(normalized) : normalized;
 }
 
 /** Whether `buildProjectLabels` gave `key` a tail of its own segments rather than the full key. */
@@ -246,6 +246,7 @@ export function buildRedactionMap(
 
 export const KEPT_PROJECT_LABELS: ReadonlySet<string> = new Set([UNATTRIBUTED_PROJECT_LABEL]);
 export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_NAME]);
+export const KEPT_MODEL_LABELS: ReadonlySet<string> = new Set([UNKNOWN_MODEL_LABEL]);
 
 /**
  * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,`, `;`,
@@ -257,13 +258,21 @@ export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_N
 const PATH_IN_TEXT_PATTERN =
   /(?:(?<=^|[\s"'`([{<=,;|>«])|(?<=:)(?!\/\/))(?:[a-z]:[\\/](?:[^\s"'`<>|?*:\\/](?:[^\r\n"'`<>|?*:\\/]*[^\s"'`<>|?*:\\/])?[\\/])*|file:|~[\w.-]*[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;|«»]*/giu;
 
+type PathScrubberOptions = {
+  /** What any other path becomes; its basename by default. */
+  otherPath?: (path: string) => string;
+  /** Values are lines of text (`~ marks…`), never one path as a whole. */
+  text?: boolean;
+};
+
 /**
  * Removes paths from free text: each known path (longest first) becomes its replacement, any
- * other standard home directory becomes `~`, and any other path becomes its basename (all of
- * the value, when it is a path as a whole).
+ * other standard home directory becomes `~`, and any other path becomes `otherPath` of it
+ * (all of the value, when it is a path as a whole).
  */
 export function createPathScrubber(
   replacements: ReadonlyMap<string, string>,
+  { otherPath = toPathName, text = false }: PathScrubberOptions = {},
 ): (value: string) => string {
   const ordered = [...replacements.entries()]
     .filter(([path]) => path.length > 0)
@@ -283,9 +292,9 @@ export function createPathScrubber(
       .replace(SPACED_PROFILE_IN_TEXT_PATTERN, '$1')
       .replace(STANDARD_HOME_IN_TEXT_PATTERN, '~');
 
-    return isPathLike(scrubbed)
-      ? toPathName(scrubbed)
-      : scrubbed.replace(PATH_IN_TEXT_PATTERN, (path) => toPathName(path));
+    return !text && isPathLike(scrubbed)
+      ? otherPath(scrubbed)
+      : scrubbed.replace(PATH_IN_TEXT_PATTERN, (path) => otherPath(path));
   };
 }
 

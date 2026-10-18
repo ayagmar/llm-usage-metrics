@@ -1,4 +1,5 @@
 import os from 'node:os';
+import path from 'node:path';
 
 import {
   buildProjectLabels,
@@ -22,8 +23,12 @@ import {
 import {
   buildRedactionMap,
   buildShareProjectLabels,
+  createNameReplacer,
   createPathScrubber,
+  isPathLike,
+  isPathShapedModel,
   KEPT_MACHINE_LABELS,
+  KEPT_MODEL_LABELS,
   KEPT_PROJECT_LABELS,
   toShareModelLabel,
 } from '../share-report/redact.js';
@@ -39,9 +44,10 @@ import type {
   ShareReportData,
   ShareReportMeta,
 } from '../share-report/types.js';
-import { logger } from '../utils/logger.js';
+import { logger, withLogScrubber } from '../utils/logger.js';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { getActiveEnvVarOverrides } from '../config/env-var-display.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { readBlocksDataset } from './build-blocks-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
@@ -53,6 +59,7 @@ import {
 } from './build-usage-data-pricing.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { getSourceOverrideOptions } from './source-cli-options.js';
 import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
 
 /** What a command passes to build its share report. */
@@ -67,6 +74,8 @@ export type ShareReportRequest = {
   envelope?: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>;
   /** Payload bytes above which older cells roll up to days; the default keeps the HTML under 8 MB. */
   targetBytes?: number;
+  /** Paths the command takes beyond the shared options (efficiency's repository). */
+  inputPaths?: readonly string[];
   /**
    * The events the command reports out of those its filters select, when it narrows them
    * further (efficiency: its repository, in periods with commits). Blocks still place
@@ -78,12 +87,17 @@ export type ShareReportRequest = {
 type ModeCosts = {
   costs: ShareEventCosts;
   unavailable: ShareCostMode[];
+  /** The prices loaded, if they were needed and loaded. */
+  pricingSource?: PricingSource;
+  /** Why prices did not load; warned once the file's names are known (--redact hides them). */
+  pricingWarning?: string;
 };
 
 /**
  * Each event's cost in every mode from one pricing load. The command's own run already failed
  * if its mode needed prices that did not load, so a failure here only drops the estimated
- * modes, with a warning.
+ * modes, with a warning. With --redact, prices load even under --no-cost, since they list the
+ * models the file may name.
  */
 async function priceEveryMode(
   events: UsageEvent[],
@@ -92,24 +106,37 @@ async function priceEveryMode(
   runtimeConfig: Parameters<typeof resolvePricingSource>[1],
   deps: BuildUsageDataDeps,
 ): Promise<ModeCosts> {
-  if (options.cost === false) {
+  const withCosts = options.cost !== false;
+  const redact = options.redact === true;
+
+  if (!withCosts && !redact) {
     return { costs: {}, unavailable: [] };
   }
 
   let pricingSource: PricingSource | undefined;
+  let pricingWarning: string | undefined;
   let unavailable: ShareCostMode[] = [];
 
   // `estimated` looks up every priced event's model, so it decides for all three modes.
-  if (shouldLoadPricingSource(events, 'estimated')) {
+  if (
+    (redact && events.length > 0) ||
+    (withCosts && shouldLoadPricingSource(events, 'estimated'))
+  ) {
     try {
       const loadPricingSource = deps.resolvePricingSource ?? resolvePricingSource;
       pricingSource = (await loadPricingSource(options, runtimeConfig)).source;
     } catch (error) {
-      unavailable = ['estimated', 'both'];
-      logger.warn(
-        `Share report: pricing did not load, so it holds logged costs only: ${getErrorReason(error)}`,
-      );
+      const outcomes = [
+        ...(withCosts ? ['holds logged costs only'] : []),
+        ...(redact ? ['labels every model model-N'] : []),
+      ];
+      unavailable = withCosts ? ['estimated', 'both'] : [];
+      pricingWarning = `Share report: pricing did not load, so it ${outcomes.join(' and ')}: ${getErrorReason(error)}`;
     }
+  }
+
+  if (!withCosts) {
+    return { costs: {}, unavailable, pricingSource, pricingWarning };
   }
 
   const costs: ShareEventCosts = {};
@@ -124,7 +151,7 @@ async function priceEveryMode(
     );
   }
 
-  return { costs, unavailable };
+  return { costs, unavailable, pricingSource, pricingWarning };
 }
 
 function pickCosts(costs: ShareEventCosts, keep: readonly boolean[]): ShareEventCosts {
@@ -158,6 +185,34 @@ function sumTokensBy(
   return tokens;
 }
 
+/**
+ * The paths a run was given, as typed and resolved: source directories, `--source-dir`
+ * entries, the config file, path env overrides, and the command's own (`--repo-dir`). Its
+ * stderr may print one whole, spaces and all, where the generic path matcher stops at a space.
+ * A bare root is left out, since it would match every separator.
+ */
+function listInputPaths(
+  options: ReportCommandOptions,
+  configPath: string,
+  commandPaths: readonly string[],
+): string[] {
+  const values = [
+    ...getSourceOverrideOptions().flatMap(({ optionKey }) => options[optionKey] ?? []),
+    ...(options.sourceDir ?? []).map((entry) => entry.slice(entry.indexOf('=') + 1)),
+    configPath,
+    ...getActiveEnvVarOverrides()
+      .filter(({ name }) => name.endsWith('_PATH'))
+      .map(({ value }) => value),
+    ...commandPaths,
+  ];
+
+  return values
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .flatMap((value) => [value, path.resolve(value)])
+    .filter((value) => path.parse(value).root !== value && isPathLike(value));
+}
+
 /** Looks a label up in a redaction map; a name it lacks gets the next stand-in. */
 function createRedactor(
   tokensByLabel: ReadonlyMap<string, number>,
@@ -184,15 +239,64 @@ function createRedactor(
 }
 
 /**
+ * Whether `--redact` hides a model: one whose name holds a path, or that LiteLLM does not list
+ * (a local or custom model, even one a pricing override prices). Without prices, every model.
+ */
+function createHiddenModelCheck(
+  pricingSource: PricingSource | undefined,
+): (model: string) => boolean {
+  const isListed = (model: string) => {
+    if (pricingSource === undefined) {
+      return false;
+    }
+
+    // An override keyed on the name itself prices it without a LiteLLM key (no `match`).
+    return pricingSource.explainModel
+      ? pricingSource.explainModel(model).match !== undefined
+      : pricingSource.getPricing(pricingSource.resolveModelAlias(model)) !== undefined;
+  };
+  const hidden = new Map<string, boolean>();
+
+  return (model) => {
+    let isHidden = hidden.get(model);
+
+    if (isHidden === undefined) {
+      isHidden = isPathShapedModel(model.trim().toLowerCase()) || !isListed(model);
+      hidden.set(model, isHidden);
+    }
+
+    return isHidden;
+  };
+}
+
+/**
  * The payload of a `--share` report: the command's window and filters read again (never
  * syncing other machines), priced in every cost mode from one pricing load, with blocks
  * placed as the `blocks` command places them. Labels never hold a path; with --redact,
- * projects and machines are `project-N` and `machine-N`.
+ * projects and machines are `project-N` and `machine-N`, and so are models whose name holds a
+ * path or that LiteLLM does not list (`model-N`).
  */
 export async function buildShareReportData(
   request: ShareReportRequest,
   deps: BuildUsageDataDeps = {},
 ): Promise<ShareReportData> {
+  return (await buildShareReport(request, deps)).data;
+}
+
+export type ShareReport = {
+  data: ShareReportData;
+  /**
+   * With --redact, hides in a stderr line what the file hides: paths become `<path>` (known
+   * repository roots their label), and project, machine and model names their stand-ins.
+   */
+  scrubLog?: (message: string) => string;
+};
+
+/** The payload of a `--share` report (see `buildShareReportData`) and its stderr scrubber. */
+export async function buildShareReport(
+  request: ShareReportRequest,
+  deps: BuildUsageDataDeps = {},
+): Promise<ShareReport> {
   const userConfigResolution = await resolveUserConfigForOptions(request.options, deps);
   const configuredOptions = userConfigResolution.options;
   const { timezone } = normalizeBuildUsageInputs(
@@ -225,7 +329,7 @@ export async function buildShareReportData(
     dataset.options,
     getPerRequestSourceIds(dataset.adaptersToParse),
   );
-  const { costs, unavailable } = await measureRuntimeProfileStage(
+  const { costs, unavailable, pricingSource, pricingWarning } = await measureRuntimeProfileStage(
     runtimeProfile,
     'share.pricing',
     () =>
@@ -277,6 +381,36 @@ export async function buildShareReportData(
     return redact ? redactProject(label) : label;
   };
   const machineLabel = (machine: string) => (redact ? redactMachine(machine) : machine);
+  const modelFilter = dataset.normalizedInputs.modelFilter ?? [];
+  const isHiddenModel = createHiddenModelCheck(pricingSource);
+  // Decided over every model the file can name first, so the stand-ins rank by tokens.
+  const hiddenModels = new Set(
+    [...allEvents.map((event) => event.model), ...modelFilter]
+      .filter((model) => model !== undefined && isHiddenModel(model))
+      .map(toShareModelLabel),
+  );
+  const redactModel = createRedactor(
+    new Map(
+      [
+        ...sumTokensBy(windowEvents, (event) => toShareModelLabel(event.model), hiddenModels),
+      ].filter(([label]) => hiddenModels.has(label)),
+    ),
+    'model',
+    KEPT_MODEL_LABELS,
+  );
+  const modelLabel = (model: string | undefined) => {
+    const label = toShareModelLabel(model);
+
+    if (!redact || KEPT_MODEL_LABELS.has(label)) {
+      return label;
+    }
+
+    if (model !== undefined && isHiddenModel(model)) {
+      hiddenModels.add(label);
+    }
+
+    return hiddenModels.has(label) ? redactModel(label) : label;
+  };
 
   const payload = measureRuntimeProfileStageSync(runtimeProfile, 'share.payload', () =>
     buildSharePayload({
@@ -286,6 +420,7 @@ export async function buildShareReportData(
       sourceOrder,
       projectLabel: (repoRoot) => projectLabelForKey(toProjectKey(repoRoot)),
       machineLabel,
+      modelLabel,
       blocks,
       blockEvents: allEvents,
       blockCosts: costs,
@@ -312,9 +447,7 @@ export async function buildShareReportData(
         dataset.normalizedInputs.providerFilter === undefined
           ? []
           : [dataset.normalizedInputs.providerFilter],
-      models: [
-        ...new Set((dataset.normalizedInputs.modelFilter ?? []).map(toShareModelLabel)),
-      ].sort(),
+      models: [...new Set(modelFilter.map(modelLabel))].sort(),
       machines: machineFilter.map(machineLabel).sort(),
       repo: dataset.normalizedInputs.repoFilter !== undefined,
     },
@@ -328,8 +461,12 @@ export async function buildShareReportData(
     blocks: payload.blocks,
   };
 
-  if (!request.envelope) {
-    return data;
+  if (!request.envelope && !redact) {
+    if (pricingWarning) {
+      logger.warn(pricingWarning);
+    }
+
+    return { data };
   }
 
   // The command labelled projects over its own keys; map its labels to this file's.
@@ -347,26 +484,33 @@ export async function buildShareReportData(
     pathReplacements.set(key, projectLabelForKey(key));
   }
 
-  // Names the envelope's free text may hold, as this file shows them.
-  const names = new Map(
-    [...commandLabels].map(([key, label]) => [label, projectLabelForKey(key)] as const),
-  );
+  // Names free text may hold, as this file shows them.
+  const listNames = () => {
+    const names = new Map(
+      [...commandLabels].map(([key, label]) => [label, projectLabelForKey(key)] as const),
+    );
 
-  if (redact) {
-    for (const label of shareLabels.values()) {
-      names.set(label, redactProject(label));
+    if (redact) {
+      for (const label of shareLabels.values()) {
+        names.set(label, redactProject(label));
+      }
+
+      for (const label of hiddenModels) {
+        names.set(label, redactModel(label));
+      }
+
+      for (const machine of [
+        ...windowEvents.map((event) => event.machine ?? LOCAL_MACHINE_NAME),
+        ...machineFilter,
+      ]) {
+        names.set(machine, machineLabel(machine));
+      }
     }
 
-    for (const machine of [
-      ...windowEvents.map((event) => event.machine ?? LOCAL_MACHINE_NAME),
-      ...machineFilter,
-    ]) {
-      names.set(machine, machineLabel(machine));
-    }
-  }
+    return names;
+  };
 
-  return {
-    ...data,
+  const envelopeData = request.envelope && {
     envelope: sanitizeEmbeddedEnvelope(request.envelope, {
       projectLabelForKey: (key) => (shareLabels.has(key) ? projectLabelForKey(key) : undefined),
       projectLabelForLabel: (label) =>
@@ -376,8 +520,52 @@ export async function buildShareReportData(
             ? redactProject(label)
             : undefined,
       machineLabel,
+      modelLabel,
       scrub: createPathScrubber(pathReplacements),
-      names,
+      names: listNames(),
     }),
   };
+
+  /** Built after the envelope, which may name models (optimize candidates) the events do not. */
+  const createLogScrubber = (): ((message: string) => string) => {
+    // Hidden models go first, by label and as logged: their names may hold a `/` the path
+    // pass would split.
+    const loggedModels = [...allEvents.map((event) => event.model), ...modelFilter].filter(
+      (model): model is string => model !== undefined && hiddenModels.has(toShareModelLabel(model)),
+    );
+    const replaceModels = createNameReplacer(
+      new Map(
+        [...hiddenModels, ...loggedModels].map((model) => [
+          model,
+          redactModel(toShareModelLabel(model)),
+        ]),
+      ),
+    );
+    // Known repository roots keep their labels; any other input path is `<path>` whole.
+    const inputPaths = listInputPaths(
+      configuredOptions,
+      userConfigResolution.loadedConfig.path,
+      request.inputPaths ?? [],
+    );
+    const scrubPaths = createPathScrubber(
+      new Map([...inputPaths.map((input) => [input, '<path>'] as const), ...pathReplacements]),
+      {
+        otherPath: () => '<path>',
+        text: true,
+      },
+    );
+    const replaceNames = createNameReplacer(listNames());
+
+    return (message) => replaceNames(scrubPaths(replaceModels(message)));
+  };
+
+  const scrubLog = redact ? createLogScrubber() : undefined;
+
+  withLogScrubber(scrubLog, () => {
+    if (pricingWarning) {
+      logger.warn(pricingWarning);
+    }
+  });
+
+  return { data: { ...data, ...envelopeData }, scrubLog };
 }

@@ -30,9 +30,10 @@ export type MachineEvents<E extends MergedEvent = UsageEvent> = {
 /** A source this machine parses with another version than the side that served a session. */
 export type ParserSkew = {
   source: string;
-  version: string;
+  /** Undefined when the machine did not record it (an older export). */
+  version?: string;
   servedBy: string;
-  servedVersion: string;
+  servedVersion?: string;
 };
 
 export type MergedMachineEvents<E extends MergedEvent = UsageEvent> = {
@@ -48,10 +49,13 @@ export type MergedMachineEvents<E extends MergedEvent = UsageEvent> = {
 
 type Server = { name: string; parserVersions?: ParserVersions };
 
-/** How events are told apart: the same event, or the same turn parsed differently. */
+/**
+ * How events are told apart: the same event, or the same turn parsed differently. Turns
+ * are matched with each key in order, so a closer match is taken before a looser one.
+ */
 type EventKeys<E extends MergedEvent> = {
   hash: (event: E) => string;
-  turn: (event: E) => string;
+  turns: readonly ((event: E) => string)[];
 };
 
 function countKeys<E extends MergedEvent>(
@@ -70,11 +74,12 @@ function countKeys<E extends MergedEvent>(
 
 /**
  * Another parser version can split tokens and resolve models differently, but keeps when
- * a turn happened.
+ * a turn happened. The same model is matched first, so a distinct event in the same
+ * millisecond is not dropped for a copy of another one.
  */
 const USAGE_KEYS: EventKeys<UsageEvent> = {
   hash: computeEventContentHash,
-  turn: (event) => event.timestamp,
+  turns: [(event) => `${event.timestamp}\0${event.model ?? ''}`, (event) => event.timestamp],
 };
 
 /**
@@ -83,7 +88,7 @@ const USAGE_KEYS: EventKeys<UsageEvent> = {
  */
 const SESSION_EVENT_KEYS: EventKeys<StoredSessionEvent> = {
   hash: (event) => JSON.stringify(event),
-  turn: (event) => `${event.kind}\0${event.timestamp}`,
+  turns: [(event) => `${event.kind}\0${event.timestamp}`],
 };
 
 function groupBySession<E extends MergedEvent>(events: readonly E[]): Map<string, E[]> {
@@ -103,14 +108,52 @@ function groupBySession<E extends MergedEvent>(events: readonly E[]): Map<string
   return groups;
 }
 
-/** Both sides recorded a version for the source, and they differ. */
+/** The versions differ, or a side did not record one, so its copies may parse differently. */
 function findSkew(source: string, machine: Server, server: Server): ParserSkew | undefined {
   const version = machine.parserVersions?.[source];
   const servedVersion = server.parserVersions?.[source];
 
-  return version !== undefined && servedVersion !== undefined && version !== servedVersion
+  return version === undefined || servedVersion === undefined || version !== servedVersion
     ? { source, version, servedBy: server.name, servedVersion }
     : undefined;
+}
+
+/** Which of `events` match a served turn, each served event matched once. */
+function matchTurns<E extends MergedEvent>(
+  events: readonly E[],
+  served: readonly E[],
+  turns: EventKeys<E>['turns'],
+): boolean[] {
+  const matched = events.map(() => false);
+  const taken = served.map(() => false);
+
+  for (const toKey of turns) {
+    const available = new Map<string, number[]>();
+
+    served.forEach((event, index) => {
+      if (!taken[index]) {
+        const key = toKey(event);
+        const indexes = available.get(key);
+
+        if (indexes) {
+          indexes.push(index);
+        } else {
+          available.set(key, [index]);
+        }
+      }
+    });
+
+    events.forEach((event, index) => {
+      const servedIndex = matched[index] ? undefined : available.get(toKey(event))?.pop();
+
+      if (servedIndex !== undefined) {
+        taken[servedIndex] = true;
+        matched[index] = true;
+      }
+    });
+  }
+
+  return matched;
 }
 
 /**
@@ -122,8 +165,9 @@ function findSkew(source: string, machine: Server, server: Server): ParserSkew |
  * events: their timestamps differ. Only sessions present on both sides are hashed.
  *
  * When the machine parses the session's source with another parser version than the
- * side that served the session first, the copies hash differently; its events are then
- * matched on timestamp instead, and counted in `skewDroppedCount`.
+ * side that served the session first, or either side did not record its version, the
+ * copies may hash differently; its events are then matched on timestamp and model, then
+ * on timestamp alone, and counted in `skewDroppedCount`.
  */
 export function mergeMachineEvents(
   servedEvents: readonly UsageEvent[],
@@ -179,14 +223,10 @@ function mergeByKeys<E extends MergedEvent>(
 
       if (skew) {
         skews.set(JSON.stringify([skew.source, skew.servedBy]), skew);
-        const available = countKeys(served, keys.turn);
+        const matched = matchTurns(events, served, keys.turns);
 
-        for (const event of events) {
-          const key = keys.turn(event);
-          const count = available.get(key) ?? 0;
-
-          if (count > 0) {
-            available.set(key, count - 1);
+        for (const [index, event] of events.entries()) {
+          if (matched[index]) {
             skewDroppedCount += 1;
             continue;
           }

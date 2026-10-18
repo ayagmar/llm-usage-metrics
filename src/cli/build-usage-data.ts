@@ -136,11 +136,7 @@ export function parseWindowFlags(
   );
 
   if (lastPeriods !== undefined && (hasDates || options.all)) {
-    throw new Error(
-      isHourly
-        ? '--last cannot be combined with --since or --until'
-        : '--last cannot be combined with --since, --until, or --all',
-    );
+    throw new Error('--last cannot be combined with --since, --until, or --all');
   }
 
   if (options.all && hasDates) {

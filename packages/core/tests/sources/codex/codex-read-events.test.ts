@@ -19,9 +19,10 @@ const SESSION_EVENTS = path.join(EVENTS_DIR, 'session-events.jsonl');
 const TOKEN_COUNT_ONLY = path.join(EVENTS_DIR, 'token-count-only.jsonl');
 const HELD_TIMESTAMPS = path.join(EVENTS_DIR, 'held-timestamps.jsonl');
 
-// Rule 1: the core fixtures, the root e2e fixtures read in place, and the event fixtures.
+// Rule 1: the core fixtures (forks included), the root e2e fixtures read in place, and the event fixtures.
 const CORPUS_ROOTS = [
   fixturePath(import.meta.url, '../../fixtures/codex'),
+  fixturePath(import.meta.url, '../../fixtures/codex-fork'),
   fixturePath(import.meta.url, '../../../../../tests/fixtures/e2e/codex'),
   fixturePath(import.meta.url, '../../../../../tests/fixtures/e2e-large/codex'),
   EVENTS_DIR,
@@ -70,12 +71,20 @@ function createSessionIdDerivation(filePath: string): (event: SessionEvent) => s
     });
   const sessionIds: string[] = [];
   let sessionId = path.basename(filePath, '.jsonl');
+  let sawSessionMeta = false;
+  // A fork keeps its own id; later session_meta lines are copied from its parent.
+  let isFork = false;
 
   for (const record of records) {
     const payload = record?.payload as Record<string, unknown> | undefined;
 
-    if (record?.type === 'session_meta' && typeof payload?.id === 'string' && payload.id.trim()) {
-      sessionId = payload.id.trim();
+    if (record?.type === 'session_meta' && !isFork) {
+      isFork = !sawSessionMeta && typeof payload?.forked_from_id === 'string';
+      sawSessionMeta = true;
+
+      if (typeof payload?.id === 'string' && payload.id.trim()) {
+        sessionId = payload.id.trim();
+      }
     }
 
     sessionIds.push(sessionId);
@@ -544,7 +553,7 @@ describe('CodexSourceAdapter.readEvents', () => {
       }
     }
 
-    expect(files).toBe(8);
+    expect(files).toBe(13);
   });
 
   it('reads two kinds as the all-kinds read filtered to them', async () => {

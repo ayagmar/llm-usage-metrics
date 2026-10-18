@@ -49,7 +49,7 @@ vi.mock('../../src/cli/build-wrapped-data.js', async (importOriginal) => {
 });
 
 vi.mock('../../src/cli/build-share-report-data.js', () => ({
-  buildShareReportData: vi.fn(),
+  buildShareReport: vi.fn(),
 }));
 
 vi.mock('../../src/cli/share-artifact.js', () => ({
@@ -59,7 +59,7 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
   }),
 }));
 
-import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
+import { buildShareReport } from '../../src/cli/build-share-report-data.js';
 import { buildWrappedData } from '../../src/cli/build-wrapped-data.js';
 import { buildWrappedReport, runWrappedReport } from '../../src/cli/run-wrapped-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
@@ -133,7 +133,7 @@ describe('run-wrapped-report', () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    vi.mocked(buildShareReportData).mockResolvedValue(readFixturePayload().data);
+    vi.mocked(buildShareReport).mockResolvedValue({ data: readFixturePayload().data });
 
     try {
       await runWrappedReport({
@@ -142,7 +142,7 @@ describe('run-wrapped-report', () => {
       });
 
       // The page holds wrapped's year and opens on all of it, with the recap embedded.
-      const [request] = vi.mocked(buildShareReportData).mock.calls[0] ?? [];
+      const [request] = vi.mocked(buildShareReport).mock.calls[0] ?? [];
       expect(request).toMatchObject({
         command: 'wrapped',
         window: { since: '2026-01-01', until: '2026-12-31' },

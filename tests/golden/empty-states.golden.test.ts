@@ -20,8 +20,10 @@ import {
   WINDOWS_SKIP_REASON,
 } from './golden-harness.js';
 import { M10_E2_GOLDEN_NAMES } from './m10-e2-names.js';
+import { M14_CL_GOLDEN_NAMES } from './m14-cl-names.js';
 
 const [efficiencyEmpty, optimizeEmpty, summaryEmpty] = M10_E2_GOLDEN_NAMES;
+const [efficiencyMarkdownEmpty] = M14_CL_GOLDEN_NAMES;
 
 /** Fixed width for terminal goldens; colour is off through NO_COLOR. */
 const TERMINAL_COLUMNS = 120;
@@ -34,7 +36,7 @@ describe.skipIf(process.platform === 'win32')(
   () => {
     const environment = useIsolatedEnvironment();
     useBundledPricingOnly();
-    useGoldenUpdateCheck(M10_E2_GOLDEN_NAMES);
+    useGoldenUpdateCheck([...M10_E2_GOLDEN_NAMES, ...M14_CL_GOLDEN_NAMES]);
     let sources: SourceOptions & { source: string; timezone: 'UTC' };
     let repoDir: string;
 
@@ -92,6 +94,19 @@ describe.skipIf(process.platform === 'win32')(
       );
 
       await expectGolden(efficiencyEmpty, output);
+    });
+
+    // Markdown matches the terminal: the no-usage line, not an all-zero table.
+    it(`freezes ${efficiencyMarkdownEmpty}`, async () => {
+      const output = await buildEfficiencyReport('monthly', {
+        ...sources,
+        pricingOffline: true,
+        ...emptyWindow,
+        repoDir,
+        markdown: true,
+      });
+
+      await expectGolden(efficiencyMarkdownEmpty, normalizePaths(output, environment.rootDir));
     });
 
     it(`freezes ${optimizeEmpty}`, async () => {

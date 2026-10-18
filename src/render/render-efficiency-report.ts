@@ -404,6 +404,15 @@ function renderMarkdownEfficiencyTable(rows: EfficiencyRow[]): string {
   });
 }
 
+/** Only the ALL row: no period had both commits and usage. */
+function hasNoEfficiencyPeriods(efficiencyData: EfficiencyDataResult): boolean {
+  return efficiencyData.rows.every((row) => row.rowType === 'grand_total');
+}
+
+function formatNoEfficiencyUsageMessage(options: RenderEfficiencyReportOptions): string {
+  return formatNoUsageMessage(options.filtered ?? false, 'in periods with commits');
+}
+
 function renderTerminalEfficiencyReport(
   efficiencyData: EfficiencyDataResult,
   options: RenderEfficiencyReportOptions,
@@ -418,12 +427,8 @@ function renderTerminalEfficiencyReport(
     }),
   );
 
-  // Only the ALL row: no period had both commits and usage.
-  if (efficiencyData.rows.every((row) => row.rowType === 'grand_total')) {
-    outputLines.push(
-      '',
-      formatNoUsageMessage(options.filtered ?? false, 'in periods with commits'),
-    );
+  if (hasNoEfficiencyPeriods(efficiencyData)) {
+    outputLines.push('', formatNoEfficiencyUsageMessage(options));
     return { output: outputLines.join('\n'), notes: [] };
   }
 
@@ -448,7 +453,12 @@ export function renderEfficiencyReportWithNotes(
         notes: [],
       };
     case 'markdown':
-      return { output: renderMarkdownEfficiencyTable(efficiencyData.rows), notes: [] };
+      return {
+        output: hasNoEfficiencyPeriods(efficiencyData)
+          ? formatNoEfficiencyUsageMessage(options)
+          : renderMarkdownEfficiencyTable(efficiencyData.rows),
+        notes: [],
+      };
     case 'terminal':
       return renderTerminalEfficiencyReport(efficiencyData, options);
   }

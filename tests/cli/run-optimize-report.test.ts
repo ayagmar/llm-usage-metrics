@@ -72,11 +72,11 @@ vi.mock('../../src/cli/build-optimize-data.js', () => ({
 }));
 
 vi.mock('../../src/cli/build-share-report-data.js', () => ({
-  buildShareReportData: vi.fn(),
+  buildShareReport: vi.fn(),
 }));
 
 import { buildOptimizeData } from '../../src/cli/build-optimize-data.js';
-import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
+import { buildShareReport } from '../../src/cli/build-share-report-data.js';
 import { buildOptimizeReport, runOptimizeReport } from '../../src/cli/run-optimize-report.js';
 import { readSharePayload } from '../helpers/share-html.js';
 import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
@@ -307,7 +307,7 @@ describe('run-optimize-report', () => {
     tempDirs.push(tempDir);
     const previousCwd = process.cwd();
     process.chdir(tempDir);
-    vi.mocked(buildShareReportData).mockResolvedValue(readFixturePayload().data);
+    vi.mocked(buildShareReport).mockResolvedValue({ data: readFixturePayload().data });
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -322,7 +322,7 @@ describe('run-optimize-report', () => {
       process.chdir(previousCwd);
     }
 
-    const [request] = vi.mocked(buildShareReportData).mock.calls[0] ?? [];
+    const [request] = vi.mocked(buildShareReport).mock.calls[0] ?? [];
     const json = JSON.parse(
       await buildOptimizeReport('weekly', { candidateModel: ['gpt-4.1'], json: true }),
     ) as { data: unknown };

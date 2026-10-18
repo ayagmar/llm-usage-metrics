@@ -15,7 +15,7 @@ export type SourceId = string;
  * produced from unchanged source files. Like adapter parser versions, it is part of
  * the event-store cache key so stored events are re-parsed after the change.
  */
-export const USAGE_EVENT_NORMALIZATION_VERSION = 2;
+export const USAGE_EVENT_NORMALIZATION_VERSION = 3;
 
 /**
  * How a consumer marks an event's cost: `explicit` when the source logged `costUsd`,
@@ -141,11 +141,24 @@ export function getEventSessionKey(event: Pick<UsageEvent, 'source' | 'sessionId
   return `${event.source}\0${event.sessionId}`;
 }
 
+/** No model response logs this many tokens; a larger count is corrupt and would swamp totals. */
+const MAX_TOKEN_COUNT = 1e12;
+
+function normalizeTokenCount(value: NumberLike, fieldName: string): number {
+  const count = normalizeNonNegativeInteger(value);
+
+  if (count > MAX_TOKEN_COUNT) {
+    throw new Error(`UsageEvent ${fieldName} exceeds ${String(MAX_TOKEN_COUNT)}`);
+  }
+
+  return count;
+}
+
 /**
- * Builds a normalized usage event. Throws when the source or session id is empty or the
- * timestamp is invalid. Counts are truncated to non-negative integers, `cacheWrite1hTokens`
- * is capped at `cacheWriteTokens`, the provider is normalized to its billing entity and the
- * model is lowercased.
+ * Builds a normalized usage event. Throws when the source or session id is empty, the
+ * timestamp is invalid or a token count exceeds 1e12. Counts are truncated to non-negative
+ * integers, `cacheWrite1hTokens` is capped at `cacheWriteTokens`, the provider is normalized
+ * to its billing entity and the model is lowercased.
  */
 export function createUsageEvent(input: UsageEventInput): UsageEvent {
   const source = normalizeSourceId(input.source);
@@ -154,16 +167,16 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
     throw new Error('UsageEvent source must be a non-empty string');
   }
 
-  const inputTokens = normalizeNonNegativeInteger(input.inputTokens);
-  const outputTokens = normalizeNonNegativeInteger(input.outputTokens);
-  const reasoningTokens = normalizeNonNegativeInteger(input.reasoningTokens);
-  const cacheReadTokens = normalizeNonNegativeInteger(input.cacheReadTokens);
-  const cacheWriteTokens = normalizeNonNegativeInteger(input.cacheWriteTokens);
+  const inputTokens = normalizeTokenCount(input.inputTokens, 'inputTokens');
+  const outputTokens = normalizeTokenCount(input.outputTokens, 'outputTokens');
+  const reasoningTokens = normalizeTokenCount(input.reasoningTokens, 'reasoningTokens');
+  const cacheReadTokens = normalizeTokenCount(input.cacheReadTokens, 'cacheReadTokens');
+  const cacheWriteTokens = normalizeTokenCount(input.cacheWriteTokens, 'cacheWriteTokens');
   const cacheWrite1hTokens = Math.min(
     cacheWriteTokens,
     normalizeNonNegativeInteger(input.cacheWrite1hTokens),
   );
-  const declaredTotalTokens = normalizeNonNegativeInteger(input.totalTokens);
+  const declaredTotalTokens = normalizeTokenCount(input.totalTokens, 'totalTokens');
   const componentTotalTokens =
     inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens;
   const totalTokens = input.totalTokens === undefined ? componentTotalTokens : declaredTotalTokens;

@@ -90,6 +90,22 @@ type CodexSessionState = {
   loggedProvider?: string;
   pendingUsageRecords: PendingUsageRecord[];
   seenResponseIds: Set<string>;
+  /** Whether a `session_meta` line has been read; the first one is the file's own. */
+  sawSessionMeta: boolean;
+  /**
+   * A fork's own thread id while its file is still replaying the parent's copied lines.
+   * Set by a first `session_meta` that names `forked_from_id`, cleared by the
+   * `thread_settings_applied` event that carries this id and ends the copied block.
+   */
+  forkPrefixOf?: string;
+  /** Whether the fork's own `session_meta` names a Codex that logs every response's usage. */
+  forkLogsUsageRecords?: boolean;
+  /**
+   * Set when such a fork's copied block ends without a running total. Codex still starts the fork
+   * from the parent's totals, so a `token_count` written before the fork's first response
+   * (a usage limit, a full context window, a compaction) repeats them.
+   */
+  forkAwaitsBaseline?: boolean;
 };
 
 /** What a usage record keeps beyond `read`'s fields; both are off for `read`. */
@@ -105,6 +121,10 @@ const SESSION_META_BYTES = Buffer.from('"session_meta"');
 const TURN_CONTEXT_BYTES = Buffer.from('"turn_context"');
 const EVENT_MSG_BYTES = Buffer.from('"event_msg"');
 const TOKEN_COUNT_BYTES = Buffer.from('"token_count"');
+const THREAD_SETTINGS_APPLIED_BYTES = Buffer.from('"thread_settings_applied"');
+const THREAD_SETTINGS_APPLIED_PAYLOAD_BYTES = Buffer.from(
+  ',"payload":{"type":"thread_settings_applied"',
+);
 const TOKEN_USAGE_RECORD_BYTES = Buffer.from('"token_usage_record"');
 const TYPE_FIELD_BYTES = Buffer.from('"type":"');
 const SESSION_META_TYPE_BYTES = Buffer.from('session_meta"');
@@ -129,7 +149,14 @@ function shouldParseCodexJsonlLineBytes(lineBytes: Buffer): boolean {
     }
 
     if (lineBytesIncludesAt(lineBytes, EVENT_MSG_TYPE_BYTES, typeValueIndex)) {
-      return lineBytes.includes(TOKEN_COUNT_BYTES, typeValueIndex);
+      return (
+        lineBytes.includes(TOKEN_COUNT_BYTES, typeValueIndex) ||
+        lineBytesIncludesAt(
+          lineBytes,
+          THREAD_SETTINGS_APPLIED_PAYLOAD_BYTES,
+          typeValueIndex + EVENT_MSG_TYPE_BYTES.length,
+        )
+      );
     }
 
     return false;
@@ -143,7 +170,10 @@ function shouldParseCodexJsonlLineBytes(lineBytes: Buffer): boolean {
     return true;
   }
 
-  return lineBytes.includes(EVENT_MSG_BYTES) && lineBytes.includes(TOKEN_COUNT_BYTES);
+  return (
+    lineBytes.includes(EVENT_MSG_BYTES) &&
+    (lineBytes.includes(TOKEN_COUNT_BYTES) || lineBytes.includes(THREAD_SETTINGS_APPLIED_BYTES))
+  );
 }
 
 function lineBytesIncludesAt(
@@ -359,6 +389,16 @@ function parseUsageRecord(
 
 const NO_USAGE: readonly PendingUsageRecord[] = [];
 
+/** Codex logs a `token_usage_record` for every response from 0.153 on. */
+function logsUsageRecords(cliVersion: string | undefined): boolean {
+  const [major, minor] = (cliVersion ?? '').split('.').map(Number);
+  return major > 0 || (major === 0 && minor >= 153);
+}
+
+function isThreadSettingsApplied(line: Record<string, unknown>): boolean {
+  return line.type === 'event_msg' && asRecord(line.payload)?.type === 'thread_settings_applied';
+}
+
 /**
  * Takes one line the usage prefilter accepted into the session state, and returns the
  * usage records it releases, in order. `diagnostics` is undefined when the read yields no
@@ -373,7 +413,19 @@ function takeUsageLine(
   resolvedTimestamp?: string,
 ): readonly PendingUsageRecord[] {
   if (line.type === 'session_meta') {
+    if (state.forkPrefixOf !== undefined) {
+      // An ancestor's session_meta, copied into the fork.
+      return NO_USAGE;
+    }
+
     const payload = asRecord(line.payload);
+
+    if (!state.sawSessionMeta && asTrimmedText(payload?.forked_from_id)) {
+      state.forkPrefixOf = asTrimmedText(payload?.id);
+      state.forkLogsUsageRecords = logsUsageRecords(asTrimmedText(payload?.cli_version));
+    }
+
+    state.sawSessionMeta = true;
     const loggedProvider = asTrimmedText(payload?.model_provider);
     state.sessionId = asTrimmedText(payload?.id) ?? state.sessionId;
     state.provider = loggedProvider ?? state.provider;
@@ -407,6 +459,20 @@ function takeUsageLine(
 
   const payload = asRecord(line.payload);
 
+  if (payload?.type === 'thread_settings_applied') {
+    if (state.forkPrefixOf !== undefined && payload.thread_id === state.forkPrefixOf) {
+      // The copied block ends here. Its last running total stays the baseline for the
+      // fork's own token_count lines; usage records it left pending are the parent's.
+      state.forkPrefixOf = undefined;
+      state.pendingUsageRecords = [];
+      state.previousLastUsageOnlyKey = undefined;
+      state.forkAwaitsBaseline =
+        state.forkLogsUsageRecords === true && state.previousTotalUsage === undefined;
+    }
+
+    return NO_USAGE;
+  }
+
   if (payload?.type !== 'token_count') {
     return NO_USAGE;
   }
@@ -415,6 +481,17 @@ function takeUsageLine(
 
   if (!info) {
     return NO_USAGE;
+  }
+
+  if (state.forkAwaitsBaseline) {
+    state.forkAwaitsBaseline = false;
+    const totalUsage = toUsage(info.total_token_usage);
+
+    // No response record since the copied block: these are the parent's totals.
+    if (totalUsage && state.pendingUsageRecords.length === 0) {
+      state.previousTotalUsage = totalUsage;
+      return NO_USAGE;
+    }
   }
 
   const { deltaUsage, latestTotalUsage, fromLastUsageOnly } = deriveDeltaUsage(
@@ -525,7 +602,7 @@ const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
 /** Codex CLI rollouts (JSONL), from `$CODEX_HOME/sessions` (default `~/.codex/sessions`). Yields every event kind. */
 export class CodexSourceAdapter implements SourceAdapter {
   public readonly id = 'codex' as const;
-  public readonly parserVersion = 2;
+  public readonly parserVersion = 3;
   public readonly capabilities = {
     fixedProviderRoots: ['openai'],
     eventsPrecedeFileMtime: true,
@@ -590,8 +667,8 @@ export class CodexSourceAdapter implements SourceAdapter {
     const kinds = resolveReadKinds(options.kinds, getDeclaredKinds(this));
     const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const raw = options.raw === true;
-    const kindReader = [...kinds].some((kind) => kind !== 'usage')
-      ? new CodexKindReader({ kinds, text: options.text === true, raw, diagnostics })
+    const createKindReader = [...kinds].some((kind) => kind !== 'usage')
+      ? () => new CodexKindReader({ kinds, text: options.text === true, raw, diagnostics })
       : undefined;
 
     return this.readFile<UsageRecord, SessionEvent>(
@@ -609,17 +686,23 @@ export class CodexSourceAdapter implements SourceAdapter {
             raw: record.raw,
           }),
       },
-      kindReader,
+      createKindReader,
     );
   }
 
   // One parser for both reads. Without non-usage kinds it takes `read`'s prefilter and
   // per-line work. With them it reads through one union prefilter: the usage state takes
   // only the lines the usage prefilter accepts, and the kind reader sees every line after.
+  //
+  // A forked rollout starts with its own session_meta, then the parent's lines copied
+  // with new timestamps, then the thread_settings_applied event carrying the fork's id.
+  // Everything read between the two is held, with its own kind reader, and dropped at that
+  // event. Forks written before Codex 0.152 have no such event; their held events are
+  // yielded at the end of the file, so they count the copied lines as they did before.
   private async *readFile<Usage, Kind>(
     filePath: string,
     options: CodexReadOptions<Usage>,
-    kindReader: CodexKindEvents<Kind> | undefined,
+    createKindReader: (() => CodexKindEvents<Kind>) | undefined,
   ): AsyncGenerator<Usage | Kind> {
     const { diagnostics, kinds } = options;
 
@@ -635,6 +718,7 @@ export class CodexSourceAdapter implements SourceAdapter {
       provider: 'openai',
       pendingUsageRecords: [],
       seenResponseIds: new Set(),
+      sawSessionMeta: false,
     };
 
     // Released records take the session id and provider current at flush time.
@@ -664,6 +748,22 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
     };
 
+    const kindReader = createKindReader?.();
+    // Set while a fork's copied lines are read: what they yield, and their kind reader.
+    let held: (Usage | Kind)[] | undefined;
+    let heldKindReader: CodexKindEvents<Kind> | undefined;
+
+    // Starts or ends the hold after a line has updated the usage state.
+    const followForkPrefix = (): void => {
+      if (state.forkPrefixOf !== undefined && held === undefined) {
+        held = [];
+        heldKindReader = createKindReader?.();
+      } else if (state.forkPrefixOf === undefined && held !== undefined) {
+        held = undefined;
+        heldKindReader = undefined;
+      }
+    };
+
     if (!kindReader) {
       for await (const lines of readJsonlObjectBatches(filePath, {
         shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
@@ -675,10 +775,18 @@ export class CodexSourceAdapter implements SourceAdapter {
           for (const record of takeUsageLine(line, state, options, diagnostics)) {
             const event = toEvent(record);
 
-            if (event !== undefined) {
+            if (event === undefined) {
+              continue;
+            }
+
+            if (held) {
+              held.push(event);
+            } else {
               yield event;
             }
           }
+
+          followForkPrefix();
         }
       }
     } else {
@@ -690,9 +798,22 @@ export class CodexSourceAdapter implements SourceAdapter {
         },
       })) {
         for (const { record: line, isUsageLine } of items) {
+          if (isUsageLine && isThreadSettingsApplied(line)) {
+            // Only the usage state reads it; the kind reader never saw these lines.
+            takeUsageLine(line, state, options, usageDiagnostics);
+            followForkPrefix();
+            continue;
+          }
+
+          const lineKindReader = heldKindReader ?? kindReader;
           const timestamp = normalizeTimestampCandidate(line.timestamp);
-          for (const event of kindReader.advance(timestamp)) {
-            yield event;
+
+          for (const event of lineKindReader.advance(timestamp)) {
+            if (held) {
+              held.push(event);
+            } else {
+              yield event;
+            }
           }
 
           const released = isUsageLine
@@ -702,24 +823,45 @@ export class CodexSourceAdapter implements SourceAdapter {
           for (const record of yieldsUsage ? released : NO_USAGE) {
             const event = toEvent(record);
 
-            if (event !== undefined) {
+            if (event === undefined) {
+              continue;
+            }
+
+            if (held) {
+              held.push(event);
+            } else {
               yield event;
             }
           }
 
-          for (const event of kindReader.record(line, {
+          for (const event of lineKindReader.record(line, {
             sessionId: state.sessionId,
             model: state.model,
             timestamp,
           })) {
-            yield event;
+            if (held) {
+              held.push(event);
+            } else {
+              yield event;
+            }
           }
+
+          followForkPrefix();
         }
       }
 
-      for (const event of kindReader.finish()) {
-        yield event;
+      if (held && heldKindReader) {
+        held.push(...heldKindReader.finish());
       }
+    }
+
+    // A fork without the closing event: its held lines count as before.
+    if (held) {
+      yield* held;
+    }
+
+    if (kindReader) {
+      yield* kindReader.finish();
     }
 
     for (const record of yieldsUsage ? state.pendingUsageRecords : NO_USAGE) {

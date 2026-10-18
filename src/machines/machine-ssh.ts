@@ -19,6 +19,9 @@ const DEFAULT_MACHINE_COMMAND = 'llm-usage';
 export const MACHINE_EXPORT_TIMEOUT_MARK = 'timed out';
 
 const STDERR_TAIL_BYTES = 4096;
+/** An old remote names the unknown command first, then prints kilobytes of help. */
+const STDERR_HEAD_BYTES = 4096;
+const FAILURE_DETAIL_CHARS = 300;
 
 /** The part of a child process the sync uses, so tests can stand in for ssh. */
 export type SshProcess = {
@@ -158,9 +161,13 @@ export async function detectRemoteCommand(
   return `env PATH=${[...new Set(directories)].join(':')}:"$PATH" ${DEFAULT_MACHINE_COMMAND}`;
 }
 
-function readStderrTail(chunks: readonly Buffer[]): string {
-  const text = Buffer.concat(chunks).toString('utf8').slice(-STDERR_TAIL_BYTES);
-  return toTerminalLine(text);
+/** The kept stderr: its head, then the tail chunks, without the bytes dropped between. */
+function readKeptStderr(head: Buffer, tailChunks: readonly Buffer[], totalBytes: number): string {
+  const tail = Buffer.concat(tailChunks);
+  const headBeforeTail = head.subarray(0, Math.max(0, totalBytes - tail.length));
+  const gap = totalBytes > headBeforeTail.length + tail.length ? ' … ' : '';
+
+  return toTerminalLine(`${headBeforeTail.toString('utf8')}${gap}${tail.toString('utf8')}`);
 }
 
 /** Names what failed and, when the cause is a known one, how to fix it. */
@@ -171,7 +178,11 @@ export function describeExportFailure(
 ): string {
   const command = machine.command ?? DEFAULT_MACHINE_COMMAND;
   // Hints follow as their own sentence, so the detail's own final period is dropped.
-  const detail = (stderr || `exit code ${String(exitCode)}`).replace(/\.$/u, '');
+  const fullDetail = (stderr || `exit code ${String(exitCode)}`).replace(/\.$/u, '');
+  const detail =
+    fullDetail.length > FAILURE_DETAIL_CHARS
+      ? `${fullDetail.slice(0, FAILURE_DETAIL_CHARS).trimEnd()}…`
+      : fullDetail;
 
   if (exitCode === null) {
     return `ssh was stopped by a signal: ${detail}`;
@@ -241,13 +252,21 @@ export async function fetchMachineExport(
           child.kill();
         }, options.timeoutMs);
 
+  let stderrHead = Buffer.alloc(0);
   let stderrBytes = 0;
+  let stderrTotalBytes = 0;
 
-  // Only the tail explains a failure; a chatty remote must not grow memory without bound.
+  // The head and the tail explain a failure; a chatty remote must not grow memory without
+  // bound.
   ignoreStreamErrors(child);
   child.stderr.on('data', (chunk: Buffer) => {
+    if (stderrHead.length < STDERR_HEAD_BYTES) {
+      stderrHead = Buffer.concat([stderrHead, chunk]).subarray(0, STDERR_HEAD_BYTES);
+    }
+
     stderrChunks.push(chunk);
     stderrBytes += chunk.length;
+    stderrTotalBytes += chunk.length;
 
     while (stderrBytes > STDERR_TAIL_BYTES * 4 && stderrChunks.length > 1) {
       stderrBytes -= stderrChunks.shift()?.length ?? 0;
@@ -303,7 +322,13 @@ export async function fetchMachineExport(
   // A failing remote command explains itself on stderr; a bundle cut short by it does not.
   // A signal this side did not send is the reason too, even with a complete bundle.
   if (exitCode !== 0 && !stoppedByUs) {
-    throw new Error(describeExportFailure(machine, exitCode, readStderrTail(stderrChunks)));
+    throw new Error(
+      describeExportFailure(
+        machine,
+        exitCode,
+        readKeptStderr(stderrHead, stderrChunks, stderrTotalBytes),
+      ),
+    );
   }
 
   if (!bundle) {

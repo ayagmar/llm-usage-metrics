@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
 import { buildOtlpMetrics, type OtlpMetricsData } from '../../src/otel-export/otlp-metrics.js';
 
+// After every day the tests use, so each day is closed.
+const NOW_MS = Date.parse('2026-07-01T00:00:00.000Z');
+
 function event(timestamp: string, overrides: Partial<UsageEventInput> = {}) {
   return createUsageEvent({
     source: 'codex',
@@ -71,6 +74,7 @@ describe('buildOtlpMetrics', () => {
       usageEvents: [event('2026-03-08T12:00:00.000Z')],
       toolCalls: [],
       timezone: 'America/New_York',
+      nowMs: NOW_MS,
     });
     const [point] = sumPoints(data, 'gen_ai.client.inference.usage.input_tokens');
 
@@ -78,11 +82,33 @@ describe('buildOtlpMetrics', () => {
     expect(point.timeUnixNano).toBe(`${Date.parse('2026-03-09T04:00:00.000Z')}000000`);
   });
 
+  it('ends the day still open at run time at the run time, not the coming midnight', () => {
+    const nowMs = Date.parse('2026-03-09T09:30:00.000Z');
+    const [closedDay, openDay] = buildOtlpMetrics({
+      usageEvents: [event('2026-03-08T12:00:00.000Z'), event('2026-03-09T08:00:00.000Z')],
+      toolCalls: [],
+      timezone: 'UTC',
+      nowMs,
+    });
+    const end = (data: OtlpMetricsData) =>
+      sumPoints(data, 'gen_ai.client.inference.usage.input_tokens')[0].timeUnixNano;
+
+    expect(end(closedDay)).toBe(`${Date.parse('2026-03-09T00:00:00.000Z')}000000`);
+    expect(end(openDay)).toBe(`${nowMs}000000`);
+    expect(
+      histogramPoints(openDay, 'gen_ai.client.inference.operation.input_tokens')[0],
+    ).toMatchObject({
+      startTimeUnixNano: `${Date.parse('2026-03-09T00:00:00.000Z')}000000`,
+      timeUnixNano: `${nowMs}000000`,
+    });
+  });
+
   it('leaves the cost metric out when no event in the day is priced', () => {
     const [data] = buildOtlpMetrics({
       usageEvents: [event('2026-03-08T12:00:00.000Z', { costUsd: undefined, costMode: undefined })],
       toolCalls: [],
       timezone: 'UTC',
+      nowMs: NOW_MS,
     });
 
     expect(metricsOf(data).map((metric) => metric.name)).not.toContain('llm_usage.cost_usd');
@@ -101,11 +127,17 @@ describe('buildOtlpMetrics', () => {
       toolCall('2026-03-08T12:01:00.000Z', { durationMs: 30 }),
       toolCall('2026-03-08T12:02:00.000Z', { durationMs: 70, status: 'error' }),
     ];
-    const forward = buildOtlpMetrics({ usageEvents: events, toolCalls: calls, timezone: 'UTC' });
+    const forward = buildOtlpMetrics({
+      usageEvents: events,
+      toolCalls: calls,
+      timezone: 'UTC',
+      nowMs: NOW_MS,
+    });
     const backward = buildOtlpMetrics({
       usageEvents: [...events].reverse(),
       toolCalls: [...calls].reverse(),
       timezone: 'UTC',
+      nowMs: NOW_MS,
     });
 
     expect(JSON.stringify(backward)).toBe(JSON.stringify(forward));
@@ -127,6 +159,7 @@ describe('buildOtlpMetrics', () => {
       ],
       toolCalls: [],
       timezone: 'UTC',
+      nowMs: NOW_MS,
     });
     const [input] = histogramPoints(data, 'gen_ai.client.inference.operation.input_tokens');
     const [output] = histogramPoints(data, 'gen_ai.client.inference.operation.output_tokens');
@@ -162,6 +195,7 @@ describe('buildOtlpMetrics', () => {
         toolCall('2026-03-09T00:30:00.000Z', { name: 'apply_patch', durationMs: 10 }),
       ],
       timezone: 'UTC',
+      nowMs: NOW_MS,
     });
     const [ok, failed] = histogramPoints(usageDay, 'gen_ai.execute_tool.duration');
 

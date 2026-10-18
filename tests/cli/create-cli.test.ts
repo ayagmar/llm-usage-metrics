@@ -115,6 +115,7 @@ describe('createCli', () => {
         '--compact',
         '--no-cost',
         '--last',
+        '--all',
         '--per-model-columns',
         '--json',
         '--markdown',
@@ -123,7 +124,7 @@ describe('createCli', () => {
         '--no-sync',
         ...sourcePathFlags,
       ],
-      absent: ['--all', '--share', '--no-open'],
+      absent: ['--share', '--no-open'],
     },
     {
       command: 'projects',
@@ -429,8 +430,10 @@ describe('createCli', () => {
 
   it('renders help output with command and npx examples', () => {
     const cli = createCli();
-    const help = cli.helpInformation();
-    const compactHelp = help.replace(/\s+/gu, ' ');
+    let help = '';
+    cli.configureOutput({ writeOut: (chunk) => (help += chunk) }).outputHelp();
+    // A wrapped example joins back into the command it was split from.
+    const compactHelp = help.replaceAll(' \\\n', ' ').replace(/\s+/gu, ' ');
     const dailyCommandHelp = cli.commands
       .find((command) => command.name() === 'daily')
       ?.helpInformation();
@@ -473,11 +476,17 @@ describe('createCli', () => {
           })
           .outputHelp();
 
-        // Example commands and the usage synopsis are meant to be copied whole, and one
-        // word cannot be split.
-        const overflowing = text
-          .split('\n')
-          .filter((line) => !line.trimStart().startsWith('$ ') && !line.startsWith('Usage: '))
+        // The usage synopsis is meant to be copied whole, and one word cannot be split.
+        // Examples wrap between flags, so one flag or redirect with its value can still
+        // overflow.
+        const lines = text.split('\n');
+        const overflowing = lines
+          .filter((line, index) => {
+            const isExample = line.startsWith('  $ ') || lines[index - 1]?.endsWith(' \\');
+            const words = line.replace(/ \\$/u, '').trim().split(' ');
+            const isOnePair = words.length === 2 && (words[0].startsWith('-') || words[0] === '>');
+            return !line.startsWith('Usage: ') && !(isExample && isOnePair);
+          })
           .filter((line) => line.length > columns && line.trim().includes(' '));
 
         expect(overflowing, `${command.name()} at ${String(columns)}`).toEqual([]);
@@ -518,6 +527,34 @@ describe('createCli', () => {
       if (commandPath[0] === 'daily') {
         expect(output).toContain('--claude-dir');
       }
+    }
+  });
+
+  // Without its own --help-all the root passed the flag to the summary, the default command.
+  it('prints the root help for a bare --help-all', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+
+    await expect(cli.parseAsync(['--help-all'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 0,
+    });
+    expect(output.text()).toMatch(/^Usage: llm-usage \[options\] \[command\]\n/u);
+    expect(output.text()).toContain('Examples:\n  $ llm-usage\n');
+  });
+
+  it('rejects --all with date flags on a report whose default is the full history', async () => {
+    for (const args of [
+      ['session', '--all', '--since', '2026-01-01'],
+      ['events', '--all', '--until', '2026-01-01'],
+    ]) {
+      const cli = createCli();
+      let output = '';
+      for (const command of cli.commands) {
+        command.exitOverride().configureOutput({ writeErr: (chunk) => (output += chunk) });
+      }
+
+      await expect(cli.parseAsync(args, { from: 'user' })).rejects.toMatchObject({ exitCode: 1 });
+      expect(output).toContain("option '--all' cannot be used with option");
     }
   });
 
@@ -961,21 +998,23 @@ describe('createCli', () => {
     expect(output.text()).not.toContain('Did you mean');
   });
 
-  it('offers --all on daily, weekly, projects, tools, context, blocks and value only', () => {
+  // `daily --all` works, so `monthly --all` and the rest must too.
+  it('offers --all on every report that reads usage', () => {
     const cli = createCli();
-    const commandsWithAll = cli.commands
-      .filter((command) => command.options.some((option) => option.long === '--all'))
-      .map((command) => command.name());
+    const hasOption = (command: Command, long: string) =>
+      command.options.some((option) => option.long === long);
+    // A command reads usage when it takes --no-history. statusline is a status bar line
+    // with a fixed window, not a report.
+    const usageReports = getReportDefinitionMetas()
+      .map((meta) => cli.commands.find((command) => command.name() === meta.commandName))
+      .filter((command): command is Command => command !== undefined)
+      .filter((command) => hasOption(command, '--no-history'))
+      .filter((command) => command.name() !== 'statusline');
 
-    expect(commandsWithAll).toEqual([
-      'daily',
-      'weekly',
-      'projects',
-      'tools',
-      'context',
-      'blocks',
-      'value',
-    ]);
+    expect(usageReports.map((command) => command.name())).toContain('wrapped');
+    expect(
+      usageReports.filter((command) => !hasOption(command, '--all')).map((c) => c.name()),
+    ).toEqual([]);
   });
 
   it('rejects --quiet together with --verbose', async () => {

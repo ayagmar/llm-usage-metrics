@@ -1,4 +1,4 @@
-import { logger } from '../../utils/logger.js';
+import { logger, withLogScrubber } from '../../utils/logger.js';
 import type { ActiveConfig } from '../../config/active-config-display.js';
 import type { EnvVarOverride } from '../../config/env-var-display.js';
 import { emitActiveConfig } from '../emit-active-config.js';
@@ -225,20 +225,25 @@ export function emitReportRunDiagnostics<Diagnostics>(
 export async function runPreparedReport<Diagnostics, Format extends string>(
   options: RunPreparedReportOptions<Diagnostics, Format>,
 ): Promise<void> {
-  emitReportRunDiagnostics(options.preparedReport.diagnostics, {
-    emitCommonDiagnostics: options.emitCommonDiagnostics,
-    getEnvVarOverrides: options.getEnvVarOverrides,
-    getActiveConfig: options.getActiveConfig,
-    emitReportDiagnostics: options.emitReportDiagnostics,
-    getRuntimeProfile: options.getRuntimeProfile,
-    runtimeProfile: options.preparedReport.runtimeProfile,
-  });
+  // With --redact, stderr hides what the file hides; only the path of the file written shows.
+  const scrubLog = options.preparedReport.shareArtifact?.scrubLog;
 
-  if (options.warnOnTerminalOverflow && options.preparedReport.format === 'terminal') {
-    warnIfTerminalTableOverflows(options.preparedReport.output, (message) => {
-      logger.warn(message);
+  withLogScrubber(scrubLog, () => {
+    emitReportRunDiagnostics(options.preparedReport.diagnostics, {
+      emitCommonDiagnostics: options.emitCommonDiagnostics,
+      getEnvVarOverrides: options.getEnvVarOverrides,
+      getActiveConfig: options.getActiveConfig,
+      emitReportDiagnostics: options.emitReportDiagnostics,
+      getRuntimeProfile: options.getRuntimeProfile,
+      runtimeProfile: options.preparedReport.runtimeProfile,
     });
-  }
+
+    if (options.warnOnTerminalOverflow && options.preparedReport.format === 'terminal') {
+      warnIfTerminalTableOverflows(options.preparedReport.output, (message) => {
+        logger.warn(message);
+      });
+    }
+  });
 
   if (options.preparedReport.shareArtifact) {
     await writeShareArtifact(
@@ -249,9 +254,11 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
 
   console.log(options.preparedReport.output);
 
-  for (const hint of options.preparedReport.hintsAfterOutput ?? []) {
-    logger.info(hint);
-  }
+  withLogScrubber(scrubLog, () => {
+    for (const hint of options.preparedReport.hintsAfterOutput ?? []) {
+      logger.info(hint);
+    }
+  });
 }
 
 type RunStandardPreparedReportOptions<Diagnostics, Format extends string> = {

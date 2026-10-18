@@ -26,7 +26,8 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
                                  precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM pricing, or the bundled
+                                 snapshot when there is no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
                                  LiteLLM), or both (logged, else estimated; default) (choices:
@@ -40,10 +41,12 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write an interactive HTML report to the current directory
   --no-open                      With --share, write the report without opening it
-  --redact                       With --share, label projects project-N and machines machine-N
+  --redact                       With --share, label projects project-N, machines machine-N and
+                                 local or path-shaped models model-N
   --candidate-model <name>       Candidate model for counterfactual pricing (repeatable or
                                  comma-separated)
   --top <n>                      Show only the top N cheapest candidates (positive integer)
+  --all                          Report the full history (the default without date flags)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
                                  this machine) matches that project directory and the projects under
@@ -57,5 +60,7 @@ Per-source path flags (--claude-dir, ...)
 are listed by --help-all.
 
 Examples:
-  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json
-  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share
+  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 \
+      --candidate-model gpt-5-codex --json
+  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 \
+      --candidate-model gpt-5-codex --share

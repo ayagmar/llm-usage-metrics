@@ -17,7 +17,7 @@ Start with a question, then narrow the result with source, model, provider, proj
 | [Is usage rising or falling?](/llm-usage-metrics/trends/)           | `llm-usage trends --metric tokens --last 14` | Last 30 days                    |
 | [What did the year look like?](/llm-usage-metrics/wrapped/)         | `llm-usage wrapped`                          | The current year                |
 
-`--last N` reports the last N periods of the command, counting the current one, and `--all` reports full history where the default is a recent window. Each question links to the guide for its command, which lists the limits.
+`--last N` reports the last N periods of the command, counting the current one, and `--all` reports full history. Every report that reads usage accepts `--all`; it changes nothing where the default is already the full history, and `summary`, `compare` and `wrapped` ignore it. Each question links to the guide for its command, which lists the limits.
 
 ```bash
 # Limit the report to one source and one calendar month

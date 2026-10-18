@@ -28,7 +28,7 @@ Below that, the summary shows your activity over the past year: the current stre
 
 ## Set the reporting window
 
-Without date bounds, `hourly` covers today, `daily` covers the last 7 days and `weekly` covers the last 8 weeks (from the Monday 7 weeks before the current week), both in your reporting timezone. Each prints a reminder on `stderr`; `--all` includes every period and cannot be combined with `--since` or `--until`. `monthly` includes all matching discovered history and does not limit the result to the current month.
+Without date bounds, `hourly` covers today, `daily` covers the last 7 days and `weekly` covers the last 8 weeks (from the Monday 7 weeks before the current week), both in your reporting timezone. Each prints a reminder on `stderr`; `--all` includes every period and cannot be combined with `--since` or `--until`. `monthly` includes all matching discovered history and does not limit the result to the current month; it accepts `--all`, which changes nothing.
 
 ```bash
 llm-usage daily --all
@@ -59,7 +59,7 @@ llm-usage hourly --last 3
 llm-usage hourly --since 2026-06-15 --until 2026-06-15 --by-repo
 ```
 
-`hourly` labels each row with the local hour it starts (`2026-06-15 09:00`) in the reporting timezone and prints a reminder on `stderr` when it shows today by default. It has no `--all` and no `--share`. When the clocks go back at the end of daylight saving time, one local hour happens twice; its row covers both, a note on `stderr` names it, and the JSON row carries `repeatedHour: true`.
+`hourly` labels each row with the local hour it starts (`2026-06-15 09:00`) in the reporting timezone and prints a reminder on `stderr` when it shows today by default. `--all` reports every hour since the first usage. It has no `--share`. When the clocks go back at the end of daylight saving time, one local hour happens twice; its row covers both, a note on `stderr` names it, and the JSON row carries `repeatedHour: true`.
 
 Use [Compare](/llm-usage-metrics/compare/) when you want a current-versus-baseline comparison instead of a sequence of period totals.
 

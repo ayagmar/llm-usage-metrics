@@ -32,6 +32,7 @@ import {
   vacuumEventStore,
 } from '../../src/persistence/event-store.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { STORED_EVENT_COLUMNS } from '../../src/persistence/event-store-codec.js';
 import { loadNodeSqliteModule } from '@ayagmar/agent-sessions/internal';
 import { mulberry32, pick } from '../helpers/seeded-random.js';
 
@@ -233,7 +234,7 @@ async function writeV1Database(
         ].join('\n'),
       )
       .run(
-        'codex',
+        options.events?.[0]?.source ?? 'codex',
         options.filePath ?? '/tmp/session.jsonl',
         serializeEventStoreFingerprint(createFingerprint()),
         0,
@@ -344,7 +345,8 @@ function createFakeSqliteModule(
         fakeSqlite.prepareCalls.push(sql);
         return {
           all: () => [],
-          get: () => rowsBySql[sql],
+          // The file upsert returns the file's id.
+          get: () => rowsBySql[sql] ?? (sql.endsWith('RETURNING id') ? { id: 1 } : undefined),
           run: () => undefined,
           setReturnArrays: (enabled: boolean) => {
             fakeSqlite.setReturnArraysCalls.push({ sql, enabled });
@@ -536,7 +538,7 @@ describe('event-store', () => {
       ]);
 
       const contentHashes = store.database
-        .prepare('SELECT content_hash FROM events ORDER BY id ASC')
+        .prepare('SELECT content_hash FROM events ORDER BY file_id ASC, event_index ASC')
         .all()
         .map((row) => row.content_hash);
 
@@ -606,7 +608,11 @@ describe('event-store', () => {
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
       ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
       expect(
-        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+        store.database
+          .prepare(
+            'SELECT session_id, content_hash FROM events ORDER BY file_id ASC, event_index ASC',
+          )
+          .all(),
       ).toEqual([
         { session_id: 'good-first', content_hash: computeEventContentHash(firstGoodEvent) },
         { session_id: 'poisoned', content_hash: null },
@@ -756,7 +762,7 @@ describe('event-store', () => {
       ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
 
       const contentHashes = store.database
-        .prepare('SELECT content_hash FROM events ORDER BY id ASC')
+        .prepare('SELECT content_hash FROM events ORDER BY file_id ASC, event_index ASC')
         .all()
         .map((row) => row.content_hash);
 
@@ -818,7 +824,11 @@ describe('event-store', () => {
 
     try {
       expect(
-        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+        store.database
+          .prepare(
+            'SELECT session_id, content_hash FROM events ORDER BY file_id ASC, event_index ASC',
+          )
+          .all(),
       ).toEqual([
         { session_id: 'good', content_hash: computeEventContentHash(goodEvent) },
         { session_id: 'poisoned', content_hash: null },
@@ -889,7 +899,11 @@ describe('event-store', () => {
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
       ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
       expect(
-        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+        store.database
+          .prepare(
+            'SELECT session_id, content_hash FROM events ORDER BY file_id ASC, event_index ASC',
+          )
+          .all(),
       ).toEqual([
         { session_id: 'poisoned', content_hash: null },
         ...extraEvents.map((event) => ({
@@ -1248,11 +1262,9 @@ describe('event-store', () => {
       const objectRow = store.database
         .prepare(
           [
-            'SELECT source, session_id, timestamp, model, provider, repo_root,',
-            '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-            '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
-            'FROM events',
-            'WHERE source = ? AND file_path = ?',
+            `SELECT ${STORED_EVENT_COLUMNS}`,
+            'FROM files JOIN events ON events.file_id = files.id',
+            'WHERE files.source = ? AND files.file_path = ?',
             'ORDER BY event_index ASC',
           ].join('\n'),
         )
@@ -1327,7 +1339,9 @@ describe('event-store', () => {
         events: [createEvent({ sessionId: 'good' })],
       });
       store.database
-        .prepare("UPDATE events SET cost_mode = 'broken' WHERE file_path = ?")
+        .prepare(
+          "UPDATE events SET cost_mode = 'broken' WHERE file_id = (SELECT id FROM files WHERE file_path = ?)",
+        )
         .run('/tmp/bad.jsonl');
 
       expect(readFileEvents(store, 'codex', '/tmp/bad.jsonl')).toBeUndefined();
@@ -1611,12 +1625,11 @@ describe('event-store', () => {
       'WHERE source = ? AND file_path = ?',
     ].join('\n');
     const selectFileEventsSql = [
-      'SELECT source, session_id, timestamp, model, provider, repo_root,',
-      '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-      '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
-      'FROM events',
-      'WHERE source = ? AND file_path = ?',
-      'ORDER BY event_index ASC',
+      `SELECT ${STORED_EVENT_COLUMNS}`,
+      'FROM files',
+      'CROSS JOIN events',
+      'WHERE files.source = ? AND files.file_path = ? AND events.file_id = files.id',
+      'ORDER BY events.event_index ASC',
     ].join('\n');
 
     getFileEntry(store, 'codex', '/tmp/session.jsonl');
@@ -1642,11 +1655,66 @@ describe('event-store', () => {
     replaceCodexFile(store, { filePath: '/tmp/b.jsonl' });
     replaceCodexFile(store, { filePath: '/tmp/c.jsonl' });
 
-    // events, files and override-only statements, and the seven of tool calls, messages and
-    // their file keys.
-    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(11);
+    // events, files and override-only statements, and the four of tool calls and messages.
+    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(8);
     closeEventStore(store);
   });
+
+  it('checkpoints a run’s writes when it closes the store while another connection has it open', async () => {
+    const store = await createTempStore('event-store-close-checkpoint-');
+    const reader = await openTestDatabase(store.filePath);
+
+    try {
+      // An open connection keeps the closing one from checkpointing as the last connection.
+      reader.prepare('SELECT COUNT(*) AS count FROM files').get();
+      replaceFilesEvents(
+        store,
+        Array.from({ length: 50 }, (_, index) => ({
+          source: 'codex',
+          filePath: `/tmp/${String(index)}.jsonl`,
+          fingerprint: createFingerprint(),
+          events: Array.from({ length: 20 }, () => createEvent()),
+          skippedRows: 0,
+          now: 1_000,
+        })),
+      );
+      const sizeBeforeClose = (await stat(store.filePath)).size;
+      closeEventStore(store);
+
+      // The rows reached the database file, not only the WAL.
+      expect((await stat(store.filePath)).size).toBeGreaterThan(sizeBeforeClose + 50_000);
+    } finally {
+      reader.close();
+    }
+  });
+
+  it('keeps a long run’s WAL bounded while it writes', async () => {
+    const store = await createTempStore('event-store-wal-bound-');
+    let largestWal = 0;
+
+    try {
+      // A cold run over a large corpus commits batch after batch before it closes the store.
+      for (let batch = 0; batch < 80; batch += 1) {
+        replaceFilesEvents(
+          store,
+          Array.from({ length: 50 }, (_, index) => ({
+            source: 'codex',
+            filePath: `/tmp/${String(batch)}-${String(index)}.jsonl`,
+            fingerprint: createFingerprint(),
+            events: Array.from({ length: 100 }, () => createEvent()),
+            skippedRows: 0,
+            now: 1_000,
+          })),
+        );
+        largestWal = Math.max(largestWal, (await stat(`${store.filePath}-wal`)).size);
+      }
+    } finally {
+      closeEventStore(store);
+    }
+
+    // The cap, about 40 MB, plus the batch that crossed it.
+    expect(largestWal).toBeLessThan(48_000_000);
+  }, 20_000);
 
   it('writes several files in one transaction', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-batch-transaction-'));
@@ -1792,7 +1860,9 @@ END;
         events: [createEvent({ model: 'gpt-4.1' })],
       });
       store.database
-        .prepare('UPDATE events SET model = ? WHERE file_path = ?')
+        .prepare(
+          'UPDATE events SET model = ? WHERE file_id = (SELECT id FROM files WHERE file_path = ?)',
+        )
         .run('GPT-4.1', '/tmp/session.jsonl');
 
       expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([

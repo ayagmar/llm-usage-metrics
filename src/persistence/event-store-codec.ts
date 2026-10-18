@@ -26,6 +26,14 @@ const acceptedText: Record<
   model: { value: undefined },
 };
 
+/** The columns of a `StoredEventTuple`, from `files` joined with `events`. */
+export const STORED_EVENT_COLUMNS = [
+  'files.source, events.session_id, events.timestamp, events.model, events.provider,',
+  '  events.repo_root, events.input_tokens, events.output_tokens, events.reasoning_tokens,',
+  '  events.cache_read_tokens, events.cache_write_tokens, events.cache_write_1h_tokens,',
+  '  events.total_tokens, events.cost_usd, events.cost_mode',
+].join('\n');
+
 export type StoredEventTuple = [
   source: unknown,
   session_id: unknown,

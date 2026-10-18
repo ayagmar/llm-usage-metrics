@@ -470,9 +470,15 @@ export class CopilotSourceAdapter implements SourceAdapter {
     }
 
     // A later higher-priority line cancels an earlier candidate, so events wait for EOF.
-    const events = dedupeCandidates(filePath, applyClassPriorityGuard(candidates)).map(
-      toUsageEvent,
-    );
+    const events: UsageEvent[] = [];
+
+    for (const candidate of dedupeCandidates(filePath, applyClassPriorityGuard(candidates))) {
+      try {
+        events.push(toUsageEvent(candidate));
+      } catch {
+        recordSkippedRow(diagnostics, 'event_creation_failed');
+      }
+    }
 
     yield* events;
   }

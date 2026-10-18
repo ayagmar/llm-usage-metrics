@@ -5,6 +5,8 @@ import { suggestClosest } from '../utils/suggest-closest.js';
 import {
   createReportCommands,
   createRootDescription,
+  formatHelpExamples,
+  getRootHelpExamples,
   GRANULARITY_ARGUMENT_VALUES,
   SUMMARY_COMMAND_NAME,
 } from './report-definitions/report-definitions.js';
@@ -160,7 +162,8 @@ export function createCli(options: CreateCliOptions = {}): Command {
     .name('llm-usage')
     .description(createRootDescription())
     .version(options.version ?? '0.0.0')
-    .showHelpAfterError();
+    .showHelpAfterError()
+    .addHelpText('after', formatHelpExamples(getRootHelpExamples()));
 
   for (const command of createReportCommands()) {
     const isSummary = isSummaryCommand(command);
@@ -213,6 +216,10 @@ export function createCli(options: CreateCliOptions = {}): Command {
   for (const command of program.commands) {
     addHelpAllOption(command);
   }
+  // The root has no hidden options, so its --help-all prints the root help, not the summary's.
+  program
+    .addOption(new Option('--help-all', 'Display help for command').hideHelp())
+    .on('option:help-all', () => program.help());
 
   wrapHelpOnNarrowTerminals(program);
 

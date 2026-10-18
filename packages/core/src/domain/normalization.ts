@@ -54,9 +54,24 @@ export function normalizeUsdCost(value: NumberLike): number | undefined {
   return Math.max(0, parsed);
 }
 
-/** Parses a timestamp into an ISO 8601 UTC string. Throws on a value `Date` cannot parse. */
+// An ISO 8601 date and time with no offset, which `Date` would read in the machine's zone.
+const ZONELESS_ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/u;
+
+/**
+ * Parses timestamp text as `Date` does, except that an ISO date and time with no offset
+ * reads as UTC. Events then do not depend on the zone of the machine that parsed them.
+ */
+export function parseTimestampText(value: string): Date {
+  const text = value.trim();
+  return new Date(ZONELESS_ISO_DATE_TIME_PATTERN.test(text) ? `${text}Z` : text);
+}
+
+/**
+ * Parses a timestamp into an ISO 8601 UTC string; text with no offset reads as UTC. Throws
+ * on a value `Date` cannot parse.
+ */
 export function normalizeTimestamp(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value);
+  const date = value instanceof Date ? value : parseTimestampText(value);
 
   if (Number.isNaN(date.getTime())) {
     throw new Error(`Invalid timestamp: ${String(value)}`);

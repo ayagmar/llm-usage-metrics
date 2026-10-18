@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   asTrimmedText,
@@ -70,6 +70,24 @@ describe('source parsing helpers', () => {
     expect(normalizeTimestampCandidate('1707768000')).toBe('2024-02-12T20:00:00.000Z');
     expect(normalizeTimestampCandidate('1707768000000')).toBe('2024-02-12T20:00:00.000Z');
     expect(normalizeTimestampCandidate('not-a-timestamp')).toBeUndefined();
+  });
+
+  it('reads an ISO date and time with no offset as UTC whatever the machine zone', () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+
+    try {
+      expect(normalizeTimestampCandidate('2026-02-12T20:01:00')).toBe('2026-02-12T20:01:00.000Z');
+      expect(normalizeTimestampCandidate(' 2026-02-12 20:01:00.250 ')).toBe(
+        '2026-02-12T20:01:00.250Z',
+      );
+      expect(normalizeTimestampCandidate('2026-02-12T20:01')).toBe('2026-02-12T20:01:00.000Z');
+      expect(normalizeTimestampCandidate('2026-02-12T20:01:00+02:00')).toBe(
+        '2026-02-12T18:01:00.000Z',
+      );
+      expect(normalizeTimestampCandidate('2026-02-12')).toBe('2026-02-12T00:00:00.000Z');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('rejects short numeric values that are not plausible epoch timestamps', () => {

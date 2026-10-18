@@ -39,6 +39,7 @@ llm-usage trends --last 14 --share
 ## Options
 
 - `--last <n>`: chart the last n local calendar days, counting today
+- `--all`: chart every day from the first day with usage through today; not with `--last`, `--since` or `--until`
 - `--metric <name>`: `cost` (default), `tokens`, or `active-hours`
 - `--by-source`: render one sparkline row per source
 - `--by-repo`: render one sparkline row per [project](/llm-usage-metrics/projects/); cannot be combined with `--by-source`
@@ -51,7 +52,7 @@ llm-usage trends --last 14 --share
 
 - If you pass `--last <n>`, the range is `today - (n - 1)` through local today.
 - If you pass neither `--last` nor explicit date flags, the command defaults to the last 30 local calendar days.
-- `--last` cannot be combined with `--since` or `--until`.
+- `--last` cannot be combined with `--since`, `--until` or `--all`, and `--all` cannot be combined with dates.
 - `--until` without `--since` expands back to the earliest observed day after filtering.
 
 ## Metric semantics

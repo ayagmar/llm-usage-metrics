@@ -23,7 +23,8 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
                                  precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM pricing, or the bundled
+                                 snapshot when there is no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
                                  LiteLLM), or both (logged, else estimated; default) (choices:
@@ -39,7 +40,9 @@ Options:
                                  (terminal/markdown)
   --share                        Write an interactive HTML report to the current directory
   --no-open                      With --share, write the report without opening it
-  --redact                       With --share, label projects project-N and machines machine-N
+  --redact                       With --share, label projects project-N, machines machine-N and
+                                 local or path-shaped models model-N
+  --all                          Report the full history (the default without date flags)
   --last <n>                     Report the last N months, counting the current month
   --compact                      Abbreviate token counts and hide the Reasoning and Cache Write
                                  columns (terminal/markdown)

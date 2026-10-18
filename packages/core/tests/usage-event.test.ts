@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createUsageEvent,
@@ -60,6 +60,33 @@ describe('createUsageEvent', () => {
 
     expect(event.totalTokens).toBe(0);
     expect(event.reasoningTokens).toBe(5);
+  });
+
+  it('rejects a token count above 1e12 as corrupt instead of adding it to totals', () => {
+    const base = { source: 'pi', sessionId: 'session-cap', timestamp: '2026-02-12T10:00:00Z' };
+
+    expect(createUsageEvent({ ...base, inputTokens: 1e12 }).inputTokens).toBe(1e12);
+    expect(() => createUsageEvent({ ...base, inputTokens: 1e30 })).toThrow(
+      'UsageEvent inputTokens exceeds 1000000000000',
+    );
+    expect(() => createUsageEvent({ ...base, cacheReadTokens: '2e12' })).toThrow('cacheReadTokens');
+    expect(() => createUsageEvent({ ...base, totalTokens: 1e13 })).toThrow('totalTokens');
+  });
+
+  it('reads a timestamp with no offset as UTC whatever the machine zone', () => {
+    vi.stubEnv('TZ', 'Asia/Tokyo');
+
+    try {
+      const event = createUsageEvent({
+        source: 'pi',
+        sessionId: 'session-zoneless',
+        timestamp: '2026-02-12T10:00:00',
+      });
+
+      expect(event.timestamp).toBe('2026-02-12T10:00:00.000Z');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('throws on empty source or session id', () => {

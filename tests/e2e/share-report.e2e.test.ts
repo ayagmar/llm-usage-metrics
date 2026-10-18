@@ -303,6 +303,9 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
   let forbidden: ForbiddenStrings;
   let validators: Map<string, ValidateFunction>;
 
+  /** The stderr lines of the last `runShare`. */
+  let stderrLines: string[] = [];
+
   /** Runs `llm-usage <args> --share --no-open` in a fresh directory; returns its files. */
   async function runShare(
     name: string,
@@ -327,6 +330,7 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
           '--share',
           '--no-open',
         ]);
+        stderrLines = vi.mocked(console.error).mock.calls.map((call) => String(call[0]));
       });
     } finally {
       process.chdir(previousCwd);
@@ -562,6 +566,39 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     } finally {
       vi.stubEnv('LLM_USAGE_CONFIG_PATH', path.join(environment.rootDir, 'missing-config.toml'));
       await deleteMachineCache(machine);
+    }
+  });
+
+  it('--share --redact keeps paths and local names out of stderr, except the file written', async () => {
+    const notRepoDir = path.join(environment.rootDir, 'public acme-not-a-repo');
+    await mkdir(notRepoDir);
+    const runs: [string[], string?][] = [
+      [
+        ['optimize', 'daily', '--provider', 'anthropic', '--candidate-model', 'Acme-Local-Model'],
+        'claude',
+      ],
+      [['efficiency', 'weekly', '--repo-dir', notRepoDir]],
+    ];
+
+    for (const [index, [args, source]] of runs.entries()) {
+      await runShare(`stderr-plain-${String(index)}`, args, source);
+      const plain = stderrLines.join('\n');
+      await runShare(`stderr-redacted-${String(index)}`, [...args, '--redact'], source);
+      const redacted = stderrLines.filter((line) => !line.includes('Wrote'));
+
+      // The plain run prints what --redact must hide, so the check below means something.
+      expect(plain.toLowerCase()).toContain('acme-');
+      expect(redacted.join('\n')).toMatch(
+        /Missing pricing for candidate model\(s\): model-\d|<path> is not a git repository/u,
+      );
+
+      for (const line of redacted) {
+        expect(line.toLowerCase()).not.toContain('acme-');
+
+        for (const forbiddenPath of [...forbidden.paths, environment.rootDir]) {
+          expect(line).not.toContain(forbiddenPath);
+        }
+      }
     }
   });
 });

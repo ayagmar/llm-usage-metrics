@@ -3,6 +3,7 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  countFileEvents,
   deleteStoredFiles,
   getDefaultEventStorePath,
   listStoredFileFingerprints,
@@ -134,13 +135,6 @@ export function readKnownFiles(cache: EventStore): MachineExportFileKey[] {
   return readEventStoreMeta(cache, SESSION_EVENTS_KEPT_KEY) === '1' ? readCachedFiles(cache) : [];
 }
 
-function countCachedEvents(cache: EventStore, source: string, filePath: string): number {
-  const row = cache.database
-    .prepare('SELECT COUNT(*) AS count FROM events WHERE source = ? AND file_path = ?')
-    .get(source, filePath);
-  return typeof row?.count === 'number' ? row.count : 0;
-}
-
 /**
  * Applies a complete export in one transaction: stores the sent files, removes the files
  * the export no longer lists, and checks that the cache then holds exactly the listed
@@ -189,7 +183,7 @@ export function applyMachineExport(
         throw new Error(`the export skipped ${filePath}, which the cache does not hold`);
       }
 
-      eventCount += countCachedEvents(cache, source, filePath);
+      eventCount += countFileEvents(cache, source, filePath);
     }
 
     if (cachedRevisions.size !== bundle.files.length || eventCount !== bundle.eventCount) {

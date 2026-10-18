@@ -9,9 +9,18 @@ import { buildToolsData } from '../../src/cli/build-tools-data.js';
 import { schemaDocuments } from '../../src/cli/report-schema-registry.js';
 import type { BuildUsageDataDeps } from '../../src/cli/usage-data-contracts.js';
 import { loadUserConfig } from '../../src/config/user-config.js';
-import { openMachineCache } from '../../src/machines/machine-cache.js';
+import {
+  deleteMachineCache,
+  getMachineCachePath,
+  openMachineCache,
+} from '../../src/machines/machine-cache.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
-import { closeEventStore } from '../../src/persistence/event-store.js';
+import {
+  closeEventStore,
+  listStoredFileFingerprints,
+  readFileEvents,
+} from '../../src/persistence/event-store.js';
+import { writeV4Store } from '../helpers/event-store-v4.js';
 import { createInProcessRemote } from '../helpers/machine-remote.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 
@@ -189,9 +198,19 @@ describe('tool calls and turns of other machines', () => {
     await sync();
     // As a sync by 0.11.0 left it: schema v4, without the tables; reports never migrate it.
     const cache = await openMachineCache('laptop');
-    cache.database.exec('DROP TABLE tool_calls; DROP TABLE messages;');
-    cache.database.prepare("UPDATE meta SET value = '4' WHERE key = 'schemaVersion'").run();
+    const files = listStoredFileFingerprints(cache).map((file) => ({
+      ...file,
+      events: readFileEvents(cache, file.source, file.filePath) ?? [],
+    }));
+    const meta = new Map(
+      cache.database
+        .prepare("SELECT key, value FROM meta WHERE key <> 'schemaVersion'")
+        .all()
+        .map((row) => [String(row.key), String(row.value)]),
+    );
     closeEventStore(cache);
+    await deleteMachineCache('laptop');
+    await writeV4Store(getMachineCachePath('laptop'), files, meta);
 
     const laptop = await tools(local, ['laptop']);
 

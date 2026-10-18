@@ -18,6 +18,7 @@ const icons: Record<LogStyle, string> = {
 };
 
 let activeLevel: LogLevel = 'info';
+let scrubMessage: ((message: string) => string) | undefined;
 
 export function setLogLevel(level: LogLevel): void {
   activeLevel = level;
@@ -27,9 +28,24 @@ function isEnabled(rank: number): boolean {
   return levelRanks[activeLevel] >= rank;
 }
 
+/** Runs `run` with every logged message passed through `scrub` (`--redact` hides names). */
+export function withLogScrubber<T>(
+  scrub: ((message: string) => string) | undefined,
+  run: () => T,
+): T {
+  const previous = scrubMessage;
+  scrubMessage = scrub;
+
+  try {
+    return run();
+  } finally {
+    scrubMessage = previous;
+  }
+}
+
 function formatMessage(style: LogStyle, message: string): string {
   const icon = icons[style];
-  return `${icon} ${message}`;
+  return `${icon} ${scrubMessage ? scrubMessage(message) : message}`;
 }
 
 export const logger = {

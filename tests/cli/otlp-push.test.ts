@@ -20,7 +20,7 @@ const FIXTURE_OPTIONS = {
   pricingOffline: true,
 };
 const NOW = () => new Date('2026-07-01T00:00:00.000Z');
-const SECRET = 'Bearer s3cr3t token';
+const SECRET = 'Bearer s3cr3t-0123456789';
 // Captured before useBundledPricingOnly stubs `fetch`; the push may only reach 127.0.0.1.
 const realFetch = globalThis.fetch;
 const loopbackFetch: typeof fetch = (input, init) => {
@@ -98,6 +98,17 @@ function linesOf(output: string): string[] {
   return output.split('\n').filter((line) => line.length > 0);
 }
 
+type SentSpan = { traceId: string; spanId: string; parentSpanId?: string };
+
+/** The spans of export lines or request bodies, in order. */
+function spansOf(jsons: readonly string[]): SentSpan[] {
+  return jsons.flatMap((json) =>
+    (
+      JSON.parse(json) as { resourceSpans: { scopeSpans: { spans: SentSpan[] }[] }[] }
+    ).resourceSpans.flatMap((resource) => resource.scopeSpans.flatMap((scope) => scope.spans)),
+  );
+}
+
 /** The resources of each export line or request body, re-serialized one by one. */
 function resourcesOf(json: string, key: 'resourceSpans' | 'resourceMetrics'): string[] {
   const parsed = JSON.parse(json) as Record<string, unknown[]>;
@@ -121,42 +132,67 @@ describe('events --otlp-endpoint', () => {
     );
   });
 
-  it('posts the traces export lines unchanged, one line per request at a small batch size', async () => {
+  it('posts the traces export resources unchanged, with the configured headers', async () => {
     const receiver = await startReceiver();
     const exported = linesOf((await runEvents({ format: 'otlp-traces' })).stdout);
     vi.stubEnv(
       'OTEL_EXPORTER_OTLP_HEADERS',
-      `authorization=${encodeURIComponent(SECRET)}, x-tenant = t1`,
+      `authorization=${encodeURIComponent(SECRET)}, x-tenant = t1, Content-Type=text/plain`,
     );
 
-    const output = await runEvents(
-      { format: 'otlp-traces', otlpEndpoint: `${receiver.endpoint}/` },
-      { otlpMaxBatchBytes: 1 },
-    );
+    const output = await runEvents({
+      format: 'otlp-traces',
+      otlpEndpoint: `${receiver.endpoint}/`,
+    });
 
     expect(exported.length).toBeGreaterThan(1);
     expect(output.stdout).toBe('');
-    expect(receiver.requests.map((request) => request.body)).toEqual(exported);
-    expect(new Set(receiver.requests.map((request) => `${request.method} ${request.url}`))).toEqual(
-      new Set(['POST /v1/traces']),
+    expect(receiver.requests.map((request) => `${request.method} ${request.url}`)).toEqual([
+      'POST /v1/traces',
+    ]);
+    expect(resourcesOf(receiver.requests[0].body, 'resourceSpans')).toEqual(
+      exported.flatMap((line) => resourcesOf(line, 'resourceSpans')),
     );
+    expect(receiver.requests[0].headers['content-type']).toBe('application/json');
+    expect(receiver.requests[0].headers.authorization).toBe(SECRET);
+    expect(receiver.requests[0].headers['x-tenant']).toBe('t1');
 
-    for (const request of receiver.requests) {
-      expect(request.headers['content-type']).toBe('application/json');
-      expect(request.headers.authorization).toBe(SECRET);
-      expect(request.headers['x-tenant']).toBe('t1');
-    }
-
-    const spans = exported
-      .map(
-        (line) => JSON.parse(line) as { resourceSpans: [{ scopeSpans: [{ spans: unknown[] }] }] },
-      )
-      .reduce((sum, data) => sum + data.resourceSpans[0].scopeSpans[0].spans.length, 0);
     const summary = linesOf(output.stderr).filter((line) => line.includes('Pushed'));
     expect(summary).toEqual([
-      `ℹ Pushed ${spans} spans in ${exported.length} batches to ${receiver.endpoint}/v1/traces`,
+      `ℹ Pushed ${spansOf(exported).length} spans in 1 batch to ${receiver.endpoint}/v1/traces`,
     ]);
     expect(output.stderr).not.toContain('s3cr3t');
+  });
+
+  it('splits a session larger than the request limit, root span first, keeping its ids', async () => {
+    const receiver = await startReceiver();
+    const exported = linesOf((await runEvents({ format: 'otlp-traces' })).stdout);
+    const sizes = exported.map((line) => Buffer.byteLength(line));
+    const largest = exported[sizes.indexOf(Math.max(...sizes))];
+    const largestSpans = spansOf([largest]);
+    // Room for about a third of the largest session per request.
+    const otlpMaxBatchBytes = Math.ceil(Math.max(...sizes) / 3);
+
+    const output = await runEvents(
+      { format: 'otlp-traces', otlpEndpoint: receiver.endpoint },
+      { otlpMaxBatchBytes },
+    );
+    const bodies = receiver.requests.map((request) => request.body);
+    const sent = spansOf(bodies);
+
+    expect(largestSpans.length).toBeGreaterThan(3);
+    expect(bodies.every((body) => Buffer.byteLength(body) <= otlpMaxBatchBytes)).toBe(true);
+    expect(sent).toEqual(spansOf(exported));
+    const largestTrace = largestSpans[0].traceId;
+    const piecesOfLargest = bodies.filter((body) => body.includes(largestTrace));
+    expect(piecesOfLargest.length).toBeGreaterThanOrEqual(3);
+    expect(spansOf([piecesOfLargest[0]]).find((span) => span.traceId === largestTrace)).toEqual(
+      largestSpans[0],
+    );
+    expect(largestSpans[0].parentSpanId).toBeUndefined();
+    expect(output.stderr).toContain(
+      `Pushed ${sent.length} spans in ${bodies.length} batches to ${receiver.endpoint}/v1/traces`,
+    );
   });
 
   it('merges whole metrics lines into one request at the default batch size', async () => {
@@ -180,6 +216,17 @@ describe('events --otlp-endpoint', () => {
     await runEvents({ format: 'otlp-metrics', otlpEndpoint: `${receiver.endpoint}/otlp` });
 
     expect(receiver.requests.map((request) => request.url)).toEqual(['/otlp/v1/metrics']);
+  });
+
+  it('uses an endpoint that already ends with the signal path as is', async () => {
+    const receiver = await startReceiver();
+
+    await runEvents({
+      format: 'otlp-traces',
+      otlpEndpoint: `${receiver.endpoint}/otlp/v1/traces/`,
+    });
+
+    expect(receiver.requests.map((request) => request.url)).toEqual(['/otlp/v1/traces']);
   });
 
   it('sends the endpoint query string but never prints it', async () => {
@@ -228,7 +275,29 @@ describe('events --otlp-endpoint', () => {
     expect(output.stderr).toContain('in 1 batch');
   });
 
-  it('fails after the one retry when the receiver keeps throttling', async () => {
+  it.each([429, 502, 503, 504])(
+    'retries a %i without Retry-After after a default delay',
+    async (status) => {
+      const receiver = await startReceiver((response, index) => {
+        if (index < 2) {
+          response.writeHead(status).end();
+          return;
+        }
+
+        response.end('{}');
+      });
+
+      const output = await runEvents(
+        { format: 'otlp-metrics', otlpEndpoint: receiver.endpoint },
+        { otlpRetryDelayMs: 1 },
+      );
+
+      expect(receiver.requests).toHaveLength(3);
+      expect(output.stderr).toContain('in 1 batch');
+    },
+  );
+
+  it('fails after four attempts when the receiver keeps throttling', async () => {
     const receiver = await startReceiver((response) =>
       response.writeHead(503, { 'Retry-After': '0' }).end(),
     );
@@ -236,16 +305,95 @@ describe('events --otlp-endpoint', () => {
     await expect(
       runEvents({ format: 'otlp-metrics', otlpEndpoint: receiver.endpoint }),
     ).rejects.toThrow(/failed after 0 of 1 batches \(0 points sent\): HTTP 503 .*try again later/u);
-    expect(receiver.requests).toHaveLength(2);
+    expect(receiver.requests).toHaveLength(4);
   });
 
-  it('does not retry a 503 without Retry-After', async () => {
-    const receiver = await startReceiver((response) => response.writeHead(503).end());
+  it('does not retry a 500 or a Retry-After over a minute', async () => {
+    const failing = await startReceiver((response) => response.writeHead(500).end());
+    const slow = await startReceiver((response) =>
+      response.writeHead(429, { 'Retry-After': '120' }).end(),
+    );
+
+    await expect(
+      runEvents({ format: 'otlp-metrics', otlpEndpoint: failing.endpoint }),
+    ).rejects.toThrow('HTTP 500');
+    await expect(
+      runEvents({ format: 'otlp-metrics', otlpEndpoint: slow.endpoint }),
+    ).rejects.toThrow('HTTP 429');
+    expect(failing.requests).toHaveLength(1);
+    expect(slow.requests).toHaveLength(1);
+  });
+
+  it('redacts header values a receiver echoes in an error or a partial success', async () => {
+    setHeadersEnv(`authorization=${encodeURIComponent('Bearer s3cr3t-token-value')}`);
+    const failing = await startReceiver((response) =>
+      response.writeHead(400).end('bad request: Authorization: Bearer s3cr3t-token-value'),
+    );
+    const partial = await startReceiver((response) =>
+      response.end(
+        JSON.stringify({
+          partialSuccess: { rejectedDataPoints: '1', errorMessage: 'token s3cr3t-token-value' },
+        }),
+      ),
+    );
+
+    const failure = runEvents({ format: 'otlp-metrics', otlpEndpoint: failing.endpoint });
+    await expect(failure).rejects.toThrow('(bad request: Authorization: [redacted])');
+    await expect(failure).rejects.not.toThrow('s3cr3t');
+    const output = await runEvents({ format: 'otlp-metrics', otlpEndpoint: partial.endpoint });
+    expect(output.stderr).toContain('the receiver rejected 1 (token [redacted])');
+    expect(output.stderr).not.toContain('s3cr3t');
+  });
+
+  it('withholds a receiver message or partial success that holds a short header value', async () => {
+    setHeadersEnv('api-key=abc123,x-tenant=t1');
+    const failing = await startReceiver((response) =>
+      response.writeHead(401).end('bad api-key: abc123'),
+    );
+    const partial = await startReceiver((response) =>
+      response.end(
+        JSON.stringify({
+          partialSuccess: { rejectedDataPoints: '1', errorMessage: 'tenant t1 over quota' },
+        }),
+      ),
+    );
+
+    const failure = runEvents({ format: 'otlp-metrics', otlpEndpoint: failing.endpoint });
+    await expect(failure).rejects.toThrow(
+      'HTTP 401 Unauthorized ([receiver message withheld: it may contain a header value]);',
+    );
+    await expect(failure).rejects.not.toThrow('abc123');
+    const output = await runEvents({ format: 'otlp-metrics', otlpEndpoint: partial.endpoint });
+    expect(output.stderr).toContain(
+      'the receiver rejected 1 ([receiver message withheld: it may contain a header value])',
+    );
+    expect(output.stderr).not.toContain('t1 over');
+  });
+
+  it('prints a receiver message that holds no header value unchanged', async () => {
+    setHeadersEnv('x-tenant=t1');
+    const receiver = await startReceiver((response) =>
+      response.writeHead(400).end('payload is not valid OTLP'),
+    );
 
     await expect(
       runEvents({ format: 'otlp-metrics', otlpEndpoint: receiver.endpoint }),
-    ).rejects.toThrow('HTTP 503');
-    expect(receiver.requests).toHaveLength(1);
+    ).rejects.toThrow('HTTP 400 Bad Request (payload is not valid OTLP);');
+  });
+
+  it('keeps header values out of the HTTP status text', async () => {
+    setHeadersEnv('api-key=synthetic-long-test-token,x-short=abc123');
+    const long = await startReceiver((response) =>
+      response.writeHead(401, 'invalid synthetic-long-test-token').end(),
+    );
+    const short = await startReceiver((response) => response.writeHead(403, 'key abc123').end());
+
+    const longFailure = runEvents({ format: 'otlp-metrics', otlpEndpoint: long.endpoint });
+    await expect(longFailure).rejects.toThrow('HTTP 401 invalid [redacted];');
+    await expect(longFailure).rejects.not.toThrow('synthetic-long-test-token');
+    const shortFailure = runEvents({ format: 'otlp-metrics', otlpEndpoint: short.endpoint });
+    await expect(shortFailure).rejects.toThrow(/HTTP 403; check the credentials/u);
+    await expect(shortFailure).rejects.not.toThrow('abc123');
   });
 
   it('stops at a 4xx with the receiver message and a hint, never the header values', async () => {

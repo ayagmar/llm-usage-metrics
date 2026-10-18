@@ -4,20 +4,27 @@ import { asRecord } from '@ayagmar/agent-sessions/internal';
 
 import { getErrorReason } from '../utils/get-error-reason.js';
 import type { OtlpMetricsData } from './otlp-metrics.js';
-import type { OtlpTracesData } from './otlp-traces.js';
+import type { OtlpSpan, OtlpTracesData } from './otlp-traces.js';
 
 /**
  * Opt-in OTLP/HTTP JSON push of the lines `events --format otlp-traces|otlp-metrics`
  * prints. Each request merges whole lines, so its resources are byte-for-byte the ones a
- * file export holds; nothing is re-encoded.
+ * file export holds; nothing is re-encoded. A traces line too large for one request goes
+ * out in pieces, each holding some of its spans under the line's resource and scope.
  */
 
-/** A request body stays under this size unless one line alone is larger. */
+/** A request body stays under this size unless one span or one metrics line is larger. */
 export const OTLP_MAX_BATCH_BYTES = 4 * 1024 * 1024;
 /** Per request; the OTel exporter default (`OTEL_EXPORTER_OTLP_TIMEOUT`). */
 export const OTLP_TIMEOUT_MS = 10_000;
+/** The wait before the first retry when the receiver sends no `Retry-After`; it doubles. */
+export const OTLP_RETRY_DELAY_MS = 1_000;
+/** Attempts per request, the first one included. */
+const MAX_ATTEMPTS = 4;
 /** A longer `Retry-After` fails the push instead of waiting. */
 const MAX_RETRY_AFTER_MS = 60_000;
+// The statuses the OTLP/HTTP spec lists as retryable.
+const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([429, 502, 503, 504]);
 const ERROR_DETAIL_MAX_CHARS = 200;
 
 export const OTLP_HEADERS_ENV_VAR = 'OTEL_EXPORTER_OTLP_HEADERS';
@@ -30,6 +37,7 @@ export type OtlpPushDeps = {
   fetchImpl?: typeof fetch;
   otlpTimeoutMs?: number;
   otlpMaxBatchBytes?: number;
+  otlpRetryDelayMs?: number;
 };
 
 export type OtlpPushResult = {
@@ -43,6 +51,9 @@ export type OtlpPushResult = {
 };
 
 type Batch = { body: string; items: number };
+
+/** One resource of a request: a whole line's, or a piece of a split one, with its JSON size. */
+type BatchUnit = { resource: unknown; items: number; bytes: number };
 
 /** Validates `--otlp-endpoint`: an http or https URL without credentials. */
 export function parseOtlpEndpoint(value: string): URL {
@@ -75,8 +86,9 @@ export function parseOtlpEndpoint(value: string): URL {
 const HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^`|~\w]+$/u;
 
 /**
- * Parses `OTEL_EXPORTER_OTLP_HEADERS` (`k=v,k2=v2`, values percent-decoded). Errors name
- * the entry or key, never a value: values are secrets.
+ * Parses `OTEL_EXPORTER_OTLP_HEADERS` (`k=v,k2=v2`, values percent-decoded). Names are
+ * lowercased, as HTTP compares them, so of two entries differing only in case the later one
+ * wins. Errors name the entry or key, never a value: values are secrets.
  */
 export function parseOtlpHeaders(value: string | undefined): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -112,16 +124,18 @@ export function parseOtlpHeaders(value: string | undefined): Record<string, stri
       throw new Error(`${OTLP_HEADERS_ENV_VAR}: the value of ${key} has a line break or NUL`);
     }
 
-    headers[key] = decoded;
+    headers[key.toLowerCase()] = decoded;
   }
 
   return headers;
 }
 
+/** The endpoint with `/v1/<signal>` appended, unless its path already ends with that. */
 function signalUrl(endpoint: URL, kind: OtlpPushSignal['kind']): string {
   const url = new URL(endpoint);
   const base = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
-  url.pathname = `${base}/v1/${kind}`;
+  const suffix = `/v1/${kind}`;
+  url.pathname = base.endsWith(suffix) ? base : `${base}${suffix}`;
   return url.toString();
 }
 
@@ -159,8 +173,74 @@ function toBody(signal: OtlpPushSignal, resources: unknown[]): string {
   );
 }
 
-/** Whole lines per batch, in export order, each batch under `maxBytes` when it can be. */
+/** The bytes of a request body holding `resourceCount` resources of `resourceBytes` total. */
+function bodyBytes(envelopeBytes: number, resourceBytes: number, resourceCount: number): number {
+  // The commas between the resources.
+  return envelopeBytes + resourceBytes + Math.max(0, resourceCount - 1);
+}
+
+/**
+ * A traces line's spans in consecutive pieces whose request body alone fits `maxBytes`, root
+ * span first, each under the line's resource and scope. The spans keep their ids, so a
+ * backend joins the pieces into one trace.
+ */
+function splitTracesLine(
+  line: OtlpTracesData,
+  maxBytes: number,
+  envelopeBytes: number,
+): BatchUnit[] {
+  const [{ resource, scopeSpans }] = line.resourceSpans;
+  const [scopeSpan] = scopeSpans;
+  const toResource = (spans: OtlpSpan[]) => ({ resource, scopeSpans: [{ ...scopeSpan, spans }] });
+  const emptyBytes = Buffer.byteLength(JSON.stringify(toResource([])));
+  const units: BatchUnit[] = [];
+  let spans: OtlpSpan[] = [];
+  // The piece's resource JSON: its spans plus the commas between them.
+  let bytes = emptyBytes;
+
+  for (const span of scopeSpan.spans) {
+    const spanBytes = Buffer.byteLength(JSON.stringify(span));
+    const grown = bytes + spanBytes + (spans.length > 0 ? 1 : 0);
+
+    if (spans.length > 0 && bodyBytes(envelopeBytes, grown, 1) > maxBytes) {
+      units.push({ resource: toResource(spans), items: spans.length, bytes });
+      spans = [];
+      bytes = emptyBytes + spanBytes;
+    } else {
+      bytes = grown;
+    }
+
+    spans.push(span);
+  }
+
+  units.push({ resource: toResource(spans), items: spans.length, bytes });
+  return units;
+}
+
+/**
+ * Each export line's resource as one unit, or the pieces of a traces line whose request
+ * body alone would exceed `maxBytes`.
+ */
+function toBatchUnits(
+  signal: OtlpPushSignal,
+  maxBytes: number,
+  envelopeBytes: number,
+): BatchUnit[] {
+  return Array.from({ length: signal.lines.length }, (_, index) => index).flatMap((index) => {
+    const [resource] = resourcesOf(signal, index);
+    const bytes = Buffer.byteLength(JSON.stringify(resource));
+
+    if (signal.kind === 'traces' && bodyBytes(envelopeBytes, bytes, 1) > maxBytes) {
+      return splitTracesLine(signal.lines[index], maxBytes, envelopeBytes);
+    }
+
+    return [{ resource, items: countItems(signal, index), bytes }];
+  });
+}
+
+/** Units merged in export order, each request body within `maxBytes` when it can be. */
 function buildBatches(signal: OtlpPushSignal, maxBytes: number): Batch[] {
+  const envelopeBytes = Buffer.byteLength(toBody(signal, []));
   const batches: Batch[] = [];
   let resources: unknown[] = [];
   let items = 0;
@@ -176,16 +256,17 @@ function buildBatches(signal: OtlpPushSignal, maxBytes: number): Batch[] {
     bytes = 0;
   };
 
-  for (let index = 0; index < signal.lines.length; index += 1) {
-    const lineBytes = Buffer.byteLength(JSON.stringify(signal.lines[index]));
-
-    if (bytes > 0 && bytes + lineBytes > maxBytes) {
+  for (const unit of toBatchUnits(signal, maxBytes, envelopeBytes)) {
+    if (
+      resources.length > 0 &&
+      bodyBytes(envelopeBytes, bytes + unit.bytes, resources.length + 1) > maxBytes
+    ) {
       flush();
     }
 
-    resources.push(...resourcesOf(signal, index));
-    items += countItems(signal, index);
-    bytes += lineBytes;
+    resources.push(unit.resource);
+    items += unit.items;
+    bytes += unit.bytes;
   }
 
   flush();
@@ -221,11 +302,58 @@ async function readBody(
   }
 }
 
-/** The OTLP `Status.message` of an error response, else its text, on one short line. */
-async function readErrorDetail(response: Response): Promise<string> {
+// Shorter header values and words are not replaced: a value like `t1` would blank out
+// unrelated text. Receiver text that holds one is withheld instead.
+const MIN_REDACTED_CHARS = 8;
+const WITHHELD_MESSAGE = '[receiver message withheld: it may contain a header value]';
+
+// Headers whose value is `<auth-scheme> <credentials>` (RFC 9110): the scheme names a
+// public method such as `Bearer`, not a secret.
+const CREDENTIAL_HEADERS: ReadonlySet<string> = new Set(['authorization', 'proxy-authorization']);
+
+/** The words of a header value that can be secret on their own. */
+function credentialWords(name: string, value: string): string[] {
+  const words = value.trim().split(/\s+/u);
+  return CREDENTIAL_HEADERS.has(name) && words.length > 1 ? words.slice(1) : words;
+}
+
+/**
+ * Receiver text safe to print, or `undefined` when it must be withheld. Each header value,
+ * and each word in one, of 8 characters or more becomes `[redacted]`, so a receiver or proxy
+ * that echoes `Authorization: Bearer <token>` or the bare token does not print it. Text that
+ * holds a shorter value or word is withheld whole.
+ */
+function sanitizeReceiverText(text: string, headers: Record<string, string>): string | undefined {
+  const secrets = Object.entries(headers)
+    .flatMap(([name, value]) => [value.trim(), ...credentialWords(name, value)])
+    .filter((secret) => secret !== '');
+
+  if (secrets.some((secret) => secret.length < MIN_REDACTED_CHARS && text.includes(secret))) {
+    return undefined;
+  }
+
+  return (
+    secrets
+      .filter((secret) => secret.length >= MIN_REDACTED_CHARS)
+      // Longest first, so a whole value goes before the words inside it.
+      .sort((left, right) => right.length - left.length)
+      .reduce((redacted, secret) => redacted.replaceAll(secret, '[redacted]'), text)
+  );
+}
+
+/**
+ * The OTLP `Status.message` of an error response, else its text, on one short line and
+ * without the header values.
+ */
+async function readErrorDetail(
+  response: Response,
+  headers: Record<string, string>,
+): Promise<string> {
   const { text, json } = await readBody(response);
   const detail = typeof json?.message === 'string' ? json.message : text;
-  const oneLine = detail.replaceAll(/\s+/gu, ' ').trim();
+  const oneLine = (sanitizeReceiverText(detail, headers) ?? WITHHELD_MESSAGE)
+    .replaceAll(/\s+/gu, ' ')
+    .trim();
   return oneLine.length > ERROR_DETAIL_MAX_CHARS
     ? `${oneLine.slice(0, ERROR_DETAIL_MAX_CHARS)}…`
     : oneLine;
@@ -241,7 +369,7 @@ function statusHint(status: number): string {
   }
 
   if (status === 404) {
-    return 'pass the receiver base URL; /v1/traces or /v1/metrics is appended';
+    return 'pass the receiver base URL; /v1/traces or /v1/metrics is appended unless the URL ends with it';
   }
 
   if (status === 413) {
@@ -261,6 +389,7 @@ type PartialSuccess = { rejected: number; message?: string };
 async function readPartialSuccess(
   response: Response,
   kind: OtlpPushSignal['kind'],
+  headers: Record<string, string>,
 ): Promise<PartialSuccess> {
   const partial = asRecord((await readBody(response)).json?.partialSuccess);
   const rejected = Number(
@@ -268,7 +397,7 @@ async function readPartialSuccess(
   );
   const message =
     typeof partial?.errorMessage === 'string' && partial.errorMessage !== ''
-      ? partial.errorMessage
+      ? (sanitizeReceiverText(partial.errorMessage, headers) ?? WITHHELD_MESSAGE)
       : undefined;
 
   return { rejected: Number.isFinite(rejected) ? rejected : 0, message };
@@ -288,7 +417,8 @@ async function postBatch(
     try {
       response = await deps.fetchImpl(url, {
         method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
+        // The names are lowercase (parseOtlpHeaders), so this replaces a user content-type.
+        headers: { ...headers, 'content-type': 'application/json' },
         body: batch.body,
         // Following would turn a 301-303 into a GET counted as success, and send the headers
         // (and with 307/308 the payload) to wherever the receiver points.
@@ -315,19 +445,25 @@ async function postBatch(
       return response;
     }
 
-    const retryAfterMs =
-      response.status === 429 || response.status === 503
-        ? parseRetryAfterMs(response.headers.get('retry-after'), Date.now())
-        : undefined;
+    const retryDelayMs = RETRYABLE_STATUSES.has(response.status)
+      ? (parseRetryAfterMs(response.headers.get('retry-after'), Date.now()) ??
+        deps.otlpRetryDelayMs * 2 ** attempt)
+      : undefined;
 
-    if (attempt === 0 && retryAfterMs !== undefined && retryAfterMs <= MAX_RETRY_AFTER_MS) {
+    if (
+      attempt + 1 < MAX_ATTEMPTS &&
+      retryDelayMs !== undefined &&
+      retryDelayMs <= MAX_RETRY_AFTER_MS
+    ) {
       await response.body?.cancel();
-      await sleepTimer(retryAfterMs);
+      await sleepTimer(retryDelayMs);
       continue;
     }
 
-    const detail = await readErrorDetail(response);
-    const statusText = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+    const detail = await readErrorDetail(response, headers);
+    // A reason phrase that holds a header value is left out.
+    const reason = sanitizeReceiverText(response.statusText, headers) ?? '';
+    const statusText = `HTTP ${response.status}${reason ? ` ${reason}` : ''}`;
     throw new OtlpPushError(
       `${statusText}${detail ? ` (${detail})` : ''}; ${statusHint(response.status)}`,
     );
@@ -336,7 +472,9 @@ async function postBatch(
 
 /**
  * POSTs the export lines to `<endpoint>/v1/traces` or `/v1/metrics`, batched and in order.
- * Stops at the first failed request; the error says how much was sent before it.
+ * A 429, 502, 503 or 504 is retried after its `Retry-After`, else after a delay that doubles
+ * each time, for up to `MAX_ATTEMPTS` attempts. Stops at the first failed request; the error
+ * says how much was sent before it.
  */
 export async function pushOtlp(
   endpoint: URL,
@@ -348,6 +486,7 @@ export async function pushOtlp(
     fetchImpl: deps.fetchImpl ?? fetch,
     otlpTimeoutMs: deps.otlpTimeoutMs ?? OTLP_TIMEOUT_MS,
     otlpMaxBatchBytes: deps.otlpMaxBatchBytes ?? OTLP_MAX_BATCH_BYTES,
+    otlpRetryDelayMs: deps.otlpRetryDelayMs ?? OTLP_RETRY_DELAY_MS,
   };
   const url = signalUrl(endpoint, signal.kind);
   const unit = signal.kind === 'traces' ? 'spans' : 'points';
@@ -376,7 +515,7 @@ export async function pushOtlp(
       );
     }
 
-    const partial = await readPartialSuccess(response, signal.kind);
+    const partial = await readPartialSuccess(response, signal.kind, headers);
     result.items += batch.items;
     result.batches += 1;
     result.rejected += partial.rejected;

@@ -101,12 +101,11 @@ describe('buildEfficiencyReport', () => {
     ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
-  it('builds markdown report when --markdown is enabled', async () => {
+  it('prints the same no-usage line in markdown as in the terminal', async () => {
     const repoDir = await createGitRepoWithCommit('2026-02-14T10:00:00Z');
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-markdown-sessions-'));
     tempDirs.push(emptyDir);
-
-    const report = await buildEfficiencyReport('monthly', {
+    const options = {
       piDir: emptyDir,
       codexDir: emptyDir,
       source: 'pi,codex',
@@ -114,11 +113,13 @@ describe('buildEfficiencyReport', () => {
       since: '2026-02-14',
       until: '2026-02-14',
       repoDir,
-      markdown: true,
-    });
+    };
 
-    expect(report).toContain('| Period');
-    expect(report).toContain('| ALL');
+    const markdown = await buildEfficiencyReport('monthly', { ...options, markdown: true });
+    const terminal = await buildEfficiencyReport('monthly', options);
+
+    expect(markdown).not.toContain('| ALL');
+    expect(terminal.split('\n').at(-1)).toBe(markdown);
   });
 });
 

@@ -78,13 +78,17 @@ The file shows project folder names, never full paths, and never session IDs; a 
 llm-usage monthly --share --redact
 ```
 
-`--redact` writes `project-1`, `project-2`, … and `machine-1`, … into the file instead, numbered by tokens, most first. `(unattributed)` and `local` stay as they are. Use it before you send the file to someone. **Hide names** in the page is different: it only changes the screen and exported images, and the file, including a saved view, still holds the real names.
+`--redact` writes `project-1`, `project-2`, … and `machine-1`, … into the file instead, numbered by tokens, most first. `(unattributed)` and `local` stay as they are. A model whose name holds a path, or that LiteLLM does not list (a local or custom model, even one your pricing overrides price), becomes `model-1`, `model-2`, … the same way; models LiteLLM lists keep their names. The `stderr` lines use the same stand-ins and print every path as `<path>`, except the line that names the file written. Use it before you send the file to someone.
+
+`--redact` keeps the time zone and the exact start and end time of each session, since the page needs them to place usage by hour and day. Together they tell a reader roughly where you are and when you work. **Hide names** in the page is different: it only changes the screen and exported images, and the file, including a saved view, still holds the real names.
 
 `--no-cost` leaves every cost out of the file, so the page shows tokens only:
 
 ```bash
 llm-usage weekly --share --no-cost
 ```
+
+The file is readable by you only (mode `0600` on Linux and macOS). A rerun replaces it, and a symlink at its name is replaced, not written through.
 
 The file loads nothing from the network: the data, styles, and script are inside it, and its Content Security Policy blocks every other request. It needs no server; open it from disk or attach it to a message.
 

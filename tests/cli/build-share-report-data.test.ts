@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  buildShareReport,
   buildShareReportData,
   type ShareReportRequest,
 } from '../../src/cli/build-share-report-data.js';
@@ -330,19 +331,132 @@ describe('buildShareReportData', () => {
       ]);
     });
 
-    it('names a file-URI model by its basename, with or without --redact', async () => {
+    it('names a file-URI model by its basename, and model-N with --redact', async () => {
       const model = 'file:///opt/review-alice/models/private.gguf';
       const events = [usage({ model })];
 
-      for (const redact of [false, true]) {
+      for (const [redact, label] of [
+        [false, 'private.gguf'],
+        [true, 'model-1'],
+      ] as const) {
         const data = await buildShareReportData(
           request({ options: { timezone: 'UTC', pricingOffline: true, redact } }),
           deps(events),
         );
 
-        expect(data.dictionaries.models).toEqual(['private.gguf']);
+        expect(data.dictionaries.models).toEqual([label]);
         expect(JSON.stringify(data)).not.toContain('review-alice');
       }
+    });
+
+    it('with --redact, names models LiteLLM does not list or that hold a path model-N', async () => {
+      const events = [
+        usage({ sessionId: 'listed', model: 'claude-sonnet-4-5' }),
+        usage({ sessionId: 'local', model: 'acme-llama', inputTokens: 5_000 }),
+        usage({ sessionId: 'path', model: 'hf:/home/alice/claude-haiku-4-5' }),
+      ];
+
+      for (const cost of [true, false]) {
+        const data = await buildShareReportData(
+          request({
+            options: {
+              timezone: 'UTC',
+              pricingOffline: true,
+              redact: true,
+              cost,
+              model: ['acme', 'sonnet', 'haiku'],
+            },
+            envelope: {
+              report: 'compare',
+              data: { note: 'acme-llama beat claude-haiku-4-5', model: 'acme-llama' },
+            },
+          }),
+          deps(events),
+        );
+        const json = JSON.stringify(data);
+
+        // Most tokens first: acme-llama has the largest inputs.
+        expect(data.dictionaries.models).toEqual(['claude-sonnet-4-5', 'model-1', 'model-2']);
+        // Filters are name fragments, which LiteLLM does not list.
+        expect(data.meta.filters.models).toEqual(['model-3', 'model-4', 'model-5']);
+        expect(data.envelope?.data).toEqual({
+          note: 'model-1 beat model-2',
+          model: 'model-1',
+        });
+        expect(json).not.toContain('acme');
+        expect(json).not.toContain('alice');
+        expect(json).not.toContain('haiku');
+      }
+    });
+
+    it('with --redact, hides in stderr lines what the file hides', async () => {
+      const events = [
+        usage({ model: 'acme-llama', repoRoot: '/srv/acme-app', machine: 'acme-box' }),
+      ];
+      const line =
+        '~ marks costs that leave out 1 event (models: acme-llama) in /srv/acme-app/src on acme-box; config /etc/acme.toml, ~/acme';
+
+      const plain = await buildShareReport(request(), deps(events));
+      const { scrubLog } = await buildShareReport(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true } }),
+        deps(events),
+      );
+
+      expect(plain.scrubLog).toBeUndefined();
+      expect(scrubLog?.(line)).toBe(
+        '~ marks costs that leave out 1 event (models: model-1) in project-1/src on machine-1; config <path>, <path>',
+      );
+      const slashModel = await buildShareReport(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true } }),
+        deps([usage({ model: 'acme</b>llama' })]),
+      );
+      expect(slashModel.scrubLog?.('(models: acme</b>llama)')).toBe('(models: model-1)');
+      const pathModel = await buildShareReport(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true } }),
+        deps([usage({ model: '/opt/alice/acme-llama' })]),
+      );
+      expect(pathModel.scrubLog?.('(models: /opt/alice/acme-llama)')).toBe('(models: model-1)');
+      expect(scrubLog?.('/srv/acme-x is not a git repository')).toBe(
+        '<path> is not a git repository',
+      );
+    });
+
+    it('with --redact, hides whole in stderr the input paths it was given, spaces and all', async () => {
+      const { scrubLog } = await buildShareReport(
+        request({
+          options: {
+            timezone: 'UTC',
+            pricingOffline: true,
+            redact: true,
+            claudeDir: '/srv/public acme-logs',
+            sourceDir: ['codex=/srv/public acme-codex'],
+          },
+          inputPaths: ['/srv/public acme-repo'],
+        }),
+        deps([usage({})]),
+      );
+
+      expect(
+        scrubLog?.(
+          '/srv/public acme-repo is not a git repository; read /srv/public acme-logs and /srv/public acme-codex',
+        ),
+      ).toBe('<path> is not a git repository; read <path> and <path>');
+    });
+
+    it('with --redact, names every model model-N when prices do not load, and hides the path why', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const data = await buildShareReportData(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true, cost: false } }),
+        deps([usage({ model: 'claude-sonnet-4-5' })], {
+          resolvePricingSource: () =>
+            Promise.reject(new Error('no cache at /srv/alice-cache/pricing.json')),
+        }),
+      );
+
+      expect(data.dictionaries.models).toEqual(['model-1']);
+      expect(error.mock.calls.map((call) => String(call[0]))).toEqual([
+        expect.stringContaining('so it labels every model model-N: no cache at <path>'),
+      ]);
     });
 
     it('labels the envelope’s models as the dictionary labels them', async () => {
