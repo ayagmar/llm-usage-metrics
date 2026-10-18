@@ -10,6 +10,7 @@ import {
   readFileEvents as readDefaultEventStoreFileEvents,
   replaceFilesEvents as replaceDefaultFilesEvents,
   type EventStore,
+  type EventStoreFileEntry,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
 import type { SourceAdapter, SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
@@ -17,8 +18,9 @@ import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
   claimFilesInUsualLocations,
   isStoredFileCurrent,
+  parseStoredFileFingerprint,
   readParsedFileFromEventStore,
-  readStoredFileFingerprint,
+  readStoredFileEntry,
   recordEventStoreFailure,
   writeParsedFilesToEventStore,
   type EventStoreFailureState,
@@ -351,6 +353,7 @@ export async function parseAdapterEvents(
   function canSkipOutsideWindow(
     filePath: string,
     fileFingerprint: EventStoreFileFingerprint | undefined,
+    storedEntry: EventStoreFileEntry | undefined,
   ): boolean {
     if (!fileFingerprint || !isBeforeWindow(fileFingerprint)) {
       return false;
@@ -364,22 +367,28 @@ export async function parseAdapterEvents(
       source: adapter.id,
       filePath,
       fingerprint: fileFingerprint,
+      storedEntry,
     });
   }
 
   async function lookUpFile(filePath: string): Promise<FileLookup> {
     const storeEnabled = eventStore !== undefined && !eventStore.failureState.disabled;
-    // Only a source whose dependency list follows its file can confirm the stored one.
-    const previousFingerprint =
+    // Only a source whose dependency list follows its file can confirm the stored
+    // fingerprint; its entry is read once, here.
+    const storedEntry =
       storeEnabled && adapter.capabilities?.dependenciesFollowFile === true
-        ? readStoredFileFingerprint(eventStore, { source: adapter.id, filePath })
+        ? readStoredFileEntry(eventStore, { source: adapter.id, filePath })
         : undefined;
     const fileFingerprint =
       storeEnabled || skipCutoffMs !== undefined
-        ? await getEventStoreFileFingerprint(adapter, filePath, previousFingerprint)
+        ? await getEventStoreFileFingerprint(
+            adapter,
+            filePath,
+            parseStoredFileFingerprint(storedEntry),
+          )
         : undefined;
 
-    if (canSkipOutsideWindow(filePath, fileFingerprint)) {
+    if (canSkipOutsideWindow(filePath, fileFingerprint, storedEntry)) {
       return { kind: 'skipped' };
     }
 
@@ -389,6 +398,7 @@ export async function parseAdapterEvents(
         filePath,
         fingerprint: fileFingerprint,
         runtimeProfile,
+        storedEntry,
       });
 
       if (diagnostics) {
