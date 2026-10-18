@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS file_read_cursors (
 export type EventStoreAppend = {
   /** The stored fingerprint the cursor belonged to; another one skips the write. */
   expectedFingerprint: string;
+  /**
+   * The stored cursor the read resumed from; another one skips the write. A whole read
+   * can store the same fingerprint with rows past that cursor, when the file grew during it.
+   */
+  expectedCursor: ReadCursor;
   replaced: ReplacedEventCounts;
 };
 
@@ -91,7 +96,13 @@ function deleteLastRowsSql(table: string): string {
 export function prepareAppendStatements(database: EventStoreDatabase): AppendStatements {
   return {
     selectFile: database.prepare(
-      'SELECT id, fingerprint FROM files WHERE source = ? AND file_path = ?',
+      [
+        'SELECT file.id AS id, file.fingerprint AS fingerprint, cursor.cursor AS cursor',
+        'FROM files AS file',
+        'LEFT JOIN file_read_cursors AS cursor',
+        '  ON cursor.file_id = file.id AND cursor.fingerprint = file.fingerprint',
+        'WHERE file.source = ? AND file.file_path = ?',
+      ].join('\n'),
     ),
     deleteLastEvents: database.prepare(deleteLastRowsSql('events')),
     deleteLastToolCalls: database.prepare(deleteLastRowsSql('tool_calls')),
@@ -114,7 +125,7 @@ export function prepareAppendStatements(database: EventStoreDatabase): AppendSta
 /**
  * The id of the file a resumed read continues, with the rows it replaces deleted, and
  * where its rows start; undefined, with nothing deleted, when another run stored another
- * version of the file since. Call inside a write transaction.
+ * version of the file or another cursor since. Call inside a write transaction.
  */
 export function prepareFileAppend(
   statements: AppendStatements,
@@ -124,7 +135,11 @@ export function prepareFileAppend(
   const row = statements.selectFile.get(file.source, file.filePath);
   const fileId = toNonNegativeInteger(row?.id);
 
-  if (fileId === undefined || row?.fingerprint !== append.expectedFingerprint) {
+  if (
+    fileId === undefined ||
+    row?.fingerprint !== append.expectedFingerprint ||
+    row.cursor !== JSON.stringify(append.expectedCursor)
+  ) {
     return undefined;
   }
 

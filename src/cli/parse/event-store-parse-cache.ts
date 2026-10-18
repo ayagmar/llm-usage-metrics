@@ -222,30 +222,32 @@ export type StoredResumePoint = ParseFileDiagnostics & {
 };
 
 /**
- * Whether only the file itself changed since `storedFingerprint`: the same parser
- * version, stored kinds and dependencies. A changed dependency (a fork's parent) can
- * change how the lines before the cursor parse, so it needs a whole read.
+ * Whether only the file itself changed since the stored version, and only by growing: the
+ * same parser version, stored kinds and dependencies, and a larger file. A changed
+ * dependency (a fork's parent) can change how the lines before the cursor parse, and a
+ * file of the same size was rewritten, so either needs a whole read.
  */
-function isOnlyFileChanged(
-  storedFingerprint: string,
+function isOnlyFileGrown(
+  storedEntry: EventStoreFileEntry,
   fingerprint: EventStoreFileFingerprint,
 ): boolean {
   const [file, ...dependencies] = fingerprint.dependencies;
-  const storedDependencies: unknown = asRecord(JSON.parse(storedFingerprint))?.dependencies;
   // The serialized list is sorted by path, so the file is not always first.
-  const storedFile = Array.isArray(storedDependencies)
-    ? storedDependencies.map(asRecord).find((dependency) => dependency?.path === file.path)
-    : undefined;
+  const storedFile = parseStoredFileFingerprint(storedEntry)?.dependencies.find(
+    (dependency) => dependency.path === file.path,
+  );
   const size = storedFile?.size;
   const mtimeMs = storedFile?.mtimeMs;
 
   return (
-    typeof size === 'number' &&
-    typeof mtimeMs === 'number' &&
+    size !== undefined &&
+    mtimeMs !== undefined &&
+    file.size !== undefined &&
+    size < file.size &&
     serializeEventStoreFingerprint({
       ...fingerprint,
       dependencies: [{ ...file, size, mtimeMs }, ...dependencies],
-    }) === storedFingerprint
+    }) === storedEntry.fingerprint
   );
 }
 
@@ -269,26 +271,35 @@ export function readFileGrowth(
   }
 
   try {
-    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+    // One read snapshot: a version another run commits meanwhile cannot pair this
+    // version's cursor with its events.
+    context.store.database.exec('BEGIN');
 
-    if (!storedEntry || !isOnlyFileChanged(storedEntry.fingerprint, params.fingerprint)) {
-      return undefined;
+    try {
+      const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+
+      if (!storedEntry || !isOnlyFileGrown(storedEntry, params.fingerprint)) {
+        return undefined;
+      }
+
+      const cursor = context.getFileReadCursor(context.store, params.source, params.filePath);
+      const events =
+        cursor && context.readFileEvents(context.store, params.source, params.filePath);
+
+      return cursor && events
+        ? {
+            resumePoint: {
+              cursor,
+              storedFingerprint: storedEntry.fingerprint,
+              events,
+              skippedRows: storedEntry.skippedRows,
+              skippedRowReasons: storedEntry.skippedRowReasons,
+            },
+          }
+        : {};
+    } finally {
+      context.store.database.exec('COMMIT');
     }
-
-    const cursor = context.getFileReadCursor(context.store, params.source, params.filePath);
-    const events = cursor && context.readFileEvents(context.store, params.source, params.filePath);
-
-    return cursor && events
-      ? {
-          resumePoint: {
-            cursor,
-            storedFingerprint: storedEntry.fingerprint,
-            events,
-            skippedRows: storedEntry.skippedRows,
-            skippedRowReasons: storedEntry.skippedRowReasons,
-          },
-        }
-      : {};
   } catch (error) {
     recordEventStoreFailure(context.failureState, error);
     return undefined;

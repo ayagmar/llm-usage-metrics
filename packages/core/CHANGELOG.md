@@ -16,7 +16,8 @@ First release. The parsers behind the `llm-usage-metrics` CLI, published on thei
   prices that depend on one request's prompt size can apply per event.
 - Dedup steps for events repeated across files, copied sessions and repeated tool calls.
 - A resumable JSONL read cursor, file fingerprints and parser versions, so a caller can
-  cache parsed files and tell when they go stale.
+  cache parsed files and tell when they go stale. The cursor hashes every byte it covers,
+  so a rewrite of them restarts the read.
 - SQLite sources (OpenCode, Goose, Antigravity) retry a busy database before their first
   event.
 - `./otel` (experimental): OpenTelemetry GenAI attributes for events, following

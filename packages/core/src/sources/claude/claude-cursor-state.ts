@@ -1,6 +1,11 @@
 import type { EventKind } from '../../domain/session-event.js';
 import type { ReplacedEventCounts } from '../../stream/cursor.js';
-import { isCount, isOptionalString, isReplacedEventCounts } from '../../stream/cursor-state.js';
+import {
+  getReadPlanKey,
+  isCount,
+  isOptionalString,
+  isReplacedEventCounts,
+} from '../../stream/cursor-state.js';
 import { asRecord } from '../../utils/as-record.js';
 
 // The state a Claude cursor carries (`readJsonlFromStatefulCursor`): what the parse of the
@@ -75,7 +80,7 @@ export function getClaudeReadPlanKey(plan: {
   raw: boolean;
   records: boolean;
 }): string {
-  return JSON.stringify([[...plan.kinds].sort(), plan.text, plan.raw, plan.records]);
+  return getReadPlanKey(plan.kinds, plan.text, plan.raw, plan.records);
 }
 
 function isUsage(value: unknown): value is ClaudeUsage {

@@ -1,10 +1,20 @@
-import { appendFile, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import {
+  appendFile,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
 import { PiSourceAdapter } from '@ayagmar/agent-sessions/sources/pi';
+import { QwenSourceAdapter } from '@ayagmar/agent-sessions/sources/qwen';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { parseSelectedAdapters } from '../../src/cli/build-usage-data-parsing.js';
@@ -12,14 +22,17 @@ import {
   closeEventStore,
   getFileReadCursor,
   openEventStore,
+  type EventStore,
   replaceFilesEvents,
   type ReplaceFileEventsInput,
 } from '../../src/persistence/event-store.js';
 import { writeClaudeForkSession } from '../helpers/fork-fixtures.js';
 
 const tempDirs: string[] = [];
+const tempStores: EventStore[] = [];
 
 afterEach(async () => {
+  tempStores.splice(0).forEach(closeEventStore);
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
 });
@@ -119,6 +132,24 @@ const PI_LINES = [
   piMessage(9, { role: 'toolResult', toolCallId: 'c2', isError: true }),
 ];
 
+function qwenAssistant(minute: number, outputTokens: number): string {
+  return JSON.stringify({
+    type: 'assistant',
+    sessionId: 'qwen-session',
+    timestamp: at(minute),
+    model: 'qwen3-coder',
+    usageMetadata: { promptTokenCount: 60, candidatesTokenCount: outputTokens },
+  });
+}
+
+const QWEN_LINES = [
+  JSON.stringify({ type: 'user', sessionId: 'qwen-session', timestamp: at(0) }),
+  qwenAssistant(1, 20),
+  '{"type":"assistant","usageMetadata":',
+  qwenAssistant(2, 30),
+  qwenAssistant(3, 40),
+];
+
 const STORED_TABLES = ['events', 'tool_calls', 'messages'] as const;
 
 /** Every stored row of the store's files, in index order, without row ids. */
@@ -164,7 +195,10 @@ async function readCursorOf(storePath: string, source: string, filePath: string)
 type Ingest = {
   storePath: string;
   writes: ReplaceFileEventsInput[];
-  run: () => Promise<void>;
+  /** The output tokens the run reports, and its warnings. */
+  run: (deps?: {
+    getFileReadCursor?: typeof getFileReadCursor;
+  }) => Promise<{ outputTokens: number; warnings: string[] }>;
 };
 
 function createIngest(adapter: SourceAdapter, storePath: string): Ingest {
@@ -177,11 +211,17 @@ function createIngest(adapter: SourceAdapter, storePath: string): Ingest {
   return {
     storePath,
     writes,
-    run: async () => {
-      await parseSelectedAdapters([adapter], 1, {
+    run: async (deps) => {
+      const result = await parseSelectedAdapters([adapter], 1, {
         eventStore: { enabled: true, path: storePath },
-        eventStoreDeps: { replaceFilesEvents: spy },
+        eventStoreDeps: { replaceFilesEvents: spy, ...deps },
       });
+      return {
+        outputTokens: result.successfulParseResults
+          .flatMap((parseResult) => parseResult.events)
+          .reduce((sum, event) => sum + event.outputTokens, 0),
+        warnings: result.warnings,
+      };
     },
   };
 }
@@ -191,6 +231,13 @@ async function dumpFreshStore(adapter: SourceAdapter, tempDir: string, name: str
   const fresh = createIngest(adapter, path.join(tempDir, `${name}.db`));
   await fresh.run();
   return dumpStore(fresh.storePath);
+}
+
+/** A second connection to the store, as another report running at the same time. */
+async function openOtherRun(storePath: string): Promise<EventStore> {
+  const store = await openEventStore(storePath);
+  tempStores.push(store);
+  return store;
 }
 
 async function setTime(filePath: string, seconds: number): Promise<void> {
@@ -345,6 +392,159 @@ describe('incremental ingest', () => {
     expect(ingest.writes.find((write) => write.filePath === forkPath)?.append).toBeUndefined();
     expect(await dumpStore(ingest.storePath)).toEqual(
       await dumpFreshStore(adapter, tempDir, 'fresh-fork'),
+    );
+  });
+  it('stores a growing qwen chat as a first run over each version would', async () => {
+    const tempDir = await createTempDir();
+    const projectsDir = path.join(tempDir, 'projects');
+    const filePath = path.join(projectsDir, 'demo', 'chats', 'chat.jsonl');
+    const adapter = new QwenSourceAdapter({ dir: projectsDir });
+
+    const ingest = await growLineByLine(adapter, tempDir, filePath, QWEN_LINES);
+
+    expect(ingest.writes.slice(2).every((write) => write.append !== undefined)).toBe(true);
+  });
+
+  it.each([
+    ['grows', true],
+    ['keeps its size', false],
+  ])(
+    'reads a file again in full when a line far from both ends of the read changes and it %s',
+    async (_label, grows) => {
+      const tempDir = await createTempDir();
+      const sessionsDir = path.join(tempDir, 'sessions');
+      const filePath = path.join(sessionsDir, 'work', 'session.jsonl');
+      const adapter = new PiSourceAdapter({ dir: sessionsDir });
+      const padding = JSON.stringify({ type: 'padding', data: 'x'.repeat(100_000) });
+      const ingest = await growLineByLine(adapter, tempDir, filePath, [
+        PI_LINES[0] ?? '',
+        padding,
+        piMessage(3, { role: 'assistant', usage: { input: 10, output: 1 } }),
+        padding,
+        piMessage(4, { role: 'assistant', usage: { input: 20, output: 1 } }),
+      ]);
+
+      const rewritten = (await readFile(filePath, 'utf8')).replace('"input":10', '"input":99');
+      const appended = grows
+        ? `${piMessage(5, { role: 'assistant', usage: { input: 30, output: 1 } })}\n`
+        : '';
+      await writeFile(filePath, `${rewritten}${appended}`);
+      await setTime(filePath, 1_700_001_000);
+      await ingest.run();
+
+      expect(ingest.writes.at(-1)?.append).toBeUndefined();
+      expect(await dumpStore(ingest.storePath)).toEqual(
+        await dumpFreshStore(adapter, tempDir, 'fresh-rewritten'),
+      );
+    },
+  );
+
+  it('reports a grown file once when another run stores it during the lookup', async () => {
+    const tempDir = await createTempDir();
+    const projectsDir = path.join(tempDir, 'projects');
+    const filePath = path.join(projectsDir, 'project-a', 'session-1.jsonl');
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const lines = [1, 2, 3].map((index) =>
+      claudeAssistant(`a${String(index)}`, index, String(index), [], 10),
+    );
+    const ingest = await growLineByLine(adapter, tempDir, filePath, lines.slice(0, 2));
+    await appendFile(filePath, `${lines[2] ?? ''}\n`);
+    await setTime(filePath, 1_700_001_000);
+
+    // The other run reads the same grown file and stores the appended line.
+    const otherStorePath = path.join(tempDir, 'other.db');
+    await copyFile(ingest.storePath, otherStorePath);
+    const other = createIngest(adapter, otherStorePath);
+    await other.run();
+    expect(other.writes[0]?.append).toBeDefined();
+    const otherRun = await openOtherRun(ingest.storePath);
+
+    // It commits to this run's store just after this run read the stored cursor.
+    const reported = await ingest.run({
+      getFileReadCursor: (store, source, readPath) => {
+        const cursor = getFileReadCursor(store, source, readPath);
+        replaceFilesEvents(otherRun, other.writes);
+        return cursor;
+      },
+    });
+
+    expect(reported.outputTokens).toBe(30);
+    expect(await dumpStore(ingest.storePath)).toEqual(
+      await dumpFreshStore(adapter, tempDir, 'fresh-raced'),
+    );
+  });
+
+  it('skips a resumed append when another run stored the same version past its cursor', async () => {
+    const tempDir = await createTempDir();
+    const projectsDir = path.join(tempDir, 'projects');
+    const filePath = path.join(projectsDir, 'project-a', 'session-1.jsonl');
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const lines = [1, 2, 3, 4, 5].map((index) =>
+      claudeAssistant(`a${String(index)}`, index, String(index), [], 10),
+    );
+    // Two runs: the first keeps no cursor, the second keeps one at two lines.
+    const ingest = await growLineByLine(adapter, tempDir, filePath, lines.slice(0, 2));
+    const atTwoLines = ingest.writes.at(-1);
+    expect(atTwoLines?.readCursor).toBeDefined();
+
+    // Another run took the file's stat at two lines, but its read reached the third: it
+    // stores three lines' rows under the two-line fingerprint, with no cursor.
+    await appendFile(filePath, `${lines[2] ?? ''}\n`);
+    const threeLines = createIngest(adapter, path.join(tempDir, 'three.db'));
+    await threeLines.run();
+    const threeLinesWrite = threeLines.writes.at(0);
+
+    if (!atTwoLines || !threeLinesWrite) {
+      throw new Error('both runs must store the file');
+    }
+
+    const staleWrite: ReplaceFileEventsInput = {
+      ...threeLinesWrite,
+      fingerprint: atTwoLines.fingerprint,
+      readCursor: undefined,
+    };
+    const otherRun = await openOtherRun(ingest.storePath);
+
+    // This run resumes from the two-line cursor; the other run commits meanwhile.
+    await appendFile(filePath, `${lines[3] ?? ''}\n`);
+    await setTime(filePath, 1_700_001_000);
+    await ingest.run({
+      getFileReadCursor: (store, source, readPath) => {
+        const cursor = getFileReadCursor(store, source, readPath);
+        replaceFilesEvents(otherRun, [staleWrite]);
+        return cursor;
+      },
+    });
+
+    await appendFile(filePath, `${lines[4] ?? ''}\n`);
+    await setTime(filePath, 1_700_002_000);
+    await ingest.run();
+    expect(await dumpStore(ingest.storePath)).toEqual(
+      await dumpFreshStore(adapter, tempDir, 'fresh-raced'),
+    );
+  });
+  it('reads a file again in full, store on, when its stored fingerprint does not parse', async () => {
+    const tempDir = await createTempDir();
+    const sessionsDir = path.join(tempDir, 'sessions');
+    const filePath = path.join(sessionsDir, 'work', 'session.jsonl');
+    const adapter = new PiSourceAdapter({ dir: sessionsDir });
+    const ingest = await growLineByLine(adapter, tempDir, filePath, PI_LINES.slice(0, 4));
+    const store = await openEventStore(ingest.storePath);
+
+    try {
+      store.database.prepare("UPDATE files SET fingerprint = '{'").run();
+    } finally {
+      closeEventStore(store);
+    }
+
+    await appendFile(filePath, `${PI_LINES[4] ?? ''}\n`);
+    await setTime(filePath, 1_700_001_000);
+    const { warnings } = await ingest.run();
+
+    expect(warnings).toEqual([]);
+    expect(ingest.writes.at(-1)?.append).toBeUndefined();
+    expect(await dumpStore(ingest.storePath)).toEqual(
+      await dumpFreshStore(adapter, tempDir, 'fresh-unparsed'),
     );
   });
 });

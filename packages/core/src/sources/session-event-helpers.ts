@@ -3,7 +3,8 @@ import {
   type EventKind,
   type SessionMetaFields,
 } from '../domain/session-event.js';
-import { ResumableIdSet } from '../stream/cursor-state.js';
+import type { ReplacedEventCounts } from '../stream/cursor.js';
+import { isOptionalString, ResumableIdSet } from '../stream/cursor-state.js';
 import { asRecord } from '../utils/as-record.js';
 import { recordSkippedRow } from './parse-diagnostics.js';
 import type { SourceAdapter, SourceReadDiagnostics } from './source-adapter.js';
@@ -230,6 +231,74 @@ export class ToolCallPairing<Call> {
     this.seenCallIds = seenCallIds;
     return true;
   }
+}
+
+/** A tool call waiting for its result, as claude and pi keep it in a cursor state. */
+export type PendingToolCall = {
+  sessionId: string;
+  timestamp: string;
+  toolCallId: string;
+  name: string;
+  messageId?: string;
+  /** The call's record, only when the read asked for `raw`. */
+  raw?: Record<string, unknown>;
+};
+
+/** A pending call from a cursor state, for `ToolCallPairing.restoreState`. */
+export function toPendingToolCall(
+  value: unknown,
+): { callId: string; call: PendingToolCall } | undefined {
+  const call = asRecord(value);
+  const raw = asRecord(call?.raw);
+
+  if (
+    !call ||
+    typeof call.sessionId !== 'string' ||
+    typeof call.timestamp !== 'string' ||
+    typeof call.toolCallId !== 'string' ||
+    typeof call.name !== 'string' ||
+    !isOptionalString(call.messageId) ||
+    (call.raw !== undefined && !raw)
+  ) {
+    return undefined;
+  }
+
+  return {
+    callId: call.toolCallId,
+    call: {
+      sessionId: call.sessionId,
+      timestamp: call.timestamp,
+      toolCallId: call.toolCallId,
+      name: call.name,
+      messageId: call.messageId,
+      raw,
+    },
+  };
+}
+
+/**
+ * Yields the events `finish` holds back to the end of the file: the tool calls never
+ * answered. Under a cursor, returns the state to resume from, taken before `finish`
+ * forgets those calls, and the calls the next read yields again; undefined when there is
+ * no state or `finish` counted a skipped row, which the next read would count again.
+ */
+export function* finishResumableSessionEvents<E>(
+  events: { toState(): unknown; finish(): Iterable<E> },
+  diagnostics: SourceReadDiagnostics,
+  resumable: boolean,
+): Generator<E, { state: unknown; replaced: ReplacedEventCounts } | undefined, undefined> {
+  const state = resumable ? events.toState() : undefined;
+  const skippedBeforeFinish = diagnostics.skippedRows;
+  let unansweredCalls = 0;
+
+  for (const event of events.finish()) {
+    unansweredCalls += 1;
+    yield event;
+  }
+
+  return state !== undefined && diagnostics.skippedRows === skippedBeforeFinish
+    ? { state, replaced: unansweredCalls > 0 ? { tool_call: unansweredCalls } : {} }
+    : undefined;
 }
 
 const SESSION_META_FIELDS = [

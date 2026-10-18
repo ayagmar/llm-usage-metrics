@@ -15,7 +15,8 @@ import {
   readJsonlFromStatefulCursor,
   ResumeConflict,
   type ReadResume,
-  type StatefulJsonlPass,
+  type ReplacedEventCounts,
+  type ResumablePass,
 } from '../../stream/cursor.js';
 import { decodeIdHashes, encodeIdHashes, ResumableIdSet } from '../../stream/cursor-state.js';
 import { asRecord } from '../../utils/as-record.js';
@@ -24,7 +25,6 @@ import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import {
   readClassifiedJsonlObjectBatches,
   readJsonlObjectBatches,
-  type JsonlReadPosition,
 } from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
@@ -46,7 +46,11 @@ import {
 } from './claude-session-events.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
-import { recordMalformedLine, resolveReadKinds } from '../session-event-helpers.js';
+import {
+  finishResumableSessionEvents,
+  recordMalformedLine,
+  resolveReadKinds,
+} from '../session-event-helpers.js';
 import type {
   ReadEventsOptions,
   SourceAdapter,
@@ -96,14 +100,6 @@ type ClaudeReadPlan = {
 };
 
 const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
-
-/** A read under a cursor: where it starts, and the state it resumes from. */
-type ClaudeResumablePass = {
-  position: JsonlReadPosition;
-  from?: ClaudeCursorState;
-  /** Receives the state to resume from next, or undefined when the next read restarts. */
-  end: (state: ClaudeCursorState | undefined) => void;
-};
 
 /** Options for `ClaudeSourceAdapter`. */
 export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> & {
@@ -513,61 +509,32 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     resume: ReadResume,
   ): AsyncGenerator<UsageEvent | SessionEvent> {
     const planKey = getClaudeReadPlanKey(plan);
-    const pass = (
-      position: JsonlReadPosition,
-      diagnostics: SourceReadDiagnostics,
-      from?: ClaudeCursorState,
-    ): StatefulJsonlPass<UsageEvent | SessionEvent> => {
-      let endState: ClaudeCursorState | undefined;
-      const events = this.parse(
-        filePath,
-        { ...plan, diagnostics },
-        {
-          position,
-          from,
-          end: (state) => {
-            endState = state;
-          },
-        },
-      );
-
-      return { events, state: () => endState };
-    };
 
     return readJsonlFromStatefulCursor(this, filePath, resume, plan.diagnostics, {
-      start: (position, diagnostics) => pass(position, diagnostics),
-      restore: (value) => {
-        const from = parseClaudeCursorState(value, planKey);
-
-        return from
-          ? {
-              replaced: from.replaced,
-              resume: (position, diagnostics) => pass(position, diagnostics, from),
-            }
-          : undefined;
-      },
+      parseState: (value) => parseClaudeCursorState(value, planKey),
+      parse: (pass, diagnostics) => this.parse(filePath, { ...plan, diagnostics }, pass),
     });
   }
 
   private parse(
     filePath: string,
     plan: ClaudeReadPlan & { records: false },
-    resumable?: ClaudeResumablePass,
+    resumable?: ResumablePass<ClaudeCursorState>,
   ): AsyncGenerator<UsageEvent>;
   private parse(
     filePath: string,
     plan: ClaudeReadPlan & { records: true },
-    resumable?: ClaudeResumablePass,
+    resumable?: ResumablePass<ClaudeCursorState>,
   ): AsyncGenerator<SessionEvent>;
   private parse(
     filePath: string,
     plan: ClaudeReadPlan & { records: boolean },
-    resumable?: ClaudeResumablePass,
+    resumable?: ResumablePass<ClaudeCursorState>,
   ): AsyncGenerator<UsageEvent | SessionEvent>;
   private async *parse(
     filePath: string,
     plan: ClaudeReadPlan & { records: boolean },
-    resumable?: ClaudeResumablePass,
+    resumable?: ResumablePass<ClaudeCursorState>,
   ): AsyncGenerator<UsageEvent | SessionEvent> {
     const { kinds, diagnostics } = plan;
     const readsUsage = kinds.has('usage');
@@ -605,7 +572,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       }
 
       yield* usageRows.flush(resumable !== undefined);
-      resumable?.end(toCursorState(plan, usageRows, undefined, 0));
+      resumable?.end(toCursorState(plan, usageRows, undefined, {}));
       return;
     }
 
@@ -642,29 +609,18 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       }
     }
 
-    // Taken before `finish`, which yields the calls still waiting and then forgets them.
-    const sessionState = resumable ? sessionEvents.toState() : undefined;
-    const skippedBeforeFinish = diagnostics.skippedRows;
-    let unansweredCalls = 0;
-
     // Unanswered tool calls come before the usage, which is sorted at the end of the file.
-    for (const event of sessionEvents.finish()) {
-      unansweredCalls += 1;
-      yield event;
-    }
-
-    // A row counted at the end would be counted again by the next read.
-    const finishedCleanly = diagnostics.skippedRows === skippedBeforeFinish;
+    const end = yield* finishResumableSessionEvents(
+      sessionEvents,
+      diagnostics,
+      resumable !== undefined,
+    );
 
     if (readsUsage) {
       yield* usageRows.flush(resumable !== undefined);
     }
 
-    resumable?.end(
-      sessionState && finishedCleanly
-        ? toCursorState(plan, usageRows, sessionState, unansweredCalls)
-        : undefined,
-    );
+    resumable?.end(end && toCursorState(plan, usageRows, end.state, end.replaced));
   }
 }
 
@@ -673,7 +629,7 @@ function toCursorState(
   plan: ClaudeReadPlan & { records: boolean },
   usageRows: ClaudeUsageRows,
   session: unknown,
-  unansweredCalls: number,
+  replacedSessionEvents: ReplacedEventCounts,
 ): ClaudeCursorState | undefined {
   const usage = usageRows.toState();
 
@@ -685,7 +641,7 @@ function toCursorState(
     plan: getClaudeReadPlanKey(plan),
     replaced: {
       ...(usage.openCount > 0 && { usage: usage.openCount }),
-      ...(unansweredCalls > 0 && { tool_call: unansweredCalls }),
+      ...replacedSessionEvents,
     },
     usage: usage.state,
     ...(session !== undefined && { session }),

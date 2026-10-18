@@ -372,11 +372,10 @@ function createFakeSqliteModule(
 
 const readCursor = {
   format: 'jsonl' as const,
-  version: 1 as const,
+  version: 2 as const,
   parser: 'codex@1',
   offset: 10,
-  headHash: 'a'.repeat(64),
-  tailHash: 'b'.repeat(64),
+  prefixHash: 'a'.repeat(64),
 };
 
 async function createTempStore(name: string): Promise<EventStore> {
@@ -495,18 +494,19 @@ describe('event-store', () => {
     const grown = createFingerprint([
       { path: '/tmp/session.jsonl', exists: true, size: 30, mtimeMs: 40 },
     ]);
-    const writeGrown = (fingerprint: EventStoreFileFingerprint): void => {
+    const writeGrown = (fingerprint: EventStoreFileFingerprint, inputTokens = 9): void => {
       replaceFilesEvents(store, [
         {
           source: 'codex',
           filePath: '/tmp/session.jsonl',
           fingerprint: grown,
-          events: [createEvent({ inputTokens: 9 })],
+          events: [createEvent({ inputTokens })],
           skippedRows: 0,
           now: 2_000,
           readCursor: { ...readCursor, offset: 30 },
           append: {
             expectedFingerprint: serializeEventStoreFingerprint(fingerprint),
+            expectedCursor: readCursor,
             replaced: { usage: 1 },
           },
         },
@@ -534,6 +534,10 @@ describe('event-store', () => {
 
       // A second run resuming from the same stored version finds it gone and writes nothing.
       writeGrown(first);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
+
+      // Nor does one resuming from an older cursor of a version stored with that fingerprint.
+      writeGrown(grown, 7);
       expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
 
       // A write without a cursor leaves the next read nothing to resume from.

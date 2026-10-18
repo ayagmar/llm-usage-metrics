@@ -327,6 +327,7 @@ export async function parseAdapterEvents(
           resumedReplacing && {
             append: {
               expectedFingerprint: resumePoint.storedFingerprint,
+              expectedCursor: resumePoint.cursor,
               replaced: resumedReplacing,
             },
           }),

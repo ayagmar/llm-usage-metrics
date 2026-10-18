@@ -222,12 +222,11 @@ for await (const event of qwen.read(filePath, {
 - `replaced` counts, per event kind, how many of the last events the previous read yielded this read yields again (claude and pi: usage a later row can still change, tool calls still waiting for a result). Drop them before appending.
 - `onCursor` fires once, when the read completes. A read you break out of, or that throws, does not call it: keep the cursor you had. `partialLine: true` says the file ends in a line without a line feed, which the read left out.
 - Per kind, the kept events followed by the resumed read's equal a full read; the interleaving across kinds can differ.
-- A cursor is valid when its `parser` matches the adapter's (`<source>@<getParserVersion>`), the file is at least `offset` bytes long, and the sha256 of the first 64 KiB and of the 64 KiB ending at `offset` both match. Anything else restarts.
+- A cursor is valid when its `parser` matches the adapter's (`<source>@<getParserVersion>`), the file is at least `offset` bytes long, and the sha256 of its first `offset` bytes matches `prefixHash`. Anything else restarts, so any change to the bytes the cursor covers reads the file again. Checking it reads those bytes once, without parsing them, and the resumed read extends the same hash.
 - `offset` is the end of the last line-feed-terminated line. A final line without a line feed is not parsed, yielded or counted under `resume`; the next read sees it whole once its line feed arrives.
 - `readEvents` forwards `resume` too, and honours it only when the read includes usage.
-- Stores are assumed append-only. A rewrite that keeps the file's size and changes only bytes between the two hashed windows passes validation, and the resumed read misses it.
 
-The cursor is plain JSON, so it can be stored as is. claude and pi keep their parse state in `JsonlReadCursor.state`; treat it as opaque.
+The cursor is plain JSON, so it can be stored as is. claude and pi keep their parse state in `JsonlReadCursor.state`; treat it as opaque. After a read with `raw: true`, that state holds the raw lines of the events and tool calls still open at `offset`, message text included, so store it as you store raw records.
 
 ## Per-request usage
 

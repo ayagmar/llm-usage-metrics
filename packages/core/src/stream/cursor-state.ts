@@ -1,3 +1,4 @@
+import type { EventKind } from '../domain/session-event.js';
 import { asRecord } from '../utils/as-record.js';
 import { ResumeConflict, type ReplacedEventCounts } from './cursor.js';
 
@@ -113,4 +114,12 @@ export function isCount(value: unknown): value is number {
 export function isReplacedEventCounts(value: unknown): value is ReplacedEventCounts {
   const counts = asRecord(value);
   return counts !== undefined && Object.values(counts).every(isCount);
+}
+
+/**
+ * The read's options as a cursor state records them: the kinds, then each option that
+ * changes what the parse keeps. A cursor from a read with another key restarts.
+ */
+export function getReadPlanKey(kinds: ReadonlySet<EventKind>, ...options: boolean[]): string {
+  return JSON.stringify([[...kinds].sort(), ...options]);
 }

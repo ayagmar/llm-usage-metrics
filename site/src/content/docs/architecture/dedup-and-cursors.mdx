@@ -43,31 +43,30 @@ The CLI's event store decides per file whether stored events are still valid. `g
 - the parser version, `n<normalization version>.p<adapter parserVersion>`, for example `n2.p4`;
 - the path, existence, size, and modification time of the file and of every file the adapter returns from `getParseDependencies(filePath)` (sidecar files, a fork's parent transcript). A missing dependency is recorded as `exists: false`.
 
-The serialized fingerprint must match the stored string exactly. Any change, in the file, in a dependency, or in either version number, re-reads the whole file and replaces its stored events. The one exception is a claude or pi file whose size or modification time alone changed: the store resumes it from its cursor, below, once a run has seen it grow and stored one. This is why an adapter's events must depend only on its file, its declared dependencies, and its `parserVersion`: anything else would leave stored events stale with no fingerprint change. Bumping `parserVersion` re-reads every file of that source on the next run.
+The serialized fingerprint must match the stored string exactly. Any change, in the file, in a dependency, or in either version number, re-reads the whole file and replaces its stored events. The one exception is a claude, pi or qwen file that only grew: the store resumes it from its cursor, below, once a run has seen it grow and stored one. This is why an adapter's events must depend only on its file, its declared dependencies, and its `parserVersion`: anything else would leave stored events stale with no fingerprint change. Bumping `parserVersion` re-reads every file of that source on the next run.
 
 An adapter that declares `capabilities.dependenciesFollowFile` (Codex) has dependency paths that change only with its file or those paths. For its files the CLI passes the stored fingerprint to `getFileFingerprint`, which re-checks the file and the stored dependencies by `stat` and skips `getParseDependencies` while all of them still exist and match, so a warm run does not open every Codex file to look for a fork's parent. A dependency stored as missing never confirms: Codex declares a fork whose parent it did not find by such a path, so the next run looks for the parent again.
 
 ### Append-only cursors
 
-The core package can resume a JSONL read where it stopped. The claude, pi and qwen adapters declare `capabilities.incremental`. The CLI resumes claude and pi files; see [Event store](/llm-usage-metrics/architecture/event-store/#incremental-ingest).
+The core package can resume a JSONL read where it stopped. The claude, pi and qwen adapters declare `capabilities.incremental`. The CLI resumes claude, pi and qwen files; see [Event store](/llm-usage-metrics/architecture/event-store/#incremental-ingest).
 
 A `JsonlReadCursor` records:
 
-| Field      | Meaning                                                                      |
-| ---------- | ---------------------------------------------------------------------------- |
-| `format`   | `'jsonl'`                                                                    |
-| `version`  | `1`                                                                          |
-| `parser`   | `<adapter id>@<parser version>`, for example `qwen@n2.p4`                     |
-| `offset`   | bytes consumed, up to the end of the last complete line                      |
-| `headHash` | SHA-256 of the first `min(offset, 64 KiB)` bytes                             |
-| `tailHash` | SHA-256 of the `min(offset, 64 KiB)` bytes that end at `offset`              |
-| `state`    | claude and pi: what their parse keeps for the lines after `offset`           |
+| Field        | Meaning                                                            |
+| ------------ | ------------------------------------------------------------------ |
+| `format`     | `'jsonl'`                                                          |
+| `version`    | `2`                                                                |
+| `parser`     | `<adapter id>@<parser version>`, for example `qwen@n2.p4`           |
+| `offset`     | bytes consumed, up to the end of the last complete line            |
+| `prefixHash` | SHA-256 of the first `offset` bytes                                |
+| `state`      | claude and pi: what their parse keeps for the lines after `offset` |
 
-Pass a cursor as `resume.from`; `resume.onCursor` receives the next one once the read completes (not when it is stopped early or throws). A resumed read starts at `offset` when the parser string matches, the file is at least `offset` bytes long, and both hashes match. Otherwise it reads from byte 0 and reports `restarted: true`, and the caller replaces the events it kept for that file. A last line without a line feed is not read until its line feed arrives; `onCursor` then reports `partialLine: true`.
+Pass a cursor as `resume.from`; `resume.onCursor` receives the next one once the read completes (not when it is stopped early or throws). A resumed read starts at `offset` when the parser string matches, the file is at least `offset` bytes long, and the prefix hash matches. Otherwise it reads from byte 0 and reports `restarted: true`, and the caller replaces the events it kept for that file. A last line without a line feed is not read until its line feed arrives; `onCursor` then reports `partialLine: true`.
 
 A claude or pi event can depend on lines before and after it: a later row of the same message replaces a usage event, a tool call waits for its result, and the session's model and directory carry forward. Their cursors carry that parse state in `state`, and a resumed read continues from it. The events a later line could still change stay open: a resumed read yields them again, and `onStart` reports per kind in `replaced` how many of the last events the previous read yielded they replace. Per kind, the kept events followed by the resumed ones equal a full read; the interleaving across kinds can differ. Earlier ids are kept as 32-bit hashes so the state stays small; when a resumed read meets an id whose hash it has already seen, it restarts from byte 0 rather than guess. So does a read from a cursor taken while the parse held rows it could not place yet, such as rows without a timestamp at the end of the file. `packages/core/tests/stream/stateful-cursor.property.test.ts` checks this at every line boundary of every claude and pi fixture.
 
-The check assumes files only grow. A same-size rewrite that changes only bytes between the two 64 KiB windows passes it. [Versioning and cursors](/llm-usage-metrics/library/contracts/) states the contract.
+Any change to the bytes before `offset` restarts the read. Checking the hash reads those bytes once without parsing them, and the resumed read keeps hashing the lines it reads, so the next cursor costs no second pass. [Versioning and cursors](/llm-usage-metrics/library/contracts/) states the contract.
 
 ## Related pages
 
