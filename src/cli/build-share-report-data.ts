@@ -23,7 +23,9 @@ import {
   buildRedactionMap,
   buildShareProjectLabels,
   createPathScrubber,
+  isPathShapedModel,
   KEPT_MACHINE_LABELS,
+  KEPT_MODEL_LABELS,
   KEPT_PROJECT_LABELS,
   toShareModelLabel,
 } from '../share-report/redact.js';
@@ -78,12 +80,15 @@ export type ShareReportRequest = {
 type ModeCosts = {
   costs: ShareEventCosts;
   unavailable: ShareCostMode[];
+  /** The prices loaded, if they were needed and loaded. */
+  pricingSource?: PricingSource;
 };
 
 /**
  * Each event's cost in every mode from one pricing load. The command's own run already failed
  * if its mode needed prices that did not load, so a failure here only drops the estimated
- * modes, with a warning.
+ * modes, with a warning. With --redact, prices load even under --no-cost, since they list the
+ * models the file may name.
  */
 async function priceEveryMode(
   events: UsageEvent[],
@@ -92,7 +97,10 @@ async function priceEveryMode(
   runtimeConfig: Parameters<typeof resolvePricingSource>[1],
   deps: BuildUsageDataDeps,
 ): Promise<ModeCosts> {
-  if (options.cost === false) {
+  const withCosts = options.cost !== false;
+  const redact = options.redact === true;
+
+  if (!withCosts && !redact) {
     return { costs: {}, unavailable: [] };
   }
 
@@ -100,16 +108,27 @@ async function priceEveryMode(
   let unavailable: ShareCostMode[] = [];
 
   // `estimated` looks up every priced event's model, so it decides for all three modes.
-  if (shouldLoadPricingSource(events, 'estimated')) {
+  if (
+    (redact && events.length > 0) ||
+    (withCosts && shouldLoadPricingSource(events, 'estimated'))
+  ) {
     try {
       const loadPricingSource = deps.resolvePricingSource ?? resolvePricingSource;
       pricingSource = (await loadPricingSource(options, runtimeConfig)).source;
     } catch (error) {
-      unavailable = ['estimated', 'both'];
+      const outcomes = [
+        ...(withCosts ? ['holds logged costs only'] : []),
+        ...(redact ? ['labels every model model-N'] : []),
+      ];
+      unavailable = withCosts ? ['estimated', 'both'] : [];
       logger.warn(
-        `Share report: pricing did not load, so it holds logged costs only: ${getErrorReason(error)}`,
+        `Share report: pricing did not load, so it ${outcomes.join(' and ')}: ${getErrorReason(error)}`,
       );
     }
+  }
+
+  if (!withCosts) {
+    return { costs: {}, unavailable, pricingSource };
   }
 
   const costs: ShareEventCosts = {};
@@ -124,7 +143,7 @@ async function priceEveryMode(
     );
   }
 
-  return { costs, unavailable };
+  return { costs, unavailable, pricingSource };
 }
 
 function pickCosts(costs: ShareEventCosts, keep: readonly boolean[]): ShareEventCosts {
@@ -184,10 +203,42 @@ function createRedactor(
 }
 
 /**
+ * Whether `--redact` hides a model: one whose name holds a path, or that LiteLLM does not list
+ * (a local or custom model, even one a pricing override prices). Without prices, every model.
+ */
+function createHiddenModelCheck(
+  pricingSource: PricingSource | undefined,
+): (model: string) => boolean {
+  const isListed = (model: string) => {
+    if (pricingSource === undefined) {
+      return false;
+    }
+
+    // An override keyed on the name itself prices it without a LiteLLM key (no `match`).
+    return pricingSource.explainModel
+      ? pricingSource.explainModel(model).match !== undefined
+      : pricingSource.getPricing(pricingSource.resolveModelAlias(model)) !== undefined;
+  };
+  const hidden = new Map<string, boolean>();
+
+  return (model) => {
+    let isHidden = hidden.get(model);
+
+    if (isHidden === undefined) {
+      isHidden = isPathShapedModel(model.trim().toLowerCase()) || !isListed(model);
+      hidden.set(model, isHidden);
+    }
+
+    return isHidden;
+  };
+}
+
+/**
  * The payload of a `--share` report: the command's window and filters read again (never
  * syncing other machines), priced in every cost mode from one pricing load, with blocks
  * placed as the `blocks` command places them. Labels never hold a path; with --redact,
- * projects and machines are `project-N` and `machine-N`.
+ * projects and machines are `project-N` and `machine-N`, and so are models whose name holds a
+ * path or that LiteLLM does not list (`model-N`).
  */
 export async function buildShareReportData(
   request: ShareReportRequest,
@@ -225,7 +276,7 @@ export async function buildShareReportData(
     dataset.options,
     getPerRequestSourceIds(dataset.adaptersToParse),
   );
-  const { costs, unavailable } = await measureRuntimeProfileStage(
+  const { costs, unavailable, pricingSource } = await measureRuntimeProfileStage(
     runtimeProfile,
     'share.pricing',
     () =>
@@ -277,6 +328,36 @@ export async function buildShareReportData(
     return redact ? redactProject(label) : label;
   };
   const machineLabel = (machine: string) => (redact ? redactMachine(machine) : machine);
+  const modelFilter = dataset.normalizedInputs.modelFilter ?? [];
+  const isHiddenModel = createHiddenModelCheck(pricingSource);
+  // Decided over every model the file can name first, so the stand-ins rank by tokens.
+  const hiddenModels = new Set(
+    [...allEvents.map((event) => event.model), ...modelFilter]
+      .filter((model) => model !== undefined && isHiddenModel(model))
+      .map(toShareModelLabel),
+  );
+  const redactModel = createRedactor(
+    new Map(
+      [
+        ...sumTokensBy(windowEvents, (event) => toShareModelLabel(event.model), hiddenModels),
+      ].filter(([label]) => hiddenModels.has(label)),
+    ),
+    'model',
+    KEPT_MODEL_LABELS,
+  );
+  const modelLabel = (model: string | undefined) => {
+    const label = toShareModelLabel(model);
+
+    if (!redact || KEPT_MODEL_LABELS.has(label)) {
+      return label;
+    }
+
+    if (model !== undefined && isHiddenModel(model)) {
+      hiddenModels.add(label);
+    }
+
+    return hiddenModels.has(label) ? redactModel(label) : label;
+  };
 
   const payload = measureRuntimeProfileStageSync(runtimeProfile, 'share.payload', () =>
     buildSharePayload({
@@ -286,6 +367,7 @@ export async function buildShareReportData(
       sourceOrder,
       projectLabel: (repoRoot) => projectLabelForKey(toProjectKey(repoRoot)),
       machineLabel,
+      modelLabel,
       blocks,
       blockEvents: allEvents,
       blockCosts: costs,
@@ -312,9 +394,7 @@ export async function buildShareReportData(
         dataset.normalizedInputs.providerFilter === undefined
           ? []
           : [dataset.normalizedInputs.providerFilter],
-      models: [
-        ...new Set((dataset.normalizedInputs.modelFilter ?? []).map(toShareModelLabel)),
-      ].sort(),
+      models: [...new Set(modelFilter.map(modelLabel))].sort(),
       machines: machineFilter.map(machineLabel).sort(),
       repo: dataset.normalizedInputs.repoFilter !== undefined,
     },
@@ -357,6 +437,10 @@ export async function buildShareReportData(
       names.set(label, redactProject(label));
     }
 
+    for (const label of hiddenModels) {
+      names.set(label, redactModel(label));
+    }
+
     for (const machine of [
       ...windowEvents.map((event) => event.machine ?? LOCAL_MACHINE_NAME),
       ...machineFilter,
@@ -376,6 +460,7 @@ export async function buildShareReportData(
             ? redactProject(label)
             : undefined,
       machineLabel,
+      modelLabel,
       scrub: createPathScrubber(pathReplacements),
       names,
     }),

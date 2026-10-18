@@ -616,6 +616,7 @@ const MAX_NAMED_UNPRICED_MODELS = 5;
 function describeUnpricedEvents(
   events: readonly UsageEvent[],
   costMode: PricingCostMode,
+  redact: boolean,
 ): string | undefined {
   const unpricedEvents = events.filter((event) => event.costUsd === undefined);
 
@@ -627,6 +628,11 @@ function describeUnpricedEvents(
 
   if (costMode === 'explicit') {
     return `~ marks costs that leave out ${eventCount} with no logged cost (--cost-mode explicit)`;
+  }
+
+  // With --redact, the models a share file names model-N stay unnamed here too.
+  if (redact) {
+    return `~ marks costs that leave out ${eventCount} with no known price`;
   }
 
   const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
@@ -679,7 +685,7 @@ function describeReestimatedExplicitZero(
 
 type PricingNotesInput = Pick<
   UsageEventDatasetPricingResult,
-  'pricingPolicy' | 'pricingStats' | 'costModeOption'
+  'pricingPolicy' | 'pricingStats' | 'costModeOption' | 'redact'
 >;
 
 /**
@@ -693,7 +699,11 @@ export function withPricingNotes(
   pricingResult: PricingNotesInput,
 ): string[] {
   const pricingNotes = [
-    describeUnpricedEvents(shownEvents, pricingResult.pricingPolicy.costMode),
+    describeUnpricedEvents(
+      shownEvents,
+      pricingResult.pricingPolicy.costMode,
+      pricingResult.redact === true,
+    ),
     describeReestimatedExplicitZero(shownEvents, pricingResult),
     describePriorityPricedEvents(shownEvents, pricingResult.pricingStats.priorityPriced),
   ].filter((note) => note !== undefined);

@@ -1,5 +1,5 @@
 import { toProjectKey } from '../aggregate/project-key.js';
-import { createNameReplacer, toShareModelLabel } from './redact.js';
+import { createNameReplacer } from './redact.js';
 import type { ShareEmbeddedEnvelope } from './types.js';
 
 /** Fields whose values are paths; they are dropped, never scrubbed. */
@@ -37,6 +37,8 @@ export type EnvelopeLabelMaps = {
   projectLabelForLabel: (label: string) => string | undefined;
   /** The share label of a machine name. */
   machineLabel: (name: string) => string;
+  /** The share label (redacted with --redact) of a model name. */
+  modelLabel: (model: string) => string;
   /** Removes paths from any other string (see `createPathScrubber`). */
   scrub: (value: string) => string;
   /**
@@ -89,11 +91,11 @@ function sanitizeProject(record: Record<string, unknown>, maps: SanitizeMaps): s
 
 function sanitizeModel(value: unknown, maps: SanitizeMaps): unknown {
   if (typeof value === 'string') {
-    return toShareModelLabel(value);
+    return maps.modelLabel(value);
   }
 
   if (isRecord(value) && typeof value.name === 'string') {
-    return { ...sanitizeRecord(value, maps), name: toShareModelLabel(value.name) };
+    return { ...sanitizeRecord(value, maps), name: maps.modelLabel(value.name) };
   }
 
   return sanitizeValue(value, maps);
@@ -113,7 +115,7 @@ function sanitizeRecord(
     if (key === 'project' && typeof value === 'string') {
       sanitized[key] = sanitizeProject(record, maps);
     } else if (MODEL_FIELDS.has(key) && typeof value === 'string') {
-      sanitized[key] = toShareModelLabel(value);
+      sanitized[key] = maps.modelLabel(value);
     } else if (MODEL_LIST_FIELDS.has(key) && Array.isArray(value)) {
       sanitized[key] = value.map((model) => sanitizeModel(model, maps));
     } else if (key === 'machine' && typeof value === 'string') {

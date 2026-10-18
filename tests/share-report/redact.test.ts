@@ -297,6 +297,7 @@ describe('sanitizeEmbeddedEnvelope', () => {
       key === '/home/u/work/app' ? 'project-1' : key === undefined ? '(unattributed)' : undefined,
     projectLabelForLabel: (label: string) => (label === 'work/app' ? 'project-1' : undefined),
     machineLabel: (name: string) => (name === 'local' ? name : 'machine-1'),
+    modelLabel: toShareModelLabel,
     scrub: createPathScrubber(new Map([['/home/u/work/app', 'project-1']])),
     names: new Map<string, string>(),
   };

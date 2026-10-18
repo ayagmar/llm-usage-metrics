@@ -227,6 +227,8 @@ export type PricedEventsResult = {
   pricingStats: PricingRunStats;
   /** The `--cost-mode` passed, if any; the explicit-$0 note shows only without it. */
   costModeOption?: PricingCostMode;
+  /** With `--redact`, the note on unpriced events names no model. */
+  redact?: boolean;
 };
 
 export async function resolveAndApplyPricingToEvents(
@@ -244,11 +246,13 @@ export async function resolveAndApplyPricingToEvents(
   let pricingOrigin: UsagePricingOrigin = 'none';
 
   const costModeOption = options.costMode;
+  const redact = options.redact;
 
   if (!shouldLoadPricingSourceForMode(loadDecisionEvents, pricingLoadMode, policy.costMode)) {
     return {
       pricedEvents: applyPolicyWithoutPricing(events, policy, pricingStats),
       costModeOption,
+      redact,
       pricingOrigin,
       pricingPolicy: policy,
       pricingStats,
@@ -272,6 +276,7 @@ export async function resolveAndApplyPricingToEvents(
     return {
       pricedEvents: applyPolicyWithoutPricing(events, policy, pricingStats),
       costModeOption,
+      redact,
       pricingOrigin,
       pricingWarning,
       pricingPolicy: policy,
@@ -287,6 +292,7 @@ export async function resolveAndApplyPricingToEvents(
       stats: pricingStats,
     }),
     costModeOption,
+    redact,
     pricingOrigin,
     pricingWarning: pricingResult.warning,
     pricingSource: pricingResult.source,

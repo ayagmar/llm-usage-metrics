@@ -18,19 +18,18 @@ function loggedZeroEvent(source: string) {
   });
 }
 
-async function priceEvents(events: ReturnType<typeof loggedZeroEvent>[]) {
-  return resolveAndApplyPricingToEvents(
-    events,
-    {},
-    {
-      loadPricingSource: async () => ({
-        source: new StaticPricingSource({
-          pricingByModel: { 'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 } },
-        }),
-        origin: 'cache',
+async function priceEvents(
+  events: ReturnType<typeof loggedZeroEvent>[],
+  options: { redact?: boolean } = {},
+) {
+  return resolveAndApplyPricingToEvents(events, options, {
+    loadPricingSource: async () => ({
+      source: new StaticPricingSource({
+        pricingByModel: { 'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 } },
       }),
-    },
-  );
+      origin: 'cache',
+    }),
+  });
 }
 
 describe('withPricingNotes logged $0 note', () => {
@@ -47,5 +46,30 @@ describe('withPricingNotes logged $0 note', () => {
       'dataset note',
       '3 events logged $0 by codex, pi were estimated from LiteLLM; use --cost-mode explicit to keep $0',
     ]);
+  });
+});
+
+describe('withPricingNotes unpriced note', () => {
+  const localModelEvent = createUsageEvent({
+    source: 'pi',
+    sessionId: 'local-session',
+    timestamp: '2026-02-16T10:00:00Z',
+    model: '/home/alice/models/acme-llama',
+    inputTokens: 100,
+    outputTokens: 50,
+  });
+
+  it('names the unpriced models, except with --redact', async () => {
+    for (const [redact, note] of [
+      [
+        false,
+        '~ marks costs that leave out 1 event with no known price (models: /home/alice/models/acme-llama)',
+      ],
+      [true, '~ marks costs that leave out 1 event with no known price'],
+    ] as const) {
+      const pricingResult = await priceEvents([localModelEvent], { redact });
+
+      expect(withPricingNotes([], pricingResult.pricedEvents, pricingResult)).toEqual([note]);
+    }
   });
 });

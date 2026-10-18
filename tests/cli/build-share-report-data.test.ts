@@ -330,19 +330,77 @@ describe('buildShareReportData', () => {
       ]);
     });
 
-    it('names a file-URI model by its basename, with or without --redact', async () => {
+    it('names a file-URI model by its basename, and model-N with --redact', async () => {
       const model = 'file:///opt/review-alice/models/private.gguf';
       const events = [usage({ model })];
 
-      for (const redact of [false, true]) {
+      for (const [redact, label] of [
+        [false, 'private.gguf'],
+        [true, 'model-1'],
+      ] as const) {
         const data = await buildShareReportData(
           request({ options: { timezone: 'UTC', pricingOffline: true, redact } }),
           deps(events),
         );
 
-        expect(data.dictionaries.models).toEqual(['private.gguf']);
+        expect(data.dictionaries.models).toEqual([label]);
         expect(JSON.stringify(data)).not.toContain('review-alice');
       }
+    });
+
+    it('with --redact, names models LiteLLM does not list or that hold a path model-N', async () => {
+      const events = [
+        usage({ sessionId: 'listed', model: 'claude-sonnet-4-5' }),
+        usage({ sessionId: 'local', model: 'acme-llama', inputTokens: 5_000 }),
+        usage({ sessionId: 'path', model: 'hf:/home/alice/claude-haiku-4-5' }),
+      ];
+
+      for (const cost of [true, false]) {
+        const data = await buildShareReportData(
+          request({
+            options: {
+              timezone: 'UTC',
+              pricingOffline: true,
+              redact: true,
+              cost,
+              model: ['acme', 'sonnet', 'haiku'],
+            },
+            envelope: {
+              report: 'compare',
+              data: { note: 'acme-llama beat claude-haiku-4-5', model: 'acme-llama' },
+            },
+          }),
+          deps(events),
+        );
+        const json = JSON.stringify(data);
+
+        // Most tokens first: acme-llama has the largest inputs.
+        expect(data.dictionaries.models).toEqual(['claude-sonnet-4-5', 'model-1', 'model-2']);
+        // Filters are name fragments, which LiteLLM does not list.
+        expect(data.meta.filters.models).toEqual(['model-3', 'model-4', 'model-5']);
+        expect(data.envelope?.data).toEqual({
+          note: 'model-1 beat model-2',
+          model: 'model-1',
+        });
+        expect(json).not.toContain('acme');
+        expect(json).not.toContain('alice');
+        expect(json).not.toContain('haiku');
+      }
+    });
+
+    it('with --redact, names every model model-N when prices do not load', async () => {
+      vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      const data = await buildShareReportData(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true, cost: false } }),
+        deps([usage({ model: 'claude-sonnet-4-5' })], {
+          resolvePricingSource: () => Promise.reject(new Error('offline and no cache')),
+        }),
+      );
+
+      expect(data.dictionaries.models).toEqual(['model-1']);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('so it labels every model model-N'),
+      );
     });
 
     it('labels the envelope’s models as the dictionary labels them', async () => {
