@@ -9,7 +9,7 @@
 | 2026-06-21 10:00-15:00 \(active\) | claude | • claude-sonnet-4-5 |      1 | 5,000 |  1,200 |         0 |     20,000 |           0 | 26,200 | $0.04 |
 | 2026-06-21 10:00-15:00 \(active\) | codex  | • gpt-5             |      2 | 4,500 |    800 |         0 |          0 |           0 |  5,300 | $0.01 |
 
-Blocks are estimated: each starts at the UTC hour of a source's first event after the previous block and lasts 5 hours \(times in UTC\), across machines.
+Blocks are estimated: each starts on the whole UTC hour at or before a source's first event after the previous block and lasts 5 hours, across machines. Times are in UTC.
 
 Active block \(estimated\), claude: ends 2026-06-21 15:00, 180 min left, burn rate $0.02/h, 13,100 tokens/h.
 

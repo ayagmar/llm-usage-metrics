@@ -117,7 +117,7 @@ function formatBurnRate(active: BlockBurnRate, options: RenderBlocksReportOption
 /** Lines after the table: the window rule, what the marks mean, and the active blocks. */
 function buildFooterLines(data: BlocksReportData, options: RenderBlocksReportOptions): string[] {
   const lines = [
-    `Blocks are estimated: each starts at the UTC hour of a source's first event after the previous block and lasts ${String(data.blockHours)} hours (times in ${data.timezone}), across machines.`,
+    `Blocks are estimated: each starts on the whole UTC hour at or before a source's first event after the previous block and lasts ${String(data.blockHours)} hours, across machines. Times are in ${data.timezone}.`,
   ];
 
   if (data.blocks.some((row) => row.startUncertain)) {
