@@ -9,6 +9,7 @@ import {
   type SharePayloadInput,
 } from '../../src/share-report/build-share-payload.js';
 import { mulberry32, pick, randomInt } from '../helpers/seeded-random.js';
+import { toShareModelLabel } from '../../src/share-report/redact.js';
 
 const MINUTE_MS = 60_000;
 
@@ -46,6 +47,7 @@ function payloadInput(
     sourceOrder: ['claude', 'codex'],
     projectLabel: (repoRoot) => repoRoot?.split('/').at(-1) ?? '(unattributed)',
     machineLabel: (machine) => machine,
+    modelLabel: toShareModelLabel,
     blocks: aggregateBlocks([...events]),
     blockEvents: events,
     blockCosts: costs,

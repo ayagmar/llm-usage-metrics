@@ -45,10 +45,14 @@ function toPathName(value: string): string {
     : toBasename(value);
 }
 
-/**
- * A model as the share report shows it: path-like names, and any holding a path after a
- * colon or a standard home directory, become their basename.
- */
+/** Whether a model name holds a path: path-like, a path after a colon, or a standard home. */
+export function isPathShapedModel(model: string): boolean {
+  return (
+    isPathLike(model) || PATH_AFTER_COLON_PATTERN.test(model) || STANDARD_HOME_PATTERN.test(model)
+  );
+}
+
+/** A model as the share report shows it: a path-shaped name becomes its basename. */
 export function toShareModelLabel(model: string | undefined): string {
   const normalized = model?.trim().toLowerCase();
 
@@ -56,11 +60,7 @@ export function toShareModelLabel(model: string | undefined): string {
     return UNKNOWN_MODEL_LABEL;
   }
 
-  return isPathLike(normalized) ||
-    PATH_AFTER_COLON_PATTERN.test(normalized) ||
-    STANDARD_HOME_PATTERN.test(normalized)
-    ? toPathName(normalized)
-    : normalized;
+  return isPathShapedModel(normalized) ? toPathName(normalized) : normalized;
 }
 
 /** Whether `buildProjectLabels` gave `key` a tail of its own segments rather than the full key. */
@@ -246,6 +246,7 @@ export function buildRedactionMap(
 
 export const KEPT_PROJECT_LABELS: ReadonlySet<string> = new Set([UNATTRIBUTED_PROJECT_LABEL]);
 export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_NAME]);
+export const KEPT_MODEL_LABELS: ReadonlySet<string> = new Set([UNKNOWN_MODEL_LABEL]);
 
 /**
  * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,`, `;`,

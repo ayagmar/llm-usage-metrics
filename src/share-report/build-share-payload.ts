@@ -7,7 +7,6 @@ import { formatLocalDateTime } from '../render/format-local-date-time.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { escapeJsonForScript } from './client/ui/export/share-document.js';
-import { toShareModelLabel } from './redact.js';
 import type {
   ShareBlock,
   ShareBlocks,
@@ -49,6 +48,8 @@ export type SharePayloadInput = {
   projectLabel: (repoRoot: string | undefined) => string;
   /** The file's label (redacted with --redact) of a machine name. */
   machineLabel: (machine: string) => string;
+  /** The file's label (redacted with --redact) of a model name. */
+  modelLabel: (model: string | undefined) => string;
   /** The blocks command's blocks over `blockEvents`, which include the lookback. */
   blocks: readonly UsageBlock[];
   blockEvents: readonly UsageEvent[];
@@ -241,7 +242,7 @@ function buildDictionaries(input: SharePayloadInput, dims: readonly EventDims[])
     sources.add(block.source);
 
     for (const model of block.models) {
-      models.add(toShareModelLabel(model));
+      models.add(input.modelLabel(model));
     }
   }
 
@@ -587,7 +588,7 @@ function buildBlocks(
       eventCount: block.eventCount,
       models: [
         ...new Set(
-          block.models.map((model) => lookup(dictionaries.model, toShareModelLabel(model))),
+          block.models.map((model) => lookup(dictionaries.model, input.modelLabel(model))),
         ),
       ],
       ...toTokenBuckets(block),
@@ -637,7 +638,7 @@ function assemble(
 export function buildSharePayload(input: SharePayloadInput): SharePayload {
   const dims: EventDims[] = input.events.map((event) => ({
     source: event.source,
-    model: toShareModelLabel(event.model),
+    model: input.modelLabel(event.model),
     project: input.projectLabel(event.repoRoot),
     machine: input.machineLabel(event.machine ?? LOCAL_MACHINE_NAME),
   }));
