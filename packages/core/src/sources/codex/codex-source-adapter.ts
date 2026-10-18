@@ -863,7 +863,7 @@ const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
 /** Codex CLI rollouts (JSONL), from `$CODEX_HOME/sessions` (default `~/.codex/sessions`). Yields every event kind. */
 export class CodexSourceAdapter implements SourceAdapter {
   public readonly id = 'codex' as const;
-  public readonly parserVersion = 5;
+  public readonly parserVersion = 6;
   public readonly capabilities = {
     fixedProviderRoots: ['openai'],
     eventsPrecedeFileMtime: true,
