@@ -62,6 +62,17 @@ describe('createUsageEvent', () => {
     expect(event.reasoningTokens).toBe(5);
   });
 
+  it('rejects a token count above 1e12 as corrupt instead of adding it to totals', () => {
+    const base = { source: 'pi', sessionId: 'session-cap', timestamp: '2026-02-12T10:00:00Z' };
+
+    expect(createUsageEvent({ ...base, inputTokens: 1e12 }).inputTokens).toBe(1e12);
+    expect(() => createUsageEvent({ ...base, inputTokens: 1e30 })).toThrow(
+      'UsageEvent inputTokens exceeds 1000000000000',
+    );
+    expect(() => createUsageEvent({ ...base, cacheReadTokens: '2e12' })).toThrow('cacheReadTokens');
+    expect(() => createUsageEvent({ ...base, totalTokens: 1e13 })).toThrow('totalTokens');
+  });
+
   it('throws on empty source or session id', () => {
     expect(() =>
       createUsageEvent({

@@ -282,6 +282,28 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
     });
   });
 
+  it('skips a row whose token count is past the cap and keeps the other rows', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'goose-token-cap-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'sessions.db');
+    const row = (id: string, inputTokens: number): GooseSessionFixture => ({
+      id,
+      modelConfigJson: JSON.stringify({ model_name: 'gpt-goose' }),
+      providerName: 'openai',
+      createdAt: '2026-04-01T10:00:00.000Z',
+      totalTokens: inputTokens + 1,
+      inputTokens,
+      outputTokens: 1,
+    });
+
+    createGooseFixtureDb(dbPath, [row('goose-corrupt', 1e15), row('goose-ok', 4)]);
+
+    const diagnostics = await collectFile(new GooseSourceAdapter({ dbPath }), dbPath);
+
+    expect(diagnostics.events.map((event) => event.sessionId)).toEqual(['goose-ok']);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'event_creation_failed', count: 1 }]);
+  });
+
   it('declares the SQLite -wal and -journal sidecars as parse dependencies', async () => {
     const adapter = new GooseSourceAdapter();
 

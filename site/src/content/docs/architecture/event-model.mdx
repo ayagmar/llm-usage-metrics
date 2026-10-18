@@ -44,12 +44,12 @@ The usage fields follow one convention across all sources:
 The constructors (`createUsageEvent`, `createUsageRecord`, `createMessageEvent`, `createToolCallEvent`, `createSessionMetaEvent`) are the only way adapters build events, so normalization happens once:
 
 - An empty `source` or `sessionId`, or a timestamp that does not parse, throws.
-- Token counts become non-negative integers; a missing or non-finite count becomes 0.
+- Token counts become non-negative integers; a missing or non-finite count becomes 0. A usage count above 10¹² throws, and the adapter skips the row and counts it among the skipped rows.
 - `model` is trimmed, lowercased, and capped at 256 characters. Text fields lose control characters.
 - `provider` is normalized to the billing entity: `openai-codex` and any `openai-` or `openai/` prefix become `openai`, `github-copilot` becomes `github`. When a source logs no provider, adapters infer one from the model name (`gpt-`, `o1`/`o3`/`o4` → `openai`, `claude` → `anthropic`, `gemini` → `google`).
 - `createUsageEvent` always sets `repoRoot`, `provider`, `model`, and `costUsd`, to `undefined` when unknown, so `Object.hasOwn(event, 'costUsd')` can be true with no cost. The other constructors leave undefined keys out, as does `createUsageRecord` for the `messageId`, `requestId`, `rawProvider`, and `raw` it adds. `JSON.stringify` drops undefined values, so serialized events of every kind hold only the fields that are set.
 
-`USAGE_EVENT_NORMALIZATION_VERSION` (currently 2) is part of every parser version. Changing normalization changes it, which re-reads every stored file; see [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/).
+`USAGE_EVENT_NORMALIZATION_VERSION` (currently 3) is part of every parser version. Changing normalization changes it, which re-reads every stored file; see [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/).
 
 ## Projects
 

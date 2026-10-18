@@ -42,7 +42,8 @@ type GooseSessionRows = {
 
 type GooseParsedRow = {
   event?: UsageEvent;
-  skippedReason?: 'invalid_model_config' | 'invalid_timestamp' | 'no_token_usage';
+  skippedReason?:
+    'invalid_model_config' | 'invalid_timestamp' | 'no_token_usage' | 'event_creation_failed';
 };
 
 /** Options for `GooseSourceAdapter`. */
@@ -166,22 +167,26 @@ function parseGooseRow(row: GooseSqliteRow): GooseParsedRow {
       ? 0
       : Math.max(0, resolvedTotalTokens - inputTokens - outputTokens);
 
-  return {
-    event: createUsageEvent({
-      source: 'goose',
-      sessionId: sessionId ?? 'goose-session',
-      timestamp,
-      provider: asTrimmedText(row.provider_name),
-      model,
-      inputTokens,
-      outputTokens: outputTokens + reasoningTokens,
-      reasoningTokens,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      totalTokens: resolvedTotalTokens,
-    }),
-    skippedReason: invalidModelConfig ? 'invalid_model_config' : undefined,
-  };
+  try {
+    return {
+      event: createUsageEvent({
+        source: 'goose',
+        sessionId: sessionId ?? 'goose-session',
+        timestamp,
+        provider: asTrimmedText(row.provider_name),
+        model,
+        inputTokens,
+        outputTokens: outputTokens + reasoningTokens,
+        reasoningTokens,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: resolvedTotalTokens,
+      }),
+      skippedReason: invalidModelConfig ? 'invalid_model_config' : undefined,
+    };
+  } catch {
+    return { skippedReason: 'event_creation_failed' };
+  }
 }
 
 /**
