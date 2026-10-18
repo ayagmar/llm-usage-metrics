@@ -920,7 +920,9 @@ describe('build-usage-data-parsing', () => {
     const store = await openEventStore(eventStorePath);
     try {
       store.database
-        .prepare("UPDATE events SET cost_mode = 'broken' WHERE file_path = ?")
+        .prepare(
+          "UPDATE events SET cost_mode = 'broken' WHERE file_id = (SELECT id FROM files WHERE file_path = ?)",
+        )
         .run(filePath);
     } finally {
       closeEventStore(store);

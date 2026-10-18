@@ -200,7 +200,9 @@ describe('machine export e2e', () => {
         opens += 1;
 
         if (opens === 2) {
-          store.database.exec("DELETE FROM events WHERE source = 'pi'");
+          store.database.exec(
+            "DELETE FROM events WHERE file_id IN (SELECT id FROM files WHERE source = 'pi')",
+          );
         }
 
         return store;
@@ -257,7 +259,9 @@ describe('machine export e2e', () => {
 
         if (opens === 2) {
           store.database
-            .prepare('DELETE FROM events WHERE file_path = ?')
+            .prepare(
+              'DELETE FROM events WHERE file_id = (SELECT id FROM files WHERE file_path = ?)',
+            )
             .run(path.join(projectDir, 'solo.jsonl'));
         }
 
@@ -384,7 +388,9 @@ describe('machine export e2e', () => {
     // Another run drops the live copy after this run's history, before its export read.
     const { lines, parentFile, forkFile } = await exportForkOfDeletedParent((store) => {
       store.database
-        .prepare("DELETE FROM events WHERE file_path = ? AND session_id = 'shared'")
+        .prepare(
+          "DELETE FROM events WHERE file_id = (SELECT id FROM files WHERE file_path = ?) AND session_id = 'shared'",
+        )
         .run(path.join(rootDir, 'fork.json'));
     });
 

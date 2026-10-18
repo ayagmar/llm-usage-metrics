@@ -8,6 +8,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildSessionReport } from '../../src/cli/run-session-report.js';
 import { buildToolsReport } from '../../src/cli/run-tools-report.js';
 import type { SessionCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import {
+  closeEventStore,
+  listStoredFileFingerprints,
+  openEventStore,
+  readFileEvents,
+} from '../../src/persistence/event-store.js';
+import { writeV4Store } from '../helpers/event-store-v4.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 
 // Both fixture sets with claude, codex and pi logs: the tools fixtures (tool calls, results,
@@ -149,19 +156,16 @@ describe('tools and session --timeline from the event store', () => {
 
     // As v4 left it: no tool call or message tables, fingerprints without stored kinds.
     // A sentinel skipped-row count marks what a later run rewrites.
-    const database = await openDatabase(storePath);
-
-    try {
-      database.exec('DROP TABLE tool_calls; DROP TABLE messages; DROP TABLE session_event_files;');
-      database.prepare("UPDATE meta SET value = '4' WHERE key = 'schemaVersion'").run();
-      database
-        .prepare(
-          'UPDATE files SET skipped_rows = 99, fingerprint = replace(fingerprint, \'"storedKinds":["message","tool_call"],\', \'\')',
-        )
-        .run();
-    } finally {
-      database.close();
-    }
+    const store = await openEventStore(storePath);
+    const files = listStoredFileFingerprints(store).map((file) => ({
+      ...file,
+      fingerprint: file.fingerprint.replace('"storedKinds":["message","tool_call"],', ''),
+      events: readFileEvents(store, file.source, file.filePath) ?? [],
+      skippedRows: 99,
+    }));
+    closeEventStore(store);
+    await rm(storePath);
+    await writeV4Store(storePath, files);
 
     expect(await runReports(root, storePath)).toEqual(expected);
 
