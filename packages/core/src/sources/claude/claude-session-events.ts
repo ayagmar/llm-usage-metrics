@@ -8,6 +8,7 @@ import {
   type SessionMetaFields,
 } from '../../domain/session-event.js';
 import { asRecord } from '../../utils/as-record.js';
+import { cutUnusedJsonStrings, type UnusedJsonValues } from '../../utils/cut-json-strings.js';
 import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
 import { getClaudeMessageKey } from './claude-fork-transcript.js';
 import {
@@ -38,6 +39,19 @@ const TEXT_BLOCK_TYPES: ReadonlySet<string> = new Set(['text']);
 /** The union prefilter of a read that wants any non-usage kind; it accepts every usage line. */
 export function shouldParseClaudeSessionLineBytes(lineBytes: Buffer): boolean {
   return SESSION_ROW_BYTES.some((typeBytes) => lineBytes.includes(typeBytes));
+}
+
+// What this read takes from no row: a tool result block's content and the row's
+// toolUseResult, except toolUseResult.durationMs, which is a number and stays. A raw read
+// keeps them, since its records are the rows.
+const UNUSED_ROW_VALUES: UnusedJsonValues = {
+  toolUseResult: true,
+  message: { content: { content: true } },
+};
+
+/** A line for a read without raw, with the long strings it never uses cut out. */
+export function leanClaudeSessionLineBytes(lineBytes: Buffer): Buffer | undefined {
+  return cutUnusedJsonStrings(lineBytes, UNUSED_ROW_VALUES);
 }
 
 export type ClaudeSessionEventsOptions = {

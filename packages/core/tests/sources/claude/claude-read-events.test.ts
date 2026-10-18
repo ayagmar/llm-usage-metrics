@@ -1,3 +1,5 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -356,6 +358,91 @@ describe('ClaudeSourceAdapter.readEvents', () => {
     expect(unanswered.events.at(-1)?.raw).toEqual({
       call: expect.objectContaining({ uuid: 'a-5' }) as unknown,
     });
+  });
+
+  it('reads rows with large tool results as a raw read does', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'claude-large-results-'));
+    const output = 'line "one"\t→ ok\n'.repeat(2000);
+    const row = (fields: Record<string, unknown>): string =>
+      JSON.stringify({ sessionId: 's-1', cwd: '/work/demo', version: '2.1.0', ...fields });
+    const lines = [
+      row({
+        type: 'assistant',
+        uuid: 'a-1',
+        timestamp: '2026-07-01T10:00:00.000Z',
+        message: {
+          id: 'msg-1',
+          role: 'assistant',
+          model: 'claude-sonnet-4-5',
+          content: [
+            { type: 'text', text: 'Reading.' },
+            { type: 'tool_use', id: 'tool-1', name: 'Read', input: {} },
+            { type: 'tool_use', id: 'tool-2', name: 'Bash', input: {} },
+          ],
+          usage: { input_tokens: 10, output_tokens: 4 },
+        },
+      }),
+      row({
+        type: 'user',
+        uuid: 'u-1',
+        timestamp: '2026-07-01T10:00:05.000Z',
+        message: {
+          role: 'user',
+          content: [{ tool_use_id: 'tool-1', type: 'tool_result', content: output }],
+        },
+        toolUseResult: { file: { content: output }, durationMs: 4500 },
+      }),
+      row({
+        type: 'user',
+        uuid: 'u-2',
+        timestamp: '2026-07-01T10:00:06.000Z',
+        message: {
+          role: 'user',
+          content: [
+            { type: 'text', text: output },
+            {
+              tool_use_id: 'tool-2',
+              type: 'tool_result',
+              content: [{ type: 'text', text: output }],
+              is_error: true,
+            },
+          ],
+        },
+        toolUseResult: output,
+      }),
+      // Invalid JSON inside a large result: the row is malformed either way.
+      `{"type":"user","uuid":"u-3","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool-3","content":"${'x'.repeat(5000)}\u0000 "}]}}`,
+    ];
+
+    try {
+      const filePath = path.join(dir, 'large.jsonl');
+      await writeFile(filePath, `${lines.join('\n')}\n`);
+      const read = async (raw: boolean) => {
+        const diagnostics = createReadDiagnostics();
+        const events = await collect(
+          readEvents(new ClaudeSourceAdapter({ dir }), filePath, { text: true, raw, diagnostics }),
+        );
+        return { events, reasons: Object.fromEntries(diagnostics.skippedRowReasons) };
+      };
+      const lean = await read(false);
+      const raw = await read(true);
+
+      expect(lean).toEqual({
+        events: raw.events.map((event) => ({ ...event, raw: undefined })),
+        reasons: raw.reasons,
+      });
+      expect(
+        lean.events
+          .filter((event) => event.kind === 'tool_call')
+          .map(({ status, durationMs }) => [status, durationMs]),
+      ).toEqual([
+        ['ok', 4500],
+        ['error', undefined],
+      ]);
+      expect(lean.reasons).toEqual({ other_json_parse_error: 1 });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('holds the readEvents invariants over the claude corpus', async () => {

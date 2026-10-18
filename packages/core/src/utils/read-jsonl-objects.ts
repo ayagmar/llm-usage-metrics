@@ -40,10 +40,18 @@ type TextLineOptions = {
 
 export type ReadJsonlObjectsOptions = BytesLineOptions | TextLineOptions;
 
+type ClassifiedBytesLineOptions = BytesLineOptions & {
+  isUsageLineBytes: (lineBytes: Buffer) => boolean;
+  /**
+   * For a line the usage prefilter rejects: the bytes to parse in its place, with values
+   * the read never uses cut out (see `cutUnusedJsonStrings`), or undefined to parse it as is.
+   */
+  leanLineBytes?: (lineBytes: Buffer) => Buffer | undefined;
+};
+
 /** Classifies each parsed line by whether the usage prefilter accepts it. */
 export type ReadClassifiedJsonlObjectsOptions =
-  | (BytesLineOptions & { isUsageLineBytes: (lineBytes: Buffer) => boolean })
-  | (TextLineOptions & { isUsageLine: (lineText: string) => boolean });
+  ClassifiedBytesLineOptions | (TextLineOptions & { isUsageLine: (lineText: string) => boolean });
 
 export type ClassifiedJsonlObject = {
   record: Record<string, unknown>;
@@ -51,8 +59,13 @@ export type ClassifiedJsonlObject = {
   isUsageLine: boolean;
 };
 
-// Builds a batch item from a parsed record and the line it came from.
-type ToItem<T> = (record: Record<string, unknown>, lineBytes: Buffer, lineText: string) => T;
+// Builds a batch item from a parsed record and the line it came from; a bytes-classified
+// read passes the usage prefilter's verdict, taken before the parse.
+type ToItem<T> = (
+  record: Record<string, unknown>,
+  lineText: string,
+  isUsageLineBytes: boolean | undefined,
+) => T;
 
 const LINE_FEED = 0x0a;
 const CARRIAGE_RETURN = 0x0d;
@@ -102,7 +115,7 @@ export function readJsonlObjectBatches(
  */
 export function readClassifiedJsonlObjects(
   filePath: string,
-  options: BytesLineOptions & { isUsageLineBytes: (lineBytes: Buffer) => boolean },
+  options: ClassifiedBytesLineOptions,
 ): AsyncGenerator<ClassifiedJsonlObject, void, undefined>;
 export function readClassifiedJsonlObjects(
   filePath: string,
@@ -119,7 +132,7 @@ export function readClassifiedJsonlObjects(
 /** `readClassifiedJsonlObjects` in batches, as `readJsonlObjectBatches` batches records. */
 export function readClassifiedJsonlObjectBatches(
   filePath: string,
-  options: BytesLineOptions & { isUsageLineBytes: (lineBytes: Buffer) => boolean },
+  options: ClassifiedBytesLineOptions,
 ): AsyncGenerator<Iterable<ClassifiedJsonlObject>, void, undefined>;
 export function readClassifiedJsonlObjectBatches(
   filePath: string,
@@ -139,8 +152,8 @@ function toClassifiedItem(
   options: ReadClassifiedJsonlObjectsOptions,
 ): ToItem<ClassifiedJsonlObject> {
   return 'isUsageLineBytes' in options
-    ? (record, lineBytes) => ({ record, isUsageLine: options.isUsageLineBytes(lineBytes) })
-    : (record, _lineBytes, lineText) => ({ record, isUsageLine: options.isUsageLine(lineText) });
+    ? (record, _lineText, isUsageLine) => ({ record, isUsageLine: isUsageLine === true })
+    : (record, lineText) => ({ record, isUsageLine: options.isUsageLine(lineText) });
 }
 
 async function* flattenBatches<T>(
@@ -172,7 +185,7 @@ async function* readHandleChunks(handle: FileHandle, start: number): AsyncGenera
 
 async function* readJsonlBatches<T>(
   filePath: string,
-  options: ReadJsonlObjectsOptions,
+  options: ReadJsonlObjectsOptions | ReadClassifiedJsonlObjectsOptions,
   toItem: ToItem<T>,
 ): AsyncGenerator<Iterable<T>, void, undefined> {
   const { position } = options;
@@ -267,7 +280,7 @@ function takeLineBytes(lineEndBytes: Buffer, carriedChunks: Buffer[]): Buffer {
 function parseJsonlLine<T>(
   lineBytes: Buffer,
   isFirstLine: boolean,
-  options: ReadJsonlObjectsOptions,
+  options: ReadJsonlObjectsOptions | ReadClassifiedJsonlObjectsOptions,
   toItem: ToItem<T>,
 ): T | undefined {
   let lineStart = 0;
@@ -291,7 +304,13 @@ function parseJsonlLine<T>(
     return undefined;
   }
 
-  const lineText = lineBytes.toString('utf8', lineStart, lineEnd).trim();
+  const isUsageLineBytes =
+    'isUsageLineBytes' in options ? options.isUsageLineBytes(parseLineBytes) : undefined;
+  const leanBytes =
+    isUsageLineBytes === false && 'leanLineBytes' in options
+      ? options.leanLineBytes?.(parseLineBytes)
+      : undefined;
+  const lineText = (leanBytes ?? parseLineBytes).toString('utf8').trim();
 
   if (!lineText) {
     return undefined;
@@ -317,7 +336,7 @@ function parseJsonlLine<T>(
 
   const record = asRecord(parsed);
 
-  return record ? toItem(record, parseLineBytes, lineText) : undefined;
+  return record ? toItem(record, lineText, isUsageLineBytes) : undefined;
 }
 
 function hasUtf8Bom(lineBytes: Buffer, lineStart: number, lineEnd: number): boolean {
