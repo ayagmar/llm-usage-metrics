@@ -39,6 +39,7 @@ import {
   initializeSchema,
 } from './event-store-schema.js';
 import {
+  countFileSessionEvents,
   deleteFileSessionEvents,
   prepareSelectFileSessionEvents,
   prepareSessionEventStatements,
@@ -925,7 +926,7 @@ export function readStoredFileSnapshots(
 
 function countMatchingRows(
   store: EventStore,
-  tableName: 'events' | 'tool_calls' | 'messages' | 'files',
+  tableName: 'events' | 'files',
   source: string,
   filePath: string,
 ): number {
@@ -962,9 +963,9 @@ export function deleteStoredFiles(
       prepareSessionEventStatements(store.database));
 
     for (const file of normalizedFiles) {
-      for (const tableName of ['events', 'tool_calls', 'messages'] as const) {
-        result.deletedEventCount += countMatchingRows(store, tableName, file.source, file.filePath);
-      }
+      result.deletedEventCount +=
+        countMatchingRows(store, 'events', file.source, file.filePath) +
+        countFileSessionEvents(store.database, file.source, file.filePath);
 
       result.deletedFileCount += countMatchingRows(store, 'files', file.source, file.filePath);
       deleteEvents.run(file.source, file.filePath);

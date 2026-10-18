@@ -94,7 +94,10 @@ function writeFile(
   ]);
 }
 
-function countRows(store: EventStore, table: 'tool_calls' | 'messages'): number {
+function countRows(
+  store: EventStore,
+  table: 'tool_calls' | 'messages' | 'session_event_files',
+): number {
   return Number(store.database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()?.count);
 }
 
@@ -113,7 +116,9 @@ async function createV4Store(filePath: string): Promise<void> {
         now: 1,
       },
     ]);
-    store.database.exec('DROP TABLE tool_calls; DROP TABLE messages;');
+    store.database.exec(
+      'DROP TABLE tool_calls; DROP TABLE messages; DROP TABLE session_event_files;',
+    );
     store.database.prepare("UPDATE meta SET value = '4' WHERE key = 'schemaVersion'").run();
   } finally {
     closeEventStore(store);
@@ -171,8 +176,12 @@ describe('stored tool calls and messages', () => {
       writeFile(store, '/logs/a.jsonl', [toolCall(), message(), toolCall()]);
       writeFile(store, '/logs/b.jsonl', [toolCall()]);
       writeFile(store, '/logs/a.jsonl', [message()]);
+      writeFile(store, '/logs/c.jsonl', [toolCall()]);
+      writeFile(store, '/logs/c.jsonl', []);
 
       expect([countRows(store, 'tool_calls'), countRows(store, 'messages')]).toEqual([1, 1]);
+      // A file without tool calls or messages keeps no file key.
+      expect(countRows(store, 'session_event_files')).toBe(2);
       expect(
         deleteStoredFiles(store, [
           { source: 'codex', filePath: '/logs/a.jsonl' },
@@ -180,6 +189,7 @@ describe('stored tool calls and messages', () => {
         ]),
       ).toEqual({ deletedFileCount: 2, deletedEventCount: 4 });
       expect([countRows(store, 'tool_calls'), countRows(store, 'messages')]).toEqual([0, 0]);
+      expect(countRows(store, 'session_event_files')).toBe(0);
     } finally {
       closeEventStore(store);
     }
@@ -204,8 +214,17 @@ describe('stored tool calls and messages', () => {
     const store = await openEventStore(storePath);
 
     try {
-      writeFile(store, '/logs/a.jsonl', [toolCall({ name: 'bad' }), toolCall(), message()]);
+      writeFile(store, '/logs/a.jsonl', [
+        toolCall({ name: 'bad' }),
+        toolCall({ name: 'late' }),
+        toolCall({ name: 'text' }),
+        toolCall(),
+        message(),
+      ]);
       store.database.prepare("UPDATE tool_calls SET status = 'broken' WHERE name = 'bad'").run();
+      // Past the last date a Date holds, and a timestamp stored as text.
+      store.database.prepare("UPDATE tool_calls SET timestamp = 9e15 WHERE name = 'late'").run();
+      store.database.prepare("UPDATE tool_calls SET timestamp = 'x' WHERE name = 'text'").run();
       store.database.prepare("UPDATE messages SET role = 'tool'").run();
     } finally {
       closeEventStore(store);
@@ -306,8 +325,9 @@ describe('schema v5 migration', () => {
 const { DatabaseSync } = require('node:sqlite');
 const db = new DatabaseSync(process.argv[1]);
 db.exec('BEGIN IMMEDIATE');
-db.exec("CREATE TABLE tool_calls (source TEXT NOT NULL, file_path TEXT NOT NULL, event_index INTEGER NOT NULL, session_id TEXT NOT NULL, timestamp TEXT NOT NULL, tool_call_id TEXT, name TEXT NOT NULL, status TEXT NOT NULL, completed_at TEXT, duration_ms INTEGER, message_id TEXT, PRIMARY KEY (source, file_path, event_index)) WITHOUT ROWID");
-db.exec("CREATE TABLE messages (source TEXT NOT NULL, file_path TEXT NOT NULL, event_index INTEGER NOT NULL, session_id TEXT NOT NULL, timestamp TEXT NOT NULL, role TEXT NOT NULL, message_id TEXT, model TEXT, text_length INTEGER NOT NULL, PRIMARY KEY (source, file_path, event_index)) WITHOUT ROWID");
+db.exec("CREATE TABLE session_event_files (id INTEGER PRIMARY KEY, source TEXT NOT NULL, file_path TEXT NOT NULL, UNIQUE (source, file_path))");
+db.exec("CREATE TABLE tool_calls (file_id INTEGER NOT NULL, event_index INTEGER NOT NULL, session_id TEXT NOT NULL, timestamp TEXT NOT NULL, tool_call_id TEXT, name TEXT NOT NULL, status TEXT NOT NULL, completed_at TEXT, duration_ms INTEGER, message_id TEXT, PRIMARY KEY (file_id, event_index)) WITHOUT ROWID");
+db.exec("CREATE TABLE messages (file_id INTEGER NOT NULL, event_index INTEGER NOT NULL, session_id TEXT NOT NULL, timestamp TEXT NOT NULL, role TEXT NOT NULL, message_id TEXT, model TEXT, text_length INTEGER NOT NULL, PRIMARY KEY (file_id, event_index)) WITHOUT ROWID");
 db.exec("UPDATE meta SET value = '5' WHERE key = 'schemaVersion'");
 process.stdout.write('locked\\n');
 Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);

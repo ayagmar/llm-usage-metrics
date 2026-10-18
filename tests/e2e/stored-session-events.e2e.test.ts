@@ -152,7 +152,7 @@ describe('tools and session --timeline from the event store', () => {
     const database = await openDatabase(storePath);
 
     try {
-      database.exec('DROP TABLE tool_calls; DROP TABLE messages;');
+      database.exec('DROP TABLE tool_calls; DROP TABLE messages; DROP TABLE session_event_files;');
       database.prepare("UPDATE meta SET value = '4' WHERE key = 'schemaVersion'").run();
       database
         .prepare(

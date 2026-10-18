@@ -31,7 +31,11 @@ import {
   readClaudeRowUuids,
   resolveClaudeForkParentPath,
 } from './claude-fork-transcript.js';
-import { ClaudeSessionEvents, shouldParseClaudeSessionLineBytes } from './claude-session-events.js';
+import {
+  ClaudeSessionEvents,
+  leanClaudeSessionLineBytes,
+  shouldParseClaudeSessionLineBytes,
+} from './claude-session-events.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
 import { recordMalformedLine, resolveReadKinds } from '../session-event-helpers.js';
@@ -498,6 +502,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     for await (const items of readClassifiedJsonlObjectBatches(filePath, {
       shouldParseLineBytes: shouldParseClaudeSessionLineBytes,
       isUsageLineBytes: shouldParseClaudeJsonlLineBytes,
+      leanLineBytes: plan.raw ? undefined : leanClaudeSessionLineBytes,
       onMalformedLine: (lineBytes) => {
         recordMalformedLine(diagnostics, kinds, shouldParseClaudeJsonlLineBytes(lineBytes));
       },

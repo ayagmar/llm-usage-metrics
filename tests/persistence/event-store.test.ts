@@ -1642,8 +1642,9 @@ describe('event-store', () => {
     replaceCodexFile(store, { filePath: '/tmp/b.jsonl' });
     replaceCodexFile(store, { filePath: '/tmp/c.jsonl' });
 
-    // events, files and override-only statements, and the four of tool calls and messages.
-    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(8);
+    // events, files and override-only statements, and the seven of tool calls, messages and
+    // their file keys.
+    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(11);
     closeEventStore(store);
   });
 

@@ -70,36 +70,42 @@ ${createOverrideOnlyFilesSql()}
 `;
 }
 
-// A file's tool calls and messages, keyed like its usage events. Their event_index is the
-// event's position in the file's tool calls and messages together, so the two tables read
-// back in the order the adapter yielded them. Message text is never stored.
+// A file's tool calls and messages. Their rows key the file by an integer id, so a row does
+// not repeat the file's source and path, and hold timestamps as epoch milliseconds, which
+// read back as the ISO strings the events carry. Their event_index is the event's position in the
+// file's tool calls and messages together, so the two tables read back in the order the
+// adapter yielded them. Message text is never stored.
 function createSessionEventTablesSql(): string {
   return `
-CREATE TABLE IF NOT EXISTS tool_calls (
+CREATE TABLE IF NOT EXISTS session_event_files (
+  id INTEGER PRIMARY KEY,
   source TEXT NOT NULL,
   file_path TEXT NOT NULL,
+  UNIQUE (source, file_path)
+);
+CREATE TABLE IF NOT EXISTS tool_calls (
+  file_id INTEGER NOT NULL,
   event_index INTEGER NOT NULL,
   session_id TEXT NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp INTEGER NOT NULL,
   tool_call_id TEXT,
   name TEXT NOT NULL,
   status TEXT NOT NULL,
-  completed_at TEXT,
+  completed_at INTEGER,
   duration_ms INTEGER,
   message_id TEXT,
-  PRIMARY KEY (source, file_path, event_index)
+  PRIMARY KEY (file_id, event_index)
 ) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS messages (
-  source TEXT NOT NULL,
-  file_path TEXT NOT NULL,
+  file_id INTEGER NOT NULL,
   event_index INTEGER NOT NULL,
   session_id TEXT NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp INTEGER NOT NULL,
   role TEXT NOT NULL,
   message_id TEXT,
   model TEXT,
   text_length INTEGER NOT NULL,
-  PRIMARY KEY (source, file_path, event_index)
+  PRIMARY KEY (file_id, event_index)
 ) WITHOUT ROWID;`;
 }
 
