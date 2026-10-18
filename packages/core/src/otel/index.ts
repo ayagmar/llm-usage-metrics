@@ -126,7 +126,9 @@ export function usageRecordAttributes(
 }
 
 /**
- * Attributes for one tool call (`gen_ai.operation.name` = `execute_tool`).
+ * Attributes for one tool call (`gen_ai.operation.name` = `execute_tool`). A failed call gets
+ * `error.type` = `_OTHER`, the convention's value when no finer class is known; a call
+ * without a recognised result gets `llm_usage.tool.status` = `unknown`.
  *
  * @experimental
  */
@@ -138,7 +140,12 @@ export function toolCallAttributes(event: ToolCallEvent): OtelAttributes {
       'gen_ai.conversation.id': event.sessionId,
       'llm_usage.source': event.source,
     },
-    { 'gen_ai.tool.call.id': event.toolCallId },
+    {
+      'gen_ai.tool.call.id': event.toolCallId,
+      'error.type': event.status === 'error' ? '_OTHER' : undefined,
+      'llm_usage.tool.status': event.status === 'unknown' ? 'unknown' : undefined,
+      'llm_usage.message_id': event.messageId,
+    },
   );
 }
 

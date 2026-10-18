@@ -232,7 +232,7 @@ An adapter whose `capabilities.usagePerRequest` is true yields usage events that
 
 ## OpenTelemetry attributes
 
-`@ayagmar/agent-sessions/otel` maps events to OpenTelemetry GenAI semantic-convention attributes: `usageRecordAttributes`, `toolCallAttributes` and `sessionAttributes`, each returning a plain `Record<string, string | number | boolean>`. It is experimental: the GenAI conventions have no release, so names follow the commit pinned in `SEMCONV_GENAI_REF` and can change when the pin moves, in any version. The helpers never emit message text, titles or raw records; paths and the git branch appear only with `includePaths: true`.
+`@ayagmar/agent-sessions/otel` maps events to OpenTelemetry GenAI semantic-convention attributes: `usageRecordAttributes`, `toolCallAttributes` and `sessionAttributes`, each returning a plain `Record<string, string | number | boolean>`. It is experimental: the GenAI conventions have no release, so names follow the commit pinned in `SEMCONV_GENAI_REF` and can change when the pin moves, in any version. The helpers never emit message text, titles or raw records; paths and the git branch appear only with `includePaths: true`. `toolCallAttributes` marks a failed call with `error.type` = `_OTHER`.
 
 ## Example: session forensics
 

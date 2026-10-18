@@ -21,10 +21,11 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 
 ## Options
 
-- `--format <name>`: `jsonl` (default) or `csv`
+- `--format <name>`: `jsonl` (default), `csv`, or `otlp-traces` ([OpenTelemetry export](/llm-usage-metrics/otel/))
+- `--otel-include-paths`: with `otlp-traces`, add repository paths to the spans
 - shared filters apply: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, `--cost-mode`, and `--no-history`
 
-`events` is an export stream, not a report: it takes `--format jsonl` or `--format csv` instead of `--json`, and has no `--markdown` or `--share`. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
+`events` is an export stream, not a report: it takes `--format` instead of `--json`, and has no `--markdown` or `--share`. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
 
 ## Export contract
 
@@ -52,29 +53,6 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 }
 ```
 
-## OTel mapping
+## OpenTelemetry
 
-The CLI ships no OpenTelemetry exporter. The table maps export fields onto the OTel GenAI semantic conventions, which have no release yet. Names are checked against commit [`f3c6d0c`](https://github.com/open-telemetry/semantic-conventions-genai/tree/f3c6d0c9bb66ebd474668a3a0be25c61226f02c2/model/gen-ai) of `open-telemetry/semantic-conventions-genai` (schema URL `https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev`) and may change when that moves. The experimental `@ayagmar/agent-sessions/otel` helpers implement this table.
-
-| export field | OTel mapping |
-| --- | --- |
-| (every event) | `gen_ai.operation.name` = `chat` |
-| `provider` | `gen_ai.provider.name`; `google` → `gcp.gemini`, `moonshot` → `moonshot_ai`, `xai` → `x_ai`, `amazon-bedrock*` → `aws.bedrock`, `google-vertex*` → `gcp.vertex_ai`, `azure-openai*` → `azure.ai.openai`, others unchanged; omitted when unknown |
-| `model` | `gen_ai.response.model` |
-| `sessionId` | `gen_ai.conversation.id` |
-| `inputTokens` + `cacheReadTokens` + `cacheWriteTokens` | `gen_ai.usage.input_tokens` (the convention counts cached tokens as input) |
-| `outputTokens` | `gen_ai.usage.output_tokens` (already includes reasoning) |
-| `reasoningTokens` | `gen_ai.usage.reasoning.output_tokens` |
-| `cacheReadTokens` | `gen_ai.usage.cache_read.input_tokens` |
-| `cacheWriteTokens` | `gen_ai.usage.cache_write.input_tokens` |
-| `costUsd`, `costMode` | no convention yet; `llm_usage.cost_usd`, `llm_usage.cost_mode` |
-| `source` | `llm_usage.source` |
-| `repoRoot` | `llm_usage.repo_root`, only when paths are requested |
-| `timestamp` | the span or log record time |
-
-Deviations from the convention:
-
-- `gen_ai.provider.name` is required, but it is left out when the provider is unknown rather than guessed.
-- A provider with no well-known value (`github`, for example) is passed through as a custom value. For `google` the helpers pick `gcp.gemini`; the source logs do not say which Google endpoint served the call. Other Google and Azure ids (`google-gemini-cli` or a custom `azure-east`, for example) pass through too, since they do not name a well-known endpoint.
-- `gen_ai.response.model` is the model name lowercased, not the exact string the provider returned. Usage records do not set `gen_ai.request.model`, since the logs record only the model that answered. Session attributes do set it, to the model the session was configured with.
-- `gen_ai.conversation.id` is set even where a source has no session id and the file name stands in for it (qwen, openclaw), which the convention discourages.
+`--format otlp-traces` exports sessions as OTLP/JSON traces instead of usage lines. [OpenTelemetry export](/llm-usage-metrics/otel/) describes the span tree, the attribute mapping onto the GenAI conventions, and a Collector config that replays the file into a backend.

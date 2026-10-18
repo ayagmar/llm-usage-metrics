@@ -1,15 +1,20 @@
-import type { UsageEvent } from '../domain/usage-event.js';
+import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+
+import type { UsageEvent } from '../domain/usage-event.js';
+import { buildOtlpTraces } from '../otel-export/otlp-traces.js';
+import { LIVE_TOOL_CALLS_NOTE } from './build-tools-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
+import { formatFailedLiveReads, readLiveSessionEvents } from './read-live-session-events.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import type { BuildUsageDataDeps, EventsCommandOptions } from './usage-data-contracts.js';
 
-const eventsExportFormats = ['jsonl', 'csv'] as const;
+const eventsExportFormats = ['jsonl', 'csv', 'otlp-traces'] as const;
 type EventsExportFormat = (typeof eventsExportFormats)[number];
 
 // Column order is frozen: fields present at the first release follow the
@@ -22,7 +27,11 @@ function resolveEventsFormat(options: EventsCommandOptions): EventsExportFormat 
   const resolved = eventsExportFormats.find((candidate) => candidate === format);
 
   if (!resolved) {
-    throw new Error('--format must be one of: jsonl, csv');
+    throw new Error(`--format must be one of: ${eventsExportFormats.join(', ')}`);
+  }
+
+  if (options.otelIncludePaths && resolved !== 'otlp-traces') {
+    throw new Error('--otel-include-paths needs --format otlp-traces');
   }
 
   return resolved;
@@ -88,14 +97,24 @@ export async function runEventsReport(
     'auto',
   );
   const sortedEvents = sortEventsForExport(pricedEvents);
+  // Tool spans: the calls of the exported sessions, counted once as `tools` counts them.
+  const toolCalls =
+    format === 'otlp-traces'
+      ? await readLiveSessionEvents(dataset, {
+          kinds: ['tool_call'],
+          sessionKeys: new Set(sortedEvents.map((event) => getEventSessionKey(event))),
+        })
+      : undefined;
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
     successfulParseResults: dataset.successfulParseResults,
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
-    warnings: dataset.warnings,
-    notes: dataset.notes,
+    warnings: toolCalls
+      ? [...dataset.warnings, ...formatFailedLiveReads('Tool calls', toolCalls.failedFilePaths)]
+      : dataset.warnings,
+    notes: toolCalls ? [...dataset.notes, LIVE_TOOL_CALLS_NOTE] : dataset.notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
@@ -106,6 +125,20 @@ export async function runEventsReport(
     getEnvVarOverrides: (usageDiagnostics) => usageDiagnostics.activeEnvOverrides,
     getActiveConfig: (usageDiagnostics) => usageDiagnostics.activeConfig,
   });
+
+  if (toolCalls) {
+    const traces = buildOtlpTraces({
+      usageEvents: sortedEvents,
+      toolCalls: dedupeToolCalls(toolCalls.events),
+      includePaths: options.otelIncludePaths,
+    });
+
+    for (const data of traces) {
+      process.stdout.write(`${JSON.stringify(data)}\n`);
+    }
+
+    return;
+  }
 
   if (format === 'csv') {
     process.stdout.write(`${CSV_HEADER}\n`);

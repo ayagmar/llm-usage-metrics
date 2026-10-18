@@ -29,6 +29,7 @@ export const sidebar = [
       { label: 'Interactive report', slug: 'share' },
       { label: 'Status line', slug: 'statusline' },
       { label: 'Events export', slug: 'events' },
+      { label: 'OpenTelemetry export', slug: 'otel' },
       { label: 'Output formats', slug: 'output-formats' },
     ],
   },

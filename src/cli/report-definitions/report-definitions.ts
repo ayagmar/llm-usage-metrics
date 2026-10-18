@@ -703,10 +703,19 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
         command: 'llm-usage events --format csv --since 2026-01-01',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl',
+        includeInCliReference: true,
+      },
     ],
   },
   register(command) {
-    command.option('--format <name>', 'Export format: jsonl | csv', 'jsonl');
+    command
+      .option('--format <name>', 'Export format: jsonl | csv | otlp-traces', 'jsonl')
+      .option(
+        '--otel-include-paths',
+        'With otlp-traces: add repository paths to spans (left out by default)',
+      );
     addRepoFilterOption(command).action((options: EventsCommandOptions) =>
       runEventsReport(options),
     );

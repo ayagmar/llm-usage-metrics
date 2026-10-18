@@ -184,12 +184,24 @@ describe('toolCallAttributes mapping', () => {
     ['gen_ai.tool.call.id', 'call-1'],
     ['gen_ai.conversation.id', 'session-1'],
     ['llm_usage.source', 'codex'],
+    ['error.type', '_OTHER'],
+    ['llm_usage.message_id', 'resp-1'],
   ])('%s = %j', (key, value) => {
     expect(attributes[key]).toBe(value);
   });
 
   it('emits nothing beyond the mapped keys', () => {
-    expect(Object.keys(attributes)).toHaveLength(5);
+    expect(Object.keys(attributes)).toHaveLength(7);
+  });
+
+  it('sets error.type only on a failed call and the tool status only when unknown', () => {
+    const ok = toolCallAttributes({ ...toolCall, status: 'ok' });
+    const unknown = toolCallAttributes({ ...toolCall, status: 'unknown' });
+
+    expect(ok).not.toHaveProperty('error.type');
+    expect(ok).not.toHaveProperty('llm_usage.tool.status');
+    expect(unknown).not.toHaveProperty('error.type');
+    expect(unknown['llm_usage.tool.status']).toBe('unknown');
   });
 
   it('omits gen_ai.tool.call.id without a call id', () => {

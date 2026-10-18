@@ -42,6 +42,7 @@ The package's exports map publishes `.`, `./registry`, `./otel`, `./internal`, a
 | `src/share-report` | The interactive HTML report: payload, redaction, HTML, and the browser client                                         |
 | `src/domain`       | The CLI's event type (core's plus `costMode` and `machine`) and report row types                                      |
 | `src/sources`      | `create-default-adapters.ts`, which re-exports the core registry for the CLI and the site                             |
+| `src/otel-export`  | OTLP/JSON traces for `events --format otlp-traces`: span tree, derived ids, attribute encoding                       |
 | `src/update`       | The startup update notifier and its cache                                                                              |
 | `src/utils`        | The logger, time buckets, config, data, and cache root directories, USD math, and re-exports of core utilities         |
 

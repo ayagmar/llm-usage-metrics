@@ -331,6 +331,8 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   Terminal/JSON/Markdown rendering
 - `src/share-report`
   The `--share` HTML report: payload building, redaction, the HTML document, and the bundled browser client in `client/`
+- `src/otel-export`
+  OTLP/JSON for `events --format otlp-traces`: the span tree per session, derived ids, resource and attribute encoding
 - `src/update`
   Startup update check
 - `src/utils`
