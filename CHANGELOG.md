@@ -59,6 +59,9 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - A forked Codex session no longer counts the parent's usage again on the day of the fork. The lines Codex copies from the parent are skipped, and the fork counts only its own turns. This needs Codex 0.152 or later, which marks where the copy ends; older forks count as before.
 - OpenCode V2 databases parse, one event per model step, instead of failing with a schema drift error. A V1 database that OpenCode V2 migrated in place counts each message once.
 - Goose and Antigravity retry a database that is busy when a read starts, instead of failing the source.
+- A timestamp with no offset (`2026-01-02T03:04:05`) reads as UTC instead of in the machine's time zone, so a file gives the same events on every machine. Every source's files are parsed again once after upgrading.
+- A usage row with a token count above 10¹² is skipped and counted among the skipped rows instead of swamping the totals.
+- DeepSeek Harness reads a `time` logged in epoch seconds as seconds instead of as a date in 1970.
 - `optimize` keeps its report when a provider's events carry a logged cost but no token counts, instead of printing the no-usage message.
 - `prune` groups thousands in its Events column and lists candidates as labelled values on narrow terminals.
 - `machine list` keeps its columns aligned when a name or ssh target has wide characters.

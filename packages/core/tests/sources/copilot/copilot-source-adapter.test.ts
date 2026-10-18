@@ -157,6 +157,31 @@ describe('CopilotSourceAdapter', () => {
     expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
   });
 
+  it('skips a span whose token count is past the cap and keeps the rest of the file', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'copilot-token-cap-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+    const span = (spanId: string, inputTokens: number): string =>
+      JSON.stringify({
+        name: 'chat completion',
+        traceId: `trace-${spanId}`,
+        spanId,
+        timestamp: '2026-04-01T12:00:00.000Z',
+        attributes: {
+          'gen_ai.operation.name': 'chat',
+          'gen_ai.usage.input_tokens': inputTokens,
+          'gen_ai.usage.output_tokens': 2,
+        },
+      });
+
+    await writeFile(filePath, `${span('span-corrupt', 1e30)}\n${span('span-ok', 1)}\n`, 'utf8');
+
+    const diagnostics = await collectFile(new CopilotSourceAdapter({ dir: root }), filePath);
+
+    expect(diagnostics.events.map((event) => event.inputTokens)).toEqual([1]);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'event_creation_failed', count: 1 }]);
+  });
+
   it('returns the documented default OTEL directory', () => {
     expect(new CopilotSourceAdapter().getSearchPaths()[0]).toBe(
       path.join(os.homedir(), '.copilot', 'otel'),
