@@ -75,7 +75,7 @@ Commands:
                                       plan prices, per plan and project (full history unless --last,
                                       --since, or --until)
   wrapped [options]                   Show a yearly usage recap with an optional share report
-  events [options]                    Export normalized usage events as JSONL or CSV
+  events [options]                    Export usage events as JSONL, CSV, or OTLP traces or metrics
   pricing [options] <model...>        Explain how model names resolve to prices: the matched pricing
                                       key and rule, overrides, where the prices came from, rates per
                                       1M tokens and tiers (never reads usage)

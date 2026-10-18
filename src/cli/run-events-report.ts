@@ -2,6 +2,7 @@ import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
+import { buildOtlpMetrics } from '../otel-export/otlp-metrics.js';
 import { buildOtlpTraces } from '../otel-export/otlp-traces.js';
 import { LIVE_TOOL_CALLS_NOTE } from './build-tools-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
@@ -14,7 +15,7 @@ import { formatFailedLiveReads, readLiveSessionEvents } from './read-live-sessio
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import type { BuildUsageDataDeps, EventsCommandOptions } from './usage-data-contracts.js';
 
-const eventsExportFormats = ['jsonl', 'csv', 'otlp-traces'] as const;
+const eventsExportFormats = ['jsonl', 'csv', 'otlp-traces', 'otlp-metrics'] as const;
 type EventsExportFormat = (typeof eventsExportFormats)[number];
 
 // Column order is frozen: fields present at the first release follow the
@@ -125,6 +126,19 @@ export async function runEventsReport(
     getEnvVarOverrides: (usageDiagnostics) => usageDiagnostics.activeEnvOverrides,
     getActiveConfig: (usageDiagnostics) => usageDiagnostics.activeConfig,
   });
+
+  if (format === 'otlp-metrics') {
+    const metrics = buildOtlpMetrics({
+      usageEvents: sortedEvents,
+      timezone: dataset.normalizedInputs.timezone,
+    });
+
+    for (const data of metrics) {
+      process.stdout.write(`${JSON.stringify(data)}\n`);
+    }
+
+    return;
+  }
 
   if (toolCalls) {
     const traces = buildOtlpTraces({

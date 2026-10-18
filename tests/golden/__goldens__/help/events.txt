@@ -1,6 +1,6 @@
 Usage: llm-usage events [options]
 
-Export normalized usage events as JSONL or CSV
+Export usage events as JSONL, CSV, or OTLP traces or metrics
 
 Options:
   --help-all                     Display help including the per-source path flags
@@ -33,7 +33,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or comma-separated; local is
                                  this one; default: all)
   --no-sync                      Use other machines' cached usage without refreshing it over ssh
-  --format <name>                Export format: jsonl | csv | otlp-traces (default: "jsonl")
+  --format <name>                Export format: jsonl | csv | otlp-traces | otlp-metrics (default:
+                                 "jsonl")
   --otel-include-paths           With otlp-traces: add repository paths to spans (left out by
                                  default)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
@@ -52,3 +53,4 @@ Examples:
   $ llm-usage events --format jsonl > events.jsonl
   $ llm-usage events --format csv --since 2026-01-01
   $ llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl
+  $ llm-usage events --format otlp-metrics --since 2026-06-01 > metrics.jsonl
