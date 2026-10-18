@@ -360,8 +360,14 @@ export function initializeSchema(database: EventStoreDatabase): void {
 
   // The dropped v4 tables leave their pages free, and the file would keep its v4 size
   // plus the copy. SQLite requires VACUUM to run outside an explicit transaction.
+  // The migration has committed: a vacuum that fails, because another run holds the write
+  // lock or the disk lacks room for the copy, leaves the space to `prune --apply`.
   if (copiedTables) {
-    database.exec('VACUUM');
+    try {
+      database.exec('VACUUM');
+    } catch {
+      // The store is usable at its current size.
+    }
   }
 }
 

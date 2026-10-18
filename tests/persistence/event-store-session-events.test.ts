@@ -364,6 +364,42 @@ describe('schema v5 migration', () => {
     }
   });
 
+  it('opens a migrated store when another connection takes the write lock before the vacuum', async () => {
+    const storePath = await createStorePath();
+    await createV4Store(storePath);
+    const sqlite = (await loadNodeSqliteModule('Test')) as unknown as EventStoreSqliteModule;
+    const writer = new sqlite.DatabaseSync(storePath);
+
+    // Another run starts writing between the migration's commit and the vacuum.
+    class WriterBeforeVacuum extends sqlite.DatabaseSync {
+      override exec = (sql: string): void => {
+        if (sql === 'VACUUM') {
+          writer.exec('BEGIN IMMEDIATE');
+        }
+
+        super.exec(sql);
+      };
+    }
+
+    try {
+      const store = await openEventStore(storePath, () =>
+        Promise.resolve({ DatabaseSync: WriterBeforeVacuum }),
+      );
+
+      try {
+        expect(readFileEvents(store, 'codex', '/logs/a.jsonl')).toEqual([
+          usageEvent('a'),
+          usageEvent('b'),
+        ]);
+      } finally {
+        writer.exec('ROLLBACK');
+        closeEventStore(store);
+      }
+    } finally {
+      writer.close();
+    }
+  }, 20_000);
+
   it('reads a v4 store whole while another connection migrates it', async () => {
     const storePath = await createStorePath();
     const events = [usageEvent('a'), usageEvent('b')];
