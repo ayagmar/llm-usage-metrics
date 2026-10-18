@@ -52,6 +52,7 @@ Keep source-specific parsing logic inside adapters. Keep pricing logic in `src/p
 - Normalize data at boundaries (adapter/domain constructors).
 - Preserve deterministic output ordering.
 - Avoid inline dynamic imports.
+- Before adding a helper, search `src/` and `packages/core/src` for one that already does it. The share client imports the `src/render` and `src/utils` helpers it needs instead of copying them.
 
 ## Correctness Guardrails
 
