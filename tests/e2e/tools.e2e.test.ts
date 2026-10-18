@@ -61,7 +61,8 @@ describe('tools report on real source logs', () => {
       ['pi', 'grep', 1, 0, 1],
       ['pi', 'read', 1, 0, 0],
     ]);
-    expect(data.totals).toMatchObject({ calls: 12, errors: 3, unknown: 4, sessions: 3, tools: 9 });
+    // Bash/bash, Grep/grep and Read/read count as one tool each.
+    expect(data.totals).toMatchObject({ calls: 12, errors: 3, unknown: 4, sessions: 3, tools: 6 });
   });
 
   it('keeps the calls of the window only', async () => {

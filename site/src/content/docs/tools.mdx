@@ -3,7 +3,7 @@ title: 'Tool calls'
 description: 'Tool calls per tool from Claude Code, Codex and pi logs, with errors, error rate, and sessions.'
 ---
 
-`llm-usage tools` counts the tool calls your agents made: one row per tool name with its calls, how many returned an error, the error rate, calls with no recorded result, the sessions that used it, and the project whose sessions called it most. It answers which tools your agents lean on and which ones fail.
+`llm-usage tools` counts the tool calls your agents made: one row per tool name (names that differ only in case, such as `Read` and `read`, share a row under the more used spelling) with its calls, how many returned an error, the error rate, calls with no recorded result, the sessions that used it, and the project whose sessions called it most. It answers which tools your agents lean on and which ones fail.
 
 ```bash
 llm-usage tools
