@@ -2,11 +2,10 @@ import {
   hasControlCharacters,
   normalizeProviderToBillingEntity,
 } from '@ayagmar/agent-sessions/internal';
-import { getDaysInMonth } from '../utils/date-key.js';
+import { parseCanonicalTimestampMs } from '../utils/time-buckets.js';
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
 
-const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const FAST_PATH_REJECT = Symbol('fast path reject');
 
 type OptionalStoredText = string | undefined | typeof FAST_PATH_REJECT;
@@ -259,31 +258,11 @@ function toStoredOptionalText(
   return toStoredRequiredText(value, slot, isCanonical) ?? FAST_PATH_REJECT;
 }
 
+// A year below 100 fails the canonical reader and takes the slow path, which keeps it.
 function toStoredTimestamp(value: unknown): string | undefined {
-  if (typeof value !== 'string' || !NORMALIZED_TIMESTAMP_PATTERN.test(value)) {
-    return undefined;
-  }
-
-  if (!isValidNormalizedTimestamp(value)) {
-    return undefined;
-  }
-
-  return value;
-}
-
-function isValidNormalizedTimestamp(value: string): boolean {
-  const year = Number(value.slice(0, 4));
-  const month = Number(value.slice(5, 7));
-  const day = Number(value.slice(8, 10));
-  const hour = Number(value.slice(11, 13));
-  const minute = Number(value.slice(14, 16));
-  const second = Number(value.slice(17, 19));
-
-  if (month < 1 || month > 12 || day < 1 || hour > 23 || minute > 59 || second > 59) {
-    return false;
-  }
-
-  return day <= getDaysInMonth(year, month);
+  return typeof value === 'string' && parseCanonicalTimestampMs(value) !== undefined
+    ? value
+    : undefined;
 }
 
 function toStoredNonNegativeInteger(value: unknown): number | undefined {
