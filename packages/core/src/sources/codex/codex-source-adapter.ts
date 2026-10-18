@@ -98,6 +98,14 @@ type CodexSessionState = {
    * `thread_settings_applied` event that carries this id and ends the copied block.
    */
   forkPrefixOf?: string;
+  /** Whether the fork's own `session_meta` names a Codex that logs every response's usage. */
+  forkLogsUsageRecords?: boolean;
+  /**
+   * Set when such a fork's copied block ends without a running total. Codex still starts the fork
+   * from the parent's totals, so a `token_count` written before the fork's first response
+   * (a usage limit, a full context window, a compaction) repeats them.
+   */
+  forkAwaitsBaseline?: boolean;
 };
 
 /** What a usage record keeps beyond `read`'s fields; both are off for `read`. */
@@ -381,6 +389,12 @@ function parseUsageRecord(
 
 const NO_USAGE: readonly PendingUsageRecord[] = [];
 
+/** Codex logs a `token_usage_record` for every response from 0.153 on. */
+function logsUsageRecords(cliVersion: string | undefined): boolean {
+  const [major, minor] = (cliVersion ?? '').split('.').map(Number);
+  return major > 0 || (major === 0 && minor >= 153);
+}
+
 function isThreadSettingsApplied(line: Record<string, unknown>): boolean {
   return line.type === 'event_msg' && asRecord(line.payload)?.type === 'thread_settings_applied';
 }
@@ -408,6 +422,7 @@ function takeUsageLine(
 
     if (!state.sawSessionMeta && asTrimmedText(payload?.forked_from_id)) {
       state.forkPrefixOf = asTrimmedText(payload?.id);
+      state.forkLogsUsageRecords = logsUsageRecords(asTrimmedText(payload?.cli_version));
     }
 
     state.sawSessionMeta = true;
@@ -451,6 +466,8 @@ function takeUsageLine(
       state.forkPrefixOf = undefined;
       state.pendingUsageRecords = [];
       state.previousLastUsageOnlyKey = undefined;
+      state.forkAwaitsBaseline =
+        state.forkLogsUsageRecords === true && state.previousTotalUsage === undefined;
     }
 
     return NO_USAGE;
@@ -464,6 +481,17 @@ function takeUsageLine(
 
   if (!info) {
     return NO_USAGE;
+  }
+
+  if (state.forkAwaitsBaseline) {
+    state.forkAwaitsBaseline = false;
+    const totalUsage = toUsage(info.total_token_usage);
+
+    // No response record since the copied block: these are the parent's totals.
+    if (totalUsage && state.pendingUsageRecords.length === 0) {
+      state.previousTotalUsage = totalUsage;
+      return NO_USAGE;
+    }
   }
 
   const { deltaUsage, latestTotalUsage, fromLastUsageOnly } = deriveDeltaUsage(

@@ -553,7 +553,7 @@ describe('CodexSourceAdapter.readEvents', () => {
       }
     }
 
-    expect(files).toBe(12);
+    expect(files).toBe(13);
   });
 
   it('reads two kinds as the all-kinds read filtered to them', async () => {
