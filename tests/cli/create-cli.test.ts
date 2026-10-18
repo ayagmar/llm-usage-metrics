@@ -115,6 +115,7 @@ describe('createCli', () => {
         '--compact',
         '--no-cost',
         '--last',
+        '--all',
         '--per-model-columns',
         '--json',
         '--markdown',
@@ -123,7 +124,7 @@ describe('createCli', () => {
         '--no-sync',
         ...sourcePathFlags,
       ],
-      absent: ['--all', '--share', '--no-open'],
+      absent: ['--share', '--no-open'],
     },
     {
       command: 'projects',
@@ -539,6 +540,22 @@ describe('createCli', () => {
     });
     expect(output.text()).toMatch(/^Usage: llm-usage \[options\] \[command\]\n/u);
     expect(output.text()).toContain('Examples:\n  $ llm-usage\n');
+  });
+
+  it('rejects --all with date flags on a report whose default is the full history', async () => {
+    for (const args of [
+      ['session', '--all', '--since', '2026-01-01'],
+      ['events', '--all', '--until', '2026-01-01'],
+    ]) {
+      const cli = createCli();
+      let output = '';
+      for (const command of cli.commands) {
+        command.exitOverride().configureOutput({ writeErr: (chunk) => (output += chunk) });
+      }
+
+      await expect(cli.parseAsync(args, { from: 'user' })).rejects.toMatchObject({ exitCode: 1 });
+      expect(output).toContain("option '--all' cannot be used with option");
+    }
   });
 
   it('does not leak empty-array defaults for repeatable options in command help', () => {
@@ -981,20 +998,30 @@ describe('createCli', () => {
     expect(output.text()).not.toContain('Did you mean');
   });
 
-  it('offers --all on daily, weekly, projects, tools, context, blocks and value only', () => {
+  // `daily --all` works, so `monthly --all` and the rest must too.
+  it('offers --all on every report that reads usage', () => {
     const cli = createCli();
     const commandsWithAll = cli.commands
       .filter((command) => command.options.some((option) => option.long === '--all'))
       .map((command) => command.name());
 
     expect(commandsWithAll).toEqual([
+      'summary',
+      'hourly',
       'daily',
       'weekly',
+      'monthly',
       'projects',
+      'compare',
+      'efficiency',
+      'optimize',
+      'trends',
+      'session',
       'tools',
       'context',
       'blocks',
       'value',
+      'events',
     ]);
   });
 

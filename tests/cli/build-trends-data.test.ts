@@ -234,7 +234,7 @@ describe('buildTrendsData', () => {
   it('names --days in errors when the alias was passed', async () => {
     await expect(
       buildTrendsData({ days: '7', since: '2026-03-01' }, runtimeDeps()),
-    ).rejects.toThrow('--days cannot be combined with --since or --until');
+    ).rejects.toThrow('--days cannot be combined with --since, --until, or --all');
     await expect(buildTrendsData({ days: '0' }, runtimeDeps())).rejects.toThrow(
       '--days must be a whole number from 1 to 10000',
     );
@@ -255,7 +255,7 @@ describe('buildTrendsData', () => {
         },
         runtimeDeps(),
       ),
-    ).rejects.toThrow('--last cannot be combined with --since or --until');
+    ).rejects.toThrow('--last cannot be combined with --since, --until, or --all');
   });
 
   it('rejects invalid days, metric, and date ordering inputs', async () => {
@@ -313,6 +313,39 @@ describe('buildTrendsData', () => {
       '2026-03-05',
       '2026-03-06',
     ]);
+  });
+
+  it('charts from the earliest observed day to today with --all', async () => {
+    const result = await buildTrendsData(
+      { all: true, metric: 'tokens' },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              createBaseEvent({ timestamp: '2025-12-30T10:00:00.000Z' }),
+              createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2025-12-30', to: '2026-03-06' });
+    expect(result.totalSeries.buckets).toHaveLength(67);
+    expect(result.totalSeries.buckets.reduce((sum, bucket) => sum + bucket.value, 0)).toBe(30);
+  });
+
+  it('rejects --all with --last or date flags', async () => {
+    for (const options of [
+      { all: true, last: '7' },
+      { all: true, since: '2026-03-01' },
+      { all: true, until: '2026-03-01' },
+    ]) {
+      await expect(buildTrendsData(options, runtimeDeps())).rejects.toThrow(
+        /cannot be combined with/u,
+      );
+    }
   });
 
   it('uses the current day as the upper bound for past --since-only ranges', async () => {

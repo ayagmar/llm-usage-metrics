@@ -90,6 +90,23 @@ describe('runHourlyReport', () => {
     ).toEqual(['2026-06-21 10:00']);
   });
 
+  it('reports every hour with --all, not only today', async () => {
+    const sourceOptions = await writePiSession('all', [
+      '2026-01-10T08:00:00.000Z',
+      '2026-06-21T10:00:00.000Z',
+    ]);
+    const data = await buildUsageData(
+      'hourly',
+      { ...sourceOptions, timezone: 'UTC', all: true },
+      { now: () => new Date('2026-06-21T12:00:00.000Z') },
+    );
+
+    expect(data.defaultWindowSince).toBeUndefined();
+    expect(
+      data.rows.filter((row) => row.rowType === 'period_source').map((row) => row.periodKey),
+    ).toEqual(['2026-01-10 08:00', '2026-06-21 10:00']);
+  });
+
   it('merges both occurrences of a fall-back hour under one key and notes it', async () => {
     const sourceOptions = await writePiSession('fall-back', [
       // 01:30 EDT, then 01:30 EST an hour later, then 02:10 EST.
@@ -133,7 +150,10 @@ describe('runHourlyReport', () => {
 
     await expect(
       runHourlyReport({ ...sourceOptions, last: '2', since: '2026-06-15' }),
-    ).rejects.toThrow('--last cannot be combined with --since or --until');
+    ).rejects.toThrow('--last cannot be combined with --since, --until, or --all');
+    await expect(runHourlyReport({ ...sourceOptions, last: '2', all: true })).rejects.toThrow(
+      '--last cannot be combined with --since, --until, or --all',
+    );
   });
 });
 
