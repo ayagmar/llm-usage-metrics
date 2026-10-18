@@ -187,6 +187,7 @@ export async function runEventsReport(
       usageEvents: sortedEvents,
       toolCalls: dedupeToolCalls(toolCalls.events),
       timezone: dataset.normalizedInputs.timezone,
+      nowMs: (deps.now?.() ?? new Date()).getTime(),
     });
     await writeOtlp({ kind: 'metrics', lines }, pushTarget, deps);
     return;
