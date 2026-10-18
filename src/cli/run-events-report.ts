@@ -3,14 +3,17 @@ import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
 import { buildOtlpTraces } from '../otel-export/otlp-traces.js';
-import { LIVE_TOOL_CALLS_NOTE } from './build-tools-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
-import { formatFailedLiveReads, readLiveSessionEvents } from './read-live-session-events.js';
+import {
+  formatFailedLiveReads,
+  formatLiveEventsNote,
+  readLiveSessionEvents,
+} from './read-live-session-events.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import type { BuildUsageDataDeps, EventsCommandOptions } from './usage-data-contracts.js';
 
@@ -114,7 +117,9 @@ export async function runEventsReport(
     warnings: toolCalls
       ? [...dataset.warnings, ...formatFailedLiveReads('Tool calls', toolCalls.failedFilePaths)]
       : dataset.warnings,
-    notes: toolCalls ? [...dataset.notes, LIVE_TOOL_CALLS_NOTE] : dataset.notes,
+    notes: toolCalls
+      ? [...dataset.notes, formatLiveEventsNote('Tool calls', dataset)]
+      : dataset.notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

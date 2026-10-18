@@ -1,7 +1,9 @@
+import path from 'node:path';
+
 import { getEventSessionKey } from '@ayagmar/agent-sessions';
 import { describe, expect, it } from 'vitest';
 
-import { buildToolsData, LIVE_TOOL_CALLS_NOTE } from '../../src/cli/build-tools-data.js';
+import { buildToolsData } from '../../src/cli/build-tools-data.js';
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
 import {
   readLiveSessionEvents,
@@ -37,7 +39,7 @@ function summarize(rows: readonly { name: string; calls: number }[]): [string, n
 }
 
 describe('buildToolsData', () => {
-  useIsolatedEnvironment();
+  const environment = useIsolatedEnvironment();
 
   it('covers the last 7 days by default and counts a copied call once', async () => {
     const result = await build();
@@ -121,10 +123,12 @@ describe('buildToolsData', () => {
     await expect(build({ top: '-1' })).rejects.toThrow('--top must be a non-negative integer');
   });
 
-  it('notes that tool calls come only from files on disk', async () => {
+  it('notes that tool calls come only from files on disk without the event store', async () => {
     const { diagnostics } = await build();
 
-    expect(diagnostics.notes).toContain(LIVE_TOOL_CALLS_NOTE);
+    expect(diagnostics.notes).toContain(
+      'Tool calls are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist and other machines are not counted.',
+    );
     expect(diagnostics.pricingOrigin).toBe('none');
   });
 
@@ -136,6 +140,27 @@ describe('buildToolsData', () => {
 
     expect(data.rows.map((row) => row.name)).not.toContain('exec_command');
     expect(diagnostics.warnings).toContain('Tool calls left out of 1 file that could not be read');
+  });
+
+  it('reads a file the event store could not fingerprint from disk, so it is not lost', async () => {
+    const storeOff = await build({ all: true });
+    // The fixture paths do not exist, so no file can be fingerprinted or stored.
+    const storeOn = await buildToolsData(
+      { timezone: 'UTC', all: true },
+      {
+        ...createDeps(),
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true,
+          path: path.join(environment.rootDir, 'unstored.db'),
+        }),
+      },
+    );
+
+    expect(storeOn.data).toEqual(storeOff.data);
+    expect(storeOn.data.totals.calls).toBeGreaterThan(0);
+    expect(storeOn.diagnostics.notes).toContain(
+      'Tool calls come from the event store (claude, codex, pi), departed files included; other machines are not counted.',
+    );
   });
 
   it('reads only the files of sources that declare tool calls', async () => {
@@ -153,7 +178,7 @@ describe('buildToolsData', () => {
 });
 
 describe('readLiveSessionEvents', () => {
-  useIsolatedEnvironment();
+  const environment = useIsolatedEnvironment();
 
   async function readFixture<K extends LiveEventKind>(options: ReadLiveSessionEventsOptions<K>) {
     const dataset = await buildUsageEventDataset({ timezone: 'UTC' }, createDeps());
@@ -208,6 +233,26 @@ describe('readLiveSessionEvents', () => {
       fileCount: 0,
       failedFilePaths: [],
     });
+  });
+
+  it('counts the stored files as failed reads when the event store cannot be read', async () => {
+    const dataset = await buildUsageEventDataset({ timezone: 'UTC' }, createDeps());
+    const withUnreadableStore = {
+      ...dataset,
+      ledger: {
+        path: path.join(environment.rootDir, 'missing', 'events.db'),
+        parsedFiles: [],
+        historyFiles: [{ source: 'pi', filePath: '/tools-fixture/pi/departed.jsonl' }],
+        copiedEventCount: 0,
+      },
+    };
+
+    const result = await readLiveSessionEvents(withUnreadableStore, { kinds: ['tool_call'] });
+
+    // Built without the store, the dataset's parsed files look stored once it has a ledger.
+    expect(result.failedFilePaths).toHaveLength(6);
+    expect(result.failedFilePaths).toContain('/tools-fixture/pi/departed.jsonl');
+    expect(result).toMatchObject({ events: [], fileCount: 6 });
   });
 
   it('yields only the requested kinds', async () => {
