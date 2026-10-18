@@ -206,7 +206,12 @@ describe('Codex forks written before the copied block had an end marker', () => 
     const dirAdapter = new CodexSourceAdapter({ dir });
     const forkPath = path.join(dir, FULL_FILE);
 
-    await expect(dirAdapter.getParseDependencies(forkPath)).resolves.toEqual([]);
+    // A path that never exists stands for the parent, so the fork is looked at again.
+    const [placeholder] = await dirAdapter.getParseDependencies(forkPath);
+    expect((await getFileFingerprint(dirAdapter, forkPath))?.dependencies).toContainEqual({
+      path: placeholder,
+      exists: false,
+    });
     await expect(usageTotalsIn(dirAdapter, forkPath)).resolves.toEqual({
       total: 3300,
       byDay: { '2026-01-02': 3300 },
@@ -523,5 +528,102 @@ describe('Codex forks written before the copied block had an end marker', () => 
       forkPath,
       archivedPath,
     ]);
+  });
+
+  it('keeps the fork’s own turn when it repeats the parent’s next prompt and total', async () => {
+    const dir = await makeTempDir();
+    await copyFile(path.join(PARENT_DIR, PARENT_FILE), path.join(dir, PARENT_FILE));
+    const lines = (await readFixtureLines(TRUNCATED_FILE)).map((line) =>
+      isUserMessage('Try another way.')(line)
+        ? message(line.timestamp as string, 'user', 'Read the first.')
+        : line,
+    );
+    // The same prompt as the parent's second turn, as many tokens, another answer.
+    lines[lines.length - 1] = tokenCount(
+      '2026-01-03T08:00:04.000Z',
+      SECOND_TOTAL,
+      usage(1500, 1000, 160, 50),
+    );
+    const forkPath = await writeLines(dir, TRUNCATED_FILE, lines);
+
+    await expect(usageTotalsIn(new CodexSourceAdapter({ dir }), forkPath)).resolves.toEqual({
+      total: 1660,
+      byDay: { '2026-01-03': 1660 },
+    });
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'reads a fork that ends its own copy without its parent, even an unreadable one',
+    async () => {
+      // A Codex 0.152 fork that ends its copied block with its own closing event.
+      const dir = await makeTempDir();
+      const parentPath = path.join(dir, PARENT_FILE);
+      const forkPath = path.join(dir, FULL_FILE);
+      await copyFile(
+        fixturePath(import.meta.url, '../../fixtures/codex-fork/parent.jsonl'),
+        parentPath,
+      );
+      await copyFile(path.join(FORK_DIR, 'fork-copied.jsonl'), forkPath);
+      const dirAdapter = new CodexSourceAdapter({ dir });
+      await chmod(parentPath, 0o000);
+
+      try {
+        await expect(dirAdapter.getParseDependencies(forkPath)).resolves.toEqual([]);
+        await expect(usageTotalsIn(dirAdapter, forkPath)).resolves.toEqual({
+          total: 540,
+          byDay: { '2026-01-02': 540 },
+        });
+      } finally {
+        await chmod(parentPath, 0o600);
+      }
+    },
+  );
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'reads a parent once for all its forks while it stays the same',
+    async () => {
+      const dir = await copyToTempDir([PARENT_FILE, FULL_FILE, TRUNCATED_FILE]);
+      const parentPath = path.join(dir, PARENT_FILE);
+      const dirAdapter = new CodexSourceAdapter({ dir });
+
+      await expect(usageTotalsIn(dirAdapter, path.join(dir, FULL_FILE))).resolves.toMatchObject({
+        total: 540,
+      });
+      // chmod keeps the size and mtime: only a parent read before can serve the second fork.
+      await chmod(parentPath, 0o000);
+
+      try {
+        await expect(
+          usageTotalsIn(dirAdapter, path.join(dir, TRUNCATED_FILE)),
+        ).resolves.toMatchObject({ total: 600 });
+      } finally {
+        await chmod(parentPath, 0o600);
+      }
+    },
+  );
+
+  it('does not look for the parent of a subagent from a Codex that spawns no copies', async () => {
+    const dir = await copyToTempDir([PARENT_FILE]);
+    const meta = spawnMeta('2026-01-04T08:00:00.000Z', SPAWN_ID);
+    (meta.payload as Line).cli_version = '0.140.0';
+    const spawnPath = await writeLines(dir, SPAWN_FILE, [
+      meta,
+      message('2026-01-04T08:00:02.000Z', 'user', 'Check it.'),
+      tokenCount('2026-01-04T08:00:04.000Z', usage(280, 200, 20, 5), usage(280, 200, 20, 5)),
+    ]);
+
+    await expect(new CodexSourceAdapter({ dir }).getParseDependencies(spawnPath)).resolves.toEqual(
+      [],
+    );
+  });
+
+  it('never confirms a fingerprint stored by an earlier Codex parser', async () => {
+    const dir = await copyToTempDir([PARENT_FILE, FULL_FILE]);
+    const forkPath = path.join(dir, FULL_FILE);
+    const dirAdapter = new CodexSourceAdapter({ dir });
+    const current = await getFileFingerprint(dirAdapter, forkPath);
+    const stored = { dependencies: current?.dependencies ?? [], parserVersion: 'n3.p4' };
+
+    await expect(getFileFingerprint(dirAdapter, forkPath, stored)).resolves.toEqual(current);
   });
 });

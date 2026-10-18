@@ -77,7 +77,16 @@ describe('daily over a Codex parent and its fork', () => {
     });
   });
 
-  it('keeps counting an old fork once after Codex archives its parent', async () => {
+  const PARENT = 'rollout-2026-01-01T10-00-00-019a0000-0000-7000-8000-00000000000a.jsonl';
+  const FORK = 'rollout-2026-01-02T09-00-00-019a0000-0000-7000-8000-00000000000b.jsonl';
+
+  /** A Codex home in a temp HOME with the event store on, and a daily run over a directory. */
+  async function createCodexHome(): Promise<{
+    codexHome: string;
+    sessionsDir: string;
+    place: (name: string, dir: string) => Promise<string>;
+    totals: (codexDir: string) => Promise<Record<string, number>>;
+  }> {
     const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'codex-fork-'));
     tempDirs.push(rootDir);
     vi.stubEnv('HOME', rootDir);
@@ -85,34 +94,74 @@ describe('daily over a Codex parent and its fork', () => {
     vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'events.db'));
     const codexHome = path.join(rootDir, '.codex');
     const sessionsDir = path.join(codexHome, 'sessions');
-    const dayDir = path.join(sessionsDir, '2026', '01', '01');
-    await mkdir(dayDir, { recursive: true });
-    await mkdir(path.join(codexHome, 'archived_sessions'));
-    const parent = 'rollout-2026-01-01T10-00-00-019a0000-0000-7000-8000-00000000000a.jsonl';
-    const fork = 'rollout-2026-01-02T09-00-00-019a0000-0000-7000-8000-00000000000b.jsonl';
+    await mkdir(path.join(codexHome, 'archived_sessions'), { recursive: true });
 
-    for (const name of [parent, fork]) {
-      await copyFile(path.join(LEGACY_FORK_FIXTURES, name), path.join(dayDir, name));
-    }
-
-    const totals = async (): Promise<Record<string, number>> => {
-      const result = await buildUsageData('daily', {
-        all: true,
-        source: 'codex',
-        codexDir: sessionsDir,
-        timezone: 'UTC',
-        pricingOffline: true,
-      });
-      return Object.fromEntries(
-        result.rows.map((row) => [
-          row.rowType === 'grand_total' ? 'all' : row.periodKey,
-          row.totalTokens,
-        ]),
-      );
+    return {
+      codexHome,
+      sessionsDir,
+      place: async (name, dir) => {
+        await mkdir(dir, { recursive: true });
+        await copyFile(path.join(LEGACY_FORK_FIXTURES, name), path.join(dir, name));
+        return path.join(dir, name);
+      },
+      totals: async (codexDir) => {
+        const result = await buildUsageData('daily', {
+          all: true,
+          source: 'codex',
+          codexDir,
+          timezone: 'UTC',
+          pricingOffline: true,
+        });
+        return Object.fromEntries(
+          result.rows.map((row) => [
+            row.rowType === 'grand_total' ? 'all' : row.periodKey,
+            row.totalTokens,
+          ]),
+        );
+      },
     };
-    await expect(totals()).resolves.toEqual({ '2026-01-01': 2760, '2026-01-02': 540, all: 3300 });
-    await rename(path.join(dayDir, parent), path.join(codexHome, 'archived_sessions', parent));
+  }
+
+  it('keeps counting an old fork once after Codex archives its parent', async () => {
+    const { codexHome, sessionsDir, place, totals } = await createCodexHome();
+    const dayDir = path.join(sessionsDir, '2026', '01', '01');
+    const parentPath = await place(PARENT, dayDir);
+    await place(FORK, dayDir);
+
+    await expect(totals(sessionsDir)).resolves.toEqual({
+      '2026-01-01': 2760,
+      '2026-01-02': 540,
+      all: 3300,
+    });
+    await rename(parentPath, path.join(codexHome, 'archived_sessions', PARENT));
     // The parent left the sessions directory; the fork still counts only its own turn.
-    await expect(totals()).resolves.toMatchObject({ '2026-01-02': 540 });
+    await expect(totals(sessionsDir)).resolves.toMatchObject({ '2026-01-02': 540 });
   });
+
+  it('finds the parent on a normal run after a run over a directory without it', async () => {
+    const { sessionsDir, place, totals } = await createCodexHome();
+    await place(PARENT, path.join(sessionsDir, '2026', '01', '01'));
+    const forkDir = path.join(sessionsDir, '2026', '01', '02');
+    await place(FORK, forkDir);
+
+    // Only the fork's day: its parent is out of reach, so the copy counts.
+    await expect(totals(forkDir)).resolves.toEqual({ '2026-01-02': 3300, all: 3300 });
+    await expect(totals(sessionsDir)).resolves.toEqual({
+      '2026-01-01': 2760,
+      '2026-01-02': 540,
+      all: 3300,
+    });
+  });
+
+  it.each(['sessions', 'archived_sessions'])(
+    'finds a parent put back into %s after the fork was read without it',
+    async (parentDirName) => {
+      const { codexHome, sessionsDir, place, totals } = await createCodexHome();
+      await place(FORK, path.join(sessionsDir, '2026', '01', '02'));
+
+      await expect(totals(sessionsDir)).resolves.toEqual({ '2026-01-02': 3300, all: 3300 });
+      await place(PARENT, path.join(codexHome, parentDirName));
+      await expect(totals(sessionsDir)).resolves.toMatchObject({ '2026-01-02': 540 });
+    },
+  );
 });
