@@ -100,9 +100,24 @@ function sortByTimestamp(calls: readonly ToolCallEvent[]): ToolCallEvent[] {
     .map(({ call }) => call);
 }
 
+/**
+ * Each item's own key plus its occurrence among the items with that key, so a span keeps its
+ * id in any export window or filter that holds it, and two items never share one.
+ */
+function occurrenceKeys<T>(items: readonly T[], keyOf: (item: T) => string): string[] {
+  const seen = new Map<string, number>();
+
+  return items.map((item) => {
+    const key = keyOf(item);
+    const occurrence = seen.get(key) ?? 0;
+    seen.set(key, occurrence + 1);
+    return `${key}#${occurrence}`;
+  });
+}
+
 function chatSpan(
   event: UsageEvent,
-  ordinal: number,
+  key: string,
   traceId: string,
   parentSpanId: string,
   includePaths: boolean,
@@ -120,7 +135,7 @@ function chatSpan(
     endMs: at,
     span: {
       traceId,
-      spanId: deriveSpanId(traceId, 'chat', `#${ordinal}`),
+      spanId: deriveSpanId(traceId, 'chat', key),
       parentSpanId,
       name: event.model === undefined ? 'chat' : `chat ${event.model}`,
       kind: SPAN_KIND_CLIENT,
@@ -133,12 +148,12 @@ function chatSpan(
 
 function toolSpan(
   call: ToolCallEvent,
-  ordinal: number,
+  fallbackKey: string,
   traceId: string,
   parentSpanId: string,
 ): TimedSpan {
   const { startMs, endMs } = toolCallBoundsMs(call);
-  const key = call.toolCallId === undefined ? `#${ordinal}` : `id:${call.toolCallId}`;
+  const key = call.toolCallId === undefined ? fallbackKey : `id:${call.toolCallId}`;
 
   return {
     startMs,
@@ -167,11 +182,17 @@ function sumAttribute(spans: readonly { attributes: OtelAttributes }[], key: str
 function sessionTraces(group: SessionGroup, includePaths: boolean): OtlpTracesData {
   const traceId = deriveTraceId(group.source, group.sessionId);
   const rootSpanId = deriveSpanId(traceId, 'invoke_agent', '');
-  const chats = group.usageEvents.map((event, ordinal) =>
-    chatSpan(event, ordinal, traceId, rootSpanId, includePaths),
+  const chatKeys = occurrenceKeys(
+    group.usageEvents,
+    (event) => `${event.timestamp}|${event.model ?? ''}`,
   );
-  const tools = sortByTimestamp(group.toolCalls).map((call, ordinal) =>
-    toolSpan(call, ordinal, traceId, rootSpanId),
+  const chats = group.usageEvents.map((event, index) =>
+    chatSpan(event, chatKeys[index], traceId, rootSpanId, includePaths),
+  );
+  const toolCalls = sortByTimestamp(group.toolCalls);
+  const toolKeys = occurrenceKeys(toolCalls, (call) => `${call.timestamp}|${call.name}`);
+  const tools = toolCalls.map((call, index) =>
+    toolSpan(call, toolKeys[index], traceId, rootSpanId),
   );
   const children = [...chats, ...tools];
   // A loop, not Math.min(...spread): a long session has more spans than call arguments allow.
@@ -220,8 +241,8 @@ function sessionTraces(group: SessionGroup, includePaths: boolean): OtlpTracesDa
  * One `TracesData` per session, in the order of each session's first usage event: an
  * `invoke_agent {agent}` root from the session's earliest to its latest event, a zero-length
  * `chat {model}` child per usage event and an `execute_tool {name}` child per tool call.
- * Ids derive from the session and each span's stable key, so the same input gives the same
- * bytes.
+ * Ids derive from the session and each span's own key (tool call id, else timestamp and model
+ * or tool name), so the same input gives the same bytes and a windowed export reuses them.
  */
 export function buildOtlpTraces(input: OtlpTracesInput): OtlpTracesData[] {
   return groupSessions(input).map((group) => sessionTraces(group, input.includePaths ?? false));

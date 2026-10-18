@@ -42,9 +42,9 @@ Session logs record when a response arrived, not how long the request took. Ever
 Ids are derived from the data, not generated:
 
 - `traceId`: the first 16 bytes of SHA-256 over the source and session id.
-- `spanId`: the first 8 bytes of SHA-256 over the trace id, the span kind and a key: the tool call id when the call has one, else the span's position among the session's usage events or tool calls, in timestamp order.
+- `spanId`: the first 8 bytes of SHA-256 over the trace id, the span kind and a key. A tool call with an id is keyed by that id. A usage event is keyed by its timestamp and model, a tool call without an id by its timestamp and tool name, each with a counter that tells apart entries sharing those values. The root span's key is the session alone.
 
-The same input gives the same bytes. A backend that deduplicates by trace and span id keeps one copy when you send the same export twice. A session that gains events later keeps its trace id, but the spans keyed by position can shift.
+The same input gives the same bytes. A backend that deduplicates by trace and span id keeps one copy when you send the same export twice, and a span keeps its id in any date window or filter that includes it. The root span does not: each export of a session writes it with the times and token sums of the events in that export, so exporting a session in two windows writes its root span twice with different values.
 
 ### Errors
 
