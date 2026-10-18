@@ -3,7 +3,7 @@ import { createDefaultAdapters } from '@ayagmar/agent-sessions/registry';
 import { getPricingFetcherRuntimeConfig } from '../config/runtime-overrides.js';
 import { explainModelPricing, type PricingReportData } from '../pricing/explain-model-pricing.js';
 import { renderPricingReport, type PricingReportFormat } from '../render/render-pricing-report.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { logger } from '../utils/logger.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';

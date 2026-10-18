@@ -1,7 +1,9 @@
 import { buildProjectLabels, toProjectKey } from '../aggregate/project-key.js';
-import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
+import {
+  normalizeProviderToBillingEntity,
+  compareByCodePoint,
+} from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
 import type { AdapterParseResult } from './build-usage-data-parsing.js';
 import { filterUsageEvents } from './parse/usage-event-filters.js';

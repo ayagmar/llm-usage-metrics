@@ -15,7 +15,7 @@ description: What llm-usage-metrics reads, what it stores and where, and every n
 
 | What | Where (Linux default) | Contents |
 | --- | --- | --- |
-| Event ledger | `~/.local/share/llm-usage-metrics/events.db` | One row per usage event: source, log file path, session ID, timestamp, model, provider, repository root, token counts, and cost. |
+| Event ledger | `~/.local/share/llm-usage-metrics/events.db` | One row per usage event: source, log file path, session ID, timestamp, model, provider, recorded working directory, token counts, and cost. |
 | Pricing cache | `~/.cache/llm-usage-metrics/litellm-pricing-cache.json` | Model prices downloaded from LiteLLM. |
 | Update-check cache | `~/.cache/llm-usage-metrics/update-check.json` | The latest published version number. |
 | Config | `~/.config/llm-usage-metrics/config.toml` | Only what you write there. |
@@ -36,7 +36,7 @@ The tool makes exactly two kinds of HTTP request. Neither sends any of your usag
 ### Update check
 
 - **What:** a GET request for `https://registry.npmjs.org/llm-usage-metrics/latest`, which returns the newest version number.
-- **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. It is skipped for `statusline`, `machine export`, `--help`, `--version`, and when run through `npx`.
+- **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. It is skipped for `statusline`, `machine export`, `config`, `completion`, `help`, `-h`/`--help`, `--help-all`, `-V`/`--version`, and when run through `npx`.
 - **Turn it off:** set `LLM_USAGE_SKIP_UPDATE_CHECK=1`, or `update.skipCheck = true` in the config file.
 
 ## Other processes it starts

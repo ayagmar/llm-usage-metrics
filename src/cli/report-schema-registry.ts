@@ -3,7 +3,9 @@ import eventsLineSchema from '../../schema/events-line.v1.schema.json' with { ty
 import machineExportSchema from '../../schema/machine-export.v1.schema.json' with { type: 'json' };
 import blocksSchema from '../../schema/report-blocks.v1.schema.json' with { type: 'json' };
 import commonSchema from '../../schema/report-common.v1.schema.json' with { type: 'json' };
+import configShowSchema from '../../schema/report-config-show.v1.schema.json' with { type: 'json' };
 import compareSchema from '../../schema/report-compare.v1.schema.json' with { type: 'json' };
+import contextSchema from '../../schema/report-context.v1.schema.json' with { type: 'json' };
 import doctorSchema from '../../schema/report-doctor.v1.schema.json' with { type: 'json' };
 import efficiencySchema from '../../schema/report-efficiency.v1.schema.json' with { type: 'json' };
 import optimizeSchema from '../../schema/report-optimize.v1.schema.json' with { type: 'json' };
@@ -13,6 +15,7 @@ import pruneSchema from '../../schema/report-prune.v1.schema.json' with { type: 
 import sessionSchema from '../../schema/report-session.v1.schema.json' with { type: 'json' };
 import shareSchema from '../../schema/report-share.v1.schema.json' with { type: 'json' };
 import summarySchema from '../../schema/report-summary.v1.schema.json' with { type: 'json' };
+import toolsSchema from '../../schema/report-tools.v1.schema.json' with { type: 'json' };
 import trendsSchema from '../../schema/report-trends.v1.schema.json' with { type: 'json' };
 import usageSchema from '../../schema/report-usage.v1.schema.json' with { type: 'json' };
 import valueSchema from '../../schema/report-value.v1.schema.json' with { type: 'json' };
@@ -25,11 +28,14 @@ function bundleCommonDefinitions(schema: { [key: string]: unknown; $defs?: objec
   return { ...schema, $defs: { ...schema.$defs, 'report-common.v1': commonSchema } };
 }
 
-// One report name per report-<name>.v1.schema.json file; the schema command
-// and the e2e schema validation both derive their names from this record.
+// One report name per report-<name>.v1.schema.json file: the name a report's JSON
+// envelope carries and `llm-usage schema <name>` takes. The schema command and the e2e
+// schema validation both derive their names from this record.
 export const reportSchemas: Record<string, unknown> = {
   blocks: bundleCommonDefinitions(blocksSchema),
   compare: bundleCommonDefinitions(compareSchema),
+  'config-show': bundleCommonDefinitions(configShowSchema),
+  context: bundleCommonDefinitions(contextSchema),
   doctor: bundleCommonDefinitions(doctorSchema),
   efficiency: bundleCommonDefinitions(efficiencySchema),
   optimize: bundleCommonDefinitions(optimizeSchema),
@@ -39,6 +45,7 @@ export const reportSchemas: Record<string, unknown> = {
   session: bundleCommonDefinitions(sessionSchema),
   share: bundleCommonDefinitions(shareSchema),
   summary: bundleCommonDefinitions(summarySchema),
+  tools: bundleCommonDefinitions(toolsSchema),
   trends: bundleCommonDefinitions(trendsSchema),
   usage: bundleCommonDefinitions(usageSchema),
   value: bundleCommonDefinitions(valueSchema),

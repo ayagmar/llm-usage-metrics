@@ -1,5 +1,5 @@
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getLocalDateKeyRange } from '../utils/time-buckets.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { getDateKeyRange } from '../utils/date-key.js';
 import type {
   ProjectTrendSeries,
   ProjectTrendValueRow,
@@ -220,7 +220,7 @@ export function aggregateTrends(
   rows: TrendValueRow[],
   options: AggregateTrendsOptions,
 ): AggregateTrendsResult {
-  const dateKeys = getLocalDateKeyRange(options.dateRange.from, options.dateRange.to);
+  const dateKeys = getDateKeyRange(options.dateRange.from, options.dateRange.to);
 
   return {
     totalSeries: buildSeries('combined', toCombinedRowsByDate(rows), dateKeys),
@@ -236,7 +236,7 @@ export function aggregateProjectTrends(
   rows: readonly ProjectTrendValueRow[],
   dateRange: AggregateTrendsOptions['dateRange'],
 ): ProjectTrendSeries[] {
-  const dateKeys = getLocalDateKeyRange(dateRange.from, dateRange.to);
+  const dateKeys = getDateKeyRange(dateRange.from, dateRange.to);
   const rowsByProject = new Map<string | null, Map<string, ProjectTrendValueRow>>();
 
   for (const row of rows) {

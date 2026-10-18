@@ -1,11 +1,11 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels } from '../aggregate/project-key.js';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
+import { shiftDateKey } from '../utils/date-key.js';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
   getLocalHourBucket,
-  shiftLocalDateKey,
   type ReportGranularity,
   type UsageGranularity,
 } from '../utils/time-buckets.js';
@@ -37,12 +37,15 @@ type DefaultReportWindow = {
   period: ReportPeriodName;
 };
 
+/** Days `daily` and the day-window reports (`blocks`, `tools`, `context`) cover without dates. */
+export const DEFAULT_RECENT_DAYS = 7;
+
 /**
  * Granularities that report a recent window when no dates are given. `monthly` keeps full
  * history.
  */
 export const DEFAULT_REPORT_WINDOWS: Partial<Record<ReportGranularity, DefaultReportWindow>> = {
-  daily: { periods: 7, period: 'day' },
+  daily: { periods: DEFAULT_RECENT_DAYS, period: 'day' },
   weekly: { periods: 8, period: 'week' },
 };
 
@@ -82,10 +85,10 @@ export function resolvePeriodsSince(
   switch (granularity) {
     case 'hourly':
     case 'daily':
-      return shiftLocalDateKey(today, -(periods - 1));
+      return shiftDateKey(today, -(periods - 1));
     case 'weekly': {
-      const currentWeekMonday = shiftLocalDateKey(today, -(getIsoDayOfWeekFromDateKey(today) - 1));
-      return shiftLocalDateKey(currentWeekMonday, -7 * (periods - 1));
+      const currentWeekMonday = shiftDateKey(today, -(getIsoDayOfWeekFromDateKey(today) - 1));
+      return shiftDateKey(currentWeekMonday, -7 * (periods - 1));
     }
     case 'monthly': {
       const monthIndex =
@@ -117,16 +120,13 @@ function getDefaultWindowPeriods(granularity: UsageGranularity): number | undefi
 }
 
 /**
- * `--last N` covers the last N periods, counting the current one, in the report timezone
- * (days for `hourly`). Without dates, `hourly` and a granularity with a
- * DEFAULT_REPORT_WINDOWS entry cover that recent window; `--all` restores full history.
- * Explicit dates and other granularities are unchanged.
+ * `--last N` as a count of periods, once it is checked against --since, --until and --all;
+ * undefined without `--last`.
  */
-export async function resolveUsageDataRequest(
+export function parseWindowFlags(
+  options: Pick<ReportCommandOptions, 'last' | 'all' | 'since' | 'until'>,
   granularity: UsageGranularity,
-  options: ReportCommandOptions,
-  deps: BuildUsageDataDeps,
-): Promise<UsageDataRequest> {
+): number | undefined {
   const hasDates = options.since !== undefined || options.until !== undefined;
   const isHourly = granularity === 'hourly';
   const lastPeriods = parseLastOption(
@@ -147,6 +147,23 @@ export async function resolveUsageDataRequest(
     throw new Error('--all cannot be combined with --since or --until');
   }
 
+  return lastPeriods;
+}
+
+/**
+ * `--last N` covers the last N periods, counting the current one, in the report timezone
+ * (days for `hourly`). Without dates, `hourly` and a granularity with a
+ * DEFAULT_REPORT_WINDOWS entry cover that recent window; `--all` restores full history.
+ * Explicit dates and other granularities are unchanged.
+ */
+export async function resolveUsageDataRequest(
+  granularity: UsageGranularity,
+  options: ReportCommandOptions,
+  deps: BuildUsageDataDeps,
+): Promise<UsageDataRequest> {
+  const hasDates = options.since !== undefined || options.until !== undefined;
+  const isHourly = granularity === 'hourly';
+  const lastPeriods = parseWindowFlags(options, granularity);
   const periods =
     lastPeriods ?? (options.all || hasDates ? undefined : getDefaultWindowPeriods(granularity));
 
@@ -232,7 +249,12 @@ export async function buildUsageData(
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.dataset.total', () =>
     buildUsageEventDataset(options, deps),
   );
-  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  // --no-cost shows no cost, so prices are neither loaded nor fetched.
+  const pricingResult = await applyPricingToUsageEventDataset(
+    dataset,
+    deps,
+    options.cost === false ? 'none' : 'auto',
+  );
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
 
   const byRepo = options.byRepo === true;

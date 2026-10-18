@@ -51,10 +51,8 @@ export type ClassifiedJsonlObject = {
   isUsageLine: boolean;
 };
 
-// A classified read is told each record's line before the record is yielded.
-type LineReader = ReadJsonlObjectsOptions & {
-  onRecordLine?: (lineBytes: Buffer, lineText: string) => void;
-};
+// Builds a batch item from a parsed record and the line it came from.
+type ToItem<T> = (record: Record<string, unknown>, lineBytes: Buffer, lineText: string) => T;
 
 const LINE_FEED = 0x0a;
 const CARRIAGE_RETURN = 0x0d;
@@ -74,7 +72,28 @@ export function readJsonlObjects(
   filePath: string,
   options: ReadJsonlObjectsOptions = {},
 ): AsyncGenerator<Record<string, unknown>, void, undefined> {
-  return readJsonlItems(filePath, options);
+  return flattenBatches(readJsonlBatches(filePath, options, toRecord));
+}
+
+/**
+ * `readJsonlObjects` in batches: one iterable per chunk read, yielding that chunk's records
+ * in file order, so a consumer awaits once per chunk instead of once per record. Iterate
+ * each batch before asking for the next; records left in a batch are skipped. A batch may
+ * be empty.
+ */
+export function readJsonlObjectBatches(
+  filePath: string,
+  options: BytesLineOptions,
+): AsyncGenerator<Iterable<Record<string, unknown>>, void, undefined>;
+export function readJsonlObjectBatches(
+  filePath: string,
+  options?: TextLineOptions,
+): AsyncGenerator<Iterable<Record<string, unknown>>, void, undefined>;
+export function readJsonlObjectBatches(
+  filePath: string,
+  options: ReadJsonlObjectsOptions = {},
+): AsyncGenerator<Iterable<Record<string, unknown>>, void, undefined> {
+  return readJsonlBatches(filePath, options, toRecord);
 }
 
 /**
@@ -94,30 +113,41 @@ export function readClassifiedJsonlObjects(
   filePath: string,
   options: ReadClassifiedJsonlObjectsOptions,
 ): AsyncGenerator<ClassifiedJsonlObject, void, undefined> {
-  const isUsageLineInput: (lineBytes: Buffer, lineText: string) => boolean =
-    'isUsageLineBytes' in options
-      ? (lineBytes) => options.isUsageLineBytes(lineBytes)
-      : (_lineBytes, lineText) => options.isUsageLine(lineText);
-
-  return classifyJsonlObjects(filePath, options, isUsageLineInput);
+  return flattenBatches(readJsonlBatches(filePath, options, toClassifiedItem(options)));
 }
 
-async function* classifyJsonlObjects(
+/** `readClassifiedJsonlObjects` in batches, as `readJsonlObjectBatches` batches records. */
+export function readClassifiedJsonlObjectBatches(
   filePath: string,
-  options: ReadJsonlObjectsOptions,
-  isUsageLineInput: (lineBytes: Buffer, lineText: string) => boolean,
-): AsyncGenerator<ClassifiedJsonlObject, void, undefined> {
-  let isUsageLine = false;
-  const records = readJsonlItems(filePath, {
-    ...options,
-    onRecordLine: (lineBytes, lineText) => {
-      isUsageLine = isUsageLineInput(lineBytes, lineText);
-    },
-  });
+  options: BytesLineOptions & { isUsageLineBytes: (lineBytes: Buffer) => boolean },
+): AsyncGenerator<Iterable<ClassifiedJsonlObject>, void, undefined>;
+export function readClassifiedJsonlObjectBatches(
+  filePath: string,
+  // eslint-disable-next-line @typescript-eslint/unified-signatures -- a union leaves the callbacks untyped
+  options: TextLineOptions & { isUsageLine: (lineText: string) => boolean },
+): AsyncGenerator<Iterable<ClassifiedJsonlObject>, void, undefined>;
+export function readClassifiedJsonlObjectBatches(
+  filePath: string,
+  options: ReadClassifiedJsonlObjectsOptions,
+): AsyncGenerator<Iterable<ClassifiedJsonlObject>, void, undefined> {
+  return readJsonlBatches(filePath, options, toClassifiedItem(options));
+}
 
-  // Each record is yielded right after its line is classified.
-  for await (const record of records) {
-    yield { record, isUsageLine };
+const toRecord: ToItem<Record<string, unknown>> = (record) => record;
+
+function toClassifiedItem(
+  options: ReadClassifiedJsonlObjectsOptions,
+): ToItem<ClassifiedJsonlObject> {
+  return 'isUsageLineBytes' in options
+    ? (record, lineBytes) => ({ record, isUsageLine: options.isUsageLineBytes(lineBytes) })
+    : (record, _lineBytes, lineText) => ({ record, isUsageLine: options.isUsageLine(lineText) });
+}
+
+async function* flattenBatches<T>(
+  batches: AsyncGenerator<Iterable<T>, void, undefined>,
+): AsyncGenerator<T, void, undefined> {
+  for await (const batch of batches) {
+    yield* batch;
   }
 }
 
@@ -140,10 +170,11 @@ async function* readHandleChunks(handle: FileHandle, start: number): AsyncGenera
   }
 }
 
-async function* readJsonlItems(
+async function* readJsonlBatches<T>(
   filePath: string,
-  options: LineReader,
-): AsyncGenerator<Record<string, unknown>, void, undefined> {
+  options: ReadJsonlObjectsOptions,
+  toItem: ToItem<T>,
+): AsyncGenerator<Iterable<T>, void, undefined> {
   const { position } = options;
   let stream: ReadStream | undefined;
   let chunks: AsyncIterable<Buffer>;
@@ -159,48 +190,60 @@ async function* readJsonlItems(
   let carriedChunks: Buffer[] = [];
   let chunkOffset = position?.start ?? 0;
 
+  // Parses a chunk's lines as the consumer reaches them, so a read stopped early never
+  // parses or reports the lines after the record it stopped at.
+  function* parseChunkLines(chunk: Buffer): Generator<T, void, undefined> {
+    let lineStart = 0;
+
+    while (lineStart < chunk.length) {
+      const lineEnd = chunk.indexOf(LINE_FEED, lineStart);
+
+      if (lineEnd === -1) {
+        break;
+      }
+
+      const lineBytes = takeLineBytes(chunk.subarray(lineStart, lineEnd), carriedChunks);
+      carriedChunks = [];
+      lineStart = lineEnd + 1;
+
+      const item = parseJsonlLine(lineBytes, isFirstLine, options, toItem);
+      isFirstLine = false;
+
+      if (position) {
+        position.onLineEnd(chunkOffset + lineStart);
+      }
+
+      if (item !== undefined) {
+        yield item;
+      }
+    }
+
+    if (lineStart < chunk.length) {
+      carriedChunks.push(chunk.subarray(lineStart));
+    }
+
+    chunkOffset += chunk.length;
+  }
+
   try {
     for await (const chunk of chunks) {
-      let lineStart = 0;
       position?.onChunk(chunk);
+      const batch = parseChunkLines(chunk);
+      yield batch;
 
-      while (lineStart < chunk.length) {
-        const lineEnd = chunk.indexOf(LINE_FEED, lineStart);
-
-        if (lineEnd === -1) {
-          break;
-        }
-
-        const lineBytes = takeLineBytes(chunk.subarray(lineStart, lineEnd), carriedChunks);
-        carriedChunks = [];
-        lineStart = lineEnd + 1;
-
-        const parsedObject = parseJsonlLine(lineBytes, isFirstLine, options);
-        isFirstLine = false;
-
-        if (position) {
-          position.onLineEnd(chunkOffset + lineStart);
-        }
-
-        if (parsedObject) {
-          yield parsedObject;
-        }
+      // Lines a consumer skipped are still read, so the next chunk starts after them.
+      while (!batch.next().done) {
+        // Each step parses one more line.
       }
-
-      if (lineStart < chunk.length) {
-        carriedChunks.push(chunk.subarray(lineStart));
-      }
-
-      chunkOffset += chunk.length;
     }
 
     // A resumable read leaves an unterminated final line for the read after its line feed.
     if (carriedChunks.length > 0 && !position) {
       const lineBytes = takeLineBytes(Buffer.alloc(0), carriedChunks);
-      const parsedObject = parseJsonlLine(lineBytes, isFirstLine, options);
+      const item = parseJsonlLine(lineBytes, isFirstLine, options, toItem);
 
-      if (parsedObject) {
-        yield parsedObject;
+      if (item !== undefined) {
+        yield [item];
       }
     }
   } finally {
@@ -221,11 +264,12 @@ function takeLineBytes(lineEndBytes: Buffer, carriedChunks: Buffer[]): Buffer {
   return Buffer.concat([...carriedChunks, lineEndBytes]);
 }
 
-function parseJsonlLine(
+function parseJsonlLine<T>(
   lineBytes: Buffer,
   isFirstLine: boolean,
-  options: LineReader,
-): Record<string, unknown> | undefined {
+  options: ReadJsonlObjectsOptions,
+  toItem: ToItem<T>,
+): T | undefined {
   let lineStart = 0;
   let lineEnd = lineBytes.length;
 
@@ -273,11 +317,7 @@ function parseJsonlLine(
 
   const record = asRecord(parsed);
 
-  if (record && options.onRecordLine) {
-    options.onRecordLine(parseLineBytes, lineText);
-  }
-
-  return record ?? undefined;
+  return record ? toItem(record, parseLineBytes, lineText) : undefined;
 }
 
 function hasUtf8Bom(lineBytes: Buffer, lineStart: number, lineEnd: number): boolean {

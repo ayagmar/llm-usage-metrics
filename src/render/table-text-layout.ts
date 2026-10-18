@@ -107,7 +107,7 @@ function codePointDisplayWidth(character: string): number {
   return 1;
 }
 
-export function segmentGraphemes(value: string): string[] {
+function segmentGraphemes(value: string): string[] {
   return Array.from(graphemeSegmenter.segment(value), (segment) => segment.segment);
 }
 
@@ -309,4 +309,21 @@ export function truncateTableColumn(
 
     return truncatedRow;
   });
+}
+
+export function isValidTerminalWidth(width: unknown): width is number {
+  return typeof width === 'number' && Number.isFinite(width) && width > 0;
+}
+
+/** An explicit width override when valid, else the TTY width. */
+export function resolveTerminalWidth(override: number | undefined): number | undefined {
+  if (isValidTerminalWidth(override)) {
+    return Math.floor(override);
+  }
+
+  return resolveTtyColumns(process.stdout);
+}
+
+export function measureCellWidth(cell: string): number {
+  return splitCellLines(cell).reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
 }

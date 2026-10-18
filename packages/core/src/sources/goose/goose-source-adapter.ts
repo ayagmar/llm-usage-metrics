@@ -10,7 +10,12 @@ import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
-import { runWithBusyRetries, toSqliteDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
+import {
+  resolveMaxBusyRetries,
+  runWithBusyRetries,
+  toSqliteDbReadError,
+  type SleepFn,
+} from '../sqlite/retry-policy.js';
 
 const DEFAULT_BUSY_RETRY_COUNT = 2;
 const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
@@ -53,7 +58,7 @@ export type GooseSourceAdapterOptions = {
   /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
   /** Test seam: replaces the node:sqlite loader. @internal */
-  loadSqliteModule?: () => Promise<SqliteModule>;
+  loadSqliteModule?: (consumerLabel: string) => Promise<SqliteModule>;
   /** Retries of a read that finds the database busy or locked. */
   maxBusyRetries?: number;
   /** Delay between those retries. */
@@ -193,7 +198,7 @@ export class GooseSourceAdapter implements SourceAdapter {
   private readonly pathExists: PathPredicate;
   private readonly pathReadable: PathPredicate;
   private readonly pathIsFile: PathPredicate;
-  private readonly loadSqliteModule: () => Promise<SqliteModule>;
+  private readonly loadSqliteModule: (consumerLabel: string) => Promise<SqliteModule>;
   private readonly maxBusyRetries: number;
   private readonly busyRetryDelayMs: number;
   private readonly sleep: SleepFn;
@@ -208,7 +213,11 @@ export class GooseSourceAdapter implements SourceAdapter {
     this.pathReadable = options.pathReadable ?? pathReadable;
     this.pathIsFile = options.pathIsFile ?? pathIsFile;
     this.loadSqliteModule = options.loadSqliteModule ?? loadNodeSqliteModule;
-    this.maxBusyRetries = Math.max(0, options.maxBusyRetries ?? DEFAULT_BUSY_RETRY_COUNT);
+    this.maxBusyRetries = resolveMaxBusyRetries(
+      'Goose',
+      options.maxBusyRetries,
+      DEFAULT_BUSY_RETRY_COUNT,
+    );
     this.busyRetryDelayMs = Math.max(1, options.busyRetryDelayMs ?? DEFAULT_BUSY_RETRY_DELAY_MS);
     this.sleep = options.sleep ?? sleep;
   }
@@ -328,7 +337,7 @@ export class GooseSourceAdapter implements SourceAdapter {
   // Opens the database and pulls the first row, so a busy database fails here, inside
   // the retry, rather than after a row was yielded.
   private async openSessionRows(dbPath: string): Promise<GooseSessionRows> {
-    const sqlite = await this.loadSqliteModule();
+    const sqlite = await this.loadSqliteModule('Goose');
     const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
 
     try {

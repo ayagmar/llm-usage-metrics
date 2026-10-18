@@ -6,7 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { limitNamedModels } from '../render/format-model-list.js';
+import { truncateNames } from '../render/truncate-names.js';
 import {
   closeEventStore,
   openEventStore,
@@ -36,8 +36,9 @@ import {
   parseSelectedAdapters,
   throwOnExplicitSourceFailures,
   type AdapterParseResult,
+  type ParsedSourceFile,
 } from './build-usage-data-parsing.js';
-import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
+import { filterParsedAdapterEventsWithLookback } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
 import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
 import {
@@ -65,6 +66,7 @@ import { dedupeCopiedSessions, type SourceAdapter } from '@ayagmar/agent-session
 import {
   getRepeatingSourceIds,
   getSessionCopyingSourceIds,
+  pluralize,
 } from '@ayagmar/agent-sessions/internal';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
@@ -87,8 +89,8 @@ function withNormalizedPricingUrl(
 
 function formatHistoryNote(historyResult: EventStoreHistoryResult): string {
   return [
-    `History: included ${historyResult.servedEventCount} event(s)`,
-    `from ${historyResult.servedFileCount} departed file(s)`,
+    `History: included ${pluralize(historyResult.servedEventCount, 'event')}`,
+    `from ${pluralize(historyResult.servedFileCount, 'departed file')}`,
     `(${historyResult.suppressedFileCount} suppressed as moved or duplicated).`,
   ].join(' ');
 }
@@ -163,6 +165,17 @@ export type UsageEventDataset = {
   notes: string[];
   filteredEvents: UsageEvent[];
   /**
+   * With `lookbackSince`, the events from that date to the day before `since`, filtered with
+   * the rules the window resolved; empty otherwise.
+   */
+  lookbackEvents: UsageEvent[];
+  /**
+   * The local files whose events this run counts: discovered, parsed or served from the
+   * store, and not skipped as last modified before the window (those the store lacked are
+   * parsed and marked `beforeWindow`).
+   */
+  parsedFiles: ParsedSourceFile[];
+  /**
    * The event store and the stored files whose events this run counts: parsed files and
    * the departed files history served. Undefined when the event store was unavailable.
    */
@@ -182,6 +195,10 @@ export type UsageEventDatasetPricingResult = PricedEventsResult;
 export async function buildUsageEventDataset(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
+  request: {
+    /** Also read from this date, before `since`, for context (`lookbackEvents`). */
+    lookbackSince?: string;
+  } = {},
 ): Promise<UsageEventDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
@@ -301,7 +318,7 @@ export async function buildUsageEventDataset(
           eventStore: parseEventStoreRuntimeConfig,
           openedStore: openedEventStore,
           overrideSourceIds: cliDirectorySourceIds,
-          since: configuredOptions.since,
+          since: request.lookbackSince ?? configuredOptions.since,
           parseWorkers: {
             workerCount: parsingRuntimeConfig.parseWorkers,
             minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
@@ -427,7 +444,7 @@ export async function buildUsageEventDataset(
             ),
             servedEvents: parseResultsForFiltering.flatMap((result) => result.events),
             adapters: adaptersToParse,
-            since: configuredOptions.since,
+            since: request.lookbackSince ?? configuredOptions.since,
             until: configuredOptions.until,
           }),
       );
@@ -477,21 +494,25 @@ export async function buildUsageEventDataset(
         }),
     );
 
-    const filteredEvents = measureRuntimeProfileStageSync(
+    const { filteredEvents, lookbackEvents } = measureRuntimeProfileStageSync(
       runtimeProfile,
       'usage.dataset.filter_events',
-      () =>
+      () => {
+        const filtered = filterParsedAdapterEventsWithLookback(parseResultsForFiltering, {
+          timezone: normalizedInputs.timezone,
+          since: configuredOptions.since,
+          until: configuredOptions.until,
+          providerFilter: normalizedInputs.providerFilter,
+          modelFilter: normalizedInputs.modelFilter,
+          lookbackSince: request.lookbackSince,
+        });
+
         // After the model filter, which picks exact or substring matching over all projects.
-        applyRepoFilter(
-          filterParsedAdapterEvents(parseResultsForFiltering, {
-            timezone: normalizedInputs.timezone,
-            since: configuredOptions.since,
-            until: configuredOptions.until,
-            providerFilter: normalizedInputs.providerFilter,
-            modelFilter: normalizedInputs.modelFilter,
-          }),
-          normalizedInputs.repoFilter,
-        ),
+        return {
+          filteredEvents: applyRepoFilter(filtered.events, normalizedInputs.repoFilter),
+          lookbackEvents: applyRepoFilter(filtered.lookbackEvents, normalizedInputs.repoFilter),
+        };
+      },
     );
 
     dataset = {
@@ -521,6 +542,8 @@ export async function buildUsageEventDataset(
       ],
       notes: [...historyNotes, ...machineNotes],
       filteredEvents,
+      lookbackEvents,
+      parsedFiles,
       ledger,
       pricingRuntimeConfig,
       readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,
@@ -577,11 +600,6 @@ export async function applyPricingToUsageEventDataset(
 
 const MAX_NAMED_UNPRICED_MODELS = 5;
 
-function formatEventCount(count: number): string {
-  const eventLabel = count === 1 ? 'event' : 'events';
-  return `${new Intl.NumberFormat('en-US').format(count)} ${eventLabel}`;
-}
-
 /**
  * Reports leave an event without a cost out of cost totals and mark those totals with `~`.
  * Returns the note explaining that marker for the events a report shows, if any lack a cost.
@@ -596,14 +614,14 @@ function describeUnpricedEvents(
     return undefined;
   }
 
-  const eventCount = formatEventCount(unpricedEvents.length);
+  const eventCount = pluralize(unpricedEvents.length, 'event');
 
   if (costMode === 'explicit') {
     return `~ marks costs that leave out ${eventCount} with no logged cost (--cost-mode explicit)`;
   }
 
   const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+  const modelList = truncateNames(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
   return `~ marks costs that leave out ${eventCount} with no known price (models: ${modelList})`;
 }
@@ -620,9 +638,9 @@ function describePriorityPricedEvents(
   }
 
   const models = [...new Set(priorityEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+  const modelList = truncateNames(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
-  return `${formatEventCount(priorityEvents.length)} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
+  return `${pluralize(priorityEvents.length, 'event')} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
 }
 
 /**
@@ -647,7 +665,7 @@ function describeReestimatedExplicitZero(
   const sources = [...new Set(reestimatedEvents.map((event) => event.source))].sort().join(', ');
   const verb = reestimatedEvents.length === 1 ? 'was' : 'were';
 
-  return `${formatEventCount(reestimatedEvents.length)} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
+  return `${pluralize(reestimatedEvents.length, 'event')} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
 }
 
 type PricingNotesInput = Pick<

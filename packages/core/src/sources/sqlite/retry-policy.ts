@@ -1,3 +1,4 @@
+import { pluralize } from '../../utils/pluralize.js';
 import { formatSqliteError, isBusyOrLockedSqliteError } from './sqlite-errors.js';
 
 export type SleepFn = (delayMs: number) => Promise<void>;
@@ -14,7 +15,7 @@ export function toSqliteDbReadError(
 ): Error {
   if (isBusyOrLockedSqliteError(error)) {
     return new Error(
-      `${source} DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active ${source} processes and retry.`,
+      `${source} DB is busy/locked: ${dbPath}. Retries exhausted after ${pluralize(attempts, 'attempt')}. Close active ${source} processes and retry.`,
       { cause: error },
     );
   }
@@ -22,6 +23,28 @@ export function toSqliteDbReadError(
   return new Error(`Could not read ${source} DB at ${dbPath}: ${formatSqliteError(error)}`, {
     cause: error,
   });
+}
+
+/**
+ * The adapter's `maxBusyRetries` option, or `fallback` when unset. Anything but a
+ * non-negative integer throws, naming the source.
+ */
+export function resolveMaxBusyRetries(
+  source: string,
+  value: number | undefined,
+  fallback: number,
+): number {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (!Number.isInteger(value) || value < 0) {
+    throw new TypeError(
+      `${source} maxBusyRetries must be a non-negative integer (0 disables retries), got ${String(value)}`,
+    );
+  }
+
+  return value;
 }
 
 /**

@@ -32,7 +32,7 @@ export type SubscriptionPlan = {
   vendor: PlanVendor;
 };
 
-export const SUBSCRIPTION_PLANS = [
+const SUBSCRIPTION_PLANS = [
   { id: 'claude-pro', priceUsdPerMonth: 20, sources: ['claude'], vendor: CLAUDE_VENDOR },
   { id: 'claude-max-5x', priceUsdPerMonth: 100, sources: ['claude'], vendor: CLAUDE_VENDOR },
   { id: 'claude-max-20x', priceUsdPerMonth: 200, sources: ['claude'], vendor: CLAUDE_VENDOR },

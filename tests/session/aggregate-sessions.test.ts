@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { IDLE_GAP_CAP_MS } from '../../src/domain/active-time.js';
+import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
 import {
   aggregateSessions,
@@ -232,49 +232,6 @@ describe('aggregateSessions', () => {
     });
   });
 
-  it('filters events by local date before grouping', () => {
-    const rows = aggregateSessions(
-      [
-        event({
-          source: 'codex',
-          sessionId: 'boundary',
-          timestamp: '2026-01-01T23:30:00.000Z',
-          inputTokens: 100,
-          costUsd: 1,
-        }),
-        event({
-          source: 'codex',
-          sessionId: 'boundary',
-          timestamp: '2026-01-02T10:00:00.000Z',
-          inputTokens: 10,
-          costUsd: 0.1,
-        }),
-        event({
-          source: 'codex',
-          sessionId: 'boundary',
-          timestamp: '2026-01-03T01:00:00.000Z',
-          inputTokens: 100,
-          costUsd: 1,
-        }),
-      ],
-      {
-        timezone: 'UTC',
-        since: '2026-01-02',
-        until: '2026-01-02',
-      },
-    );
-
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      sessionId: 'boundary',
-      firstActivity: '2026-01-02T10:00:00.000Z',
-      lastActivity: '2026-01-02T10:00:00.000Z',
-      eventCount: 1,
-      inputTokens: 10,
-      costUsd: 0.1,
-    });
-  });
-
   it('attributes the first seen repo root to the session row', () => {
     const rows = aggregateSessions([
       event({
@@ -463,41 +420,5 @@ describe('aggregateSessionsByRepo', () => {
       '/repo/cheap',
       '/repo/unpriced',
     ]);
-  });
-
-  it('filters events by local date before repo grouping', () => {
-    const rows = aggregateSessionsByRepo(
-      [
-        event({
-          source: 'codex',
-          sessionId: 'in-range',
-          timestamp: '2026-01-02T10:00:00.000Z',
-          inputTokens: 10,
-          costUsd: 1,
-          repoRoot: '/repo/kept',
-        }),
-        event({
-          source: 'codex',
-          sessionId: 'out-of-range',
-          timestamp: '2026-01-03T10:00:00.000Z',
-          inputTokens: 100,
-          costUsd: 5,
-          repoRoot: '/repo/dropped',
-        }),
-      ],
-      {
-        timezone: 'UTC',
-        since: '2026-01-02',
-        until: '2026-01-02',
-      },
-    );
-
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      repoRoot: '/repo/kept',
-      sessionCount: 1,
-      inputTokens: 10,
-      costUsd: 1,
-    });
   });
 });

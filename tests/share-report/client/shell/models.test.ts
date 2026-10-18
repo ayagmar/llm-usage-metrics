@@ -14,15 +14,11 @@ import {
   getStackOptions,
 } from '../../../../src/share-report/client/ui/controls/model.js';
 import {
-  formatCompact,
   formatCost,
-  formatCount,
   formatDateRange,
   formatDay,
-  formatDuration,
   formatPercent,
-  formatTimestamp,
-  pluralize,
+  formatTimeOrNone,
 } from '../../../../src/share-report/client/ui/shell/format.js';
 import {
   buildHeader,
@@ -45,7 +41,13 @@ import {
   describePage,
   TABLE_PAGE_SIZE,
 } from '../../../../src/share-report/client/ui/tables/model.js';
-import { HOST_TIMEZONES, loadFixtureReport, useHostTimezone } from '../core/share-fixture.js';
+import {
+  decodeOrThrow,
+  HOST_TIMEZONES,
+  loadFixtureReport,
+  readFixturePayload,
+  useHostTimezone,
+} from '../core/share-fixture.js';
 
 function contextFor(
   report: ShareReport,
@@ -65,18 +67,9 @@ function texts(cells: { text: string }[] | undefined): string[] {
 }
 
 describe('formatting', () => {
-  it('writes counts, compact numbers, percents and durations', () => {
-    expect(formatCount(24300)).toBe('24,300');
-    expect(formatCompact(24300)).toBe('24.3K');
-    expect(formatCompact(11_091_300)).toBe('11.1M');
+  it('writes percents', () => {
     expect(formatPercent(0.7589)).toBe('75.9%');
     expect(formatPercent(null)).toBe('—');
-    expect(formatDuration(0)).toBe('0m');
-    expect(formatDuration(30_000)).toBe('<1m');
-    expect(formatDuration(12 * 60_000)).toBe('12m');
-    expect(formatDuration((3 * 60 + 5) * 60_000)).toBe('3h 05m');
-    expect(pluralize(1, 'session')).toBe('1 session');
-    expect(pluralize(1200, 'session')).toBe('1,200 sessions');
   });
 
   it('marks a cost some events had no price for, as the terminal does', () => {
@@ -110,13 +103,13 @@ describe('formatting', () => {
       useHostTimezone(host);
 
       it('writes timestamps in the report timezone, not the host one', () => {
-        expect(formatTimestamp('2026-10-26T22:07:00.000Z', 'Europe/Paris')).toBe(
+        expect(formatTimeOrNone('2026-10-26T22:07:00.000Z', 'Europe/Paris')).toBe(
           '2026-10-26 23:07',
         );
-        expect(formatTimestamp('2026-10-25T00:30:00.000Z', 'Europe/Paris')).toBe(
+        expect(formatTimeOrNone('2026-10-25T00:30:00.000Z', 'Europe/Paris')).toBe(
           '2026-10-25 02:30',
         );
-        expect(formatTimestamp('garbage', 'Europe/Paris')).toBe('—');
+        expect(formatTimeOrNone('garbage', 'Europe/Paris')).toBe('—');
       });
     });
   }
@@ -190,6 +183,27 @@ describe('header', () => {
     ]);
   });
 
+  it('shortens a long filter list in the badge and keeps every name in its title', () => {
+    const sources = ['amp', 'claude', 'cline', 'codex', 'gemini', 'goose', 'pi'];
+    const edited = loadFixtureReport((data) => {
+      data.meta.filters = {
+        sources,
+        providers: [],
+        models: ['a', 'b', 'c', 'd'],
+        machines: [],
+        repo: false,
+      };
+    });
+
+    expect(
+      buildHeader(contextFor(edited)).badges.find((badge) => badge.text.startsWith('Generated')),
+    ).toEqual({
+      text: 'Generated for source amp, claude, cline, +4 more; model a, b, c, +1 more',
+      tone: 'neutral',
+      title: `Generated for source ${sources.join(', ')}; model a, b, c, d`,
+    });
+  });
+
   it('hides a machine name the command filtered on while names are hidden', () => {
     const edited = loadFixtureReport((data) => {
       data.meta.filters.machines = ['laptop'];
@@ -236,6 +250,19 @@ describe('summary', () => {
       ['cache-hit', '75.9%'],
       ['cost-per-hour', '$0.80'],
     ]);
+  });
+
+  it('writes active time as the terminal does', () => {
+    const payload = readFixturePayload();
+    // 3h 5m 40s on the largest cell of the opening view, none elsewhere.
+    payload.data.cube.activeMs = payload.data.cube.activeMs.map((_, index) =>
+      index === 3 ? 11_140_000 : 0,
+    );
+    const active = buildSummary(contextFor(decodeOrThrow(payload))).find(
+      (figure) => figure.id === 'active',
+    );
+
+    expect(active?.value).toBe('3h 6m');
   });
 
   it('clips cost per active hour to hourly cells and says so', () => {
@@ -359,10 +386,23 @@ describe('controls', () => {
       max: '2026-10-27',
     });
     expect(getPeriodInputs(report, { since: null, until: '2026-10-22' })).toMatchObject({
-      from: '',
+      from: '2025-12-29',
       to: '2026-10-22',
       toMin: '2025-12-29',
       max: '2026-10-26',
+    });
+  });
+
+  it('fills the "from" date of a file without a start (--all) with its first date of data', () => {
+    const all = loadFixtureReport((data) => {
+      data.meta.window = { since: null, until: null };
+    });
+    const firstDate = all.periods.map((period) => period.dateKey).sort()[0];
+
+    expect(getPeriodInputs(all, { since: null, until: null })).toMatchObject({
+      from: firstDate,
+      toMin: firstDate,
+      min: firstDate,
     });
   });
 

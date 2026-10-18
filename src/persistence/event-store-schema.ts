@@ -1,4 +1,6 @@
-import { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
+import { computeEventContentHash } from '@ayagmar/agent-sessions';
+
+import { normalizeStoredEvent } from './event-store-codec.js';
 import {
   type EventStoreDatabase,
   runTransaction,
@@ -230,7 +232,7 @@ export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
 
 // Events stored before v4 read as having no one-hour cache writes; reparsing a file that
 // is still on disk fills them in.
-export function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
+function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
   runTransaction(database, () => {
     // Re-check under the write lock: another process may have migrated while
     // this one waited on BEGIN IMMEDIATE.

@@ -14,6 +14,7 @@ export const PRICING_FETCH_TIMEOUT_DEFAULT_MS = 4_000;
 export const PARSE_MAX_PARALLEL_DEFAULT = 8;
 export const PARSE_WORKERS_CONFIG_DEFAULT = 'auto';
 const PARSE_WORKER_MAX = 64;
+const AUTO_PARSE_WORKER_LIMIT = 8;
 export const PARSE_WORKER_MIN_BYTES_DEFAULT = 268_435_456;
 export const EVENT_STORE_ENABLED_DEFAULT = true;
 
@@ -138,36 +139,42 @@ export function getPricingFetcherRuntimeConfig(
   };
 }
 
-function getAutoParseWorkerCount(): number {
-  return Math.max(0, Math.min(8, availableParallelism() - 1));
+function getAutoParseWorkerCount(limit: number): number {
+  return Math.max(0, Math.min(limit, availableParallelism() - 1));
 }
 
 function resolveParseWorkers(
   envValue: string | undefined,
   configValue: UserConfig['parseWorkers'],
+  autoLimit: number,
 ): number {
   if (envValue === undefined || envValue.trim().length === 0) {
     return configValue === undefined || configValue === 'auto'
-      ? getAutoParseWorkerCount()
+      ? getAutoParseWorkerCount(autoLimit)
       : configValue;
   }
 
   const trimmedValue = envValue.trim().toLowerCase();
 
   if (trimmedValue === 'auto') {
-    return getAutoParseWorkerCount();
+    return getAutoParseWorkerCount(autoLimit);
   }
 
   return resolveBoundedInteger(envValue, configValue === 'auto' ? undefined : configValue, {
-    fallback: getAutoParseWorkerCount(),
+    fallback: getAutoParseWorkerCount(autoLimit),
     min: 0,
     max: PARSE_WORKER_MAX,
   });
 }
 
+/**
+ * `autoParseWorkerLimit` caps the worker count that `auto` resolves to (one less than the
+ * available CPUs); an explicit count is kept as set.
+ */
 export function getParsingRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
   config: UserConfig = {},
+  autoParseWorkerLimit = AUTO_PARSE_WORKER_LIMIT,
 ): ParsingRuntimeConfig {
   return {
     maxParallelFileParsing: resolveBoundedInteger(undefined, config.parseMaxParallel, {
@@ -175,7 +182,11 @@ export function getParsingRuntimeConfig(
       min: 1,
       max: 64,
     }),
-    parseWorkers: resolveParseWorkers(env.LLM_USAGE_PARSE_WORKERS, config.parseWorkers),
+    parseWorkers: resolveParseWorkers(
+      env.LLM_USAGE_PARSE_WORKERS,
+      config.parseWorkers,
+      autoParseWorkerLimit,
+    ),
     parseWorkerMinBytes: resolveBoundedInteger(
       env.LLM_USAGE_PARSE_WORKER_MIN_BYTES,
       config.parseWorkerMinBytes,

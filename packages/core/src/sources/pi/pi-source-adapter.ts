@@ -18,7 +18,10 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathExists } from '../../utils/fs-helpers.js';
 import { readFirstLine } from '../../utils/read-first-line.js';
-import { readClassifiedJsonlObjects, readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import {
+  readClassifiedJsonlObjectBatches,
+  readJsonlObjectBatches,
+} from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
   isPathWithinRoots,
@@ -725,30 +728,32 @@ export class PiSourceAdapter implements SourceAdapter {
     const state: PiSessionState = { sessionId: getFallbackSessionId(filePath) };
 
     if (!request || !hasNonUsageKind(request.kinds)) {
-      for await (const line of readJsonlObjects(filePath, {
+      for await (const lines of readJsonlObjectBatches(filePath, {
         shouldParseLine: shouldParsePiJsonlLine,
         onMalformedLine: () => {
           recordSkippedRow(diagnostics, 'json_parse_error');
         },
       })) {
-        if (line.type === 'session') {
-          await this.applySessionLine(line, filePath, state);
-          continue;
-        }
+        for (const line of lines) {
+          if (line.type === 'session') {
+            await this.applySessionLine(line, filePath, state);
+            continue;
+          }
 
-        if (line.type === 'model_change') {
-          applyModelChangeLine(line, state);
-          continue;
-        }
+          if (line.type === 'model_change') {
+            applyModelChangeLine(line, state);
+            continue;
+          }
 
-        if (line.type !== 'message') {
-          continue;
-        }
+          if (line.type !== 'message') {
+            continue;
+          }
 
-        const event = this.createUsage(line, state, diagnostics, request);
+          const event = this.createUsage(line, state, diagnostics, request);
 
-        if (event) {
-          yield event;
+          if (event) {
+            yield event;
+          }
         }
       }
 
@@ -758,26 +763,28 @@ export class PiSourceAdapter implements SourceAdapter {
     const { kinds } = request;
     const events = new PiSessionEvents(this.id, filePath, diagnostics, request);
 
-    for await (const { record: line, isUsageLine } of readClassifiedJsonlObjects(filePath, {
+    for await (const items of readClassifiedJsonlObjectBatches(filePath, {
       shouldParseLine: shouldParsePiEventLine,
       isUsageLine: shouldParsePiJsonlLine,
       onMalformedLine: (lineText) => {
         recordMalformedLine(diagnostics, kinds, shouldParsePiJsonlLine(lineText));
       },
     })) {
-      if (isUsageLine && line.type === 'session') {
-        await this.applySessionLine(line, filePath, state);
-      } else if (isUsageLine && line.type === 'model_change') {
-        applyModelChangeLine(line, state);
-      }
+      for (const { record: line, isUsageLine } of items) {
+        if (isUsageLine && line.type === 'session') {
+          await this.applySessionLine(line, filePath, state);
+        } else if (isUsageLine && line.type === 'model_change') {
+          applyModelChangeLine(line, state);
+        }
 
-      yield* events.add(line, state);
+        yield* events.add(line, state);
 
-      if (isUsageLine && kinds.has('usage') && line.type === 'message') {
-        const event = this.createUsage(line, state, diagnostics, request);
+        if (isUsageLine && kinds.has('usage') && line.type === 'message') {
+          const event = this.createUsage(line, state, diagnostics, request);
 
-        if (event) {
-          yield event;
+          if (event) {
+            yield event;
+          }
         }
       }
     }

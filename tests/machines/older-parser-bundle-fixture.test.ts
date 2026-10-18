@@ -97,7 +97,7 @@ describe('machine bundle from an older parser version', () => {
     expect(usageData.events.map((event) => event.machine ?? 'local')).toEqual(['local', 'local']);
     expect(usageData.diagnostics.warnings).toContainEqual(
       expect.stringMatching(
-        /^laptop parses with other parser versions \(codex n2\.p1 there, n\d+\.p\d+ on this machine\): left out 2 event\(s\) .*; update llm-usage on both machines$/,
+        /^laptop parses with other parser versions \(codex n2\.p1 there, n\d+\.p\d+ on this machine\): left out 2 events .*; update llm-usage on both machines$/,
       ),
     );
     // Those events count toward what the machines note says was left out.

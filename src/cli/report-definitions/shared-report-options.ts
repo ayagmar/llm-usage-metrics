@@ -170,6 +170,24 @@ export const sharedOptionProfileConfig = {
     includeShare: false,
     includeTimezone: true,
   },
+  // tools: no prices, and only local files on disk, so no history, machines or sync.
+  tools: {
+    includeSources: true,
+    includeVerbose: true,
+    includeJson: true,
+    includeQuiet: true,
+    includeDateFilters: true,
+    includeMarkdown: true,
+    includePerModelColumns: false,
+    includePricing: false,
+    includeCostOptions: false,
+    includePricingFetch: false,
+    includeProviderModelFilters: false,
+    includeHistory: false,
+    includeSync: false,
+    includeShare: false,
+    includeTimezone: true,
+  },
   wrapped: {
     includeSources: true,
     includeVerbose: true,
@@ -239,6 +257,24 @@ export const sharedOptionProfileConfig = {
     includeSync: false,
     includeShare: false,
     includeTimezone: false,
+  },
+  // config show: every flag that changes a setting it reports, and --json.
+  config: {
+    includeSources: true,
+    includeVerbose: false,
+    includeJson: true,
+    includeQuiet: false,
+    includeDateFilters: false,
+    includeMarkdown: false,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeCostOptions: false,
+    includePricingFetch: true,
+    includeProviderModelFilters: false,
+    includeHistory: false,
+    includeSync: false,
+    includeShare: false,
+    includeTimezone: true,
   },
   // pricing <model...>: only what decides which prices load, the output format and --quiet.
   pricing: {
@@ -355,11 +391,8 @@ function registerSourcePathOptions(command: Command): void {
   }
 
   command
+    // createCli prints the help for it, with these flags revealed.
     .option('--help-all', 'Display help including the per-source path flags')
-    .on('option:help-all', () => {
-      revealHiddenOptions(command);
-      command.help();
-    })
     .addHelpText('after', () =>
       hasHiddenOptions(command)
         ? '\nPer-source path flags (--claude-dir, ...)\nare listed by --help-all.'

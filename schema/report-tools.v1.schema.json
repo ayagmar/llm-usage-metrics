@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-tools.v1.schema.json",
+  "title": "llm-usage-metrics tools report output (v1)",
+  "description": "Envelope and payload for tools --json output: tool calls per tool, read from session files on disk.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "tools" },
+    "data": {
+      "description": "Tool rows in the window, most calls first, and the totals over every call.",
+      "type": "object",
+      "properties": {
+        "timezone": {
+          "description": "IANA timezone of the date window.",
+          "type": "string"
+        },
+        "since": {
+          "description": "First day of the window (YYYY-MM-DD); null for the full history.",
+          "type": ["string", "null"]
+        },
+        "until": {
+          "description": "Last day of the window (YYYY-MM-DD); null when open-ended.",
+          "type": ["string", "null"]
+        },
+        "bySource": {
+          "description": "True with --by-source: rows are split by source.",
+          "type": "boolean"
+        },
+        "byRepo": {
+          "description": "True with --by-repo: rows are split by project.",
+          "type": "boolean"
+        },
+        "rowCount": {
+          "description": "Rows before --top.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows": {
+          "description": "Most calls first, then by tool name, source and project; at most --top rows.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/toolRow" }
+        },
+        "totals": {
+          "description": "Every call in the window, including the rows --top leaves out.",
+          "type": "object",
+          "allOf": [{ "$ref": "#/$defs/callCounts" }],
+          "properties": {
+            "tools": {
+              "description": "Distinct tool names.",
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": ["tools"],
+          "unevaluatedProperties": false
+        }
+      },
+      "required": [
+        "timezone",
+        "since",
+        "until",
+        "bySource",
+        "byRepo",
+        "rowCount",
+        "rows",
+        "totals"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "callCounts": {
+      "type": "object",
+      "properties": {
+        "calls": { "description": "Tool calls.", "type": "integer", "minimum": 0 },
+        "errors": {
+          "description": "Calls whose result records an error.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown": {
+          "description": "Calls without a result in their file, or with a status the source does not map.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "errorRate": {
+          "description": "errors over the calls with a known status (calls - unknown); null when none has one.",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sessions": {
+          "description": "Distinct sessions that made at least one of the calls.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["calls", "errors", "unknown", "errorRate", "sessions"]
+    },
+    "toolRow": {
+      "type": "object",
+      "description": "One tool, or one tool per source or project with --by-source or --by-repo.",
+      "allOf": [{ "$ref": "#/$defs/callCounts" }],
+      "properties": {
+        "name": { "description": "Tool name as the source logs it.", "type": "string" },
+        "source": { "description": "With --by-source: the source id.", "type": "string" },
+        "repoRoot": {
+          "description": "With --by-repo: the project key (repository root); null for sessions without one.",
+          "type": ["string", "null"]
+        },
+        "project": {
+          "description": "With --by-repo: the project label, as the projects report labels it.",
+          "type": "string"
+        },
+        "topRepoRoot": {
+          "description": "The project key whose sessions made most of the calls; null for sessions without a repository root.",
+          "type": ["string", "null"]
+        },
+        "topProject": {
+          "description": "The label of topRepoRoot, as the projects report labels it.",
+          "type": "string"
+        }
+      },
+      "required": ["name", "topRepoRoot", "topProject"],
+      "dependentRequired": { "repoRoot": ["project"], "project": ["repoRoot"] },
+      "unevaluatedProperties": false
+    }
+  }
+}

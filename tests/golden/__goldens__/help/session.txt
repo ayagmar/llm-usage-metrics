@@ -38,13 +38,17 @@ Options:
   --top <n>                      Show only the top N rows by cost (default 20; 0 shows all)
   --id <session-id>              Show only sessions whose id contains the value (case-insensitive;
                                  repeatable or comma-separated)
-  --by-repo                      Group usage by repository root instead of by session
+  --by-repo                      Group usage by project (the working directory the tool recorded)
+                                 instead of by session
+  --timeline                     With --id naming one session: list its requests in time order with
+                                 a running cost, between its tool calls and turns
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and the roots under it;
-                                 a name or path tail such as work/api matches the end of a root, not
-                                 the roots under it; (unattributed) matches usage without a root.
-                                 Applied after --model picks exact or substring matching
+                                 this machine) matches that project directory and the projects under
+                                 it; a name or path tail such as work/api matches the end of a
+                                 project directory, not the projects under it; (unattributed)
+                                 matches usage without a recorded directory. Applied after --model
+                                 picks exact or substring matching
   -h, --help                     display help for command
 
 Per-source path flags (--claude-dir, ...)

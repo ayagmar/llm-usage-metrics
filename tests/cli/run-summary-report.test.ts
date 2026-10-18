@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { runSummaryReport, SUMMARY_NEXT_STEPS_HINT } from '../../src/cli/run-summary-report.js';
 import * as shareArtifact from '../../src/cli/share-artifact.js';
-import { runUsageReport } from '../../src/cli/run-usage-report.js';
+import { getDefaultWindowHint, runUsageReport } from '../../src/cli/run-usage-report.js';
 import { readSharePayload } from '../helpers/share-html.js';
 
 const tempDirs: string[] = [];
@@ -124,6 +124,19 @@ describe('runUsageReport default window hint', () => {
     const order = await captureRun(() => runUsageReport('monthly', options));
 
     expect(order.some((line) => line.includes('Showing the last'))).toBe(false);
+  });
+
+  it('names what a day-window report shows', () => {
+    expect(
+      getDefaultWindowHint('daily', '2026-06-15', { label: 'tool calls', older: 'calls' }),
+    ).toEqual([
+      'Showing tool calls of the last 7 days (since 2026-06-15). Use --since YYYY-MM-DD or --all for older calls.',
+    ]);
+    expect(
+      getDefaultWindowHint('daily', '2026-06-15', { label: 'blocks', older: 'usage' }),
+    ).toEqual([
+      'Showing blocks of the last 7 days (since 2026-06-15). Use --since YYYY-MM-DD or --all for older usage.',
+    ]);
   });
 
   it('stays quiet once the user picks the range', async () => {

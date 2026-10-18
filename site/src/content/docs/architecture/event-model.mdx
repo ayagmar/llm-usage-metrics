@@ -53,7 +53,7 @@ The constructors (`createUsageEvent`, `createUsageRecord`, `createMessageEvent`,
 
 ## Projects
 
-No event has a `project` field. Usage events carry `repoRoot`, the repository root the source logged or the adapter resolved; session metadata carries `cwd`. Reports group by project on `repoRoot` without trailing separators; usage with no `repoRoot` is `(unattributed)`.
+No event has a `project` field. Usage events carry `repoRoot`, the working directory the source logged (for Gemini, looked up in its project map), never resolved to a `.git` root; session metadata carries `cwd`. Reports group by project on `repoRoot` without trailing separators; usage with no `repoRoot` is `(unattributed)`.
 
 ## What the CLI adds
 

@@ -17,7 +17,7 @@ import {
   classifyDepartedFiles,
   loadHistoryEvents,
 } from '../../src/persistence/event-store-history.js';
-import { compareByCodePoint } from '../../src/utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 const tempDirs: string[] = [];
 

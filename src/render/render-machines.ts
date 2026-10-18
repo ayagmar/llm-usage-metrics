@@ -3,7 +3,8 @@ import type { MachineSyncState } from '../machines/machine-cache.js';
 import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
-import { pluralize } from './format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { formatInteger } from './format-number.js';
 import { padEndVisible, visibleWidth } from './table-text-layout.js';
 
 const MAX_REASON_LENGTH = 300;
@@ -12,8 +13,6 @@ const MAX_REASON_LENGTH = 300;
 function formatReason(error: string): string {
   return error.length > MAX_REASON_LENGTH ? `${error.slice(0, MAX_REASON_LENGTH)}…` : error;
 }
-
-const integerFormat = new Intl.NumberFormat('en-US');
 
 export function formatAge(ageMs: number): string {
   const minutes = Math.floor(Math.max(0, ageMs) / 60_000);
@@ -56,7 +55,7 @@ export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): str
     const changes =
       result.receivedFileCount === 0 && result.removedFileCount === 0
         ? 'up to date'
-        : `${pluralize(result.receivedFileCount, 'file')} updated, ${integerFormat.format(result.removedFileCount)} removed`;
+        : `${pluralize(result.receivedFileCount, 'file')} updated, ${formatInteger(result.removedFileCount)} removed`;
 
     return [
       `✓ ${outcome.name}: ${changes}; ${formatCachedTotals(result.fileCount, result.eventCount)} cached${formatRemoteVersion(outcome.state)}`,

@@ -1,5 +1,6 @@
-import { matchesCanonicalProviderFilter } from '../../domain/provider-normalization.js';
+import { matchesCanonicalProviderFilter } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../../domain/usage-event.js';
+import { getUtcMidnightIso, shiftDateKey } from '../../utils/date-key.js';
 import { getPeriodKey } from '../../utils/time-buckets.js';
 import type { AdapterParseResult } from '../build-usage-data-parsing.js';
 
@@ -77,12 +78,6 @@ function filterByModelRules(events: UsageEvent[], modelFilter: string[] | undefi
   return events.filter((event) => matchesModel(event.model, modelFilterRules));
 }
 
-function shiftUtcDate(date: string, days: number): string {
-  const shifted = new Date(`${date}T00:00:00.000Z`);
-  shifted.setUTCDate(shifted.getUTCDate() + days);
-  return shifted.toISOString();
-}
-
 // A local date is less than a day away from the UTC date, so a normalized ISO timestamp
 // (24 characters, compared as text) a full day inside or outside the window needs no
 // time zone conversion; only timestamps near an edge are converted.
@@ -90,10 +85,10 @@ export function createDateWindowPrefilter(
   since: string | undefined,
   until: string | undefined,
 ): (timestamp: string) => 'inside' | 'outside' | 'near-edge' {
-  const outsideBefore = since ? shiftUtcDate(since, -1) : undefined;
-  const insideFrom = since ? shiftUtcDate(since, 1) : undefined;
-  const insideBefore = until ? shiftUtcDate(until, 0) : undefined;
-  const outsideFrom = until ? shiftUtcDate(until, 2) : undefined;
+  const outsideBefore = since ? getUtcMidnightIso(since, -1) : undefined;
+  const insideFrom = since ? getUtcMidnightIso(since, 1) : undefined;
+  const insideBefore = until ? getUtcMidnightIso(until, 0) : undefined;
+  const outsideFrom = until ? getUtcMidnightIso(until, 2) : undefined;
 
   // Near year 0 or 9999 a bound shifts into an expanded year (+010000-...), which does
   // not compare as text; every timestamp is then converted.
@@ -120,41 +115,54 @@ export function createDateWindowPrefilter(
   };
 }
 
+/**
+ * Whether a timestamp's local date (in `timezone`) lies in the `since`/`until` window, both
+ * YYYY-MM-DD and inclusive; true for every timestamp when neither is set. Only a timestamp
+ * near an edge is converted, once per distinct value.
+ */
+export function createTimestampWindowFilter(
+  options: Pick<UsageEventFilterOptions, 'timezone' | 'since' | 'until'>,
+): (timestamp: string) => boolean {
+  if (!options.since && !options.until) {
+    return () => true;
+  }
+
+  const prefilterDate = createDateWindowPrefilter(options.since, options.until);
+  const dateByTimestamp = new Map<string, string>();
+
+  return (timestamp) => {
+    const datePosition = prefilterDate(timestamp);
+
+    if (datePosition !== 'near-edge') {
+      return datePosition === 'inside';
+    }
+
+    let date = dateByTimestamp.get(timestamp);
+
+    if (!date) {
+      date = getPeriodKey(timestamp, 'daily', options.timezone);
+      dateByTimestamp.set(timestamp, date);
+    }
+
+    return isEventWithinDateRange(date, options.since, options.until);
+  };
+}
+
 function collectProviderAndDateFilteredEvents(
   eventGroups: Iterable<readonly UsageEvent[]>,
   options: UsageEventFilterOptions,
 ): UsageEvent[] {
   const filteredEvents: UsageEvent[] = [];
-  const hasDateRange = Boolean(options.since ?? options.until);
-  const prefilterDate = createDateWindowPrefilter(options.since, options.until);
-  const dateByTimestamp = new Map<string, string>();
+  const isInWindow = createTimestampWindowFilter(options);
 
   for (const events of eventGroups) {
     for (const event of events) {
-      if (!matchesCanonicalProviderFilter(event.provider, options.providerFilter)) {
-        continue;
+      if (
+        matchesCanonicalProviderFilter(event.provider, options.providerFilter) &&
+        isInWindow(event.timestamp)
+      ) {
+        filteredEvents.push(event);
       }
-
-      const datePosition = hasDateRange ? prefilterDate(event.timestamp) : 'inside';
-
-      if (datePosition === 'outside') {
-        continue;
-      }
-
-      if (datePosition === 'near-edge') {
-        let eventDate = dateByTimestamp.get(event.timestamp);
-
-        if (!eventDate) {
-          eventDate = getPeriodKey(event.timestamp, 'daily', options.timezone);
-          dateByTimestamp.set(event.timestamp, eventDate);
-        }
-
-        if (!isEventWithinDateRange(eventDate, options.since, options.until)) {
-          continue;
-        }
-      }
-
-      filteredEvents.push(event);
     }
   }
 
@@ -169,13 +177,37 @@ export function filterUsageEvents(
   return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
 }
 
+/**
+ * The events in the window and, with `lookbackSince`, the events from that date to the day
+ * before `since`. The model rule (exact name or substring) is resolved over the window and
+ * applied to both, so days read only for context never change which events the window shows.
+ */
+export function filterParsedAdapterEventsWithLookback(
+  parseResults: AdapterParseResult[],
+  options: UsageEventFilterOptions & { lookbackSince?: string },
+): { events: UsageEvent[]; lookbackEvents: UsageEvent[] } {
+  const eventGroups = parseResults.map((result) => result.events);
+  const windowEvents = collectProviderAndDateFilteredEvents(eventGroups, options);
+  const modelRules = resolveModelFilterRules(windowEvents, options.modelFilter);
+  const matchesRules = (event: UsageEvent) => matchesModel(event.model, modelRules);
+  const lookbackEvents =
+    options.lookbackSince && options.since && options.lookbackSince < options.since
+      ? collectProviderAndDateFilteredEvents(eventGroups, {
+          ...options,
+          since: options.lookbackSince,
+          until: shiftDateKey(options.since, -1),
+        })
+      : [];
+
+  return {
+    events: windowEvents.filter(matchesRules),
+    lookbackEvents: lookbackEvents.filter(matchesRules),
+  };
+}
+
 export function filterParsedAdapterEvents(
   parseResults: AdapterParseResult[],
   options: UsageEventFilterOptions,
 ): UsageEvent[] {
-  const providerAndDateFilteredEvents = collectProviderAndDateFilteredEvents(
-    parseResults.map((result) => result.events),
-    options,
-  );
-  return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
+  return filterParsedAdapterEventsWithLookback(parseResults, options).events;
 }

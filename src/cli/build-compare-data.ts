@@ -1,7 +1,8 @@
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
+import { addEventToTotals } from '../aggregate/aggregate-usage.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs, validateDateInput } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -23,6 +24,8 @@ import type {
   CompareWindowTotals,
 } from './usage-data-contracts.js';
 import { addUsd } from '../utils/usd-math.js';
+import { countDateKeyDays, getMonthEndDateKey, shiftDateKey } from '../utils/date-key.js';
+import { computeDeltaRatio } from '../utils/delta-ratio.js';
 import {
   createEmptyWindowTotals,
   isEventWithinWindow,
@@ -40,12 +43,6 @@ export type CompareProjectRow = Omit<CompareSourceRow, 'source'> & {
 /** Compare data, with one row per project under `--by-repo`. */
 export type CompareReportData = CompareDataResult & {
   projects?: CompareProjectRow[];
-};
-
-type DateParts = {
-  year: number;
-  month: number;
-  day: number;
 };
 
 type ResolvedCompareWindows = {
@@ -73,45 +70,20 @@ const metricDefinitions: Array<{
   { key: 'activeDays', label: 'Active days', valueType: 'integer' },
 ];
 
-function parseDateKey(value: string): DateParts {
-  const [year, month, day] = value.split('-').map((part) => Number.parseInt(part, 10));
-
-  return { year, month, day };
-}
-
-function formatDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function getMonthStart(dateKey: string): string {
-  const { year, month } = parseDateKey(dateKey);
-  return `${year}-${String(month).padStart(2, '0')}-01`;
-}
-
-function getMonthEnd(dateKey: string): string {
-  const { year, month } = parseDateKey(dateKey);
-  return formatDateKey(new Date(Date.UTC(year, month, 0)));
+  return `${dateKey.slice(0, 8)}01`;
 }
 
 function getPreviousMonthRange(dateKey: string): CompareWindowRange {
-  const { year, month } = parseDateKey(dateKey);
-  const previousMonthDay = formatDateKey(new Date(Date.UTC(year, month - 2, 1)));
+  const until = shiftDateKey(getMonthStart(dateKey), -1);
 
-  return {
-    since: getMonthStart(previousMonthDay),
-    until: getMonthEnd(previousMonthDay),
-    label: previousMonthDay.slice(0, 7),
-  };
-}
-
-function countInclusiveDays(since: string, until: string): number {
-  const sinceMs = new Date(`${since}T00:00:00.000Z`).getTime();
-  const untilMs = new Date(`${until}T00:00:00.000Z`).getTime();
-  return Math.floor((untilMs - sinceMs) / (24 * 60 * 60 * 1000)) + 1;
+  return { since: getMonthStart(until), until, label: until.slice(0, 7) };
 }
 
 function isFullCalendarMonth(range: { since: string; until: string }): boolean {
-  return range.since === getMonthStart(range.since) && range.until === getMonthEnd(range.since);
+  return (
+    range.since === getMonthStart(range.since) && range.until === getMonthEndDateKey(range.since)
+  );
 }
 
 function createRange(since: string, until: string): CompareWindowRange {
@@ -132,20 +104,22 @@ function createDefaultCurrentWindow(timezone: string, now: Date): CompareWindowR
  * current window (clamped to that month's last day), so a partial month is never
  * compared against a full one.
  */
-function createPreviousMonthToDateWindow(current: CompareWindowRange): CompareWindowRange {
+export function createPreviousMonthToDateWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
   const previousMonth = getPreviousMonthRange(current.since);
-  const { day } = parseDateKey(current.until);
-  const { year, month } = parseDateKey(previousMonth.since);
-  const sameDayKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const sameDayKey = `${previousMonth.since.slice(0, 8)}${current.until.slice(8, 10)}`;
   const until = sameDayKey < previousMonth.until ? sameDayKey : previousMonth.until;
 
   return createRange(previousMonth.since, until);
 }
 
-function createPreviousSameLengthWindow(current: CompareWindowRange): CompareWindowRange {
-  const dayCount = countInclusiveDays(current.since, current.until);
-  const until = shiftLocalDateKey(current.since, -1);
-  const since = shiftLocalDateKey(current.since, -dayCount);
+export function createPreviousSameLengthWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
+  const dayCount = countDateKeyDays(current.since, current.until);
+  const until = shiftDateKey(current.since, -1);
+  const since = shiftDateKey(current.since, -dayCount);
 
   return createRange(since, until);
 }
@@ -231,21 +205,6 @@ function subtractValues(
   }
 
   return current - baseline;
-}
-
-function computeDeltaRatio(
-  current: number | undefined,
-  baseline: number | undefined,
-): number | undefined {
-  if (current === undefined || baseline === undefined) {
-    return undefined;
-  }
-
-  if (baseline === 0) {
-    return current === 0 ? 0 : undefined;
-  }
-
-  return (current - baseline) / baseline;
 }
 
 function buildMetricRows(
@@ -365,19 +324,8 @@ function summarizeProjects(
     const key = toProjectKey(event.repoRoot);
     const entry = projects.get(key) ?? { totals: createEmptyWindowTotals(), days: new Set() };
     const { totals } = entry;
-    totals.inputTokens += event.inputTokens;
-    totals.outputTokens += event.outputTokens;
-    totals.reasoningTokens += event.reasoningTokens;
-    totals.cacheReadTokens += event.cacheReadTokens;
-    totals.cacheWriteTokens += event.cacheWriteTokens;
-    totals.totalTokens += event.totalTokens;
+    addEventToTotals(totals, event);
     totals.events += 1;
-
-    if (event.costUsd === undefined) {
-      totals.costIncomplete = true;
-    } else {
-      totals.costUsd = addUsd(totals.costUsd ?? 0, event.costUsd);
-    }
 
     entry.days.add(getPeriodKey(event.timestamp, 'daily', timezone));
     projects.set(key, entry);

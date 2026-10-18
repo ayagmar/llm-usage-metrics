@@ -1,8 +1,9 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { PeriodProjectRow } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKeyRange } from '../utils/time-buckets.js';
+import { getMonthEndDateKey } from '../utils/date-key.js';
 import { addUsd } from '../utils/usd-math.js';
 import { PLANS_AS_OF, type SelectedPlan } from './plans.js';
 
@@ -125,14 +126,6 @@ export function roundRatio(value: number): number {
 
 function getMonthKey(dateKey: string): string {
   return dateKey.slice(0, 7);
-}
-
-function getLastDayOfMonth(monthKey: string): string {
-  const year = Number(monthKey.slice(0, 4));
-  const month = Number(monthKey.slice(5, 7));
-  const day = new Date(Date.UTC(year, month, 0)).getUTCDate();
-
-  return `${monthKey}-${String(day).padStart(2, '0')}`;
 }
 
 /** Projects by cost, then tokens, then label. */
@@ -260,7 +253,7 @@ export function buildValueReport(
     since === undefined ? [] : getPeriodKeyRange(getMonthKey(since), lastMonth, 'monthly');
   const isPartial = (month: string): boolean => {
     const firstDay = `${month}-01`;
-    const lastDay = getLastDayOfMonth(month);
+    const lastDay = getMonthEndDateKey(firstDay);
 
     return (
       (since !== undefined && since > firstDay) ||

@@ -5,6 +5,7 @@ import type {
   ExplainedTier,
   PricingReportData,
 } from '../pricing/explain-model-pricing.js';
+import { formatInteger } from './format-number.js';
 import { toMarkdownSafeCell, toMarkdownSafeCodeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
@@ -19,8 +20,6 @@ const originLabels: Record<NonNullable<ExplainedModelPricing['origin']>['kind'],
   network: 'LiteLLM, fetched now',
   'bundled-snapshot': 'bundled LiteLLM snapshot',
 };
-
-const integerFormatter = new Intl.NumberFormat('en-US');
 
 const rateFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -136,7 +135,7 @@ function toFields(model: ExplainedModelPricing): Field[] {
   );
 
   for (const tier of model.tiers) {
-    fields.push([`Above ${integerFormatter.format(tier.aboveTokens)}`, describeTier(tier)]);
+    fields.push([`Above ${formatInteger(tier.aboveTokens)}`, describeTier(tier)]);
   }
 
   if (model.priorityFallback.length > 0) {

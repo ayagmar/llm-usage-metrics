@@ -10,7 +10,7 @@ import {
 } from '../value/build-value-report.js';
 import { describeDefaultPlanFallback, selectPlans } from '../value/plans.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
-import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
+import { parseWindowFlags, resolvePeriodsSince } from './build-usage-data.js';
 import {
   normalizeBuildUsageInputs,
   normalizeSourceFilter,
@@ -43,16 +43,7 @@ function resolveWindowDates(
   options: ValueCommandOptions,
   today: string,
 ): { since?: string; until: string } {
-  const hasDates = options.since !== undefined || options.until !== undefined;
-  const lastMonths = parseLastOption(options.last);
-
-  if (lastMonths !== undefined && (hasDates || options.all)) {
-    throw new Error('--last cannot be combined with --since, --until, or --all');
-  }
-
-  if (options.all && hasDates) {
-    throw new Error('--all cannot be combined with --since or --until');
-  }
+  const lastMonths = parseWindowFlags(options, 'monthly');
 
   if (lastMonths !== undefined) {
     return { since: resolvePeriodsSince('monthly', today, lastMonths), until: today };

@@ -7,9 +7,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { parse as parseToml } from 'smol-toml';
 
 import { loadUserConfig, type MachineConfig, type UserConfig } from '../config/user-config.js';
-import { asRecord } from '../utils/as-record.js';
+import { asRecord, hasErrorCode } from '@ayagmar/agent-sessions/internal';
 import { ensureDirectory } from '../utils/fs-helpers.js';
-import { hasErrorCode } from '../utils/error-code.js';
 
 async function readConfigText(configPath: string): Promise<string | undefined> {
   try {

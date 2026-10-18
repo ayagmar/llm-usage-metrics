@@ -282,14 +282,14 @@ describe('emitDiagnostics', () => {
     emitDiagnostics(
       createDiagnostics({
         sessionStats: twoSources,
-        notes: ['History: included 0 event(s) from 0 departed file(s).'],
+        notes: ['History: included 0 events from 0 departed files.'],
       }),
       diagnosticsLogger,
     );
 
     expect(diagnosticsLogger.warn).not.toHaveBeenCalled();
     expect(diagnosticsLogger.info).toHaveBeenLastCalledWith(
-      'History: included 0 event(s) from 0 departed file(s).',
+      'History: included 0 events from 0 departed files.',
     );
   });
 });

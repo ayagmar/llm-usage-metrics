@@ -38,6 +38,18 @@ describe('runtime overrides', () => {
     });
   });
 
+  it('caps an auto worker count at the given limit and keeps an explicit count', () => {
+    const cappedAuto = Math.max(0, Math.min(1, availableParallelism() - 1));
+
+    expect(getParsingRuntimeConfig({}, {}, 1).parseWorkers).toBe(cappedAuto);
+    expect(getParsingRuntimeConfig({ LLM_USAGE_PARSE_WORKERS: 'auto' }, {}, 1).parseWorkers).toBe(
+      cappedAuto,
+    );
+    expect(getParsingRuntimeConfig({}, { parseWorkers: 'auto' }, 1).parseWorkers).toBe(cappedAuto);
+    expect(getParsingRuntimeConfig({ LLM_USAGE_PARSE_WORKERS: '6' }, {}, 1).parseWorkers).toBe(6);
+    expect(getParsingRuntimeConfig({}, { parseWorkers: 6 }, 1).parseWorkers).toBe(6);
+  });
+
   it('reads valid numeric overrides from env', () => {
     const env: NodeJS.ProcessEnv = {
       LLM_USAGE_PARSE_WORKERS: '6',

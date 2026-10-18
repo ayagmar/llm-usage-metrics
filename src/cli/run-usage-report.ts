@@ -8,6 +8,7 @@ import {
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
+  validateTableDisplayFlags,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type {
@@ -34,7 +35,15 @@ function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
   return options.perModelColumns ? 'per_model_columns' : 'compact';
 }
 
-function getDefaultWindowHint(granularity: UsageGranularity, since: string): string[] {
+/**
+ * The hint after a report that covered its default window. `subject` names what a
+ * non-usage report shows (`blocks`, `tool calls`) and what is older (`usage`, `calls`).
+ */
+export function getDefaultWindowHint(
+  granularity: UsageGranularity,
+  since: string,
+  subject?: { label: string; older: string },
+): string[] {
   if (granularity === 'hourly') {
     return [
       `Showing today (${since}) hour by hour. Use --last N (up to ${String(HOURLY_MAX_LAST_DAYS)} days) or --since YYYY-MM-DD for earlier hours.`,
@@ -48,7 +57,7 @@ function getDefaultWindowHint(granularity: UsageGranularity, since: string): str
   }
 
   return [
-    `Showing the last ${String(defaultWindow.periods)} ${defaultWindow.period}s (since ${since}). Use --since YYYY-MM-DD or --all for older usage.`,
+    `Showing ${subject ? `${subject.label} of ` : ''}the last ${String(defaultWindow.periods)} ${defaultWindow.period}s (since ${since}). Use --since YYYY-MM-DD or --all for older ${subject?.older ?? 'usage'}.`,
   ];
 }
 
@@ -117,13 +126,7 @@ async function prepareUsageReport(
             );
           },
     validate: () => {
-      if (options.compact && options.json) {
-        throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
-      }
-
-      if (hideCost && options.json) {
-        throw new Error('--no-cost applies to tables and the share report; drop it with --json');
-      }
+      validateTableDisplayFlags(options, 'tables and the share report');
     },
     render: (usageData, format) => {
       const { output, notes } = renderUsageReportWithNotes(usageData, format, {

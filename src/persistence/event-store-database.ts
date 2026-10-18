@@ -1,4 +1,4 @@
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 
 export type EventStoreStatement = {
   all: (...parameters: unknown[]) => Record<string, unknown>[];

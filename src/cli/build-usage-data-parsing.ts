@@ -16,7 +16,6 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { SourceAdapter, SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
@@ -32,11 +31,13 @@ import {
 } from './parse/event-store-parse-cache.js';
 import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
 import {
+  compareByCodePoint,
   getFileByteSize,
-  getNewestFingerprintMtimeMs,
   getFileFingerprint,
+  getNewestFingerprintMtimeMs,
   getPrimaryFingerprintByteSize,
-} from './parse/parse-fingerprint.js';
+  pluralize,
+} from '@ayagmar/agent-sessions/internal';
 import { getSinceFileSkipCutoffMs } from './parse/since-file-skip.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
 import {
@@ -62,17 +63,26 @@ export type DiscoveredSourceFile = {
   filePath: string;
 };
 
+/** A file whose events this run counts. */
+export type ParsedSourceFile = DiscoveredSourceFile & {
+  /**
+   * Last modified before the `--since` window, so it holds no events in it: parsed only
+   * because the event store lacked it.
+   */
+  beforeWindow?: true;
+};
+
 type AdapterParseResultWithFiles = AdapterParseResult & {
   filePaths: string[];
   /** The discovered files whose events this run counts: neither failed nor skipped. */
-  parsedFilePaths: string[];
+  parsedFiles: Omit<ParsedSourceFile, 'source'>[];
   failedFilePaths: string[];
 };
 
 export type ParsedAdaptersResult = {
   successfulParseResults: AdapterParseResult[];
   discoveredFiles: DiscoveredSourceFile[];
-  parsedFiles: DiscoveredSourceFile[];
+  parsedFiles: ParsedSourceFile[];
   /** Discovered files that failed to parse: present, but not counted this run. */
   failedFiles: DiscoveredSourceFile[];
   eventStoreAvailable: boolean;
@@ -193,7 +203,7 @@ export async function parseAdapterEvents(
       source: adapter.id,
       events: [],
       filePaths: [],
-      parsedFilePaths: [],
+      parsedFiles: [],
       failedFilePaths: [],
       filesFound: 0,
       skippedRows: 0,
@@ -208,6 +218,7 @@ export async function parseAdapterEvents(
   const parsedByFile: UsageEvent[][] = Array.from({ length: files.length }, () => []);
   const skippedRowsByFile: number[] = Array.from({ length: files.length }, () => 0);
   const parsedFileIndexes = new Set<number>();
+  const beforeWindowFileIndexes = new Set<number>();
   const failedFileIndexes = new Set<number>();
   const skippedRowReasons = new Map<string, number>();
   let pendingStoreWrites: ParsedFileStoreWrite[] = [];
@@ -242,6 +253,9 @@ export async function parseAdapterEvents(
 
     parsedByFile[params.fileIndex] = params.diagnostics.events;
     parsedFileIndexes.add(params.fileIndex);
+    if (params.fileFingerprint && isBeforeWindow(params.fileFingerprint)) {
+      beforeWindowFileIndexes.add(params.fileIndex);
+    }
     skippedRowsByFile[params.fileIndex] = skippedRows;
 
     for (const reasonStat of normalizedSkippedRowReasons) {
@@ -296,20 +310,23 @@ export async function parseAdapterEvents(
     await Promise.all(workers);
   }
 
+  /** A file last modified before the `--since` window holds no events in it. */
+  function isBeforeWindow(fileFingerprint: EventStoreFileFingerprint): boolean {
+    return (
+      skipCutoffMs !== undefined && getNewestFingerprintMtimeMs(fileFingerprint) < skipCutoffMs
+    );
+  }
+
   /**
-   * A file last modified before the `--since` window holds no events in it, so it is
-   * skipped. With the event store on, only a file the store already holds is skipped:
-   * a narrow run must still ingest older files, or the ledger would never retain them.
+   * A file before the window is skipped. With the event store on, only a file the store
+   * already holds is skipped: a narrow run must still ingest older files, or the ledger
+   * would never retain them.
    */
   function canSkipOutsideWindow(
     filePath: string,
     fileFingerprint: EventStoreFileFingerprint | undefined,
   ): boolean {
-    if (
-      skipCutoffMs === undefined ||
-      !fileFingerprint ||
-      getNewestFingerprintMtimeMs(fileFingerprint) >= skipCutoffMs
-    ) {
+    if (!fileFingerprint || !isBeforeWindow(fileFingerprint)) {
       return false;
     }
 
@@ -527,7 +544,7 @@ export async function parseAdapterEvents(
 
   if (failedFileIndexes.size === files.length) {
     throw new Error(
-      `All ${files.length} file(s) failed to parse for source ${adapter.id}: ${lastErrorMessage}`,
+      `All ${pluralize(files.length, 'file')} failed to parse for source ${adapter.id}: ${lastErrorMessage}`,
     );
   }
 
@@ -537,7 +554,16 @@ export async function parseAdapterEvents(
       ? dedupeRepeatedAcrossFiles(parsedByFile)
       : parsedByFile.flat(),
     filePaths: files,
-    parsedFilePaths: files.filter((_, fileIndex) => parsedFileIndexes.has(fileIndex)),
+    parsedFiles: files.flatMap((filePath, fileIndex) =>
+      parsedFileIndexes.has(fileIndex)
+        ? [
+            {
+              filePath,
+              ...(beforeWindowFileIndexes.has(fileIndex) && { beforeWindow: true as const }),
+            },
+          ]
+        : [],
+    ),
     failedFilePaths: files.filter((_, fileIndex) => failedFileIndexes.has(fileIndex)),
     filesFound: files.length,
     skippedRows: skippedRowsByFile.reduce((sum, skippedRowsCount) => sum + skippedRowsCount, 0),
@@ -591,31 +617,23 @@ export async function parseSelectedAdapters(
 
   try {
     parseResults = await Promise.allSettled(
-      adaptersToParse.map((adapter) =>
-        options.runtimeProfile
-          ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, () =>
-              parseAdapterEvents(
-                adapter,
-                maxParallelFileParsing,
-                runWithParseBudget,
-                options.runtimeProfile,
-                eventStoreContext,
-                options.parseWorkers,
-                options.since,
-                sharedPool,
-              ),
-            )
-          : parseAdapterEvents(
-              adapter,
-              maxParallelFileParsing,
-              runWithParseBudget,
-              undefined,
-              eventStoreContext,
-              options.parseWorkers,
-              options.since,
-              sharedPool,
-            ),
-      ),
+      adaptersToParse.map((adapter) => {
+        const parse = () =>
+          parseAdapterEvents(
+            adapter,
+            maxParallelFileParsing,
+            runWithParseBudget,
+            options.runtimeProfile,
+            eventStoreContext,
+            options.parseWorkers,
+            options.since,
+            sharedPool,
+          );
+
+        return options.runtimeProfile
+          ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, parse)
+          : parse();
+      }),
     );
 
     if (eventStoreContext) {
@@ -647,18 +665,22 @@ export async function parseSelectedAdapters(
   const sourceFailures: UsageSourceFailure[] = [];
   const successfulParseResults: AdapterParseResult[] = [];
   const discoveredFiles: DiscoveredSourceFile[] = [];
-  const parsedFiles: DiscoveredSourceFile[] = [];
+  const parsedFiles: ParsedSourceFile[] = [];
   const failedFiles: DiscoveredSourceFile[] = [];
 
   for (const [index, parseResult] of parseResults.entries()) {
     const source = adaptersToParse[index].id;
 
     if (parseResult.status === 'fulfilled') {
-      const { filePaths, parsedFilePaths, failedFilePaths, ...parseResultWithoutFiles } =
-        parseResult.value;
+      const {
+        filePaths,
+        parsedFiles: sourceParsedFiles,
+        failedFilePaths,
+        ...parseResultWithoutFiles
+      } = parseResult.value;
       successfulParseResults.push(parseResultWithoutFiles);
       discoveredFiles.push(...filePaths.map((filePath) => ({ source, filePath })));
-      parsedFiles.push(...parsedFilePaths.map((filePath) => ({ source, filePath })));
+      parsedFiles.push(...sourceParsedFiles.map((file) => ({ source, ...file })));
       failedFiles.push(...failedFilePaths.map((filePath) => ({ source, filePath })));
       continue;
     }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { aggregateBlocks, BLOCK_HOURS } from '../../src/blocks/aggregate-blocks.js';
-import { computeActiveMs } from '../../src/domain/active-time.js';
+import { computeActiveMs } from '@ayagmar/agent-sessions';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   buildSharePayload,

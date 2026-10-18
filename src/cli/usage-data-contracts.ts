@@ -1,5 +1,6 @@
 import type { SpawnSsh } from '../machines/machine-ssh.js';
 import type { DailyActivity } from '../aggregate/daily-activity.js';
+import type { SpendSpike } from '../aggregate/spend-spikes.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { ActiveConfig } from '../config/active-config-display.js';
 import type {
@@ -20,6 +21,7 @@ import type {
 } from '../persistence/event-store-history.js';
 import type { EventStore } from '../persistence/event-store.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
+import type { SessionTimelineRow } from '../session/session-timeline.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
@@ -204,6 +206,16 @@ export type BlocksCommandOptions = RollupCommandOptions & {
   top?: string;
 };
 
+export type ToolsCommandOptions = SharedOptionsForProfile<'tools'> &
+  RepoFilterOption &
+  ByRepoOption & {
+    /** `--last N`: the last N days, counting today. */
+    last?: string;
+    all?: boolean;
+    top?: string;
+    bySource?: boolean;
+  };
+
 export type ValueCommandOptions = RollupCommandOptions & {
   /** Plan ids from `src/value/plans.ts`; undefined when not passed. */
   plan?: string[];
@@ -244,6 +256,17 @@ export type SessionCommandOptions = SharedOptionsForProfile<'session'> &
     top?: string;
     id?: string[];
     byRepo?: boolean;
+    timeline?: boolean;
+  };
+
+export type ContextCommandOptions = SharedOptionsForProfile<'session'> &
+  RepoFilterOption & {
+    /** `--last N`: the last N days, counting today. */
+    last?: string;
+    /** Full history instead of the default recent window. */
+    all?: boolean;
+    top?: string;
+    bySession?: boolean;
   };
 
 export type CompareCommandOptions = SharedOptionsForProfile<'compare'> &
@@ -263,6 +286,8 @@ export type EventsCommandOptions = SharedOptionsForProfile<'events'> &
   };
 
 export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
+
+export type ConfigShowCommandOptions = SharedOptionsForProfile<'config'>;
 
 export type PruneCommandOptions = DoctorCommandOptions & {
   suppressed?: boolean;
@@ -364,13 +389,25 @@ export type SessionDataResult =
   | {
       grouping: 'session';
       rows: SessionRow[];
+      /** Labels over every project in the report's events, not only the shown rows. */
+      projectLabels: ReadonlyMap<string | undefined, string>;
       limitNote?: string;
       diagnostics: UsageDiagnostics;
     }
   | {
       grouping: 'repo';
       rows: SessionRepoRow[];
+      projectLabels: ReadonlyMap<string | undefined, string>;
       limitNote?: string;
+      diagnostics: UsageDiagnostics;
+    }
+  | {
+      /** `--timeline`: the one session `--id` matched, request by request. */
+      grouping: 'timeline';
+      session: SessionRow;
+      rows: SessionTimelineRow[];
+      projectLabels: ReadonlyMap<string | undefined, string>;
+      limitNote?: undefined;
       diagnostics: UsageDiagnostics;
     };
 
@@ -411,6 +448,17 @@ export type SummaryPeriod = {
    * when the report counts other machines' usage (after its filters) in the past year.
    */
   machines?: SummaryMachineTotals[];
+  /**
+   * The window the period is set against, as `compare` picks it; always set by
+   * `buildSummaryData`.
+   */
+  previous?: SummaryPreviousPeriod;
+};
+
+export type SummaryPreviousPeriod = {
+  since: string;
+  until: string;
+  totals: UsageWindowTotals;
 };
 
 /** Month-to-date run rate and the configured budget. */
@@ -424,6 +472,15 @@ export type SummaryMonthEnd = {
   budgetUsd?: number;
 };
 
+/** The costliest spike day of the last 7 days, and what drove it. */
+export type SummarySpendSpike = SpendSpike & {
+  costIncomplete?: boolean;
+  /** Label of the project with the largest share of the day's cost. */
+  project?: string;
+  /** The model with the largest share of the day's cost. */
+  model?: string;
+};
+
 export type SummaryDataResult = {
   timezone: string;
   periods: SummaryPeriod[];
@@ -432,6 +489,8 @@ export type SummaryDataResult = {
   monthToDateCacheSavingsUsd?: number;
   /** Daily activity over the past 53 ISO weeks, ending today. */
   activity: DailyActivity;
+  /** Absent when no day of the last 7 is a spend spike. */
+  spike?: SummarySpendSpike;
   diagnostics: UsageDiagnostics;
 };
 

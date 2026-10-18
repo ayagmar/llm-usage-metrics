@@ -254,7 +254,7 @@ describe('projects report', () => {
     expect(await countEvents({ last: '2' })).toBe(12);
   });
 
-  it('rejects --last with dates or --all, and a --top that is not a positive whole number', async () => {
+  it('rejects --last with dates or --all, and a --top that is not a positive integer', async () => {
     await expect(
       buildProjectsReport({ ...options, last: '2', since: '2026-01-01' }, deps),
     ).rejects.toThrow('--last cannot be combined');
@@ -264,7 +264,7 @@ describe('projects report', () => {
 
     for (const top of ['0', '-1', '1.5', 'x']) {
       await expect(buildProjectsReport({ ...options, top }, deps)).rejects.toThrow(
-        '--top must be a positive whole number',
+        '--top must be a positive integer',
       );
     }
   });

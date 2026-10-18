@@ -10,7 +10,7 @@ import {
   runPruneReport,
   type PruneReportResult,
 } from '../../src/cli/run-prune-report.js';
-import { getFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
+import { getFileFingerprint } from '@ayagmar/agent-sessions/internal';
 import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {

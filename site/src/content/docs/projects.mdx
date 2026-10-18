@@ -1,6 +1,6 @@
 ---
 title: 'Projects'
-description: 'Cost, tokens, and activity per repository.'
+description: 'Cost, tokens, and activity per recorded working directory.'
 ---
 
 import TerminalShot from '../../components/TerminalShot.astro';
@@ -38,7 +38,7 @@ llm-usage projects
 
 ## Where a project comes from
 
-A project is the working directory that the coding tool recorded for the session. The CLI calls it the repository root (`repoRoot`) and does not look for a `.git` folder, so a session started in a subfolder counts as its own project. Claude Code, Codex, Droid, dsh, Gemini, OpenClaw, OpenCode, and pi record a working directory. Usage from the other sources, and sessions where the tool recorded none, is listed as `(unattributed)`.
+A project is the working directory that the coding tool recorded for the session. Events store it as `repoRoot`, but the CLI does not look for a `.git` folder, so a session started in a subfolder counts as its own project. Claude Code, Codex, Droid, dsh, Gemini, OpenClaw, OpenCode, and pi record a working directory. Usage from the other sources, and sessions where the tool recorded none, is listed as `(unattributed)`.
 
 The label is the last folder name of the path. When two projects end in the same folder name, both labels gain parent folders until they differ: `/work/a/api` and `/work/b/api` become `a/api` and `b/api`. A label stays the same across every period of one report. `session`, `value`, `trends --by-repo`, `compare --by-repo`, the `--by-repo` splits of the usage reports, and the interactive report label projects the same way.
 

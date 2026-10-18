@@ -65,6 +65,19 @@
   color: var(--ink-2);
 }
 
+/*
+ * A table wider than a phone scrolls sideways: a shade marks each edge with more columns past it.
+ * The page-coloured layers scroll with the table and cover a shade once its edge is reached.
+ */
+.panel-table .table-scroll {
+  --scroll-shade: light-dark(rgb(32 35 29 / 0.3), rgb(241 240 233 / 0.25));
+  background:
+    linear-gradient(to right, var(--bg) 50%, transparent) left / 3rem 100% no-repeat local,
+    linear-gradient(to left, var(--bg) 50%, transparent) right / 3rem 100% no-repeat local,
+    linear-gradient(to right, var(--scroll-shade), transparent) left / 1.5rem 100% no-repeat scroll,
+    linear-gradient(to left, var(--scroll-shade), transparent) right / 1.5rem 100% no-repeat scroll;
+}
+
 /* On a phone, headings wrap between words and long names anywhere, so measures stay in view. */
 @media (max-width: 40rem) {
   .panel-table thead th {

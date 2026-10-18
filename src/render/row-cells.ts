@@ -1,4 +1,5 @@
 import type { ModelUsageBreakdown, UsageReportRow } from '../domain/usage-report-row.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
 import type { TableColumnKind } from './unicode-table.js';
 
 export type UsageTableLayout = 'compact' | 'per_model_columns';
@@ -60,18 +61,6 @@ export function selectColumns<T>(cells: readonly T[], columnIndexes: readonly nu
   return columnIndexes.map((columnIndex) => cells[columnIndex]);
 }
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-const abbreviatedIntegerFormatter = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumSignificantDigits: 3,
-});
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 function formatSource(row: UsageReportRow): string {
   if (row.rowType === 'grand_total') {
     return 'TOTAL';
@@ -86,20 +75,12 @@ function formatSource(row: UsageReportRow): string {
 }
 
 function formatFullTokenCount(value: number | undefined): string {
-  return integerFormatter.format(value ?? 0);
+  return formatInteger(value ?? 0);
 }
 
-export function formatAbbreviatedTokenCount(value: number | undefined): string {
-  return abbreviatedIntegerFormatter.format(value ?? 0);
-}
-
-function formatUsd(value: number | undefined, options: { incomplete?: boolean } = {}): string {
-  if (value === undefined) {
-    return '-';
-  }
-
-  const formattedUsd = usdFormatter.format(value);
-  return options.incomplete ? `~${formattedUsd}` : formattedUsd;
+/** One `• item` line per entry, or `-` when empty. */
+export function formatBulletedList(items: readonly string[]): string {
+  return items.length === 0 ? '-' : items.map((item) => `• ${item}`).join('\n');
 }
 
 function buildModelLines(row: UsageReportRow): string[] {
@@ -145,15 +126,15 @@ function formatModelMetric(
 
 function formatModelCostMetric(row: UsageReportRow, layout: UsageTableLayout): string {
   if (layout !== 'per_model_columns' || row.modelBreakdown.length === 0) {
-    return formatUsd(row.costUsd, { incomplete: row.costIncomplete });
+    return formatApproxUsd(row.costUsd, row.costIncomplete);
   }
 
   const lines = row.modelBreakdown.map((modelUsage) =>
-    formatUsd(modelUsage.costUsd, { incomplete: modelUsage.costIncomplete }),
+    formatApproxUsd(modelUsage.costUsd, modelUsage.costIncomplete),
   );
 
   if (row.modelBreakdown.length > 1) {
-    lines.push(formatUsd(row.costUsd, { incomplete: row.costIncomplete }));
+    lines.push(formatApproxUsd(row.costUsd, row.costIncomplete));
   }
 
   return lines.join('\n');

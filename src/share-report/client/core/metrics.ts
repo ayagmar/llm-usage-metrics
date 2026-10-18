@@ -1,5 +1,6 @@
 import type { ShareCostMode, ShareCosts } from '../../types.js';
 import { COST_MODES, type ShareReport } from './decode.js';
+import { formatUsd } from '../../../render/format-number.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -72,19 +73,7 @@ export function getCostPerActiveHour(costUsd: number | null, activeMs: number): 
   return activeMs > 0 && costUsd !== null ? costUsd / (activeMs / HOUR_MS) : null;
 }
 
-let usdFormatter: Intl.NumberFormat | undefined;
-
 /** `$1.23`, or {@link NO_VALUE} for a missing value. */
 export function formatUsdOrNone(value: number | null): string {
-  if (value === null) {
-    return NO_VALUE;
-  }
-
-  usdFormatter ??= new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return usdFormatter.format(value);
+  return value === null ? NO_VALUE : formatUsd(value);
 }

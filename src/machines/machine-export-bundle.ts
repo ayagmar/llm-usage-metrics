@@ -1,6 +1,6 @@
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
 import type { EventStoreFileSnapshot } from '../persistence/event-store.js';
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
 
 /**

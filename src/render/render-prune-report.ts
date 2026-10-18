@@ -4,9 +4,9 @@ import type {
   PruneSummary,
   StoreSizeSnapshot,
 } from '../cli/run-prune-report.js';
-import { stripControlCharacters } from '../domain/normalization.js';
+import { pluralize, stripControlCharacters } from '@ayagmar/agent-sessions/internal';
 import { formatByteSize } from './format-byte-size.js';
-import { formatInteger, pluralize } from './format-number.js';
+import { formatInteger } from './format-number.js';
 import { renderReportHeader } from './report-header.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';

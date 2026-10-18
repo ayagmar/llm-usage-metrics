@@ -1,5 +1,4 @@
-import { asRecord } from '../utils/as-record.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { asRecord, compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import litellmModelMapPayload from './litellm-model-map.json' with { type: 'json' };
 import type { CanonicalModelKeyExplanation, CanonicalModelKeyRule, ModelPricing } from './types.js';
 

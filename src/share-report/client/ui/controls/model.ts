@@ -3,19 +3,21 @@
 
 import type { ShareCostMode, ShareGranularity } from '../../../types.js';
 import {
-  compareText,
   COST_MODES,
   DIMENSION_DICTIONARY,
   getAvailableCostModes,
   getWindowEnd,
+  resolveSince,
   resolveUntil,
   SHARE_DIMENSIONS,
   type ShareDimension,
   type ShareReport,
 } from '../../core/index.js';
-import { formatDay, pluralize } from '../shell/format.js';
+import { formatDay } from '../shell/format.js';
 import { COST_MODE_DETAILS, COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareLabels } from '../state/context.js';
+import { compareByCodePoint } from '../../../../../packages/core/src/utils/compare-by-code-point.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
 
 export const DIMENSION_LABELS: Record<ShareDimension, { one: string; many: string }> = {
   source: { one: 'Source', many: 'Sources' },
@@ -44,22 +46,23 @@ export type PeriodInputs = {
 };
 
 /**
- * The date inputs for a view: an open end shows the date it resolves to (the generation date
- * for an open-ended window), and neither input offers a date past the window's end.
+ * The date inputs for a view: an open end shows the date it resolves to (the window's start, else
+ * the first date with data, as for `--all`; the generation date for an open-ended window), and
+ * neither input offers a date outside the window.
  */
 export function getPeriodInputs(
   report: ShareReport,
   view: { since: string | null; until: string | null },
 ): PeriodInputs {
-  const { window } = report.data.meta;
+  const since = resolveSince(report, view.since) ?? '';
   const until = resolveUntil(report, view.until) ?? '';
 
   return {
-    from: view.since ?? '',
+    from: since,
     to: until,
     fromMax: until,
-    toMin: view.since ?? window.since ?? '',
-    min: window.since ?? '',
+    toMin: since,
+    min: resolveSince(report, null) ?? '',
     max: getWindowEnd(report) ?? '',
   };
 }
@@ -166,7 +169,7 @@ export function getFilterGroups(
     })).sort(
       (left, right) =>
         tokens[dimension][right.index] - tokens[dimension][left.index] ||
-        compareText(left.label, right.label),
+        compareByCodePoint(left.label, right.label),
     );
     const names = DIMENSION_LABELS[dimension];
     const summary =

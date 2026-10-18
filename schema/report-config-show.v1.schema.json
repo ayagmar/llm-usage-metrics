@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-config-show.v1.schema.json",
+  "title": "llm-usage-metrics config show output (v1)",
+  "description": "Envelope and payload for config show --json output.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": {
+      "const": "config-show"
+    },
+    "data": {
+      "description": "The effective setup: config file, source paths, event store, machines, pricing and defaults.",
+      "type": "object",
+      "properties": {
+        "configFile": {
+          "description": "The config file in use.",
+          "type": "object",
+          "properties": {
+            "path": {
+              "description": "Config file path.",
+              "type": "string"
+            },
+            "origin": {
+              "description": "env when LLM_USAGE_CONFIG_PATH set it, else default.",
+              "type": "string",
+              "enum": ["env", "default"]
+            },
+            "exists": {
+              "description": "Whether the file exists; a missing file means built-in defaults.",
+              "type": "boolean"
+            }
+          },
+          "required": ["path", "origin", "exists"],
+          "additionalProperties": false
+        },
+        "sources": {
+          "description": "One entry per selected source, in registry order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "eventStore": {
+          "description": "The SQLite event store.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Whether reports use the event store.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "boolean"
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "path": {
+              "description": "Event store file path.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "file": {
+              "$ref": "#/$defs/eventStoreFile"
+            }
+          },
+          "required": ["enabled", "path"],
+          "additionalProperties": false
+        },
+        "machines": {
+          "description": "Machines in the config, by name. Nothing is contacted.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "Machine name.",
+                "type": "string"
+              },
+              "enabled": {
+                "description": "false when the config sets enabled = false.",
+                "type": "boolean"
+              }
+            },
+            "required": ["name", "enabled"],
+            "additionalProperties": false
+          }
+        },
+        "pricing": {
+          "description": "Where LiteLLM prices come from. Read offline; nothing is fetched.",
+          "type": "object",
+          "properties": {
+            "url": {
+              "description": "LiteLLM pricing URL.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "offline": {
+              "description": "Whether reports skip the network fetch.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "boolean"
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "cacheTtlMs": {
+              "description": "How long a cached fetch stays fresh, in milliseconds.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "cache": {
+              "description": "The pricing cache file.",
+              "type": "object",
+              "properties": {
+                "path": {
+                  "description": "Cache file path.",
+                  "type": "string"
+                },
+                "state": {
+                  "description": "fresh: within cacheTtlMs; stale: older; none: missing, unreadable, or fetched from another URL.",
+                  "type": "string",
+                  "enum": ["fresh", "stale", "none"]
+                },
+                "fetchedAt": {
+                  "description": "ISO timestamp of the cached fetch; fresh and stale only.",
+                  "type": "string"
+                }
+              },
+              "required": ["path", "state"],
+              "additionalProperties": false
+            },
+            "pricesFrom": {
+              "description": "What the next report prices with. cache: the cache file; network: a fetch from url; bundled-snapshot: the snapshot in the package (offline, no usable cache); none: offline with a custom url and no cache for it.",
+              "type": "string",
+              "enum": ["cache", "network", "bundled-snapshot", "none"]
+            },
+            "pricesFetchedAt": {
+              "description": "ISO timestamp of the prices the next report uses; cache and bundled-snapshot only.",
+              "type": "string"
+            },
+            "overrides": {
+              "description": "The pricing overrides file; absent when none is set.",
+              "type": "object",
+              "properties": {
+                "path": {
+                  "description": "Overrides file path.",
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "$ref": "#/$defs/origin"
+                    }
+                  },
+                  "required": ["value", "origin"],
+                  "additionalProperties": false
+                },
+                "exists": {
+                  "description": "Whether the file exists.",
+                  "type": "boolean"
+                }
+              },
+              "required": ["path", "exists"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["url", "offline", "cacheTtlMs", "cache", "pricesFrom"],
+          "additionalProperties": false
+        },
+        "defaults": {
+          "description": "Settings every report applies.",
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "description": "IANA timezone for bucketing.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "sources": {
+              "description": "Source filter; empty means every source.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "parseWorkers": {
+              "description": "Parse worker count on this machine.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "parseMaxParallel": {
+              "description": "Files parsed at once.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "parseWorkerMinBytes": {
+              "description": "Total file size above which parsing uses workers.",
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "origin": {
+                  "$ref": "#/$defs/origin"
+                }
+              },
+              "required": ["value", "origin"],
+              "additionalProperties": false
+            },
+            "history": {
+              "description": "Whether reports include usage from departed files: on whenever the event store is enabled.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "timezone",
+            "sources",
+            "parseWorkers",
+            "parseMaxParallel",
+            "parseWorkerMinBytes",
+            "history"
+          ],
+          "additionalProperties": false
+        },
+        "environment": {
+          "description": "LLM_USAGE_* variables set in the environment.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "Variable name.",
+                "type": "string"
+              },
+              "value": {
+                "description": "Its value.",
+                "type": "string"
+              },
+              "description": {
+                "description": "What it controls.",
+                "type": "string"
+              }
+            },
+            "required": ["name", "value", "description"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "configFile",
+        "sources",
+        "eventStore",
+        "machines",
+        "pricing",
+        "defaults",
+        "environment"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "origin": {
+      "description": "Where the value came from: cli (a flag), env (an environment variable), config (the config file), or default (built in).",
+      "type": "string",
+      "enum": ["cli", "env", "config", "default"]
+    },
+    "source": {
+      "description": "Where one source reads from.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Source id.",
+          "type": "string"
+        },
+        "format": {
+          "description": "Storage format.",
+          "type": "string",
+          "enum": ["jsonl", "json", "sqlite"]
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "paths": {
+          "description": "Directories or database files the source reads.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "description": "Path.",
+                "type": "string"
+              },
+              "exists": {
+                "description": "Whether stat finds it.",
+                "type": "boolean"
+              }
+            },
+            "required": ["path", "exists"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["id", "format", "origin", "paths"],
+      "additionalProperties": false
+    },
+    "eventStoreFile": {
+      "description": "The event store file, read without writing; absent when the store is disabled.",
+      "type": "object",
+      "properties": {
+        "state": {
+          "description": "missing: not created yet; ok: readable; unsupported: a schema version this release cannot read; error: stat or the read failed.",
+          "type": "string",
+          "enum": ["missing", "ok", "unsupported", "error"]
+        },
+        "legacyPath": {
+          "description": "missing only: an older ledger the next report copies in.",
+          "type": "string"
+        },
+        "sizeBytes": {
+          "description": "File size in bytes.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "schemaVersion": {
+          "description": "Schema version stored in the file.",
+          "type": "string"
+        },
+        "eventCount": {
+          "description": "Stored usage events; ok only.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "description": "Why the file cannot be used; unsupported and error only.",
+          "type": "string"
+        }
+      },
+      "required": ["state"],
+      "additionalProperties": false
+    }
+  }
+}

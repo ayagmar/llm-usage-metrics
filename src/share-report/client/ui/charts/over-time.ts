@@ -11,7 +11,7 @@ import {
   type ShareMetric,
 } from '../../core/index.js';
 import { DIMENSION_LABELS } from '../controls/model.js';
-import { formatCount, formatDateRange, formatDay, pluralize } from '../shell/format.js';
+import { formatDateRange, formatDay } from '../shell/format.js';
 import { COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareViewContext } from '../state/context.js';
 import {
@@ -31,6 +31,8 @@ import {
 import { hatchDefs, paintedRect, SERIES_COLOURS } from './paint.js';
 import { bandScale, linearScale } from './scale.js';
 import { el, svgRoot, tooltip, type ChartView } from './svg.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatInteger } from '../../../../render/format-number.js';
 
 export type OverTimeMetric = 'cost' | 'tokens';
 
@@ -87,7 +89,7 @@ export function buildOverTimeChart(
   const unit = metricName === 'tokens' ? 'tokens' : 'usd';
   const add = unit === 'usd' ? addUsd : (left: number, right: number) => left + right;
   const format = (value: number) => formatAxisValue(value, unit);
-  const exact = (value: number) => (unit === 'usd' ? formatUsdOrNone(value) : formatCount(value));
+  const exact = (value: number) => (unit === 'usd' ? formatUsdOrNone(value) : formatInteger(value));
   const axis = getPeriodAxis(report, span, view.granularity);
   const stack = stackByDimension(report, cells, {
     axis,

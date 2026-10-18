@@ -1,10 +1,11 @@
 import {
   buildProjectLabels,
+  splitKeySegments,
   stripTrailingSeparators,
   UNATTRIBUTED_PROJECT_LABEL,
 } from '../aggregate/project-key.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 /** The model label of usage that names no model. */
 export const UNKNOWN_MODEL_LABEL = '(unknown)';
@@ -31,7 +32,7 @@ export function isPathLike(value: string): boolean {
 }
 
 /** The last segment of a path, ignoring trailing separators; the value itself when it has none. */
-export function toBasename(value: string): string {
+function toBasename(value: string): string {
   const segments = value.split(/[\\/]/u).filter((segment) => segment.length > 0);
   return segments.at(-1) ?? value;
 }
@@ -60,13 +61,6 @@ export function toShareModelLabel(model: string | undefined): string {
     STANDARD_HOME_PATTERN.test(normalized)
     ? toPathName(normalized)
     : normalized;
-}
-
-function splitKeySegments(key: string): string[] {
-  return key
-    .replace(/^[A-Za-z]:/u, '')
-    .split(/[\\/]/u)
-    .filter((segment) => segment.length > 0);
 }
 
 /** Whether `buildProjectLabels` gave `key` a tail of its own segments rather than the full key. */

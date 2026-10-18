@@ -2,10 +2,12 @@ import { markdownTable } from 'markdown-table';
 
 import type { BlockBurnRate } from '../blocks/aggregate-blocks.js';
 import type { BlockRow, BlocksReportData } from '../cli/build-blocks-data.js';
+import { formatLocalDateTime, formatLocalDateTimeSpan } from './format-local-date-time.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { formatAbbreviatedTokenCount } from './row-cells.js';
+import { formatBulletedList } from './row-cells.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
@@ -40,45 +42,8 @@ type CellContext = {
   formatTokens: (value: number) => string;
 };
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function formatLocalDateTime(isoTimestamp: string, timezone: string): string {
-  let formatter = dateTimeFormatters.get(timezone);
-
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    dateTimeFormatters.set(timezone, formatter);
-  }
-
-  const parts = Object.fromEntries(
-    formatter.formatToParts(new Date(isoTimestamp)).map((part) => [part.type, part.value]),
-  );
-
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
-}
-
 function formatCost(value: { costUsd?: number; costIncomplete?: boolean }): string {
-  if (value.costUsd === undefined) {
-    return '-';
-  }
-
-  const formatted = usdFormatter.format(value.costUsd);
-  return value.costIncomplete ? `~${formatted}` : formatted;
+  return formatApproxUsd(value.costUsd, value.costIncomplete);
 }
 
 /**
@@ -90,11 +55,7 @@ function formatBlockSpan(row: BlockRow, timezone: string): string {
     row.startUncertain ? UNCERTAIN_MARK : '',
     row.active ? ` ${ACTIVE_MARK}` : '',
   ].join('');
-  const start = formatLocalDateTime(row.start, timezone);
-  const end = formatLocalDateTime(row.end, timezone);
-  const sameDay = start.slice(0, 10) === end.slice(0, 10);
-
-  return `${start}-${sameDay ? end.slice(11) : end}${marks}`;
+  return `${formatLocalDateTimeSpan(row.start, row.end, timezone)}${marks}`;
 }
 
 const blockColumns: readonly BlockColumn[] = [
@@ -102,9 +63,9 @@ const blockColumns: readonly BlockColumn[] = [
   { header: 'Source', cell: (row) => row.source },
   {
     header: 'Models',
-    cell: (row) => (row.models.length === 0 ? '-' : row.models.map((m) => `• ${m}`).join('\n')),
+    cell: (row) => formatBulletedList(row.models),
   },
-  { header: 'Events', cell: (row) => integerFormatter.format(row.eventCount) },
+  { header: 'Events', cell: (row) => formatInteger(row.eventCount) },
   { header: 'Input', cell: (row, { formatTokens }) => formatTokens(row.inputTokens) },
   { header: 'Output', cell: (row, { formatTokens }) => formatTokens(row.outputTokens) },
   {
@@ -132,9 +93,7 @@ function buildTable(data: BlocksReportData, options: RenderBlocksReportOptions) 
   const columns = selectVisibleColumns(options);
   const context: CellContext = {
     timezone: data.timezone,
-    formatTokens: options.compact
-      ? formatAbbreviatedTokenCount
-      : (value) => integerFormatter.format(value),
+    formatTokens: options.compact ? formatAbbreviatedTokenCount : (value) => formatInteger(value),
   };
 
   return {
@@ -144,7 +103,7 @@ function buildTable(data: BlocksReportData, options: RenderBlocksReportOptions) 
 }
 
 function formatBurnRate(active: BlockBurnRate, options: RenderBlocksReportOptions): string {
-  const rates = [`${integerFormatter.format(active.tokensPerHour)} tokens/h`];
+  const rates = [`${formatInteger(active.tokensPerHour)} tokens/h`];
 
   if (!options.hideCost && active.costUsdPerHour !== undefined) {
     rates.unshift(

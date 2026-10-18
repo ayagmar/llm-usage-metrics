@@ -174,6 +174,33 @@ type EmitReportRunDiagnosticsOptions<Diagnostics> = {
   runtimeProfile?: RuntimeProfileCollector;
 };
 
+/**
+ * `--compact` and `--no-cost` change tables only, so `--json` rejects them. `costAppliesTo`
+ * says what `--no-cost` changes in this report.
+ */
+export function validateTableDisplayFlags(
+  options: { compact?: boolean; cost?: boolean; json?: boolean },
+  costAppliesTo: string,
+): void {
+  if (options.compact && options.json) {
+    throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
+  }
+
+  if (options.cost === false && options.json) {
+    throw new Error(`--no-cost applies to ${costAppliesTo}; drop it with --json`);
+  }
+}
+
+/** Diagnostics of a report whose --top can leave rows out. */
+export type LimitedReportDiagnostics = UsageDiagnostics & { limitNote?: string };
+
+/** Prints the note naming the rows --top left out, if any. */
+export function emitLimitNote(diagnostics: { limitNote?: string }): void {
+  if (diagnostics.limitNote) {
+    logger.info(diagnostics.limitNote);
+  }
+}
+
 // The one place that fixes the stderr diagnostics ordering shared by every
 // report command, including the streaming events export.
 export function emitReportRunDiagnostics<Diagnostics>(

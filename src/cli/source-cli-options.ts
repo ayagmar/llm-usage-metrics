@@ -5,7 +5,7 @@ import {
   sourceSupportsDirectories,
 } from '@ayagmar/agent-sessions/registry';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import {
   type SourceDirectoryValue,
   toSourceDirectoryList,
@@ -302,7 +302,7 @@ function resolveDirectories(
  * to the roots each source reads. A directory given on the command line must exist; a DB path
  * may be missing.
  */
-export function resolveSourceSelection(options: CreateDefaultAdaptersOptions): SourceSelection {
+function resolveSourceSelection(options: CreateDefaultAdaptersOptions): SourceSelection {
   const sourceIds = getDefaultSourceIds();
 
   for (const sourceId of sourceIds) {

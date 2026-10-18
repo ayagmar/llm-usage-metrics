@@ -1,4 +1,4 @@
-import { toTerminalLine } from '../domain/normalization.js';
+import { pluralize, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -20,6 +20,7 @@ import {
 } from '../persistence/event-store.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { pathExists } from '../utils/fs-helpers.js';
+import { formatInteger } from '../render/format-number.js';
 import {
   toFileKey,
   type MachineExportFileKey,
@@ -52,7 +53,7 @@ export type MachineSyncResult = {
   eventCount: number;
 };
 
-export function getMachineCacheDirectory(): string {
+function getMachineCacheDirectory(): string {
   return path.join(path.dirname(getDefaultEventStorePath()), 'machines');
 }
 
@@ -172,7 +173,7 @@ export function applyMachineExport(
 
     if (cachedRevisions.size !== bundle.files.length || eventCount !== bundle.eventCount) {
       throw new Error(
-        `the cache holds ${eventCount} event(s) after the sync, but the export counts ${bundle.eventCount}`,
+        `the cache holds ${pluralize(eventCount, 'event')} after the sync, but the export counts ${formatInteger(bundle.eventCount)}`,
       );
     }
 

@@ -42,7 +42,7 @@ export function createFilters(range: { since: string | null; until: string | nul
   };
 }
 
-export function isInDateRange(dateKey: string, filters: ShareFilters): boolean {
+function isInDateRange(dateKey: string, filters: ShareFilters): boolean {
   return (
     (filters.since === null || dateKey >= filters.since) &&
     (filters.until === null || dateKey <= filters.until)

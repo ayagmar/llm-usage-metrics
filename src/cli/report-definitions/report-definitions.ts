@@ -2,6 +2,7 @@ import { Argument, Command, InvalidArgumentError, Option } from 'commander';
 
 import type {
   BlocksCommandOptions,
+  ContextCommandOptions,
   EventsCommandOptions,
   CompareCommandOptions,
   DoctorCommandOptions,
@@ -18,20 +19,24 @@ import type {
   TrendsCommandOptions,
   ValueCommandOptions,
   WrappedCommandOptions,
+  ToolsCommandOptions,
 } from '../usage-data-contracts.js';
 import {
+  DEFAULT_RECENT_DAYS,
   DEFAULT_REPORT_WINDOWS,
   getReportPeriodName,
   HOURLY_MAX_LAST_DAYS,
 } from '../build-usage-data.js';
 import { runBlocksReport } from '../run-blocks-report.js';
 import { runCompareReport } from '../run-compare-report.js';
+import { runContextReport } from '../run-context-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runHourlyReport } from '../run-hourly-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
 import { runPricingReport } from '../run-pricing-report.js';
 import { runProjectsReport } from '../run-projects-report.js';
 import { runSessionReport } from '../run-session-report.js';
+import { runToolsReport } from '../run-tools-report.js';
 import { runSummaryReport } from '../run-summary-report.js';
 import { runStatusline } from '../run-statusline.js';
 import { runTrendsReport } from '../run-trends-report.js';
@@ -100,14 +105,38 @@ function addGranularityArgument(command: Command): Command {
   );
 }
 
-const REPO_FILTER_DESCRIPTION =
-  'Count only these projects (repeatable or comma-separated, so a value cannot contain a comma). A path (absolute, or ./, ../, ~/ on this machine) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; (unattributed) matches usage without a root. Applied after --model picks exact or substring matching';
+/** What a project is: the CLI never looks for a `.git` folder (efficiency does). */
+const PROJECT_DESCRIPTION = 'project (the working directory the tool recorded)';
+
+const REPO_FILTER_MATCHING =
+  'Count only these projects (repeatable or comma-separated, so a value cannot contain a comma). A path (absolute, or ./, ../, ~/ on this machine) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; (unattributed) matches usage without a recorded directory';
+const REPO_FILTER_DESCRIPTION = `${REPO_FILTER_MATCHING}. Applied after --model picks exact or substring matching`;
 
 function addRepoFilterOption(command: Command, note?: string): Command {
   return command.option(
     '--repo <project>',
     note === undefined ? REPO_FILTER_DESCRIPTION : `${REPO_FILTER_DESCRIPTION}. ${note}`,
     collectRepeatedOption,
+  );
+}
+
+/** `--last N` periods, and `--all` when the granularity has a default recent window. */
+function addPeriodWindowOptions(command: Command, granularity: ReportGranularity): Command {
+  const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
+
+  if (defaultWindow) {
+    const { period, periods } = defaultWindow;
+    command.option(
+      '--all',
+      `Report every ${period} instead of the last ${String(periods)} ${period}s`,
+    );
+  }
+
+  const period = getReportPeriodName(granularity);
+
+  return command.option(
+    '--last <n>',
+    `Report the last N ${period}s, counting the current ${period}`,
   );
 }
 
@@ -132,7 +161,7 @@ function addTableDisplayOptions(
 }
 
 const BY_MACHINE_DESCRIPTION = 'Split each source row by the machine its usage came from';
-const BY_REPO_ROW_DESCRIPTION = 'Split each source row by project (repository root)';
+const BY_REPO_ROW_DESCRIPTION = `Split each source row by ${PROJECT_DESCRIPTION}`;
 
 const MAX_COMMAND_HELP_EXAMPLES = 4;
 
@@ -255,7 +284,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
   };
 
   const descriptionByGranularity: Record<ReportGranularity, string> = {
-    daily: 'Show daily usage report (last 7 days unless --last, --since, --until, or --all)',
+    daily: `Show daily usage report (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
     weekly:
       'Show weekly usage report (week starts Monday; last 8 weeks unless --last, --since, --until, or --all)',
     monthly: 'Show monthly usage report',
@@ -271,19 +300,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       helpExamples: helpExamplesByGranularity[granularity],
     },
     register(command) {
-      const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
-
-      if (defaultWindow) {
-        const { period, periods } = defaultWindow;
-        command.option(
-          '--all',
-          `Report every ${period} instead of the last ${String(periods)} ${period}s`,
-        );
-      }
-
-      const period = getReportPeriodName(granularity);
-
-      command.option('--last <n>', `Report the last N ${period}s, counting the current ${period}`);
+      addPeriodWindowOptions(command, granularity);
       addTableDisplayOptions(command, 'the table and share report')
         .option('--by-machine', BY_MACHINE_DESCRIPTION)
         .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
@@ -386,7 +403,7 @@ const compareReportDefinition: ReportRuntimeDefinition = {
     command
       .option('--vs-since <date>', 'Inclusive start date for the baseline comparison window')
       .option('--vs-until <date>', 'Inclusive end date for the baseline comparison window')
-      .option('--by-repo', 'Also compare each project (repository root)');
+      .option('--by-repo', `Also compare each ${PROJECT_DESCRIPTION}`);
     addRepoFilterOption(command).action((options: CompareCommandOptions) =>
       runCompareReport(options),
     );
@@ -470,7 +487,7 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
       )
       .option(
         '--by-repo',
-        'Render one sparkline row per project (repository root); not with --by-source',
+        `Render one sparkline row per ${PROJECT_DESCRIPTION}; not with --by-source`,
       );
     addRepoFilterOption(command).action((options: TrendsCommandOptions) =>
       runTrendsReport(options),
@@ -502,6 +519,10 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         includeInCliReference: true,
       },
       {
+        command: 'llm-usage session --id 486c --timeline',
+        includeInCliReference: true,
+      },
+      {
         command: 'llm-usage session --by-repo --top 5',
         includeInCliReference: true,
       },
@@ -519,9 +540,54 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         'Show only sessions whose id contains the value (case-insensitive; repeatable or comma-separated)',
         collectRepeatedOption,
       )
-      .option('--by-repo', 'Group usage by repository root instead of by session');
+      .option('--by-repo', `Group usage by ${PROJECT_DESCRIPTION} instead of by session`)
+      .option(
+        '--timeline',
+        'With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns',
+      );
     addRepoFilterOption(command).action((options: SessionCommandOptions) =>
       runSessionReport(options),
+    );
+
+    return command;
+  },
+};
+
+const contextReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'context',
+    docsLabel: 'context',
+    kind: 'specialized',
+    description: `Show peak prompt sizes per model or session, long-context requests and what their tier rates added (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
+    sharedOptionProfile: 'session',
+    helpExamples: [
+      {
+        command: 'llm-usage context',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --by-session --top 5',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --last 30 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --source claude --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    addPeriodWindowOptions(command, 'daily')
+      .option('--by-session', 'One row per session instead of per model, largest peak prompt first')
+      .option(
+        '--top <n>',
+        'With --by-session, show only the top N sessions (default 20; 0 shows all)',
+      );
+    addRepoFilterOption(command).action((options: ContextCommandOptions) =>
+      runContextReport(options),
     );
 
     return command;
@@ -714,13 +780,64 @@ const hourlyReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const toolsReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'tools',
+    docsLabel: 'tools',
+    kind: 'specialized',
+    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, read from claude, codex and pi session files on disk (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
+    sharedOptionProfile: 'tools',
+    helpExamples: [
+      {
+        command: 'llm-usage tools',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --by-source --top 10',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --last 30 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --by-repo --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--top <n>', 'Show only the top N tools by calls (default 20; 0 shows all)')
+      .option('--by-source', 'Split each tool row by source')
+      .option('--by-repo', `Split each tool row by ${PROJECT_DESCRIPTION}`)
+      .option(
+        '--last <n>',
+        `Report the last N days, counting today (default ${String(DEFAULT_RECENT_DAYS)})`,
+      )
+      .option(
+        '--all',
+        `Report every tool call on disk instead of the last ${String(DEFAULT_RECENT_DAYS)} days`,
+      );
+    command
+      .option(
+        '--repo <project>',
+        `${REPO_FILTER_MATCHING}. Keeps the tool calls of sessions whose usage is in these projects`,
+        collectRepeatedOption,
+      )
+      .action((options: ToolsCommandOptions) => runToolsReport(options));
+
+    return command;
+  },
+};
+
 const projectsReportDefinition: ReportRuntimeDefinition = {
   meta: {
     commandName: 'projects',
     docsLabel: 'projects',
     kind: 'specialized',
-    description:
-      'Show cost, tokens, events, active days and top models per project (repository root), costliest first (full history unless --last, --since, or --until)',
+    description: `Show cost, tokens, events, active days and top models per ${PROJECT_DESCRIPTION}, costliest first (full history unless --last, --since, or --until)`,
     sharedOptionProfile: 'rollup',
     helpExamples: [
       {
@@ -757,15 +874,12 @@ const projectsReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
-export const BLOCKS_DEFAULT_LAST_DAYS = 7;
-
 const blocksReportDefinition: ReportRuntimeDefinition = {
   meta: {
     commandName: 'blocks',
     docsLabel: 'blocks',
     kind: 'specialized',
-    description:
-      'Show estimated 5-hour usage blocks per source, across machines, with the active block (last 7 days unless --last, --since, --until, or --all; only meaningful for subscription plans)',
+    description: `Show estimated 5-hour usage blocks per source, across machines, with the active block (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all; only meaningful for subscription plans)`,
     sharedOptionProfile: 'rollup',
     helpExamples: [
       {
@@ -791,11 +905,11 @@ const blocksReportDefinition: ReportRuntimeDefinition = {
       )
       .option(
         '--last <n>',
-        `Report the last N days, counting today (default ${String(BLOCKS_DEFAULT_LAST_DAYS)})`,
+        `Report the last N days, counting today (default ${String(DEFAULT_RECENT_DAYS)})`,
       )
       .option(
         '--all',
-        `Report every block instead of the last ${String(BLOCKS_DEFAULT_LAST_DAYS)} days`,
+        `Report every block instead of the last ${String(DEFAULT_RECENT_DAYS)} days`,
       );
     addTableDisplayOptions(command, 'the table', ROLLUP_COMPACT_DESCRIPTION);
     addRepoFilterOption(command).action((options: BlocksCommandOptions) =>
@@ -911,6 +1025,8 @@ const reportDefinitions = [
   optimizeReportDefinition,
   trendsReportDefinition,
   sessionReportDefinition,
+  toolsReportDefinition,
+  contextReportDefinition,
   blocksReportDefinition,
   valueReportDefinition,
   wrappedReportDefinition,

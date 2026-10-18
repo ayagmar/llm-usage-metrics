@@ -78,6 +78,8 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'bySession',
     'since',
     'until',
+    // M12
+    'dedupeToolCalls',
   ],
   './internal': [
     // T0
@@ -136,13 +138,17 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'pathIsFile',
     'pathReadable',
     'pathStat',
+    'pluralize',
     'readBoundedJsonFile',
+    'readClassifiedJsonlObjectBatches',
     'readClassifiedJsonlObjects',
     'readFirstLine',
     'readJsonTranscriptFile',
+    'readJsonlObjectBatches',
     'readJsonlObjects',
     'recordSkippedRow',
     'resolveExplicitProviderRoots',
+    'resolveMaxBusyRetries',
     'resolveRootDirs',
     'resolveTotalTokens',
     'resolveUsageTotalTokens',

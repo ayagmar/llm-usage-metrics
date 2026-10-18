@@ -1,16 +1,11 @@
 // The wrapped recap: the year's figures, the daily calendar and the top lists, from the
 // embedded `wrapped --json` data. Fixed at generation: the page's filters do not change it.
 
+import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { formatHours } from '../../../../render/format-duration.js';
 import { getWindowEnd, NO_VALUE, type ShareReport } from '../../core/index.js';
-import {
-  formatCompact,
-  formatCount,
-  formatDay,
-  formatPercent,
-  pluralize,
-} from '../shell/format.js';
-import { buildCalendar, MONTH_NAMES, type CalendarView } from './calendar-model.js';
+import { formatDay, formatPercent } from '../shell/format.js';
+import { buildCalendar, type CalendarView } from './calendar-model.js';
 import {
   formatEnvelopeCost,
   getEnvelopeData,
@@ -22,6 +17,8 @@ import {
   type PanelFact,
   type PanelTable,
 } from './model.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 export type TopItem = {
   rank: number;
@@ -59,8 +56,8 @@ function buildMonths(months: Record<string, unknown>[]): PanelTable {
       const key = readString(month, 'month') ?? '';
       const index = Number(key.slice(5, 7)) - 1;
       return [
-        { text: MONTH_NAMES[index] ?? key },
-        { text: formatCount(readNumber(month, 'totalTokens') ?? 0) },
+        { text: MONTH_LABELS[index] ?? key },
+        { text: formatInteger(readNumber(month, 'totalTokens') ?? 0) },
         formatEnvelopeCost(readNumber(month, 'costUsd'), month.costIncomplete === true),
       ];
     }),
@@ -82,8 +79,8 @@ function buildTopList(title: string, nameLabel: string, items: Record<string, un
       return {
         rank: index + 1,
         name: readString(item, 'name') ?? NO_VALUE,
-        tokens: formatCompact(readNumber(item, 'totalTokens') ?? 0),
-        tokensExact: `${formatCount(readNumber(item, 'totalTokens') ?? 0)} tokens`,
+        tokens: formatAbbreviatedTokenCount(readNumber(item, 'totalTokens') ?? 0),
+        tokensExact: `${formatInteger(readNumber(item, 'totalTokens') ?? 0)} tokens`,
         cost: cost.text,
         costNote: cost.note,
         share: largest > 0 ? metric(item) / largest : 0,
@@ -123,7 +120,9 @@ function buildFacts(data: Record<string, unknown>): PanelFact[] {
   facts.push({
     label: 'Busiest day',
     value: busiestDate ? formatDay(busiestDate) : NO_VALUE,
-    detail: busiest ? `${formatCount(readNumber(busiest, 'totalTokens') ?? 0)} tokens` : undefined,
+    detail: busiest
+      ? `${formatInteger(readNumber(busiest, 'totalTokens') ?? 0)} tokens`
+      : undefined,
   });
 
   const savings = readNumber(data, 'estimatedCacheSavingsUsd');
@@ -137,8 +136,8 @@ function buildFacts(data: Record<string, unknown>): PanelFact[] {
   }
 
   facts.push(
-    { label: 'Events', value: formatCount(readNumber(data, 'eventCount') ?? 0) },
-    { label: 'Sessions', value: formatCount(readNumber(data, 'sessionCount') ?? 0) },
+    { label: 'Events', value: formatInteger(readNumber(data, 'eventCount') ?? 0) },
+    { label: 'Sessions', value: formatInteger(readNumber(data, 'sessionCount') ?? 0) },
   );
 
   return facts;
@@ -149,7 +148,7 @@ function buildLede(data: Record<string, unknown>, year: string): WrappedView['le
   const activeDays = readNumber(data, 'activeDays') ?? 0;
   const cost = readNumber(data, 'costUsd');
   const lede: WrappedView['lede'] = [
-    { text: formatCompact(tokens), figure: true },
+    { text: formatAbbreviatedTokenCount(tokens), figure: true },
     { text: ' tokens', figure: false },
   ];
 
@@ -162,7 +161,7 @@ function buildLede(data: Record<string, unknown>, year: string): WrappedView['le
 
   lede.push(
     { text: ' across ', figure: false },
-    { text: formatCount(activeDays), figure: true },
+    { text: formatInteger(activeDays), figure: true },
     { text: ` active ${activeDays === 1 ? 'day' : 'days'} in ${year}.`, figure: false },
   );
 
@@ -193,7 +192,7 @@ export function buildWrappedView(report: ShareReport): WrappedView | undefined {
     calendar: buildCalendar(
       days,
       (active, count) =>
-        `Daily tokens in ${year}: usage on ${pluralize(active, 'day')} of ${formatCount(count)}. The monthly table holds the totals.`,
+        `Daily tokens in ${year}: usage on ${pluralize(active, 'day')} of ${formatInteger(count)}. The monthly table holds the totals.`,
     ),
     months: buildMonths(months),
     topLists: [

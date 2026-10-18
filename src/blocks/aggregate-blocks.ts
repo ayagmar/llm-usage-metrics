@@ -1,8 +1,13 @@
-import { toRankedModelUsage } from '../aggregate/aggregate-usage.js';
+import {
+  addEventToTotals,
+  createEmptyTotals,
+  createSourceComparator,
+  normalizeModelKey,
+  toRankedModelUsage,
+} from '../aggregate/aggregate-usage.js';
 import type { ModelUsageBreakdown, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { addUsd, roundUsd } from '../utils/usd-math.js';
+import { roundUsd } from '../utils/usd-math.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -168,40 +173,13 @@ function chainSourceBlocks(
   );
 }
 
-function createEmptyTotals(): UsageTotals {
-  return {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
-  };
-}
-
-function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
-  target.inputTokens += event.inputTokens;
-  target.outputTokens += event.outputTokens;
-  target.reasoningTokens += event.reasoningTokens;
-  target.cacheReadTokens += event.cacheReadTokens;
-  target.cacheWriteTokens += event.cacheWriteTokens;
-  target.totalTokens += event.totalTokens;
-
-  if (event.costUsd === undefined) {
-    target.costIncomplete = true;
-    return;
-  }
-
-  target.costUsd = addUsd(target.costUsd ?? 0, event.costUsd);
-}
-
 function toUsageBlock(block: BlockAccumulator): UsageBlock {
   const totals = createEmptyTotals();
   const modelTotals = new Map<string, UsageTotals>();
 
   for (const { event } of block.events) {
     addEventToTotals(totals, event);
-    const model = event.model?.trim().toLowerCase();
+    const model = normalizeModelKey(event.model);
 
     if (model) {
       const totalsForModel = modelTotals.get(model) ?? createEmptyTotals();
@@ -223,18 +201,6 @@ function toUsageBlock(block: BlockAccumulator): UsageBlock {
   };
 }
 
-function compareSources(sourceOrder: readonly string[]): (left: string, right: string) => number {
-  const rank = (source: string) => {
-    const index = sourceOrder.indexOf(source);
-    return index === -1 ? sourceOrder.length : index;
-  };
-
-  return (left, right) => {
-    const byRank = rank(left) - rank(right);
-    return byRank === 0 ? compareByCodePoint(left, right) : byRank;
-  };
-}
-
 /**
  * Estimated 5-hour blocks, one chain per source across every machine, ordered by start and
  * then by `sourceOrder`. Events must already be priced and filtered; see `contextEvents`
@@ -244,7 +210,7 @@ export function aggregateBlocks(
   events: readonly UsageEvent[],
   options: AggregateBlocksOptions = {},
 ): UsageBlock[] {
-  const compare = compareSources(options.sourceOrder ?? []);
+  const compare = createSourceComparator(options.sourceOrder ?? []);
   const blocks: BlockAccumulator[] = [];
 
   for (const [source, sourceEvents] of toTimedEvents(events, options.contextEvents)) {
@@ -321,4 +287,31 @@ export function selectTopBlocks<Block extends UsageBlock>(
     )
     .slice(0, top)
     .map(({ block }) => block);
+}
+
+/** The key `findEventBlockKey` matches: a block's source and start. */
+export function toBlockKey(block: Pick<UsageBlock, 'source' | 'start'>): string {
+  return `${block.source}\0${String(Date.parse(block.start))}`;
+}
+
+/**
+ * The key of the block an event lies in, among `blockKeys` (from `toBlockKey`). Blocks of
+ * one source never overlap and start on an hour, so it is the one starting in the event's
+ * hour or the 4 before.
+ */
+export function findEventBlockKey(
+  event: Pick<UsageEvent, 'source' | 'timestamp'>,
+  blockKeys: { has(key: string): boolean },
+): string | undefined {
+  const hourMs = Math.floor(Date.parse(event.timestamp) / HOUR_MS) * HOUR_MS;
+
+  for (let startMs = hourMs; startMs > hourMs - BLOCK_DURATION_MS; startMs -= HOUR_MS) {
+    const key = `${event.source}\0${String(startMs)}`;
+
+    if (blockKeys.has(key)) {
+      return key;
+    }
+  }
+
+  return undefined;
 }

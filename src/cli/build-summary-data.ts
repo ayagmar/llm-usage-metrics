@@ -1,9 +1,22 @@
-import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily-activity.js';
+import {
+  resolveActivityStart,
+  sumDailyTotals,
+  toDailyActivity,
+  type DailyTotals,
+} from '../aggregate/daily-activity.js';
+import { buildEventProjectLabels } from '../aggregate/project-key.js';
+import { findSpendSpikes, findSpikeDrivers } from '../aggregate/spend-spikes.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { getDaysInMonth } from '../utils/date-key.js';
+import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
+import {
+  createPreviousMonthToDateWindow,
+  createPreviousSameLengthWindow,
+} from './build-compare-data.js';
+import { resolvePeriodsSince } from './build-usage-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
@@ -22,6 +35,7 @@ import type {
   SummaryPeriod,
   SummaryPeriodKey,
   SummarySourceTotals,
+  SummarySpendSpike,
   UsageWindowTotals,
 } from './usage-data-contracts.js';
 import {
@@ -45,11 +59,29 @@ export function resolveSummaryWindows(timezone: string, now: Date): SummaryWindo
     {
       key: 'last7Days',
       label: `Last ${SUMMARY_RECENT_DAYS} days`,
-      since: shiftLocalDateKey(today, -(SUMMARY_RECENT_DAYS - 1)),
+      since: resolvePeriodsSince('daily', today, SUMMARY_RECENT_DAYS),
       until: today,
     },
-    { key: 'monthToDate', label: 'Month to date', since: `${today.slice(0, 8)}01`, until: today },
+    {
+      key: 'monthToDate',
+      label: 'Month to date',
+      since: resolvePeriodsSince('monthly', today, 1),
+      until: today,
+    },
   ];
+}
+
+/**
+ * The window a period is set against, by `compare`'s rules: month to date against the same days
+ * of the previous month (clamped to its last day), the others against as many days just before.
+ */
+function resolvePreviousWindow(window: SummaryWindow): UsageDateWindow {
+  const { since, until } =
+    window.key === 'monthToDate'
+      ? createPreviousMonthToDateWindow(window)
+      : createPreviousSameLengthWindow(window);
+
+  return { since, until };
 }
 
 // Two days of usage are too few to scale to a month.
@@ -61,9 +93,7 @@ export function resolveMonthEnd(
   budgetUsd: number | undefined,
 ): SummaryMonthEnd {
   const daysElapsed = Number(today.slice(8, 10));
-  const daysInMonth = new Date(
-    Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
-  ).getUTCDate();
+  const daysInMonth = getDaysInMonth(Number(today.slice(0, 4)), Number(today.slice(5, 7)));
   const costUsd = monthToDate?.totals.costUsd;
   const monthEnd: SummaryMonthEnd = { daysElapsed, daysInMonth };
   const hasUsage = (monthToDate?.totals.events ?? 0) > 0;
@@ -151,6 +181,38 @@ function summarizeMachines(
     .sort(compareMachinesByCost);
 }
 
+/** The costliest spike day of `window`, with the project and model that drove it. */
+function findWindowSpendSpike(
+  dailyTotals: ReadonlyMap<string, DailyTotals>,
+  events: readonly UsageEvent[],
+  window: UsageDateWindow,
+  timezone: string,
+): SummarySpendSpike | undefined {
+  const dailyCostUsd = new Map(
+    [...dailyTotals].map(([date, totals]) => [date, totals.costUsd ?? 0]),
+  );
+  const spike = findSpendSpikes(dailyCostUsd, { from: window.since, to: window.until }).reduce<
+    SummarySpendSpike | undefined
+  >(
+    (costliest, day) => (costliest && costliest.costUsd >= day.costUsd ? costliest : day),
+    undefined,
+  );
+
+  if (spike === undefined) {
+    return undefined;
+  }
+
+  const dayEvents = events.filter(
+    createWindowEventFilter({ since: spike.date, until: spike.date }, timezone),
+  );
+
+  return {
+    ...spike,
+    costIncomplete: dailyTotals.get(spike.date)?.costIncomplete,
+    ...findSpikeDrivers(dayEvents, buildEventProjectLabels(events)),
+  };
+}
+
 export type SummaryDataset = {
   userConfigResolution: UserConfigResolution;
   timezone: string;
@@ -206,6 +268,8 @@ export async function buildSummaryData(
       const windowEvents = pricedEvents.filter(createWindowEventFilter(window, timezone));
       eventsByWindow.set(window.key, windowEvents);
       const summary = summarizeUsageWindow(windowEvents, timezone, sourceOrder);
+      const previousWindow = resolvePreviousWindow(window);
+      const previousEvents = pricedEvents.filter(createWindowEventFilter(previousWindow, timezone));
       const period: SummaryPeriod = {
         key: window.key,
         label: window.label,
@@ -215,6 +279,10 @@ export async function buildSummaryData(
         sources: [...summary.sources]
           .map(([source, totals]) => ({ source, ...totals }))
           .sort(compareSourcesByCost),
+        previous: {
+          ...previousWindow,
+          totals: summarizeUsageWindow(previousEvents, timezone, sourceOrder).totals,
+        },
       };
 
       if (countsOtherMachines) {
@@ -225,8 +293,19 @@ export async function buildSummaryData(
     }),
   );
 
-  const activity = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.activity', () =>
-    aggregateDailyActivity(pricedEvents, { from: since, to: today, timezone }),
+  const { activity, spike } = measureRuntimeProfileStageSync(
+    deps.runtimeProfile,
+    'summary.activity',
+    () => {
+      const dailyTotals = sumDailyTotals(pricedEvents, { from: since, to: today, timezone });
+      // Today, the last 7 days, then month to date (resolveSummaryWindows).
+      const [, last7Days] = windows;
+
+      return {
+        activity: toDailyActivity(dailyTotals, { from: since, to: today }),
+        spike: findWindowSpendSpike(dailyTotals, pricedEvents, last7Days, timezone),
+      };
+    },
   );
 
   const monthToDate = periods.find((period) => period.key === 'monthToDate');
@@ -236,10 +315,12 @@ export async function buildSummaryData(
       ? estimateCacheSavingsUsd(monthToDateEvents, pricingSource, pricingResult.pricingPolicy)
       : undefined;
 
-  // The `~` marks only appear on the windows and on the best day's cost. Every window ends
-  // today, so together they span one range from the earliest window start.
+  // The `~` marks only appear on the windows (the spike day's among them), their previous
+  // windows and the best day's cost.
+  // Every window ends today, so together they span one range from the earliest window start;
+  // the month's previous window lies apart from it.
   const bestDay = activity.bestDay?.costUsd === undefined ? undefined : activity.bestDay.date;
-  const isInSomeWindow = createWindowEventFilter(
+  const shownWindowFilters = [
     {
       since: windows.reduce(
         (earliest, window) => (window.since < earliest ? window.since : earliest),
@@ -247,8 +328,10 @@ export async function buildSummaryData(
       ),
       until: today,
     },
-    timezone,
-  );
+    ...windows.map(resolvePreviousWindow),
+  ].map((window) => createWindowEventFilter(window, timezone));
+  const isInSomeWindow = (event: UsageEvent) =>
+    shownWindowFilters.some((isInWindow) => isInWindow(event));
   const isOnBestDay = bestDay
     ? createWindowEventFilter({ since: bestDay, until: bestDay }, timezone)
     : () => false;
@@ -262,6 +345,7 @@ export async function buildSummaryData(
     monthEnd: resolveMonthEnd(today, monthToDate, resolveMonthlyBudgetUsd(userConfigResolution)),
     monthToDateCacheSavingsUsd,
     activity,
+    spike,
     diagnostics: buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,
       successfulParseResults: dataset.successfulParseResults,

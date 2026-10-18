@@ -2,14 +2,16 @@
 // and the month so far, the month-end notes, the streaks and the year's calendar), from the
 // embedded `summary --json` data. Fixed at generation: the page's filters do not change it.
 
+import { computeDeltaRatio } from '../../../../utils/delta-ratio.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
-import { formatCompact, formatCount, formatDay, pluralize } from '../shell/format.js';
+import { formatDateRange, formatDay } from '../shell/format.js';
 import { buildCalendar, type CalendarView } from './calendar-model.js';
 import {
   figure,
   FIXED_NOTE,
   formatEnvelopeCost,
+  formatSignedRatio,
   getEnvelopeData,
   isRecord,
   readNumber,
@@ -21,6 +23,8 @@ import {
   type PanelFact,
   type PanelTable,
 } from './model.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 export type SummaryView = {
   lede: LedePart[];
@@ -34,18 +38,34 @@ export type SummaryView = {
 };
 
 type Period = {
+  /** `today`, `last7Days` or `monthToDate`. */
+  key?: string;
   label: string;
   totals: Record<string, unknown>;
   sources: Record<string, unknown>[];
   machines: Record<string, unknown>[];
+  /** The window the period is set against; absent in files from releases before it. */
+  previous?: { since: string; until: string; totals: Record<string, unknown> };
 };
+
+function readPrevious(value: unknown): Period['previous'] {
+  if (!isRecord(value) || !isRecord(value.totals)) {
+    return undefined;
+  }
+
+  const since = readString(value, 'since');
+  const until = readString(value, 'until');
+  return since && until ? { since, until, totals: value.totals } : undefined;
+}
 
 function readPeriod(record: Record<string, unknown>): Period {
   return {
+    key: readString(record, 'key'),
     label: readString(record, 'label') ?? readString(record, 'key') ?? NO_VALUE,
     totals: isRecord(record.totals) ? record.totals : {},
     sources: readRecords(record.sources),
     machines: readRecords(record.machines),
+    previous: readPrevious(record.previous),
   };
 }
 
@@ -77,22 +97,89 @@ function topSource(period: Period): string {
   return share === undefined ? name : `${name} (${share})`;
 }
 
+/** The window each period is set against, as `summary` picks it. */
+const PREVIOUS_WINDOW_NAMES: Readonly<Record<string, string>> = {
+  today: 'yesterday',
+  last7Days: 'the 7 days before',
+  monthToDate: 'the same days of last month',
+};
+
+/** `Against yesterday, Oct 16`: the window the period's change is measured against. */
+function previousWindowNote(period: Period): string | undefined {
+  const { previous } = period;
+
+  if (!previous) {
+    return undefined;
+  }
+
+  const name = period.key === undefined ? undefined : PREVIOUS_WINDOW_NAMES[period.key];
+  const range = formatDateRange(previous.since, previous.until);
+  return name === undefined ? `Against ${range}` : `Against ${name}, ${range}`;
+}
+
+/** The table's caption naming each row's previous window, or none for a file without them. */
+function previousWindowsCaption(periods: Period[]): string | undefined {
+  const named = periods.flatMap((period) => {
+    const name = period.key === undefined ? undefined : PREVIOUS_WINDOW_NAMES[period.key];
+    return period.previous && name !== undefined ? [`${period.label} against ${name}`] : [];
+  });
+
+  return named.length === 0 ? undefined : `${named.join('; ')}.`;
+}
+
+/** The previous window's cost, its tooltip naming the window before any lower-bound note. */
+function previousCost(period: Period, previous: NonNullable<Period['previous']>): PanelCell {
+  const cost = costOf(previous.totals);
+  const note = [previousWindowNote(period), cost.note].filter(Boolean).join('. ');
+  return { ...cost, note };
+}
+
+/** The period's cost against its previous window, as `compare` words a change. */
+function costChange(period: Period): PanelCell {
+  const { previous } = period;
+  const ratio = computeDeltaRatio(
+    readNumber(period.totals, 'costUsd'),
+    previous && readNumber(previous.totals, 'costUsd'),
+  );
+
+  return { text: formatSignedRatio(ratio), note: previousWindowNote(period) };
+}
+
 function periodsTable(periods: Period[]): PanelTable {
+  // The change is in cost, so a file without cost, or from a release before `previous`, keeps
+  // the table it had. With the change, a phone keeps the cost and its change over the tokens.
+  const compared = periods.some(
+    (period) => period.previous !== undefined && readNumber(period.totals, 'costUsd') !== undefined,
+  );
+
   return {
     title: 'Recent periods',
     columns: [
       { label: 'Period', numeric: false },
       { label: 'Cost', numeric: true },
-      { label: 'Tokens', numeric: true },
+      ...(compared
+        ? [
+            { label: 'Previous', numeric: true, narrow: false },
+            { label: 'Change', numeric: true },
+          ]
+        : []),
+      { label: 'Tokens', numeric: true, narrow: !compared },
       { label: 'Top source', numeric: false, narrow: false },
     ],
     rows: periods.map((period) => [
       { text: period.label },
       costOf(period.totals),
-      { text: formatCount(readNumber(period.totals, 'totalTokens') ?? 0) },
+      ...(compared
+        ? [
+            period.previous ? previousCost(period, period.previous) : { text: NO_VALUE },
+            costChange(period),
+          ]
+        : []),
+      { text: formatInteger(readNumber(period.totals, 'totalTokens') ?? 0) },
       { text: topSource(period) },
     ]),
     foot: [],
+    caption: compared ? previousWindowsCaption(periods) : undefined,
   };
 }
 
@@ -127,7 +214,9 @@ function machinesTable(month: Period | undefined, labels: ShareLabels): PanelTab
 
       return [
         { text: labels.machine(readString(machine, 'machine') ?? NO_VALUE) },
-        byCost ? costOf(machine) : { text: formatCompact(tokens), note: formatCount(tokens) },
+        byCost
+          ? costOf(machine)
+          : { text: formatAbbreviatedTokenCount(tokens), note: formatInteger(tokens) },
         { text: share ?? NO_VALUE },
       ];
     }),
@@ -201,14 +290,14 @@ function activityFacts(activity: Record<string, unknown>): PanelFact[] {
       label: 'Best day',
       value: bestDate ? formatDay(bestDate) : NO_VALUE,
       detail: best
-        ? [bestCost, `${formatCount(readNumber(best, 'totalTokens') ?? 0)} tokens`]
+        ? [bestCost, `${formatInteger(readNumber(best, 'totalTokens') ?? 0)} tokens`]
             .filter((part) => part !== '')
             .join(' · ')
         : undefined,
     },
     {
       label: 'Active days',
-      value: formatCount(readNumber(activity, 'activeDays') ?? 0),
+      value: formatInteger(readNumber(activity, 'activeDays') ?? 0),
       detail: `Since ${formatDay(readString(activity, 'from') ?? '')}`,
     },
   ];
@@ -227,7 +316,7 @@ function buildLede(data: Record<string, unknown>, month: Period | undefined): Le
   const lede =
     costUsd === undefined
       ? [
-          figure(formatCompact(readNumber(month.totals, 'totalTokens') ?? 0)),
+          figure(formatAbbreviatedTokenCount(readNumber(month.totals, 'totalTokens') ?? 0)),
           words(' tokens this month so far'),
         ]
       : [figure(costOf(month.totals).text), words(' spent this month so far')];
@@ -279,7 +368,7 @@ export function buildSummaryView(
     calendar: buildCalendar(
       readRecords(activity.days),
       (active, count) =>
-        `Daily tokens since ${formatDay(from)}: usage on ${pluralize(active, 'day')} of ${formatCount(count)}.`,
+        `Daily tokens since ${formatDay(from)}: usage on ${pluralize(active, 'day')} of ${formatInteger(count)}.`,
     ),
     tables: [periodsTable(periods), ...(machines ? [machines] : [])],
     note: `From the summary command${today ? ` on ${formatDay(today)}` : ''}, in ${timezone}. ${FIXED_NOTE}`,

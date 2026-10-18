@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "report": "context",
+  "data": {
+    "grouping": "model",
+    "longContextPromptTokens": 200000,
+    "nearLimitShare": 0.8,
+    "rows": [
+      {
+        "model": "gemini-2.5-pro",
+        "contextLimit": 1048576,
+        "requests": 2,
+        "peakPromptTokens": 250000,
+        "longContextRequests": 1,
+        "longContextExtraUsd": 0.31,
+        "longContextExtraIncomplete": false,
+        "nearLimitRequests": 0
+      },
+      {
+        "model": "claude-sonnet-4-5",
+        "contextLimit": 200000,
+        "requests": 2,
+        "peakPromptTokens": 175000,
+        "longContextRequests": 0,
+        "longContextExtraUsd": 0,
+        "longContextExtraIncomplete": false,
+        "nearLimitRequests": 1
+      },
+      {
+        "model": "acme-internal-1",
+        "contextLimit": null,
+        "requests": 1,
+        "peakPromptTokens": 9000,
+        "longContextRequests": 0,
+        "longContextExtraUsd": null,
+        "longContextExtraIncomplete": true,
+        "nearLimitRequests": null
+      }
+    ],
+    "aggregatedSources": [
+      {
+        "source": "codex",
+        "records": 1
+      }
+    ]
+  }
+}

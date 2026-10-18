@@ -83,6 +83,7 @@ for (const filePath of await codex.discoverFiles()) {
 - `collect(iterable)` turns any async iterable into an array.
 - Breaking out of a `for await` loop closes every file and database handle the read opened before `return()` resolves.
 - A read holds its file or database while you iterate. For the SQLite sources (opencode, goose, antigravity) that is an open read transaction: in WAL mode a snapshot the agent cannot checkpoint past, in rollback-journal mode a shared lock that blocks the agent's writes. Do not await slow work between events of a SQLite read.
+- A SQLite read that finds the database busy or locked is retried `maxBusyRetries` times (an adapter option, default 2; `0` turns retries off), waiting `busyRetryDelayMs` (default 50) times the attempt number before each retry. A `maxBusyRetries` that is not a non-negative integer throws when the adapter is created.
 
 A directory-backed adapter takes `{ dir, requireDir, context }`; opencode and goose take `{ dbPath, context }`. `dir` replaces the default location; `requireDir: true` makes a missing `dir` a discovery error instead of no files.
 
@@ -107,12 +108,12 @@ On usage events, `inputTokens` excludes cache reads and writes, `outputTokens` i
 
 A stage is a function from one async iterable to another (`Stage<In, Out>`). `pipe(source, ...stages)` chains up to six.
 
-- `since(bound)` keeps events at or after `bound`, and `until(bound)` events before it. Bounds are compared as instants. A string with a time of day but no UTC offset (`'2026-06-01T10:00'`) throws, since it means different instants in different time zones. A bare ISO date is midnight UTC.
+- `since(bound)` keeps events at or after `bound`, and `until(bound)` events before it. Bounds are compared as instants. A string with a time of day but no UTC offset (`'2026-06-01T10:00'`) throws, since it means different instants in different time zones. A bare ISO date is midnight UTC; a date alone in another form (`'June 1, 2026'`) throws for the same reason.
 - `bySession()` groups events into `{ source, sessionId, events }` in the order each session first appears. It buffers its whole input.
 - `repeatedAcrossFiles()` takes one array of events per file, in file order, and drops usage an earlier file already yielded. Use it for sources with `capabilities.eventsRepeatAcrossFiles` (pi: forks of one parent each copy its entries).
 - `copiedSessions()` drops usage that a continued session copied from the session it continues, for sources with `capabilities.sessionsCopyEvents` (claude). It buffers its whole input, since which copy is kept depends on every session's first event.
 
-Both dedup stages compare usage only; other kinds pass through. `dedupeRepeatedAcrossFiles` and `dedupeCopiedSessions` are the same steps for arrays, and `computeEventContentHash` is the hash they compare.
+Both dedup stages compare usage only; other kinds pass through. `dedupeRepeatedAcrossFiles` and `dedupeCopiedSessions` are the same steps for arrays, and `computeEventContentHash` is the hash they compare. For tool calls, `dedupeToolCalls` keeps one call per source and call id, so a call a resumed or forked transcript repeats counts once.
 
 This reproduces what `readSources` does for pi and claude, one source at a time:
 

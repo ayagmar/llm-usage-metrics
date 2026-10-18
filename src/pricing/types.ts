@@ -33,6 +33,8 @@ export type ModelPricing = {
 export interface PricingSource {
   resolveModelAlias(model: string): string;
   getPricing(model: string): ModelPricing | undefined;
+  /** LiteLLM's `max_input_tokens` for the model's key; undefined when it lists none. */
+  getMaxInputTokens?(model: string): number | undefined;
   /** Explains `getPricing(resolveModelAlias(model))`; reports call the two directly. */
   explainModel?(model: string): ModelPricingExplanation;
 }

@@ -21,6 +21,7 @@ llm-usage session
 llm-usage session --top 50
 llm-usage session --top 0
 llm-usage session --id 486c3261
+llm-usage session --id 486c3261 --timeline
 llm-usage session --by-repo
 llm-usage session --source codex --json
 llm-usage session --markdown
@@ -31,6 +32,7 @@ llm-usage session --markdown
 - `--top <n>`: how many rows to show, ranked by cost (default 20; `--top 0` shows all)
 - `--id <session-id>`: keep only sessions whose id contains the value (case-insensitive; repeatable or comma-separated); cannot be combined with `--by-repo`
 - `--by-repo`: aggregate sessions into one row per [project](/llm-usage-metrics/projects/)
+- `--timeline`: with `--id` naming one session, list that session request by request (see [Timeline](#timeline)); cannot be combined with `--top`
 - `--repo <project>`: count only some projects, as described on [Projects](/llm-usage-metrics/projects/#narrow-the-scope)
 - shared filters apply: `--source`, `--provider`, `--model`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--no-history`
 
@@ -46,7 +48,22 @@ Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 
 <TerminalShot src={termSession} label="llm-usage session --top 5 output" alt="Terminal output of llm-usage session --top 5: the five costliest sessions with their source, project, last activity, duration, total tokens, cost, and models" />
 
-`--by-repo` replaces the per-session rows with one row per repository (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a detectable repository are grouped under `(unattributed)`.
+`--by-repo` replaces the per-session rows with one row per project, the working directory the tool recorded (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a recorded directory are grouped under `(unattributed)`.
+
+## Timeline
+
+`--id <session-id> --timeline` shows one session in time order: each request with its time of day (the date heads the table, and a row on a later day shows its date), model, input, cache read, cache write and output tokens, its cost, and the running total of the session's cost so far. It answers "why did this session cost $12": the running total shows where the cost climbed, and the requests around it show what the model was doing.
+
+The `--id` value must match exactly one session in the window. When it matches several and one of them has exactly that id, the timeline shows that one. Otherwise the error lists up to 10 of them with their source and last-activity date, so you can pass more of the id or pick the source:
+
+```text
+--timeline needs exactly one session, but --id 486c matches 2:
+  codex   486c3261-d87e-4971-8813-904c9e5a9009  2026-03-05
+  claude  486c77aa-0f12-4c55-9a1e-6b2d0e3f4a10  2026-02-11
+Pass more of the session id to --id, or narrow with --source.
+```
+
+Requests come from the same data as every other report, history included. Between them, the timeline shows the session's tool calls and its user and assistant turns, read from the session file when it is still on disk (Claude Code, Codex and pi log them; other sources show requests only). A departed file or another machine's session has no tool calls or turns; a note on `stderr` says so. A resumed or forked session can copy its parent's history: copied tool calls stay with the parent, as [`tools`](/llm-usage-metrics/tools/) counts them, but copied turns carry no id to match them by, so they show in both sessions. To match those copies, the timeline reads every session file of the session's source in the window, which on large logs takes a few seconds. The terminal and Markdown tables fold everything between two requests into one line, such as `1 user turn · 12 tool calls: Bash ×7, Read ×5, 1 error`. No rows are cut: a long session prints every request.
 
 ## JSON shape
 
@@ -84,4 +101,6 @@ Default `--json` returns an array of session rows under `data`:
 
 `repoRoot` is omitted when the session has no project.
 
-`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `lastActivity`, `sources`, and the same token and cost totals). The `(unattributed)` row has no `repoRoot`. The full contract is [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json).
+`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `lastActivity`, `sources`, and the same token and cost totals). The `(unattributed)` row has no `repoRoot`. `--timeline --json` returns an object under `data`: `session`, the matched session row, and `rows` in time order. Each row has a `kind`: `usage` rows carry `timestamp`, `model`, the token buckets, `costUsd`, `runningCostUsd`, and `runningCostIncomplete` when this or an earlier request has no price; `tool_call` rows carry `timestamp`, `name` and `status` (`ok`, `error`, or `unknown` when the file has no result); `message` rows carry `timestamp` and `role`, never the text. JSON rows are not folded.
+
+The full contract is [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json).

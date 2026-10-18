@@ -1,5 +1,5 @@
 import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 
 function toPositiveInteger(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {

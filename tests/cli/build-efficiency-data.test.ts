@@ -142,6 +142,8 @@ function createUsageEventDataset(options: Record<string, unknown> = {}): UsageEv
     warnings: [],
     notes: [],
     filteredEvents: pricedEvents,
+    lookbackEvents: [],
+    parsedFiles: [],
     pricingRuntimeConfig: {
       cacheTtlMs: 1_000,
       fetchTimeoutMs: 1_000,

@@ -10,7 +10,7 @@ The site has a guided introduction: [Reading and composing](https://ayagmar.gith
 
 ## Contents
 
-- `@ayagmar/agent-sessions`: the usage event model and its normalization, the `SourceAdapter` contract, `SourceContext`, `getParserVersion`, `collect` and `collectFile`, `pipe`, the event kinds with `readEvents`, `kinds` and `isUsageRecord`, the stages `since`, `until` and `bySession`, the dedup steps (`dedupeRepeatedAcrossFiles`, `dedupeCopiedSessions` and their stage forms, `computeEventContentHash`), and the read cursor types.
+- `@ayagmar/agent-sessions`: the usage event model and its normalization, the `SourceAdapter` contract, `SourceContext`, `getParserVersion`, `collect` and `collectFile`, `pipe`, the event kinds with `readEvents`, `kinds` and `isUsageRecord`, the stages `since`, `until` and `bySession`, the dedup steps (`dedupeRepeatedAcrossFiles`, `dedupeCopiedSessions` and their stage forms, `computeEventContentHash`, `dedupeToolCalls`), and the read cursor types.
 - `@ayagmar/agent-sessions/registry`: every source registered in a fixed order, with `createDefaultAdapters`, `getDefaultSourceIds`, `getSourceStorageFormat` and `readSources`.
 - `@ayagmar/agent-sessions/sources/<id>`: one adapter per entry (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity`, `dsh`). Importing one entry loads no other source's code, except that `roocode` and `kilocode` load `cline`, whose family adapter builds them.
 - `@ayagmar/agent-sessions/otel`: experimental OpenTelemetry GenAI attributes for events. See [OpenTelemetry attributes](#opentelemetry-attributes).
@@ -116,6 +116,8 @@ Breaking out of a `for await` loop calls `return()` on the read. Every handle th
 
 A read holds its file or database while you iterate. For the SQLite sources (opencode, goose, antigravity) that is the read transaction, open until the read finishes or is returned: in WAL mode a snapshot the agent cannot checkpoint past, in rollback-journal mode a shared lock that blocks the agent's writes. Iterate to the end or `return()` promptly; do not await slow work between events of a SQLite read.
 
+A SQLite read that finds the database busy or locked is retried `maxBusyRetries` times (an adapter option, default 2; `0` turns retries off), waiting `busyRetryDelayMs` (default 50) times the attempt number before each retry. A `maxBusyRetries` that is not a non-negative integer throws when the adapter is created.
+
 ### Memory per source
 
 Most sources hold one line, frame, array element or row at a time. Some keep state that grows with the file:
@@ -158,7 +160,7 @@ for await (const event of pipe(fileBatches(), repeatedAcrossFiles())) {
 }
 ```
 
-`since(bound)` and `until(bound)` keep events timestamped at or after `bound`, and before it. `since(t)` and `until(t)` split a stream in two, except that both drop an event whose timestamp does not parse. Bounds are compared as instants. An invalid bound throws when the stage is built, and so does a string bound with a time of day but no UTC offset (`'2026-06-01T10:00'`), which would mean different instants in different time zones. An ISO date alone (`'2026-06-01'`) is midnight UTC; other date-only strings (`'2026/06/01'`) follow `Date.parse` and mean local midnight, so prefer the ISO form. `bySession()` groups events into `{ source, sessionId, events }`, in the order each session first appears; it buffers its whole input.
+`since(bound)` and `until(bound)` keep events timestamped at or after `bound`, and before it. `since(t)` and `until(t)` split a stream in two, except that both drop an event whose timestamp does not parse. Bounds are compared as instants. An invalid bound throws when the stage is built, and so does a string bound with a time of day but no UTC offset (`'2026-06-01T10:00'`), which would mean different instants in different time zones. A date alone must be an ISO date (`'2026-06-01'`), which is midnight UTC; other date-only strings (`'2026/06/01'`, `'June 1, 2026'`) throw, since `Date.parse` reads them as local midnight. `bySession()` groups events into `{ source, sessionId, events }`, in the order each session first appears; it buffers its whole input.
 
 ## Reading every source
 
@@ -339,7 +341,9 @@ The codes `read` can record are the ones without a `message_`, `tool_call_`, `se
 
 ### Dedup
 
-`repeatedAcrossFiles()` and `copiedSessions()` dedupe usage only. Other kinds pass through unchanged, in their input order, and do not change which copy of a usage event is kept. `copiedSessions()` buffers its whole input, so with `text: true` it holds every message body until its input ends.
+`repeatedAcrossFiles()` and `copiedSessions()` dedupe usage only. Other kinds pass through unchanged, in their input order, and do not change which copy of a usage event is kept.
+
+`dedupeToolCalls()` takes tool calls and keeps one per source and call id, the first read, with the status of the first copy that has a result. A resumed or forked transcript repeats its parent's calls under the same id. Calls without an id are all kept. `copiedSessions()` buffers its whole input, so with `text: true` it holds every message body until its input ends.
 
 Forks:
 

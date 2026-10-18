@@ -3,7 +3,8 @@
 
 import type { ShareEmbeddedEnvelope } from '../../../types.js';
 import { formatUsdOrNone, NO_VALUE, type ShareReport } from '../../core/index.js';
-import { formatCount, formatPercent } from '../shell/format.js';
+import { formatPercent } from '../shell/format.js';
+import { formatInteger } from '../../../../render/format-number.js';
 
 /** A labelled figure: the recap's facts and the panels' headline numbers. */
 export type PanelFact = {
@@ -38,6 +39,8 @@ export type PanelTable = {
   rows: PanelCell[][];
   /** Total rows, under a rule. */
   foot: PanelCell[][];
+  /** One line under the title on how to read the table. */
+  caption?: string;
 };
 
 /** A sentence that leads a panel: figures and the words between them. */
@@ -97,7 +100,7 @@ export function readRecords(value: unknown): Record<string, unknown>[] {
 
 /** `1,234`, or {@link NO_VALUE} when the CLI left the figure out. */
 export function formatCountOrNone(value: number | undefined): string {
-  return value === undefined ? NO_VALUE : formatCount(value);
+  return value === undefined ? NO_VALUE : formatInteger(value);
 }
 
 export const LOWER_BOUND_NOTE = 'Some events had no price, so this is a lower bound';
@@ -121,7 +124,7 @@ function signOf(value: number): string {
 
 /** `+1,570`, `−16`, `0` */
 export function formatSignedCount(value: number | undefined): string {
-  return value === undefined ? NO_VALUE : `${signOf(value)}${formatCount(Math.abs(value))}`;
+  return value === undefined ? NO_VALUE : `${signOf(value)}${formatInteger(Math.abs(value))}`;
 }
 
 /** `+$0.06`, `−$0.01`, `~+$0.06` when either side is a lower bound. */

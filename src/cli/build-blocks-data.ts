@@ -1,20 +1,22 @@
 import {
   aggregateBlocks,
-  BLOCK_DURATION_MS,
   BLOCK_HOURS,
   computeBurnRate,
+  findEventBlockKey,
   isBlockActive,
   resolveBlockRanking,
   selectTopBlocks,
+  toBlockKey,
   type BlockBurnRate,
   type BlockRanking,
   type UsageBlock,
 } from '../blocks/aggregate-blocks.js';
 import { getLocalDayStartMs } from '../blocks/local-day-start.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { shiftDateKey } from '../utils/date-key.js';
+import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
-import { parseLastOption } from './build-usage-data.js';
+import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
@@ -24,7 +26,6 @@ import {
   type UsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
-import { BLOCKS_DEFAULT_LAST_DAYS } from './report-definitions/report-definitions.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BlocksCommandOptions,
@@ -32,8 +33,7 @@ import type {
   ReportCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
-
-const HOUR_MS = 60 * 60 * 1000;
+import { parsePositiveTopOption } from './top-option.js';
 
 /** Days read before `since` to find where the chain of blocks running into it started. */
 export const BLOCKS_LOOKBACK_DAYS = 7;
@@ -69,85 +69,24 @@ export type BlocksDataResult = {
   defaultWindowSince?: string;
 };
 
-type BlocksWindow = {
-  since?: string;
-  until?: string;
-  isDefault: boolean;
-};
-
-function parseTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-
-  if (!/^[1-9]\d*$/u.test(normalized)) {
-    throw new Error('--top must be a positive integer');
-  }
-
-  return Number.parseInt(normalized, 10);
-}
-
-function resolveBlocksWindow(
-  options: BlocksCommandOptions,
-  configuredOptions: BlocksCommandOptions,
-  today: string,
-): BlocksWindow {
-  const hasDates = options.since !== undefined || options.until !== undefined;
-  const lastDays = parseLastOption(options.last);
-
-  if (lastDays !== undefined && (hasDates || options.all)) {
-    throw new Error('--last cannot be combined with --since, --until, or --all');
-  }
-
-  if (options.all && hasDates) {
-    throw new Error('--all cannot be combined with --since or --until');
-  }
-
-  if (lastDays !== undefined) {
-    return { since: shiftLocalDateKey(today, -(lastDays - 1)), until: today, isDefault: false };
-  }
-
-  if (options.all) {
-    return { isDefault: false };
-  }
-
-  if (hasDates) {
-    return { since: configuredOptions.since, until: configuredOptions.until, isDefault: false };
-  }
-
-  return { since: shiftLocalDateKey(today, -(BLOCKS_DEFAULT_LAST_DAYS - 1)), isDefault: true };
-}
-
 /** The events counted in `blocks`: each lies in one block of its source, at most 5 h after its start. */
 function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly UsageBlock[]) {
-  const blockKeys = new Set(blocks.map((block) => `${block.source}\0${Date.parse(block.start)}`));
-
-  return events.filter((event) => {
-    const hourMs = Math.floor(Date.parse(event.timestamp) / HOUR_MS) * HOUR_MS;
-
-    for (let startMs = hourMs; startMs > hourMs - BLOCK_DURATION_MS; startMs -= HOUR_MS) {
-      if (blockKeys.has(`${event.source}\0${startMs}`)) {
-        return true;
-      }
-    }
-
-    return false;
-  });
+  const blockKeys = new Set(blocks.map(toBlockKey));
+  return events.filter((event) => findEventBlockKey(event, blockKeys) !== undefined);
 }
 
 /**
- * Each source's whole stream over the dataset's dates when --repo, --model, --provider or
- * --machine narrowed the events, so blocks keep the account's windows; undefined when
- * nothing narrowed them. --machine leaves other machines out of the dataset, so it reads
- * the dataset again, from the machines' cached usage without refreshing them (with no
- * other machine configured, --machine can only name this one, which narrows nothing).
- * Its warnings the report's own read did not give come back too, such as a machine whose
- * cache cannot be read: the windows were placed without it.
+ * Each source's whole stream over the dataset's dates (the lookback week included) when
+ * --repo, --model, --provider or --machine narrowed the events, so blocks keep the
+ * account's windows; undefined when nothing narrowed them. --machine leaves other machines
+ * out of the dataset, so it reads the dataset again, from the machines' cached usage
+ * without refreshing them (with no other machine configured, --machine can only name this
+ * one, which narrows nothing). Its warnings the report's own read did not give come back
+ * too, such as a machine whose cache cannot be read: the windows were placed without it.
  */
-export async function readWholeStreams(
+async function readWholeStreams(
   dataset: UsageEventDataset,
+  lookbackSince: string | undefined,
   userConfigResolution: UserConfigResolution,
   deps: BuildUsageDataDeps,
 ): Promise<{ events?: UsageEvent[]; warnings: string[] }> {
@@ -167,14 +106,15 @@ export async function readWholeStreams(
       repo: undefined,
       sync: false,
     };
-    const whole = await buildUsageEventDataset(wholeOptions, {
-      ...deps,
-      userConfigResolution: { ...userConfigResolution, options: wholeOptions },
-    });
+    const whole = await buildUsageEventDataset(
+      wholeOptions,
+      { ...deps, userConfigResolution: { ...userConfigResolution, options: wholeOptions } },
+      { lookbackSince },
+    );
     const reported = new Set(dataset.warnings);
 
     return {
-      events: whole.filteredEvents,
+      events: [...whole.filteredEvents, ...whole.lookbackEvents],
       warnings: whole.warnings
         .filter((warning) => !reported.has(warning))
         .map((warning) => `Account window (blocks across every machine): ${warning}`),
@@ -188,10 +128,58 @@ export async function readWholeStreams(
   return {
     events: filterParsedAdapterEvents(dataset.successfulParseResults, {
       timezone,
-      since: datasetOptions.since,
+      since: lookbackSince ?? datasetOptions.since,
       until: datasetOptions.until,
     }),
     warnings: [],
+  };
+}
+
+export type BlocksDataset = {
+  dataset: UsageEventDataset;
+  /** The first day read, a week before the window; undefined for the full history. */
+  lookbackSince: string | undefined;
+  /** The window's events, then the lookback week's. */
+  events: UsageEvent[];
+  wholeStreams: { events?: UsageEvent[]; warnings: string[] };
+};
+
+/**
+ * The read behind blocks, for `blocks` and `--share`: the window's events, filtered with
+ * the rules the window resolves (an exact --model match only in the lookback does not
+ * count), plus the week before it to find where the blocks running into it started.
+ * `options` hold the window as `since`/`until`.
+ */
+export async function readBlocksDataset(
+  options: ReportCommandOptions,
+  userConfigResolution: UserConfigResolution,
+  deps: BuildUsageDataDeps,
+  stagePrefix: 'blocks' | 'share',
+): Promise<BlocksDataset> {
+  const lookbackSince =
+    options.since === undefined ? undefined : shiftDateKey(options.since, -BLOCKS_LOOKBACK_DAYS);
+  const datasetConfigResolution = { ...userConfigResolution, options };
+  const dataset = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    `${stagePrefix}.dataset.total`,
+    () =>
+      buildUsageEventDataset(
+        options,
+        { ...deps, userConfigResolution: datasetConfigResolution },
+        { lookbackSince },
+      ),
+  );
+  const wholeStreams = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    `${stagePrefix}.whole_streams`,
+    () => readWholeStreams(dataset, lookbackSince, datasetConfigResolution, deps),
+  );
+
+  return {
+    dataset,
+    lookbackSince,
+    events: [...dataset.filteredEvents, ...dataset.lookbackEvents],
+    wholeStreams,
   };
 }
 
@@ -199,9 +187,15 @@ export async function buildBlocksData(
   options: BlocksCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<BlocksDataResult> {
-  const top = parseTopOption(options.top);
-  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const top = parsePositiveTopOption(options.top);
+  // Without date flags, the last 7 days, as `daily` reports them.
+  const windowRequest = await resolveUsageDataRequest('daily', options, deps);
+  const userConfigResolution = await resolveUserConfigForOptions(
+    windowRequest.options,
+    windowRequest.deps,
+  );
   const configuredOptions = userConfigResolution.options;
+  const window = { since: configuredOptions.since, until: configuredOptions.until };
   // Validates the dates and the timezone before they are used here.
   const { timezone } = normalizeBuildUsageInputs(
     configuredOptions,
@@ -209,28 +203,21 @@ export async function buildBlocksData(
   );
   const now = deps.now?.() ?? new Date();
   const today = getCurrentLocalDateKey(timezone, now);
-  const window = resolveBlocksWindow(options, configuredOptions, today);
-  // Read a week before the window, once, to find where the blocks running into it started.
-  const lookbackSince =
-    window.since === undefined ? undefined : shiftLocalDateKey(window.since, -BLOCKS_LOOKBACK_DAYS);
-  const datasetOptions = { ...configuredOptions, since: lookbackSince, until: window.until };
-  const datasetDeps = {
-    ...deps,
-    userConfigResolution: { ...userConfigResolution, options: datasetOptions },
-  };
-
-  const dataset = await measureRuntimeProfileStage(
-    deps.runtimeProfile,
-    'blocks.dataset.total',
-    () => buildUsageEventDataset(datasetOptions, datasetDeps),
+  const hideCost = options.cost === false;
+  const { dataset, lookbackSince, events, wholeStreams } = await readBlocksDataset(
+    configuredOptions,
+    userConfigResolution,
+    deps,
+    'blocks',
   );
-  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  // --no-cost shows no cost, so prices are neither loaded nor fetched.
+  const pricingResult = await applyPricingToUsageEventDataset(
+    dataset,
+    deps,
+    hideCost ? 'none' : 'auto',
+    { events },
+  );
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
-  const wholeStreams = await measureRuntimeProfileStage(
-    deps.runtimeProfile,
-    'blocks.whole_streams',
-    () => readWholeStreams(dataset, datasetDeps.userConfigResolution, deps),
-  );
 
   const blocks = measureRuntimeProfileStageSync(deps.runtimeProfile, 'blocks.aggregate', () =>
     aggregateBlocks(pricedEvents, {
@@ -250,7 +237,6 @@ export async function buildBlocksData(
     active: canBeActive && isBlockActive(block, nowMs) ? computeBurnRate(block, nowMs) : null,
   });
   const rows = blocks.map(toRow);
-  const hideCost = options.cost === false;
   const rankedBy = resolveBlockRanking(blocks, { hideCost });
   const shownRows = top === undefined ? rows : selectTopBlocks(rows, top, rankedBy);
 
@@ -283,6 +269,8 @@ export async function buildBlocksData(
       activeBlocks: rows.filter((row) => row.active !== null),
     },
     diagnostics,
-    ...(window.isDefault && window.since !== undefined ? { defaultWindowSince: window.since } : {}),
+    ...(windowRequest.defaultWindowSince
+      ? { defaultWindowSince: windowRequest.defaultWindowSince }
+      : {}),
   };
 }

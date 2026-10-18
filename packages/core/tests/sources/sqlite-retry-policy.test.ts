@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { AntigravitySourceAdapter } from '../../src/sources/antigravity/antigravity-source-adapter.js';
+import { GooseSourceAdapter } from '../../src/sources/goose/goose-source-adapter.js';
+import { OpenCodeSourceAdapter } from '../../src/sources/opencode/opencode-source-adapter.js';
 import { runWithBusyRetries, toSqliteDbReadError } from '../../src/sources/sqlite/retry-policy.js';
 import {
   formatSqliteError,
@@ -88,7 +91,7 @@ describe('sqlite retry policy', () => {
         },
       ),
     ).rejects.toThrow(
-      'OpenCode DB is busy/locked: /tmp/opencode.db. Retries exhausted after 3 attempt(s).',
+      'OpenCode DB is busy/locked: /tmp/opencode.db. Retries exhausted after 3 attempts.',
     );
 
     expect(sleepSpy).toHaveBeenCalledTimes(2);
@@ -128,12 +131,32 @@ describe('sqlite retry policy', () => {
     const io = toSqliteDbReadError(ioError, 'Antigravity', '/tmp/a.db', 1);
 
     expect(busy.message).toBe(
-      'Goose DB is busy/locked: /tmp/goose.db. Retries exhausted after 3 attempt(s). Close active Goose processes and retry.',
+      'Goose DB is busy/locked: /tmp/goose.db. Retries exhausted after 3 attempts. Close active Goose processes and retry.',
     );
     expect(busy.cause).toBe(busyError);
     expect(io.message).toBe(
       'Could not read Antigravity DB at /tmp/a.db: SQLITE_IOERR: disk I/O error',
     );
     expect(io.cause).toBe(ioError);
+  });
+});
+
+describe('sqlite adapter maxBusyRetries', () => {
+  const adapters = [
+    ['OpenCode', (maxBusyRetries?: number) => new OpenCodeSourceAdapter({ maxBusyRetries })],
+    ['Goose', (maxBusyRetries?: number) => new GooseSourceAdapter({ maxBusyRetries })],
+    ['Antigravity', (maxBusyRetries?: number) => new AntigravitySourceAdapter({ maxBusyRetries })],
+  ] as const;
+
+  it.each(adapters)('%s rejects a value that is not a non-negative integer', (name, create) => {
+    for (const value of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => create(value)).toThrow(
+        `${name} maxBusyRetries must be a non-negative integer (0 disables retries), got ${String(value)}`,
+      );
+    }
+
+    for (const value of [undefined, 0, 3]) {
+      expect(() => create(value)).not.toThrow();
+    }
   });
 });

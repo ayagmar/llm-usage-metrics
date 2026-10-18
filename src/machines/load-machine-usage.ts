@@ -1,8 +1,9 @@
 import { LOCAL_MACHINE_NAME, type MachineConfig } from '../config/user-config.js';
 import { getParserVersion, type SourceAdapter } from '@ayagmar/agent-sessions';
 
-import { toTerminalLine } from '../domain/normalization.js';
+import { pluralize, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
+import { getUtcMidnightIso } from '../utils/date-key.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { readMachineCacheUsage, type MachineSyncState } from './machine-cache.js';
 import { mergeMachineEvents, type MergedMachineEvents } from './merge-machine-events.js';
@@ -63,13 +64,7 @@ export type LoadedMachineUsage = {
 };
 
 function toTimestampBound(date: string | undefined, offsetDays: number): string | undefined {
-  if (date === undefined) {
-    return undefined;
-  }
-
-  const bound = new Date(`${date}T00:00:00.000Z`);
-  bound.setUTCDate(bound.getUTCDate() + offsetDays);
-  return bound.toISOString();
+  return date === undefined ? undefined : getUtcMidnightIso(date, offsetDays);
 }
 
 function formatParserSkew(machine: MergedMachineEvents): string | undefined {
@@ -84,7 +79,7 @@ function formatParserSkew(machine: MergedMachineEvents): string | undefined {
     ),
   );
 
-  return `${machine.name} parses with other parser versions (${skews.join('; ')}): left out ${machine.skewDroppedCount} event(s) of sessions already counted, matched by timestamp; update llm-usage on both machines`;
+  return `${machine.name} parses with other parser versions (${skews.join('; ')}): left out ${pluralize(machine.skewDroppedCount, 'event')} of sessions already counted, matched by timestamp; update llm-usage on both machines`;
 }
 
 /**

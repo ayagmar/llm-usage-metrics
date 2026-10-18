@@ -14,13 +14,18 @@ const usdFmt = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
+const abbreviatedIntegerFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumSignificantDigits: 3,
+});
+
 export function formatInteger(n: number): string {
   return intFmt.format(n);
 }
 
-/** `1 file`, `2 files`, `1,250 events`. */
-export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
-  return `${intFmt.format(count)} ${count === 1 ? singular : plural}`;
+/** `1.09M`, `616M`, `24.3K`: three significant digits. */
+export function formatAbbreviatedTokenCount(value: number | undefined): string {
+  return abbreviatedIntegerFormatter.format(value ?? 0);
 }
 
 export function formatUsd(n: number | undefined): string {
@@ -33,4 +38,9 @@ export function formatApproxUsd(
 ): string {
   const formatted = formatUsd(value);
   return value !== undefined && approximate ? `~${formatted}` : formatted;
+}
+
+/** One-decimal percent of a 0..1 share, or `-` when the share is unknown. */
+export function formatSharePercent(share: number | null): string {
+  return share === null ? '-' : `${(share * 100).toFixed(1)}%`;
 }

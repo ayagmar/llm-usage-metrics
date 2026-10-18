@@ -3,10 +3,10 @@ import { chmod, mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { computeEventContentHash } from '@ayagmar/agent-sessions';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  computeEventContentHash,
   closeEventStore,
   countEvents,
   deleteStoredFiles,

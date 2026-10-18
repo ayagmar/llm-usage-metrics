@@ -1,5 +1,5 @@
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildBlocksData } from '../../src/cli/build-blocks-data.js';
 import { buildBlocksReport } from '../../src/cli/run-blocks-report.js';
@@ -76,6 +76,22 @@ describe('buildBlocksData', () => {
     ]);
   });
 
+  it('picks the --model rule from the window, not from the lookback week', async () => {
+    // The exact name appears only in the lookback; inside the window, only a dated variant does.
+    const result = await build(
+      [
+        event('2026-06-10T09:00:00.000Z', 'claude', 'claude-opus-4-1'),
+        event('2026-06-18T09:00:00.000Z', 'claude', 'claude-opus-4-1-20250805'),
+      ],
+      { model: ['claude-opus-4-1'] },
+    );
+
+    expect(result.data.blocks.map((block) => [block.start, block.eventCount])).toEqual([
+      ['2026-06-18T09:00:00.000Z', 1],
+    ]);
+    expect(result.diagnostics.warnings).toEqual([]);
+  });
+
   it('marks a block in progress at now active, with its burn rate', async () => {
     const result = await build([event('2026-06-21T10:15:00.000Z')]);
 
@@ -127,6 +143,29 @@ describe('buildBlocksData', () => {
     expect(result.data.blockCount).toBe(2);
     expect(result.data.blocks.map((block) => block.start)).toEqual(['2026-06-20T01:00:00.000Z']);
     expect(result.data.activeBlocks.map((block) => block.source)).toEqual(['codex']);
+  });
+
+  it('never loads pricing with --no-cost', async () => {
+    const resolvePricingSource = vi.fn(() => {
+      throw new Error('pricing should not be loaded with --no-cost');
+    });
+    const result = await buildBlocksData(
+      { timezone: 'UTC', cost: false },
+      {
+        now: () => NOW,
+        createAdapters: adaptersFor([event('2026-06-20T01:00:00.000Z')]),
+        getEventStoreRuntimeConfig: () => ({
+          enabled: false,
+          path: '',
+          disabledBy: 'configuration',
+        }),
+        resolvePricingSource,
+      },
+    );
+
+    expect(resolvePricingSource).not.toHaveBeenCalled();
+    expect(result.data.blockCount).toBe(1);
+    expect(result.diagnostics.pricingOrigin).toBe('none');
   });
 
   it.each([

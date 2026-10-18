@@ -1,4 +1,4 @@
-import { hasControlCharacters } from '../../src/domain/normalization.js';
+import { hasControlCharacters } from '@ayagmar/agent-sessions/internal';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';

@@ -14,6 +14,7 @@ import { createDateWindowPrefilter } from '../../src/cli/parse/usage-event-filte
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { renderSummaryReport } from '../../src/render/render-summary-report.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { shiftDateKey } from '../../src/utils/date-key.js';
 import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
@@ -461,6 +462,118 @@ describe('buildSummaryData', () => {
       ['last7Days', 1],
       ['monthToDate', 0],
     ]);
+  });
+
+  it('compares today and the last 7 days with the days just before, the month with last month', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'Europe/Paris', pricingOffline: true },
+      runtimeDeps(
+        [
+          createAdapter('codex', [
+            // 00:30 on Mar 9 in Paris: yesterday.
+            createEvent('2026-03-08T23:30:00.000Z', { costUsd: 1 }),
+            // 00:30 on Mar 10 in Paris: today, so in no previous period.
+            createEvent('2026-03-09T23:30:00.000Z', { costUsd: 100 }),
+            createEvent('2026-03-03T09:00:00.000Z', { costUsd: 2 }),
+            createEvent('2026-02-25T09:00:00.000Z', { costUsd: 4 }),
+            // The same days of February as March so far: Feb 1 to 10.
+            createEvent('2026-02-01T09:00:00.000Z', { costUsd: 8 }),
+            createEvent('2026-02-10T09:00:00.000Z', { costUsd: 16 }),
+            createEvent('2026-02-11T09:00:00.000Z', { costUsd: 32 }),
+          ]),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(
+      result.periods.map((period) => ({
+        key: period.key,
+        since: period.previous?.since,
+        until: period.previous?.until,
+        costUsd: period.previous?.totals.costUsd,
+      })),
+    ).toEqual([
+      { key: 'today', since: '2026-03-09', until: '2026-03-09', costUsd: 1 },
+      { key: 'last7Days', since: '2026-02-25', until: '2026-03-03', costUsd: 6 },
+      { key: 'monthToDate', since: '2026-02-01', until: '2026-02-10', costUsd: 24 },
+    ]);
+  });
+
+  it('notes the costliest spend spike of the last 7 days, with its top project and model', async () => {
+    // $1 a day from Feb 1 to Mar 9; on Feb 20 (before the last 7 days) and on Mar 8, more.
+    const steadyDays = Array.from({ length: 37 }, (_, index) =>
+      createEvent(`${shiftDateKey('2026-02-01', index)}T09:00:00.000Z`, {
+        repoRoot: '/work/web',
+      }),
+    );
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true },
+      runtimeDeps(
+        [
+          createAdapter('codex', [
+            ...steadyDays,
+            createEvent('2026-02-20T10:00:00.000Z', { costUsd: 40 }),
+            createEvent('2026-03-08T10:00:00.000Z', {
+              costUsd: 3,
+              repoRoot: '/work/api',
+              model: 'gpt-5',
+            }),
+            createEvent('2026-03-08T11:00:00.000Z', { costUsd: 0.5, repoRoot: '/work/api' }),
+          ]),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(result.spike).toEqual({
+      date: '2026-03-08',
+      costUsd: 4.5,
+      medianActiveDayUsd: 1,
+      project: 'api',
+      model: 'gpt-5',
+    });
+    expect(renderSummaryReport(result, 'terminal', { useColor: false })).toContain(
+      'Spend spike on 2026-03-08: $4.50, 4.5× the median active day ($1.00) of the 28 days before; top project api, top model gpt-5',
+    );
+    const json = JSON.parse(renderSummaryReport(result, 'json')) as { data: { spike?: unknown } };
+    expect(json.data.spike).toEqual(result.spike);
+  });
+
+  it('notes no spend spike when the last 7 days cost as usual', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true },
+      runtimeDeps(
+        [
+          createAdapter(
+            'codex',
+            Array.from({ length: 38 }, (_, index) =>
+              createEvent(`${shiftDateKey('2026-02-01', index)}T09:00:00.000Z`, {
+                costUsd: 5,
+              }),
+            ),
+          ),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(result.spike).toBeUndefined();
+    expect(renderSummaryReport(result, 'terminal', { useColor: false })).not.toContain(
+      'Spend spike',
+    );
+  });
+
+  it('clamps the month’s previous window to the end of a shorter month', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true },
+      runtimeDeps([createAdapter('codex', [])], '2026-03-31T09:00:00.000Z'),
+    );
+
+    expect(result.periods.at(-1)?.previous).toMatchObject({
+      since: '2026-02-01',
+      until: '2026-02-28',
+    });
   });
 
   it('breaks source cost ties by tokens, then by source id', async () => {
