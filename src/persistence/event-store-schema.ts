@@ -1,5 +1,6 @@
 import { computeEventContentHash } from '@ayagmar/agent-sessions';
 
+import { createReadCursorsSql } from './event-store-append.js';
 import { normalizeStoredEvent } from './event-store-codec.js';
 import {
   type EventStoreDatabase,
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 ${createFileTablesSql()}
 ${createOverrideOnlyFilesSql()}
+${createReadCursorsSql()}
 `;
 }
 
@@ -116,9 +118,17 @@ CREATE TABLE IF NOT EXISTS override_only_files (
 );`;
 }
 
-function ensureOverrideOnlyFilesTable(database: EventStoreDatabase): void {
-  if (!listUserTableNames(database).includes('override_only_files')) {
+// The tables added to the v5 layout without a version bump, created in a store that
+// lacks them.
+function ensureAddedTables(database: EventStoreDatabase): void {
+  const tableNames = listUserTableNames(database);
+
+  if (!tableNames.includes('override_only_files')) {
     database.exec(createOverrideOnlyFilesSql());
+  }
+
+  if (!tableNames.includes('file_read_cursors')) {
+    database.exec(createReadCursorsSql());
   }
 }
 
@@ -356,7 +366,7 @@ export function assertSupportedSchemaVersion(database: EventStoreDatabase): void
 
 export function initializeSchema(database: EventStoreDatabase): void {
   const copiedTables = createOrMigrateSchema(database);
-  ensureOverrideOnlyFilesTable(database);
+  ensureAddedTables(database);
 
   // The dropped v4 tables leave their pages free, and the file would keep its v4 size
   // plus the copy. SQLite requires VACUUM to run outside an explicit transaction.

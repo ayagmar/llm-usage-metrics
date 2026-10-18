@@ -1,16 +1,24 @@
 import type { ParseFileDiagnostics, UsageEvent } from '../../domain/usage-event.js';
 import type {
   claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
+  getFileReadCursor as getDefaultFileReadCursor,
   replaceFilesEvents as replaceDefaultFilesEvents,
 } from '../../persistence/event-store.js';
 import {
   serializeEventStoreFingerprint,
   type EventStore,
+  type EventStoreAppend,
   type EventStoreFileEntry,
   type EventStoreFileFingerprint,
   type StoredSessionEvent,
 } from '../../persistence/event-store.js';
-import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
+import {
+  toParseDiagnostics,
+  type ReadCursor,
+  type SourceSkippedRowReasonStat,
+} from '@ayagmar/agent-sessions';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
+import type { ParsedFileForEventStore } from './stored-session-events.js';
 import type { RuntimeProfileCollector } from '../runtime-profile.js';
 import { getErrorReason } from '../../utils/get-error-reason.js';
 
@@ -29,6 +37,7 @@ export type EventStoreParseDeps = {
   ) => UsageEvent[] | undefined;
   replaceFilesEvents?: typeof replaceDefaultFilesEvents;
   claimOverrideOnlyFiles?: typeof claimDefaultOverrideOnlyFiles;
+  getFileReadCursor?: typeof getDefaultFileReadCursor;
 };
 
 export type EventStoreFailureState = {
@@ -46,6 +55,7 @@ export type EventStoreParseContext = {
   readFileEvents: (store: EventStore, source: string, filePath: string) => UsageEvent[] | undefined;
   replaceFilesEvents: typeof replaceDefaultFilesEvents;
   claimOverrideOnlyFiles: typeof claimDefaultOverrideOnlyFiles;
+  getFileReadCursor: typeof getDefaultFileReadCursor;
   now: () => number;
   failureState: EventStoreFailureState;
   /** Lowercase ids of the sources this run reads from a custom directory. */
@@ -125,11 +135,112 @@ export type ParsedFileStoreWrite = {
   source: string;
   filePath: string;
   fingerprint: EventStoreFileFingerprint;
+  /** For an append, only the appended lines' events. */
   events: UsageEvent[];
   sessionEvents?: readonly StoredSessionEvent[];
   skippedRows: number;
   skippedRowReasons: SourceSkippedRowReasonStat[];
+  readCursor?: ReadCursor;
+  append?: EventStoreAppend;
 };
+
+/** A stored file a read can resume: its cursor, and the version and events it continues. */
+export type StoredResumePoint = ParseFileDiagnostics & {
+  cursor: ReadCursor;
+  storedFingerprint: string;
+};
+
+/**
+ * Whether only the file itself changed since `storedFingerprint`: the same parser
+ * version, stored kinds and dependencies. A changed dependency (a fork's parent) can
+ * change how the lines before the cursor parse, so it needs a whole read.
+ */
+function isOnlyFileChanged(
+  storedFingerprint: string,
+  fingerprint: EventStoreFileFingerprint,
+): boolean {
+  const [file, ...dependencies] = fingerprint.dependencies;
+  const storedDependencies = asRecord(JSON.parse(storedFingerprint))?.dependencies;
+  const storedFile = Array.isArray(storedDependencies)
+    ? asRecord(storedDependencies[0])
+    : undefined;
+  const size = storedFile?.size;
+  const mtimeMs = storedFile?.mtimeMs;
+
+  return (
+    typeof size === 'number' &&
+    typeof mtimeMs === 'number' &&
+    serializeEventStoreFingerprint({
+      ...fingerprint,
+      dependencies: [{ ...file, size, mtimeMs }, ...dependencies],
+    }) === storedFingerprint
+  );
+}
+
+/**
+ * Where a read of a file that changed can resume: the stored version's cursor and events,
+ * when the store holds both and only the file changed. The read itself checks that the
+ * file still starts with the bytes the cursor covers.
+ */
+export function readResumePoint(
+  context: EventStoreParseContext,
+  params: { source: string; filePath: string; fingerprint: EventStoreFileFingerprint },
+): StoredResumePoint | undefined {
+  if (context.failureState.disabled) {
+    return undefined;
+  }
+
+  try {
+    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+
+    if (!storedEntry || !isOnlyFileChanged(storedEntry.fingerprint, params.fingerprint)) {
+      return undefined;
+    }
+
+    const cursor = context.getFileReadCursor(context.store, params.source, params.filePath);
+    const events = cursor && context.readFileEvents(context.store, params.source, params.filePath);
+
+    return cursor && events
+      ? {
+          cursor,
+          storedFingerprint: storedEntry.fingerprint,
+          events,
+          skippedRows: storedEntry.skippedRows,
+          skippedRowReasons: storedEntry.skippedRowReasons,
+        }
+      : undefined;
+  } catch (error) {
+    recordEventStoreFailure(context.failureState, error);
+    return undefined;
+  }
+}
+
+/**
+ * A resumed read joined to the stored version it continues: the stored events minus the
+ * ones it replaces, then its own, and both versions' skipped rows.
+ */
+export function joinResumedRead(
+  resumePoint: StoredResumePoint,
+  read: ParsedFileForEventStore & {
+    resumedReplacing: NonNullable<ParsedFileForEventStore['resumedReplacing']>;
+  },
+): ParseFileDiagnostics {
+  const keptEvents = resumePoint.events.length - (read.resumedReplacing.usage ?? 0);
+  const reasons = new Map<string, number>();
+
+  for (const { reason, count } of [
+    ...(resumePoint.skippedRowReasons ?? []),
+    ...(read.skippedRowReasons ?? []),
+  ]) {
+    reasons.set(reason, (reasons.get(reason) ?? 0) + count);
+  }
+
+  return toParseDiagnostics(
+    [...resumePoint.events.slice(0, keptEvents), ...read.events],
+    resumePoint.skippedRows + read.skippedRows,
+    reasons,
+  );
+}
 
 export function writeParsedFilesToEventStore(
   context: EventStoreParseContext,

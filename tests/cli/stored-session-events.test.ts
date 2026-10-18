@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { collectFile, createSourceContext, type SourceAdapter } from '@ayagmar/agent-sessions';
@@ -53,9 +54,16 @@ describe('collectFileForEventStore', () => {
 
         for (const filePath of await adapter.discoverFiles()) {
           const usageOnly = await collectFile(adapter, filePath);
-          const { sessionEvents, ...forStore } = await collectFileForEventStore(adapter, filePath);
+          const { sessionEvents, readCursor, resumedReplacing, ...forStore } =
+            await collectFileForEventStore(adapter, filePath);
 
           expect(JSON.stringify(forStore), filePath).toBe(JSON.stringify(usageOnly));
+          expect(resumedReplacing).toBeUndefined();
+          // claude and pi are read under a cursor, kept only when every line was read.
+          const content = await readFile(filePath);
+          expect(readCursor?.offset, filePath).toBe(
+            sourceId !== 'codex' && content.at(-1) === 0x0a ? content.length : undefined,
+          );
           expect(sessionEvents?.some((event) => 'text' in event || 'raw' in event)).toBe(false);
           fileCount += 1;
           sessionEventCount += sessionEvents?.length ?? 0;
