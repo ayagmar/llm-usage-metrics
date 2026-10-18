@@ -55,8 +55,10 @@ import {
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 
-// About 40 MB of 4 KiB pages. On synthetic Claude corpora a cold run is as fast as with
-// 100,000 pages, whose WAL reached 76 MB on 2 GiB and 345 MB on 5.9 GiB, and 10-20%
+// The WAL size, about 40 MB of 4 KiB pages, at which a commit checkpoints. It is a
+// threshold, not a cap: a reader's open snapshot keeps the WAL from being reused, and one
+// large transaction writes past it. On synthetic Claude corpora a cold run is as fast as
+// with 100,000 pages, whose WAL reached 76 MB on 2 GiB and 345 MB on 5.9 GiB, and 10-20%
 // faster than with the default 1,000.
 const RUN_WAL_AUTOCHECKPOINT_PAGES = 10_000;
 
@@ -414,7 +416,7 @@ export async function openEventStore(
     // In WAL mode NORMAL skips the fsync on every commit but keeps the database
     // consistent; a power loss can only drop the latest commits, which the next run
     // re-parses from the source files. A rollback journal keeps the safer default.
-    // A run's commits stay in the WAL until it holds RUN_WAL_AUTOCHECKPOINT_PAGES or
+    // A run's commits stay in the WAL until it reaches RUN_WAL_AUTOCHECKPOINT_PAGES or
     // closeEventStore checkpoints them: checkpointing every 1,000 pages rewrote the
     // same index pages many times over.
     if (toText(database.prepare('PRAGMA journal_mode').get()?.journal_mode) === 'wal') {
