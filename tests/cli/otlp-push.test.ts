@@ -1,6 +1,7 @@
 import { createServer, type IncomingHttpHeaders, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -95,7 +96,10 @@ async function runEvents(
 }
 
 function linesOf(output: string): string[] {
-  return output.split('\n').filter((line) => line.length > 0);
+  // CI forces color on stderr.
+  return stripVTControlCharacters(output)
+    .split('\n')
+    .filter((line) => line.length > 0);
 }
 
 type SentSpan = { traceId: string; spanId: string; parentSpanId?: string };
