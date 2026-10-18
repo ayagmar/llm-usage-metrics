@@ -1,4 +1,5 @@
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
+import { addEventToTotals } from '../aggregate/aggregate-usage.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
@@ -323,19 +324,8 @@ function summarizeProjects(
     const key = toProjectKey(event.repoRoot);
     const entry = projects.get(key) ?? { totals: createEmptyWindowTotals(), days: new Set() };
     const { totals } = entry;
-    totals.inputTokens += event.inputTokens;
-    totals.outputTokens += event.outputTokens;
-    totals.reasoningTokens += event.reasoningTokens;
-    totals.cacheReadTokens += event.cacheReadTokens;
-    totals.cacheWriteTokens += event.cacheWriteTokens;
-    totals.totalTokens += event.totalTokens;
+    addEventToTotals(totals, event);
     totals.events += 1;
-
-    if (event.costUsd === undefined) {
-      totals.costIncomplete = true;
-    } else {
-      totals.costUsd = addUsd(totals.costUsd ?? 0, event.costUsd);
-    }
 
     entry.days.add(getPeriodKey(event.timestamp, 'daily', timezone));
     projects.set(key, entry);

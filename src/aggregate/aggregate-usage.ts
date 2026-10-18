@@ -71,7 +71,7 @@ function createRowAccumulator(group: RowGroup, includeModelBreakdown: boolean): 
   };
 }
 
-function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
+export function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
   target.inputTokens += event.inputTokens;
   target.outputTokens += event.outputTokens;
   target.reasoningTokens += event.reasoningTokens;
@@ -87,7 +87,7 @@ function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
   target.costUsd = addUsd(target.costUsd ?? 0, event.costUsd);
 }
 
-function normalizeModelKey(model: string | undefined): string | undefined {
+export function normalizeModelKey(model: string | undefined): string | undefined {
   if (!model) {
     return undefined;
   }
@@ -185,19 +185,22 @@ export function toRankedModelUsage(
   };
 }
 
-function sourceSortComparator(
-  left: string,
-  right: string,
-  sourceWeightMap: ReadonlyMap<string, number>,
-): number {
-  const leftWeight = sourceWeightMap.get(left) ?? Number.MAX_SAFE_INTEGER;
-  const rightWeight = sourceWeightMap.get(right) ?? Number.MAX_SAFE_INTEGER;
+/** Orders source ids as `sourceOrder` lists them, then unlisted ones by code point. */
+export function createSourceComparator(
+  sourceOrder: readonly string[],
+): (left: string, right: string) => number {
+  const sourceWeightMap = new Map(sourceOrder.map((source, index) => [source, index]));
 
-  if (leftWeight !== rightWeight) {
-    return leftWeight - rightWeight;
-  }
+  return (left, right) => {
+    const leftWeight = sourceWeightMap.get(left) ?? Number.MAX_SAFE_INTEGER;
+    const rightWeight = sourceWeightMap.get(right) ?? Number.MAX_SAFE_INTEGER;
 
-  return compareByCodePoint(left, right);
+    if (leftWeight !== rightWeight) {
+      return leftWeight - rightWeight;
+    }
+
+    return compareByCodePoint(left, right);
+  };
 }
 
 type RowSplit = { machine: boolean; repo: boolean; primaryRepo: boolean };
@@ -255,7 +258,7 @@ function compareProjects(left: RowGroup['project'], right: RowGroup['project']):
 function compareRowGroups(
   left: RowGroup,
   right: RowGroup,
-  sourceWeightMap: ReadonlyMap<string, number>,
+  compareSources: (left: string, right: string) => number,
   split: RowSplit,
 ): number {
   if (split.primaryRepo) {
@@ -263,7 +266,7 @@ function compareRowGroups(
   }
 
   return (
-    sourceSortComparator(left.source, right.source, sourceWeightMap) ||
+    compareSources(left.source, right.source) ||
     Number(left.machine !== undefined && left.machine !== LOCAL_MACHINE_NAME) -
       Number(right.machine !== undefined && right.machine !== LOCAL_MACHINE_NAME) ||
     compareByCodePoint(left.machine ?? '', right.machine ?? '') ||
@@ -327,11 +330,7 @@ export function aggregateUsage(
   // Without a split the row key is the source itself, so the common path builds no key.
   const isSplit = split.machine || split.repo;
   const includeModelBreakdown = options.includeModelBreakdown ?? true;
-  const sourceWeightMap = new Map<string, number>();
-
-  for (const [index, source] of (options.sourceOrder ?? []).entries()) {
-    sourceWeightMap.set(source, index);
-  }
+  const compareSources = createSourceComparator(options.sourceOrder ?? []);
 
   const periodMap = new Map<string, Map<string, RowAccumulator>>();
 
@@ -370,7 +369,7 @@ export function aggregateUsage(
     const periodCombinedModelTotals = new Map<string, UsageTotals>();
 
     const sortedAccumulators = [...sourceMap.values()].sort((left, right) =>
-      compareRowGroups(left.group, right.group, sourceWeightMap, split),
+      compareRowGroups(left.group, right.group, compareSources, split),
     );
 
     for (const accumulator of sortedAccumulators) {
