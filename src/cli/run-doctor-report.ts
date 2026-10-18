@@ -302,7 +302,13 @@ export type EventStoreReadDeps = Pick<DoctorDeps, 'readEventStoreSummary'>;
 export type EventStoreInspection =
   | { state: 'missing'; legacyPath?: string }
   | { state: 'unsupported'; sizeBytes: number; schemaVersion?: string; error: string }
-  | { state: 'ok'; sizeBytes: number; schemaVersion: string; eventCount: number }
+  | {
+      state: 'ok';
+      sizeBytes: number;
+      schemaVersion: string;
+      /** Stored usage events, tool calls and messages. */
+      eventCount: number;
+    }
   | { state: 'error'; error: string };
 
 export async function inspectEventStore(
@@ -340,7 +346,7 @@ export async function inspectEventStore(
       state: 'ok',
       sizeBytes: fileStats.size,
       schemaVersion: summary.schemaVersion,
-      eventCount: summary.eventCount,
+      eventCount: summary.eventCount + summary.toolCallCount + summary.messageCount,
     };
   } catch (error) {
     return { state: 'error', error: getErrorReason(error) };

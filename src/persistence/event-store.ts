@@ -18,6 +18,7 @@ export {
   readFileEvents,
   readOverrideOnlyFiles,
   readStoredFileSnapshots,
+  readStoredSessionEvents,
   replaceFileEvents,
   replaceFilesEvents,
   serializeEventStoreFingerprint,
@@ -26,15 +27,14 @@ export {
   type DeleteStoredFilesInput,
   type DeleteStoredFilesResult,
   type EventStoreFileEntry,
+  type EventStoreFileFingerprint,
   type EventStoreFileSnapshot,
   type EventStoreStoredFile,
   type EventStoreSummary,
   type ReplaceFileEventsInput,
 } from './event-store-administration.js';
-export type {
-  FileDependencyFingerprint as EventStoreDependencyFingerprint,
-  FileFingerprint as EventStoreFileFingerprint,
-} from '@ayagmar/agent-sessions/internal';
+export type { FileDependencyFingerprint as EventStoreDependencyFingerprint } from '@ayagmar/agent-sessions/internal';
+export type { StoredSessionEvent, StoredSessionEventKind } from './event-store-session-events.js';
 export { normalizeStoredEvent } from './event-store-codec.js';
 export {
   runTransaction,
@@ -48,4 +48,5 @@ export {
   MIGRATION_BATCH_SIZE,
   migrateSchemaV1ToV2,
   migrateSchemaV2ToV3,
+  migrateSchemaV4ToV5,
 } from './event-store-schema.js';
