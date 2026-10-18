@@ -14,6 +14,7 @@ import path from 'node:path';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
 import { PiSourceAdapter } from '@ayagmar/agent-sessions/sources/pi';
+import { QwenSourceAdapter } from '@ayagmar/agent-sessions/sources/qwen';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { parseSelectedAdapters } from '../../src/cli/build-usage-data-parsing.js';
@@ -129,6 +130,24 @@ const PI_LINES = [
   piAssistant(7, '3', [{ type: 'toolCall', id: 'c2', name: 'bash' }]),
   JSON.stringify({ type: 'session_info', timestamp: at(8), name: 'pi title' }),
   piMessage(9, { role: 'toolResult', toolCallId: 'c2', isError: true }),
+];
+
+function qwenAssistant(minute: number, outputTokens: number): string {
+  return JSON.stringify({
+    type: 'assistant',
+    sessionId: 'qwen-session',
+    timestamp: at(minute),
+    model: 'qwen3-coder',
+    usageMetadata: { promptTokenCount: 60, candidatesTokenCount: outputTokens },
+  });
+}
+
+const QWEN_LINES = [
+  JSON.stringify({ type: 'user', sessionId: 'qwen-session', timestamp: at(0) }),
+  qwenAssistant(1, 20),
+  '{"type":"assistant","usageMetadata":',
+  qwenAssistant(2, 30),
+  qwenAssistant(3, 40),
 ];
 
 const STORED_TABLES = ['events', 'tool_calls', 'messages'] as const;
@@ -375,6 +394,17 @@ describe('incremental ingest', () => {
       await dumpFreshStore(adapter, tempDir, 'fresh-fork'),
     );
   });
+  it('stores a growing qwen chat as a first run over each version would', async () => {
+    const tempDir = await createTempDir();
+    const projectsDir = path.join(tempDir, 'projects');
+    const filePath = path.join(projectsDir, 'demo', 'chats', 'chat.jsonl');
+    const adapter = new QwenSourceAdapter({ dir: projectsDir });
+
+    const ingest = await growLineByLine(adapter, tempDir, filePath, QWEN_LINES);
+
+    expect(ingest.writes.slice(2).every((write) => write.append !== undefined)).toBe(true);
+  });
+
   it.each([
     ['grows', true],
     ['keeps its size', false],
