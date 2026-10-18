@@ -160,9 +160,10 @@ function isOnlyFileChanged(
   fingerprint: EventStoreFileFingerprint,
 ): boolean {
   const [file, ...dependencies] = fingerprint.dependencies;
-  const storedDependencies = asRecord(JSON.parse(storedFingerprint))?.dependencies;
+  const storedDependencies: unknown = asRecord(JSON.parse(storedFingerprint))?.dependencies;
+  // The serialized list is sorted by path, so the file is not always first.
   const storedFile = Array.isArray(storedDependencies)
-    ? asRecord(storedDependencies[0])
+    ? storedDependencies.map(asRecord).find((dependency) => dependency?.path === file.path)
     : undefined;
   const size = storedFile?.size;
   const mtimeMs = storedFile?.mtimeMs;

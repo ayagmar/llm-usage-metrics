@@ -318,6 +318,13 @@ describe('incremental ingest', () => {
     await ingest.run();
     expect(await readCursorOf(ingest.storePath, 'claude', forkPath)).toBeDefined();
 
+    // Grown alone, the fork resumes, though its parent sorts first among its dependencies.
+    await appendFile(forkPath, `${claudeAssistant('a8', 8, '8', [], 2)}\n`);
+    await setTime(forkPath, 1_700_000_500);
+    ingest.writes.length = 0;
+    await ingest.run();
+    expect(ingest.writes.find((write) => write.filePath === forkPath)?.append).toBeDefined();
+
     // The parent now holds the fork's own row, so the fork no longer counts it.
     const forkRow = (await readFile(forkPath, 'utf8')).split('\n')[1] ?? '';
     await appendFile(parentPath, `${forkRow}\n`);
