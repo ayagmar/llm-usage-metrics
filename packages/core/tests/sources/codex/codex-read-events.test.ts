@@ -23,6 +23,7 @@ const HELD_TIMESTAMPS = path.join(EVENTS_DIR, 'held-timestamps.jsonl');
 const CORPUS_ROOTS = [
   fixturePath(import.meta.url, '../../fixtures/codex'),
   fixturePath(import.meta.url, '../../fixtures/codex-fork'),
+  fixturePath(import.meta.url, '../../fixtures/codex-fork-parent'),
   fixturePath(import.meta.url, '../../../../../tests/fixtures/e2e/codex'),
   fixturePath(import.meta.url, '../../../../../tests/fixtures/e2e-large/codex'),
   EVENTS_DIR,
@@ -49,7 +50,11 @@ async function read(
 ): Promise<{ events: SessionEvent[]; reasons: Record<string, number> }> {
   const diagnostics = createReadDiagnostics();
   const events = await collect(
-    readEvents(new CodexSourceAdapter(), filePath, { ...options, diagnostics }),
+    // A fork's parent is looked up next to it, never under the host's ~/.codex.
+    readEvents(new CodexSourceAdapter({ dir: path.dirname(filePath) }), filePath, {
+      ...options,
+      diagnostics,
+    }),
   );
   return { events, reasons: Object.fromEntries(diagnostics.skippedRowReasons) };
 }
@@ -553,7 +558,7 @@ describe('CodexSourceAdapter.readEvents', () => {
       }
     }
 
-    expect(files).toBe(13);
+    expect(files).toBe(16);
   });
 
   it('reads two kinds as the all-kinds read filtered to them', async () => {

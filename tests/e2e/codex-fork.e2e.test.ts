@@ -7,6 +7,8 @@ import { buildUsageData } from '../../src/cli/build-usage-data.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const FORK_FIXTURES = path.resolve('packages/core/tests/fixtures/codex-fork');
+// Forks written by Codex 0.140, named as Codex names rollouts so the parent is found by id.
+const LEGACY_FORK_FIXTURES = path.resolve('packages/core/tests/fixtures/codex-fork-parent');
 
 const tempDirs: string[] = [];
 
@@ -16,7 +18,10 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
-async function dailyTotals(fixtureNames: readonly string[]): Promise<Record<string, number>> {
+async function dailyTotals(
+  fixtureNames: readonly string[],
+  fixturesDir: string = FORK_FIXTURES,
+): Promise<Record<string, number>> {
   const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'codex-fork-'));
   tempDirs.push(rootDir);
   vi.stubEnv('HOME', rootDir);
@@ -27,7 +32,7 @@ async function dailyTotals(fixtureNames: readonly string[]): Promise<Record<stri
   await mkdir(codexDir, { recursive: true });
 
   for (const name of fixtureNames) {
-    await copyFile(path.join(FORK_FIXTURES, name), path.join(codexDir, name));
+    await copyFile(path.join(fixturesDir, name), path.join(codexDir, name));
   }
 
   const result = await buildUsageData('daily', {
@@ -57,5 +62,18 @@ describe('daily over a Codex parent and its fork', () => {
 
     expect(parent).toEqual({ '2026-01-01': 2760, all: 2760 });
     expect(both).toEqual({ '2026-01-01': 2760, '2026-01-02': 540, all: 3300 });
+  });
+
+  it('counts a fork written before Codex 0.152 for its own turns only', async () => {
+    const parent = 'rollout-2026-01-01T10-00-00-019a0000-0000-7000-8000-00000000000a.jsonl';
+    const fork = 'rollout-2026-01-02T09-00-00-019a0000-0000-7000-8000-00000000000b.jsonl';
+    const truncated = 'rollout-2026-01-03T08-00-00-019a0000-0000-7000-8000-00000000000c.jsonl';
+
+    await expect(dailyTotals([parent, fork, truncated], LEGACY_FORK_FIXTURES)).resolves.toEqual({
+      '2026-01-01': 2760,
+      '2026-01-02': 540,
+      '2026-01-03': 600,
+      all: 3900,
+    });
   });
 });

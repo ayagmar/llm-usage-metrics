@@ -13,7 +13,7 @@ import { canonicalTmpdir } from '../helpers/tmp.js';
 // USAGE_EVENT_NORMALIZATION_VERSION bump.
 const EXPECTED_PARSER_VERSIONS: Record<string, string> = {
   pi: 'n3.p5',
-  codex: 'n3.p3',
+  codex: 'n3.p4',
   gemini: 'n3.p4',
   droid: 'n3.p2',
   opencode: 'n3.p3',
