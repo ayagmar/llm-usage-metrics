@@ -1,11 +1,7 @@
 import { collectFile, dedupeRepeatedAcrossFiles } from '@ayagmar/agent-sessions';
 
 import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
-import {
-  withCostModes,
-  type ParseFileDiagnostics,
-  type UsageEvent,
-} from '../domain/usage-event.js';
+import { withCostModes, type UsageEvent } from '../domain/usage-event.js';
 import {
   claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
   closeEventStore as closeDefaultEventStore,
@@ -31,9 +27,14 @@ import {
 } from './parse/event-store-parse-cache.js';
 import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
 import {
+  collectFileForEventStore,
+  getEventStoreFileFingerprint,
+  withStoreCostModes,
+  type ParsedFileForEventStore,
+} from './parse/stored-session-events.js';
+import {
   compareByCodePoint,
   getFileByteSize,
-  getFileFingerprint,
   getNewestFingerprintMtimeMs,
   getPrimaryFingerprintByteSize,
   pluralize,
@@ -70,6 +71,11 @@ export type ParsedSourceFile = DiscoveredSourceFile & {
    * because the event store lacked it.
    */
   beforeWindow?: true;
+  /**
+   * Parsed with the event store on, but not stored: its fingerprint could not be read, so
+   * the store may hold none or an older version of its events.
+   */
+  unstored?: true;
 };
 
 type AdapterParseResultWithFiles = AdapterParseResult & {
@@ -128,7 +134,7 @@ type FileLookup =
   | {
       kind: 'hit';
       fileFingerprint: EventStoreFileFingerprint;
-      diagnostics: ParseFileDiagnostics;
+      diagnostics: ParsedFileForEventStore;
     }
   | { kind: 'miss'; fileFingerprint?: EventStoreFileFingerprint };
 
@@ -219,6 +225,7 @@ export async function parseAdapterEvents(
   const skippedRowsByFile: number[] = Array.from({ length: files.length }, () => 0);
   const parsedFileIndexes = new Set<number>();
   const beforeWindowFileIndexes = new Set<number>();
+  const unstoredFileIndexes = new Set<number>();
   const failedFileIndexes = new Set<number>();
   const skippedRowReasons = new Map<string, number>();
   let pendingStoreWrites: ParsedFileStoreWrite[] = [];
@@ -235,15 +242,27 @@ export async function parseAdapterEvents(
     );
   }
 
-  async function parseFileInline(filePath: string): Promise<ParseFileDiagnostics> {
-    return withCostModes(await collectFile(adapter, filePath));
+  /** A file is read for the store, with what it keeps besides usage, when it will be stored. */
+  function isReadForEventStore(fileFingerprint: EventStoreFileFingerprint | undefined): boolean {
+    return (
+      eventStore !== undefined && !eventStore.failureState.disabled && fileFingerprint !== undefined
+    );
+  }
+
+  async function parseFileInline(
+    filePath: string,
+    fileFingerprint: EventStoreFileFingerprint | undefined,
+  ): Promise<ParsedFileForEventStore> {
+    return isReadForEventStore(fileFingerprint)
+      ? withStoreCostModes(await collectFileForEventStore(adapter, filePath))
+      : withCostModes(await collectFile(adapter, filePath));
   }
 
   function recordParsedFile(params: {
     fileIndex: number;
     filePath: string;
     fileFingerprint?: EventStoreFileFingerprint;
-    diagnostics: ParseFileDiagnostics;
+    diagnostics: ParsedFileForEventStore;
     servedFromEventStore: boolean;
   }): void {
     const skippedRows = normalizeSkippedRowsCount(params.diagnostics.skippedRows);
@@ -255,6 +274,9 @@ export async function parseAdapterEvents(
     parsedFileIndexes.add(params.fileIndex);
     if (params.fileFingerprint && isBeforeWindow(params.fileFingerprint)) {
       beforeWindowFileIndexes.add(params.fileIndex);
+    }
+    if (eventStore && !params.fileFingerprint) {
+      unstoredFileIndexes.add(params.fileIndex);
     }
     skippedRowsByFile[params.fileIndex] = skippedRows;
 
@@ -271,6 +293,7 @@ export async function parseAdapterEvents(
         filePath: params.filePath,
         fingerprint: params.fileFingerprint,
         events: params.diagnostics.events,
+        sessionEvents: params.diagnostics.sessionEvents,
         skippedRows,
         skippedRowReasons: normalizedSkippedRowReasons,
       });
@@ -345,7 +368,7 @@ export async function parseAdapterEvents(
     const storeEnabled = eventStore !== undefined && !eventStore.failureState.disabled;
     const fileFingerprint =
       storeEnabled || skipCutoffMs !== undefined
-        ? await getFileFingerprint(adapter, filePath)
+        ? await getEventStoreFileFingerprint(adapter, filePath)
         : undefined;
 
     if (canSkipOutsideWindow(filePath, fileFingerprint)) {
@@ -379,7 +402,9 @@ export async function parseAdapterEvents(
       }
 
       const diagnostics =
-        lookup.kind === 'hit' ? lookup.diagnostics : await parseFileInline(filePath);
+        lookup.kind === 'hit'
+          ? lookup.diagnostics
+          : await parseFileInline(filePath, lookup.fileFingerprint);
 
       recordParsedFile({
         fileIndex,
@@ -432,7 +457,7 @@ export async function parseAdapterEvents(
 
   async function parseMissedFileInline(missedFile: MissedParseFile): Promise<void> {
     try {
-      const diagnostics = await parseFileInline(missedFile.filePath);
+      const diagnostics = await parseFileInline(missedFile.filePath, missedFile.fileFingerprint);
       recordParsedFile({
         fileIndex: missedFile.fileIndex,
         filePath: missedFile.filePath,
@@ -455,8 +480,9 @@ export async function parseAdapterEvents(
           sourceId: adapter.id,
           filePath: missedFile.filePath,
           roots: getParseWorkerRoots(adapter, missedFile.filePath),
+          forEventStore: isReadForEventStore(missedFile.fileFingerprint),
         },
-        () => parseFileInline(missedFile.filePath),
+        () => parseFileInline(missedFile.filePath, missedFile.fileFingerprint),
       );
       recordParsedFile({
         fileIndex: missedFile.fileIndex,
@@ -560,6 +586,7 @@ export async function parseAdapterEvents(
             {
               filePath,
               ...(beforeWindowFileIndexes.has(fileIndex) && { beforeWindow: true as const }),
+              ...(unstoredFileIndexes.has(fileIndex) && { unstored: true as const }),
             },
           ]
         : [],

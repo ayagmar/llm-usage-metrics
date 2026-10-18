@@ -26,6 +26,7 @@ export {
   type FileFingerprint,
 } from '../sources/parse-fingerprint.js';
 export * from '../sources/parsing-utils.js';
+export { isReadReasonCode } from '../sources/session-event-helpers.js';
 export * from '../sources/read-json-file.js';
 export * from '../sources/sqlite/node-sqlite-loader.js';
 export * from '../sources/sqlite/retry-policy.js';

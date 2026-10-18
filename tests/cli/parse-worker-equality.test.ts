@@ -3,14 +3,13 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  collectFile,
-  createSourceContext,
-  type SourceAdapter,
-  type SourceParseFileDiagnostics,
-} from '@ayagmar/agent-sessions';
+import { collectFile, createSourceContext, type SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultAdapters, type SourceSelection } from '@ayagmar/agent-sessions/registry';
 import { getParseWorkerRoots, handleParseWorkerRequest } from '../../src/cli/parse-worker-pool.js';
+import {
+  collectFileForEventStore,
+  type StoreParseFileDiagnostics,
+} from '../../src/cli/parse/stored-session-events.js';
 import { writeClaudeForkSession, writePiParentAndFork } from '../helpers/fork-fixtures.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
@@ -26,20 +25,33 @@ async function createTempDir(prefix: string): Promise<string> {
   return dir;
 }
 
-type FileParse = { filePath: string; diagnostics: SourceParseFileDiagnostics };
+type FileParse = { filePath: string; diagnostics: StoreParseFileDiagnostics };
 
-async function parseInline(adapter: SourceAdapter, files: string[]): Promise<FileParse[]> {
+async function parseInline(
+  adapter: SourceAdapter,
+  files: string[],
+  forEventStore = false,
+): Promise<FileParse[]> {
   const parses: FileParse[] = [];
 
   for (const filePath of files) {
-    parses.push({ filePath, diagnostics: await collectFile(adapter, filePath) });
+    parses.push({
+      filePath,
+      diagnostics: forEventStore
+        ? await collectFileForEventStore(adapter, filePath)
+        : await collectFile(adapter, filePath),
+    });
   }
 
   return parses;
 }
 
 /** Parses each file as a worker does: the task carries the owning adapter's roots. */
-async function parseOnWorker(adapter: SourceAdapter, files: string[]): Promise<FileParse[]> {
+async function parseOnWorker(
+  adapter: SourceAdapter,
+  files: string[],
+  forEventStore = false,
+): Promise<FileParse[]> {
   const adapterCache = new Map<string, SourceAdapter>();
   const parses: FileParse[] = [];
 
@@ -50,6 +62,7 @@ async function parseOnWorker(adapter: SourceAdapter, files: string[]): Promise<F
         sourceId: adapter.id,
         filePath,
         roots: getParseWorkerRoots(adapter, filePath),
+        forEventStore,
       },
       adapterCache,
     );
@@ -74,6 +87,16 @@ async function expectWorkerToMatchInline(
 
   expect(files.length).toBeGreaterThan(0);
   expect(await parseOnWorker(adapter, files)).toEqual(inline);
+
+  // A read for the event store: the same on a worker, and the same usage and skipped rows.
+  const forStore = await parseInline(adapter, files, true);
+  expect(await parseOnWorker(adapter, files, true)).toEqual(forStore);
+  expect(
+    forStore.map(({ filePath, diagnostics: { events, skippedRows, skippedRowReasons } }) => ({
+      filePath,
+      diagnostics: { events, skippedRows, skippedRowReasons },
+    })),
+  ).toEqual(inline);
   return inline;
 }
 

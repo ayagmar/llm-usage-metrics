@@ -8,6 +8,7 @@ import {
   type EventStore,
   type EventStoreFileEntry,
   type EventStoreFileFingerprint,
+  type StoredSessionEvent,
 } from '../../persistence/event-store.js';
 import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import type { RuntimeProfileCollector } from '../runtime-profile.js';
@@ -125,6 +126,7 @@ export type ParsedFileStoreWrite = {
   filePath: string;
   fingerprint: EventStoreFileFingerprint;
   events: UsageEvent[];
+  sessionEvents?: readonly StoredSessionEvent[];
   skippedRows: number;
   skippedRowReasons: SourceSkippedRowReasonStat[];
 };
