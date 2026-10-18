@@ -59,6 +59,6 @@ const mainPromise =
 
 mainPromise.catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
+  console.error(`error: ${message}`);
   process.exitCode = 1;
 });

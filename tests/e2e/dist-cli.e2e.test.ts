@@ -348,7 +348,7 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 
     expect(exitCode).toBeDefined();
     expect(exitCode).not.toBe(0);
-    expect(stderr).toContain(`Failed to parse config file ${configPath}`);
+    expect(stderr).toContain(`error: Failed to parse config file ${configPath}`);
   });
 
   it('exits nonzero for unknown options', async () => {
