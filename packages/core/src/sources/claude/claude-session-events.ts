@@ -7,6 +7,8 @@ import {
   type SessionEvent,
   type SessionMetaFields,
 } from '../../domain/session-event.js';
+import { ResumeConflict } from '../../stream/cursor.js';
+import { isOptionalString, ResumableIdSet } from '../../stream/cursor-state.js';
 import { asRecord } from '../../utils/as-record.js';
 import { cutUnusedJsonStrings, type UnusedJsonValues } from '../../utils/cut-json-strings.js';
 import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
@@ -67,6 +69,11 @@ export type ClaudeSessionEventsOptions = {
    */
   replayedRowUuids: ReadonlySet<string>;
   replayedMessageKeys: ReadonlySet<string>;
+  /**
+   * Under a cursor: the `toState` of the read before it, null when that read left none.
+   * A state that does not check out throws `ResumeConflict`.
+   */
+  from?: unknown;
 };
 
 type ToolCall = {
@@ -77,6 +84,35 @@ type ToolCall = {
   messageId?: string;
   row?: Record<string, unknown>;
 };
+
+function toToolCall(value: unknown): { callId: string; call: ToolCall } | undefined {
+  const call = asRecord(value);
+  const row = asRecord(call?.row);
+
+  if (
+    !call ||
+    typeof call.sessionId !== 'string' ||
+    typeof call.timestamp !== 'string' ||
+    typeof call.toolCallId !== 'string' ||
+    typeof call.name !== 'string' ||
+    !isOptionalString(call.messageId) ||
+    (call.row !== undefined && !row)
+  ) {
+    return undefined;
+  }
+
+  return {
+    callId: call.toolCallId,
+    call: {
+      sessionId: call.sessionId,
+      timestamp: call.timestamp,
+      toolCallId: call.toolCallId,
+      name: call.name,
+      messageId: call.messageId,
+      row,
+    },
+  };
+}
 
 /** What one row contributes once its timestamp is known, possibly an event. */
 type RowAction = {
@@ -112,13 +148,56 @@ export class ClaudeSessionEvents {
   private readonly carry = new TimestampCarry<RowAction>();
   private readonly pairing: ToolCallPairing<ToolCall>;
   private readonly meta: SessionMetaTrackers;
-  private readonly messageRowUuids = new Set<string>();
+  private messageRowUuids = new ResumableIdSet();
   // Calls in rows replayed from a fork's parent: a result for one is not an orphan.
-  private readonly replayedCallIds = new Set<string>();
+  private replayedCallIds = new ResumableIdSet();
 
   public constructor(private readonly options: ClaudeSessionEventsOptions) {
     this.pairing = new ToolCallPairing(options.diagnostics, options.kinds);
     this.meta = new SessionMetaTrackers(options.text);
+
+    if (options.from !== undefined && !this.restoreState(options.from)) {
+      throw new ResumeConflict();
+    }
+  }
+
+  /**
+   * What the rows so far leave for the rows after them, for a cursor; undefined while a
+   * row waits for a timestamp. Take it before `finish`.
+   */
+  public toState(): unknown {
+    const carry = this.carry.toState();
+
+    return (
+      carry && {
+        carry,
+        pairing: this.pairing.toState(),
+        meta: this.meta.toState(),
+        messageRowUuids: this.messageRowUuids.toState(),
+        replayedCallIds: this.replayedCallIds.toState(),
+      }
+    );
+  }
+
+  private restoreState(value: unknown): boolean {
+    const state = asRecord(value);
+    const messageRowUuids = ResumableIdSet.fromState(state?.messageRowUuids);
+    const replayedCallIds = ResumableIdSet.fromState(state?.replayedCallIds);
+
+    if (
+      !state ||
+      !messageRowUuids ||
+      !replayedCallIds ||
+      !this.carry.restoreState(state.carry) ||
+      !this.pairing.restoreState(state.pairing, toToolCall) ||
+      !this.meta.restoreState(state.meta)
+    ) {
+      return false;
+    }
+
+    this.messageRowUuids = messageRowUuids;
+    this.replayedCallIds = replayedCallIds;
+    return true;
   }
 
   public *add(line: Record<string, unknown>): Generator<SessionEvent> {

@@ -3,6 +3,8 @@ import {
   createReadDiagnostics,
   readEvents,
   toParseDiagnostics,
+  type ReadCursor,
+  type ReplacedEventCounts,
   type SourceAdapter,
   type SourceParseFileDiagnostics,
   type UsageEvent,
@@ -20,21 +22,39 @@ import type {
 // In the order the store fingerprint lists them.
 const STORED_SESSION_EVENT_KINDS: readonly StoredSessionEventKind[] = ['message', 'tool_call'];
 
-/** A file read for the event store: its usage as `collectFile` reads it, and what else it keeps. */
-export type StoreParseFileDiagnostics = SourceParseFileDiagnostics & {
-  /** Tool calls and messages in read order; unset for a usage-only source. */
-  sessionEvents?: StoredSessionEvent[];
+/** What a read of an incremental source adds for the event store. */
+type ResumableRead = {
+  /** Where the next read of the file resumes. */
+  readCursor?: ReadCursor;
+  /**
+   * Set when the read resumed from the stored cursor: its events and skipped rows are only
+   * those of the lines appended since, and they replace the last stored ones it counts.
+   */
+  resumedReplacing?: ReplacedEventCounts;
 };
 
+/** A file read for the event store: its usage as `collectFile` reads it, and what else it keeps. */
+export type StoreParseFileDiagnostics = SourceParseFileDiagnostics &
+  ResumableRead & {
+    /** Tool calls and messages in read order; unset for a usage-only source. */
+    sessionEvents?: StoredSessionEvent[];
+  };
+
 /** `StoreParseFileDiagnostics` as the CLI holds it: every usage event carries a cost mode. */
-export type ParsedFileForEventStore = ParseFileDiagnostics & {
-  sessionEvents?: StoredSessionEvent[];
-};
+export type ParsedFileForEventStore = ParseFileDiagnostics &
+  ResumableRead & {
+    sessionEvents?: StoredSessionEvent[];
+  };
 
 export function withStoreCostModes(
   diagnostics: StoreParseFileDiagnostics,
 ): ParsedFileForEventStore {
-  return { ...withCostModes(diagnostics), sessionEvents: diagnostics.sessionEvents };
+  return {
+    ...withCostModes(diagnostics),
+    sessionEvents: diagnostics.sessionEvents,
+    readCursor: diagnostics.readCursor,
+    resumedReplacing: diagnostics.resumedReplacing,
+  };
 }
 
 /** The kinds besides usage the event store keeps for the adapter's files. */
@@ -73,31 +93,54 @@ function toUsageEvent(record: UsageRecord): UsageEvent {
  * Reads a file once for the event store. A source that declares tool calls or messages is
  * read with `readEvents` for usage and those kinds: its usage events and skipped rows are
  * what `collectFile` returns (the readEvents contract), and the other kinds' skipped rows
- * are left out. Any other source is read with `collectFile`.
+ * are left out. With `cursor`, an incremental source is read the same way under a cursor,
+ * resuming from `cursor.from` when given. A read under a cursor leaves a last line without
+ * a line feed unread, so such a file is read again without one, and kept without a cursor.
+ * Any other source is read with `collectFile`.
  */
 export async function collectFileForEventStore(
   adapter: SourceAdapter,
   filePath: string,
+  options: { cursor?: { from?: ReadCursor } } = {},
 ): Promise<StoreParseFileDiagnostics> {
   const storedKinds = getStoredSessionEventKinds(adapter);
+  const incremental = adapter.capabilities?.incremental === true && options.cursor !== undefined;
 
-  if (storedKinds.length === 0) {
+  if (storedKinds.length === 0 && !incremental) {
     return collectFile(adapter, filePath);
   }
 
   const diagnostics = createReadDiagnostics();
   const events: UsageEvent[] = [];
   const sessionEvents: StoredSessionEvent[] = [];
+  const resumable: ResumableRead = {};
+  const end = { partialLine: false };
 
   for await (const event of readEvents(adapter, filePath, {
     kinds: ['usage', ...storedKinds],
     diagnostics,
+    resume: incremental
+      ? {
+          from: options.cursor?.from,
+          onStart: ({ restarted, replaced }) => {
+            resumable.resumedReplacing = restarted ? undefined : (replaced ?? {});
+          },
+          onCursor: (update) => {
+            resumable.readCursor = update.cursor;
+            end.partialLine = update.partialLine;
+          },
+        }
+      : undefined,
   })) {
     if (event.kind === 'usage') {
       events.push(toUsageEvent(event));
     } else if (event.kind === 'tool_call' || event.kind === 'message') {
       sessionEvents.push(event);
     }
+  }
+
+  if (end.partialLine) {
+    return collectFileForEventStore(adapter, filePath);
   }
 
   const readReasons = new Map<string, number>();
@@ -111,5 +154,9 @@ export async function collectFileForEventStore(
     }
   }
 
-  return { ...toParseDiagnostics(events, skippedRows, readReasons), sessionEvents };
+  return {
+    ...toParseDiagnostics(events, skippedRows, readReasons),
+    ...(storedKinds.length > 0 && { sessionEvents }),
+    ...resumable,
+  };
 }

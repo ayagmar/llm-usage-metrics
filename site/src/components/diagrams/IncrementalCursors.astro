@@ -26,12 +26,13 @@ const barY = cursorTop + 66;
         Two ways to avoid re-reading a file. The CLI's event store keeps a fingerprint per file: the
         parser version plus the path, existence, size and modification time of the file and each
         file it depends on. The same fingerprint serves the stored events; any change re-reads the
-        whole file and replaces its stored events. The library also offers a cursor for append-only
-        JSONL reads, which only the qwen adapter supports: it records the parser, the byte offset
-        read so far and SHA-256 hashes of the first and last 64 KiB before that offset. A resumed
-        read starts at the offset when the parser matches, the file is at least offset bytes long
-        and both hashes match; otherwise it reads from byte 0 and reports restarted, and the new
-        events replace the earlier ones.
+        whole file and replaces its stored events, except a claude or pi file that only grew, which
+        resumes from its stored cursor. The cursor serves append-only JSONL reads, which the claude,
+        pi and qwen adapters support: it records the parser, the byte offset read so far and SHA-256
+        hashes of the first and last 64 KiB before that offset. A resumed read starts at the offset
+        when the parser matches, the file is at least offset bytes long and both hashes match;
+        otherwise it reads from byte 0 and reports restarted, and the new events replace the earlier
+        ones.
       </desc>
 
       <text class="dg-t dg-t--label" x="12" y="18">
@@ -69,10 +70,10 @@ const barY = cursorTop + 66;
       <line class="dg-rule" x1="12" y1="212" x2="428" y2="212"></line>
 
       <text class="dg-t dg-t--label" x="12" y={cursorTop + 16}>
-        library cursor: append-only JSONL
+        read cursor: append-only JSONL
       </text>
       <text class="dg-t dg-t--sm" x="12" y={cursorTop + 36}>
-        qwen only; the CLI does not use cursors
+        claude, pi, qwen; the CLI resumes claude and pi
       </text>
 
       <rect class="dg-box dg-box--plain" x={barX} y={barY} width={barW} height="34" rx="4"></rect>

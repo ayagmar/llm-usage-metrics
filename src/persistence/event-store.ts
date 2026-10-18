@@ -8,6 +8,7 @@ export {
   findLegacyEventStore,
   getLegacyEventStorePath,
   getFileEntry,
+  getFileReadCursor,
   listStoredFileFingerprints,
   openEventStore,
   readDepartedFileEvents,
@@ -36,6 +37,7 @@ export {
 } from './event-store-administration.js';
 export type { FileDependencyFingerprint as EventStoreDependencyFingerprint } from '@ayagmar/agent-sessions/internal';
 export type { StoredSessionEvent, StoredSessionEventKind } from './event-store-session-events.js';
+export type { EventStoreAppend } from './event-store-append.js';
 export { normalizeStoredEvent } from './event-store-codec.js';
 export {
   runTransaction,

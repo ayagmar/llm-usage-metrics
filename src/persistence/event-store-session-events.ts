@@ -55,15 +55,18 @@ export function deleteFileSessionEvents(statements: SessionEventStatements, file
 }
 
 /**
- * Writes the tool calls and messages of a file whose rows were just deleted; call inside
- * a write transaction.
+ * Writes the tool calls and messages of a file whose rows were just deleted, or of the
+ * lines appended to it from `firstIndex` on; call inside a write transaction.
  */
 export function insertFileSessionEvents(
   statements: SessionEventStatements,
   fileId: number,
   events: readonly StoredSessionEvent[],
+  firstIndex = 0,
 ): void {
-  events.forEach((event, eventIndex) => {
+  events.forEach((event, position) => {
+    const eventIndex = firstIndex + position;
+
     if (event.kind === 'tool_call') {
       statements.insertToolCall.run(
         fileId,

@@ -11,12 +11,20 @@ import {
 } from '../../domain/session-event.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
+import {
+  readJsonlFromStatefulCursor,
+  ResumeConflict,
+  type ReadResume,
+  type StatefulJsonlPass,
+} from '../../stream/cursor.js';
+import { decodeIdHashes, encodeIdHashes, ResumableIdSet } from '../../stream/cursor-state.js';
 import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import {
   readClassifiedJsonlObjectBatches,
   readJsonlObjectBatches,
+  type JsonlReadPosition,
 } from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
@@ -47,6 +55,14 @@ import type {
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
+import {
+  getClaudeReadPlanKey,
+  parseClaudeCursorState,
+  type ClaudeCursorState,
+  type ClaudePendingEvent,
+  type ClaudeUsage,
+  type ClaudeUsageState,
+} from './claude-cursor-state.js';
 
 function getClaudeRootDirsForConfigDir(configDir: string): string[] {
   return [path.join(configDir, 'projects'), path.join(configDir, 'transcripts')];
@@ -71,31 +87,6 @@ export function resolveDefaultClaudeRootDirs(context: SourceContext): string[] {
 const CLAUDE_ASSISTANT_BYTES = Buffer.from('"assistant"');
 const CLAUDE_USAGE_BYTES = Buffer.from('"usage"');
 
-type ClaudeUsage = {
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  cacheWrite1hTokens: number;
-  totalTokens: number;
-};
-
-type ClaudePendingEvent = {
-  sessionId: string;
-  timestamp: string;
-  repoRoot?: string;
-  provider?: string;
-  model?: string;
-  usage: ClaudeUsage;
-  sequence: number;
-  // Set only when the read yields usage records.
-  messageId?: string;
-  requestId?: string;
-  rawProvider?: string;
-  raw?: Record<string, unknown>;
-};
-
 /** One read of a file: `read` is usage-only, without the record fields. */
 type ClaudeReadPlan = {
   kinds: ReadonlySet<EventKind>;
@@ -105,6 +96,14 @@ type ClaudeReadPlan = {
 };
 
 const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
+
+/** A read under a cursor: where it starts, and the state it resumes from. */
+type ClaudeResumablePass = {
+  position: JsonlReadPosition;
+  from?: ClaudeCursorState;
+  /** Receives the state to resume from next, or undefined when the next read restarts. */
+  end: (state: ClaudeCursorState | undefined) => void;
+};
 
 /** Options for `ClaudeSourceAdapter`. */
 export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> & {
@@ -195,7 +194,10 @@ function createDedupKey(
   return `${filePath}\0${timestamp}\0${model ?? ''}`;
 }
 
-function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEvent): number {
+function compareSortKeys(
+  left: Pick<ClaudePendingEvent, 'timestamp' | 'sequence'>,
+  right: Pick<ClaudePendingEvent, 'timestamp' | 'sequence'>,
+): number {
   if (left.timestamp !== right.timestamp) {
     return compareByCodePoint(left.timestamp, right.timestamp);
   }
@@ -207,12 +209,33 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
 class ClaudeUsageRows {
   private readonly eventsByDedupKey = new Map<string, ClaudePendingEvent>();
   private sequence = 0;
+  private lastKey: string | undefined;
+  // Under a cursor: the keys of the events yielded and settled before it, as hashes.
+  private readonly settledKeyHashes: ReadonlySet<number>;
+  private readonly settledKeys: ResumableIdSet;
+  private readonly settledLast: [string, number] | undefined;
+  private endState: ClaudeUsageState | undefined;
+  private openCount = 0;
 
   public constructor(
     private readonly filePath: string,
     private readonly parentMessageKeys: ReadonlySet<string>,
     private readonly plan: ClaudeReadPlan & { records: boolean },
-  ) {}
+    from?: ClaudeUsageState,
+  ) {
+    this.settledKeyHashes = (from && decodeIdHashes(from.settledKeys)) ?? new Set();
+    this.settledKeys = new ResumableIdSet(this.settledKeyHashes);
+    this.settledLast = from?.settledLast;
+
+    if (from) {
+      this.sequence = from.sequence;
+      this.lastKey = from.lastKey;
+
+      for (const pendingEvent of from.open) {
+        this.eventsByDedupKey.set(pendingEvent.key, pendingEvent);
+      }
+    }
+  }
 
   public add(line: Record<string, unknown>): void {
     const { diagnostics } = this.plan;
@@ -257,12 +280,18 @@ class ClaudeUsageRows {
 
     const dedupKey = createDedupKey(this.filePath, line, message, timestamp, model);
 
+    // A settled event's key coming back would replace an event already yielded.
+    if (!this.eventsByDedupKey.has(dedupKey) && this.settledKeys.has(dedupKey)) {
+      throw new ResumeConflict();
+    }
+
     const sessionId = asTrimmedText(line.sessionId) ?? getFallbackSessionId(this.filePath);
     const repoRoot = asTrimmedText(line.cwd);
     const provider = resolveProvider(message, model);
 
     this.sequence += 1;
     const pendingEvent: ClaudePendingEvent = {
+      key: dedupKey,
       sessionId,
       timestamp,
       repoRoot,
@@ -280,11 +309,33 @@ class ClaudeUsageRows {
     }
 
     this.eventsByDedupKey.set(dedupKey, pendingEvent);
+    this.lastKey = dedupKey;
   }
 
-  public *flush(): Generator<UsageEvent | UsageRecord> {
+  /**
+   * Yields every event, sorted. Under a cursor, the events must all sort after the ones
+   * settled before it, or the read restarts. `trackState` keeps the state to resume from.
+   */
+  public *flush(trackState: boolean): Generator<UsageEvent | UsageRecord> {
     // Keep-last by dedup key and the timestamp sort need the whole file before any event.
-    for (const pendingEvent of [...this.eventsByDedupKey.values()].sort(comparePendingEvents)) {
+    const pendingEvents = [...this.eventsByDedupKey.values()].sort(compareSortKeys);
+    const settledLast = this.settledLast;
+
+    if (
+      settledLast &&
+      pendingEvents.length > 0 &&
+      compareSortKeys(pendingEvents[0], { timestamp: settledLast[0], sequence: settledLast[1] }) <=
+        0
+    ) {
+      throw new ResumeConflict();
+    }
+
+    const lastEvent =
+      this.lastKey === undefined ? undefined : this.eventsByDedupKey.get(this.lastKey);
+    const openFrom = lastEvent ? pendingEvents.indexOf(lastEvent) : pendingEvents.length;
+    let resumable = true;
+
+    for (const [index, pendingEvent] of pendingEvents.entries()) {
       const input = {
         source: 'claude',
         sessionId: pendingEvent.sessionId,
@@ -309,11 +360,35 @@ class ClaudeUsageRows {
           : createUsageEvent(input);
       } catch {
         recordSkippedRow(this.plan.diagnostics, 'event_creation_failed');
+        // The next read would count an open event's failure again.
+        resumable &&= index < openFrom;
         continue;
       }
 
       yield event;
     }
+
+    if (!trackState || !resumable) {
+      return;
+    }
+
+    const lastSettled = pendingEvents[openFrom - 1];
+    this.openCount = pendingEvents.length - openFrom;
+    this.endState = {
+      sequence: this.sequence,
+      lastKey: this.lastKey,
+      settledKeys: encodeIdHashes(
+        this.settledKeyHashes,
+        pendingEvents.slice(0, openFrom).map((pendingEvent) => pendingEvent.key),
+      ),
+      open: pendingEvents.slice(openFrom),
+      settledLast: openFrom > 0 ? [lastSettled.timestamp, lastSettled.sequence] : settledLast,
+    };
+  }
+
+  /** After `flush(true)`: the state to resume from and how many events it leaves open. */
+  public toState(): { state: ClaudeUsageState; openCount: number } | undefined {
+    return this.endState && { state: this.endState, openCount: this.openCount };
   }
 }
 
@@ -321,6 +396,7 @@ class ClaudeUsageRows {
  * Claude Code transcripts (JSONL), from `projects` and `transcripts` under each directory in
  * `$CLAUDE_CONFIG_DIR` (comma-separated; default `~/.claude`). Yields every event kind. A
  * forked session's events depend on its parent transcript, found under the same roots.
+ * Incremental: honours `resume`, with its parse state in the cursor.
  */
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
@@ -329,6 +405,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     eventsPrecedeFileMtime: true,
     sessionsCopyEvents: true,
     kinds: EVENT_KINDS,
+    incremental: true,
   } as const;
 
   private readonly rootDirs: readonly string[];
@@ -390,39 +467,107 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   }
 
   public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
-    return this.parse(filePath, {
+    const plan = {
       kinds: USAGE_ONLY,
       text: false,
       raw: false,
       diagnostics: options.diagnostics ?? createReadDiagnostics(),
       records: false,
-    });
+    } as const;
+
+    return options.resume
+      ? this.readFromCursor(filePath, plan, options.resume)
+      : this.parse(filePath, plan);
   }
 
   public readEvents(
     filePath: string,
     options: ReadEventsOptions = {},
   ): AsyncGenerator<SessionEvent> {
-    return this.parse(filePath, {
+    const plan = {
       kinds: resolveReadKinds(options.kinds, this.capabilities.kinds),
       text: options.text ?? false,
       raw: options.raw ?? false,
       diagnostics: options.diagnostics ?? createReadDiagnostics(),
       records: true,
+    } as const;
+
+    return options.resume && plan.kinds.has('usage')
+      ? this.readFromCursor(filePath, plan, options.resume)
+      : this.parse(filePath, plan);
+  }
+
+  private readFromCursor(
+    filePath: string,
+    plan: ClaudeReadPlan & { records: false },
+    resume: ReadResume,
+  ): AsyncGenerator<UsageEvent>;
+  private readFromCursor(
+    filePath: string,
+    plan: ClaudeReadPlan & { records: true },
+    resume: ReadResume,
+  ): AsyncGenerator<SessionEvent>;
+  private readFromCursor(
+    filePath: string,
+    plan: ClaudeReadPlan & { records: boolean },
+    resume: ReadResume,
+  ): AsyncGenerator<UsageEvent | SessionEvent> {
+    const planKey = getClaudeReadPlanKey(plan);
+    const pass = (
+      position: JsonlReadPosition,
+      diagnostics: SourceReadDiagnostics,
+      from?: ClaudeCursorState,
+    ): StatefulJsonlPass<UsageEvent | SessionEvent> => {
+      let endState: ClaudeCursorState | undefined;
+      const events = this.parse(
+        filePath,
+        { ...plan, diagnostics },
+        {
+          position,
+          from,
+          end: (state) => {
+            endState = state;
+          },
+        },
+      );
+
+      return { events, state: () => endState };
+    };
+
+    return readJsonlFromStatefulCursor(this, filePath, resume, plan.diagnostics, {
+      start: (position, diagnostics) => pass(position, diagnostics),
+      restore: (value) => {
+        const from = parseClaudeCursorState(value, planKey);
+
+        return from
+          ? {
+              replaced: from.replaced,
+              resume: (position, diagnostics) => pass(position, diagnostics, from),
+            }
+          : undefined;
+      },
     });
   }
 
   private parse(
     filePath: string,
     plan: ClaudeReadPlan & { records: false },
+    resumable?: ClaudeResumablePass,
   ): AsyncGenerator<UsageEvent>;
   private parse(
     filePath: string,
     plan: ClaudeReadPlan & { records: true },
+    resumable?: ClaudeResumablePass,
   ): AsyncGenerator<SessionEvent>;
+  private parse(
+    filePath: string,
+    plan: ClaudeReadPlan & { records: boolean },
+    resumable?: ClaudeResumablePass,
+  ): AsyncGenerator<UsageEvent | SessionEvent>;
   private async *parse(
     filePath: string,
     plan: ClaudeReadPlan & { records: boolean },
+    resumable?: ClaudeResumablePass,
   ): AsyncGenerator<UsageEvent | SessionEvent> {
     const { kinds, diagnostics } = plan;
     const readsUsage = kinds.has('usage');
@@ -442,7 +587,9 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     const parentMessageKeys = countedForkParentPath
       ? await this.readParentMessageKeys(countedForkParentPath)
       : new Set<string>();
-    const usageRows = new ClaudeUsageRows(filePath, parentMessageKeys, plan);
+    const from = resumable?.from;
+    const usageRows = new ClaudeUsageRows(filePath, parentMessageKeys, plan, from?.usage);
+    const position = resumable?.position;
 
     if (!readsSessionEvents) {
       for await (const lines of readJsonlObjectBatches(filePath, {
@@ -450,16 +597,15 @@ export class ClaudeSourceAdapter implements SourceAdapter {
         onMalformedLine: () => {
           recordSkippedRow(diagnostics, 'json_parse_error');
         },
+        position,
       })) {
         for (const line of lines) {
           usageRows.add(line);
         }
       }
 
-      for (const event of usageRows.flush()) {
-        yield event;
-      }
-
+      yield* usageRows.flush(resumable !== undefined);
+      resumable?.end(toCursorState(plan, usageRows, undefined, 0));
       return;
     }
 
@@ -473,6 +619,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
         ? await this.readParentRowUuids(countedForkParentPath)
         : new Set<string>(),
       replayedMessageKeys: parentMessageKeys,
+      from: from && (from.session ?? null),
     });
 
     for await (const items of readClassifiedJsonlObjectBatches(filePath, {
@@ -482,6 +629,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       onMalformedLine: (lineBytes) => {
         recordMalformedLine(diagnostics, kinds, shouldParseClaudeJsonlLineBytes(lineBytes));
       },
+      position,
     })) {
       for (const { record, isUsageLine } of items) {
         if (readsUsage && isUsageLine) {
@@ -494,15 +642,52 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       }
     }
 
+    // Taken before `finish`, which yields the calls still waiting and then forgets them.
+    const sessionState = resumable ? sessionEvents.toState() : undefined;
+    const skippedBeforeFinish = diagnostics.skippedRows;
+    let unansweredCalls = 0;
+
     // Unanswered tool calls come before the usage, which is sorted at the end of the file.
     for (const event of sessionEvents.finish()) {
+      unansweredCalls += 1;
       yield event;
     }
 
+    // A row counted at the end would be counted again by the next read.
+    const finishedCleanly = diagnostics.skippedRows === skippedBeforeFinish;
+
     if (readsUsage) {
-      for (const event of usageRows.flush()) {
-        yield event;
-      }
+      yield* usageRows.flush(resumable !== undefined);
     }
+
+    resumable?.end(
+      sessionState && finishedCleanly
+        ? toCursorState(plan, usageRows, sessionState, unansweredCalls)
+        : undefined,
+    );
   }
+}
+
+/** The state to resume from after a read under a cursor, or undefined when it cannot. */
+function toCursorState(
+  plan: ClaudeReadPlan & { records: boolean },
+  usageRows: ClaudeUsageRows,
+  session: unknown,
+  unansweredCalls: number,
+): ClaudeCursorState | undefined {
+  const usage = usageRows.toState();
+
+  if (!usage) {
+    return undefined;
+  }
+
+  return {
+    plan: getClaudeReadPlanKey(plan),
+    replaced: {
+      ...(usage.openCount > 0 && { usage: usage.openCount }),
+      ...(unansweredCalls > 0 && { tool_call: unansweredCalls }),
+    },
+    usage: usage.state,
+    ...(session !== undefined && { session }),
+  };
 }
