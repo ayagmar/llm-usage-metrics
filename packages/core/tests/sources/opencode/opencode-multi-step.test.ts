@@ -75,7 +75,15 @@ async function createV1Db(
       const time = START + messageIndex * 60_000;
       insertMessage.run(message.id, SESSION_ID, time, time, message.data);
       message.parts.forEach((part, partIndex) => {
-        insertPart.run(`${message.id}-part-${partIndex}`, message.id, SESSION_ID, time, time, part);
+        const partTime = time + partIndex * 1_000;
+        insertPart.run(
+          `${message.id}-part-${partIndex}`,
+          message.id,
+          SESSION_ID,
+          partTime,
+          partTime,
+          part,
+        );
       });
     });
   } finally {
@@ -86,9 +94,10 @@ async function createV1Db(
 }
 
 describe.runIf(loadDatabaseSync())('OpenCode multi-step messages', () => {
-  it('counts the tokens of every step, not only the last one', async () => {
-    const first = { input: 1_000, output: 200, reasoning: 50, read: 4_000 };
-    const second = { input: 300, output: 120, reasoning: 30, read: 5_000 };
+  it('reads each step of a multi-step message as its own request', async () => {
+    // Two 150k-token prompts: priced as one request, they would cross a 200k tier.
+    const first = { input: 150_000, output: 200, reasoning: 50, read: 4_000 };
+    const second = { input: 150_300, output: 120, reasoning: 30, read: 5_000 };
     const dbPath = await createV1Db([
       {
         id: 'msg_two_steps',
@@ -107,16 +116,49 @@ describe.runIf(loadDatabaseSync())('OpenCode multi-step messages', () => {
 
     const events = await collect(new OpenCodeSourceAdapter({ dbPath }).read(dbPath));
 
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      inputTokens: 1_300,
-      outputTokens: 400,
-      reasoningTokens: 80,
-      cacheReadTokens: 9_000,
-      cacheWriteTokens: 0,
-      totalTokens: 10_700,
-      costUsd: 0.03,
+    expect(events).toEqual([
+      expect.objectContaining({
+        timestamp: new Date(START + 2_000).toISOString(),
+        inputTokens: 150_000,
+        outputTokens: 250,
+        reasoningTokens: 50,
+        cacheReadTokens: 4_000,
+        totalTokens: 154_250,
+        costUsd: 0.02,
+      }),
+      expect.objectContaining({
+        timestamp: new Date(START + 4_000).toISOString(),
+        inputTokens: 150_300,
+        outputTokens: 150,
+        reasoningTokens: 30,
+        cacheReadTokens: 5_000,
+        totalTokens: 155_450,
+        costUsd: 0.01,
+      }),
+    ]);
+  });
+
+  it('normalizes each step with its own total', async () => {
+    const step = { input: 1_000, output: 200, reasoning: 50, read: 0 };
+    const withoutTotal = JSON.stringify({
+      type: 'step-finish',
+      cost: 0.001,
+      tokens: { input: 1_000, output: 250, reasoning: 50, cache: { read: 0, write: 0 } },
     });
+    const dbPath = await createV1Db([
+      {
+        id: 'msg_mixed_totals',
+        data: assistantMessage(step, 0.002),
+        parts: [withoutTotal, stepFinish(step, 0.001)],
+      },
+    ]);
+
+    const events = await collect(new OpenCodeSourceAdapter({ dbPath }).read(dbPath));
+
+    expect(events.map((event) => [event.outputTokens, event.totalTokens])).toEqual([
+      [250, 1_250],
+      [250, 1_250],
+    ]);
   });
 
   it('keeps a single-step message as stored', async () => {
