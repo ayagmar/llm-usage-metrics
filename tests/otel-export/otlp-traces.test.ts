@@ -77,3 +77,48 @@ describe('buildOtlpTraces span ids', () => {
     expect(chatSpanIds(pair.slice(1))).not.toEqual(chatSpanIds(pair.slice(0, 1)));
   });
 });
+
+describe('buildOtlpTraces conversation ids', () => {
+  // The id qwen gives a chat without a sessionId: its encoded project dir and file stem.
+  const sessionIds = ['-home-user-secretproj-chat1', 'c--users-user-secretproj-chat1'];
+
+  function conversationIds(sessionId: string, includePaths: boolean) {
+    const [data] = buildOtlpTraces({
+      usageEvents: [{ ...event('2026-01-04T10:00:00.000Z', 100), sessionId }],
+      toolCalls: [{ ...toolCall('2026-01-04T10:00:01.000Z'), sessionId }],
+      includePaths,
+    });
+    const spans = data.resourceSpans[0].scopeSpans[0].spans;
+
+    return {
+      traceId: spans[0].traceId,
+      ids: spans.map(
+        (span) =>
+          span.attributes.find((attribute) => attribute.key === 'gen_ai.conversation.id')?.value,
+      ),
+    };
+  }
+
+  it.each(sessionIds)('hashes the path-shaped session id %s on every span', (sessionId) => {
+    const { ids } = conversationIds(sessionId, false);
+
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids.map((id) => JSON.stringify(id))).size).toBe(1);
+    expect(JSON.stringify(ids[0])).toMatch(/^\{"stringValue":"sha256:[\da-f]{32}"\}$/u);
+    expect(JSON.stringify(ids)).not.toContain('secretproj');
+  });
+
+  it('keeps the path-shaped id with --otel-include-paths, and the trace id either way', () => {
+    const hashed = conversationIds(sessionIds[0], false);
+    const raw = conversationIds(sessionIds[0], true);
+
+    expect(raw.ids).toEqual(Array.from({ length: 3 }, () => ({ stringValue: sessionIds[0] })));
+    expect(raw.traceId).toBe(hashed.traceId);
+  });
+
+  it('keeps an ordinary session id', () => {
+    expect(conversationIds('0b6c3f1e-qwen-session', false).ids[0]).toEqual({
+      stringValue: '0b6c3f1e-qwen-session',
+    });
+  });
+});

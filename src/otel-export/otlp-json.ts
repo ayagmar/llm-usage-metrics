@@ -102,6 +102,21 @@ function hashHex(parts: readonly string[], bytes: number): string {
     .slice(0, bytes * 2);
 }
 
+// A session id that holds a path: a separator, or a working directory encoded with dashes
+// (qwen names a session without an id `<encoded cwd>-<file stem>`, such as
+// `-home-user-project-chat` or, on Windows, `c--users-user-project-chat`).
+const PATH_SHAPED_SESSION_ID = /[/\\]|^-|^[a-z]--/iu;
+
+/**
+ * The `gen_ai.conversation.id` of a session: its id, or a hash of it when the id holds a
+ * path and paths are left out. The trace id derives from the raw id either way.
+ */
+export function toConversationId(sessionId: string, includePaths: boolean): string {
+  return includePaths || !PATH_SHAPED_SESSION_ID.test(sessionId)
+    ? sessionId
+    : `sha256:${hashHex(['llm-usage', 'session', sessionId], 16)}`;
+}
+
 /** A 16-byte trace id from a session's source and id: the same session, the same id. */
 export function deriveTraceId(source: string, sessionId: string): string {
   return hashHex(['llm-usage', source, sessionId], 16);

@@ -13,6 +13,7 @@ import {
   OTLP_SCHEMA_URL,
   OTLP_SCOPE,
   toAgentName,
+  toConversationId,
   toolCallBoundsMs,
   toOtlpAttributes,
   toUnixNanos,
@@ -124,6 +125,7 @@ function chatSpan(
 ): TimedSpan & { attributes: OtelAttributes } {
   const at = Date.parse(event.timestamp);
   const attributes = usageRecordAttributes({ ...event, kind: 'usage' }, { includePaths });
+  attributes['gen_ai.conversation.id'] = toConversationId(event.sessionId, includePaths);
 
   if (event.machine !== undefined) {
     attributes['llm_usage.machine'] = event.machine;
@@ -151,6 +153,7 @@ function toolSpan(
   fallbackKey: string,
   traceId: string,
   parentSpanId: string,
+  includePaths: boolean,
 ): TimedSpan {
   const { startMs, endMs } = toolCallBoundsMs(call);
   const key = call.toolCallId === undefined ? fallbackKey : `id:${call.toolCallId}`;
@@ -168,6 +171,7 @@ function toolSpan(
       endTimeUnixNano: toUnixNanos(endMs),
       attributes: toOtlpAttributes({
         ...toolCallAttributes(call),
+        'gen_ai.conversation.id': toConversationId(call.sessionId, includePaths),
         'gen_ai.agent.name': toAgentName(call.source),
       }),
       ...(call.status === 'error' ? { status: { code: STATUS_CODE_ERROR } } : {}),
@@ -192,7 +196,7 @@ function sessionTraces(group: SessionGroup, includePaths: boolean): OtlpTracesDa
   const toolCalls = sortByTimestamp(group.toolCalls);
   const toolKeys = occurrenceKeys(toolCalls, (call) => `${call.timestamp}|${call.name}`);
   const tools = toolCalls.map((call, index) =>
-    toolSpan(call, toolKeys[index], traceId, rootSpanId),
+    toolSpan(call, toolKeys[index], traceId, rootSpanId, includePaths),
   );
   const children = [...chats, ...tools];
   // A loop, not Math.min(...spread): a long session has more spans than call arguments allow.
@@ -213,7 +217,7 @@ function sessionTraces(group: SessionGroup, includePaths: boolean): OtlpTracesDa
     attributes: toOtlpAttributes({
       'gen_ai.operation.name': 'invoke_agent',
       'gen_ai.agent.name': agentName,
-      'gen_ai.conversation.id': group.sessionId,
+      'gen_ai.conversation.id': toConversationId(group.sessionId, includePaths),
       // Session sums of the chat spans' values; no cache attributes on this span (#469).
       'gen_ai.usage.input_tokens': sumAttribute(chats, 'gen_ai.usage.input_tokens'),
       'gen_ai.usage.output_tokens': sumAttribute(chats, 'gen_ai.usage.output_tokens'),
