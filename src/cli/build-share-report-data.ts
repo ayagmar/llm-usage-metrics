@@ -494,9 +494,18 @@ export async function buildShareReport(
 
   /** Built after the envelope, which may name models (optimize candidates) the events do not. */
   const createLogScrubber = (): ((message: string) => string) => {
-    // Hidden models go first: their names may hold a `/` the path pass would split.
+    // Hidden models go first, by label and as logged: their names may hold a `/` the path
+    // pass would split.
+    const loggedModels = [...allEvents.map((event) => event.model), ...modelFilter].filter(
+      (model): model is string => model !== undefined && hiddenModels.has(toShareModelLabel(model)),
+    );
     const replaceModels = createNameReplacer(
-      new Map([...hiddenModels].map((label) => [label, redactModel(label)])),
+      new Map(
+        [...hiddenModels, ...loggedModels].map((model) => [
+          model,
+          redactModel(toShareModelLabel(model)),
+        ]),
+      ),
     );
     const scrubPaths = createPathScrubber(pathReplacements, {
       otherPath: () => '<path>',

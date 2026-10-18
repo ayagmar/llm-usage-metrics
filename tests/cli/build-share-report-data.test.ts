@@ -411,6 +411,11 @@ describe('buildShareReportData', () => {
         deps([usage({ model: 'acme</b>llama' })]),
       );
       expect(slashModel.scrubLog?.('(models: acme</b>llama)')).toBe('(models: model-1)');
+      const pathModel = await buildShareReport(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true } }),
+        deps([usage({ model: '/opt/alice/acme-llama' })]),
+      );
+      expect(pathModel.scrubLog?.('(models: /opt/alice/acme-llama)')).toBe('(models: model-1)');
       expect(scrubLog?.('/srv/acme-x is not a git repository')).toBe(
         '<path> is not a git repository',
       );
