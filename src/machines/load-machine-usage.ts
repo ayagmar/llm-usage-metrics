@@ -1,12 +1,16 @@
 import { LOCAL_MACHINE_NAME, type MachineConfig } from '../config/user-config.js';
-import { getParserVersion, type SourceAdapter } from '@ayagmar/agent-sessions';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 import { pluralize, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { getUtcMidnightIso } from '../utils/date-key.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { readMachineCacheUsage, type MachineSyncState } from './machine-cache.js';
-import { mergeMachineEvents, type MergedMachineEvents } from './merge-machine-events.js';
+import {
+  getParserVersions,
+  mergeMachineEvents,
+  type MergedMachineEvents,
+} from './merge-machine-events.js';
 
 export type MachineSelection = {
   includeLocal: boolean;
@@ -124,7 +128,7 @@ export async function loadMachineUsage(params: {
       events: (usage?.events ?? []).filter((event) => sources.has(event.source)),
       parserVersions: usage?.state.parserVersions,
     })),
-    Object.fromEntries(params.adapters.map((adapter) => [adapter.id, getParserVersion(adapter)])),
+    getParserVersions(params.adapters),
   );
   const notes: string[] = [];
 

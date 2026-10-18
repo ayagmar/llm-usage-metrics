@@ -60,12 +60,12 @@ Relevant options/config:
 - enabled by default
 - key is `(source, file path)`
 - validity requires matching dependency fingerprints
-- stores parse diagnostics and normalized events
+- stores parse diagnostics and normalized events, and for claude, codex and pi each file's tool calls and messages (never message text), which `tools` and `session --timeline` read
 - dependency fingerprints include the primary file and any adapter-declared sidecar inputs; for SQLite sources that means the `-wal` and `-journal` files, not `-shm`, which every read rewrites
 - fingerprints also include a parser version, so upgrading to a release with parser fixes re-parses stored files once
 - persisted as SQLite with per-file replace-on-change writes, batched into one transaction per source
 - with `--since`, file-per-session sources skip files whose newest `mtime` (including sidecars) is more than a day before the window; with the store on, only files the store already holds are skipped, so the ledger still ingests older files
-- reports include usage from files that no longer exist on disk by default; `--no-history` leaves it out
+- reports include usage from files that no longer exist on disk by default; `--no-history` leaves it out. `tools` and `session --timeline` include those files' tool calls and messages, except for files that departed before the store kept them
 - files only ever read through a directory flag (`--claude-dir ./export`, `--source-dir`) are cached but never served as history by a report on the usual directories; once such a report finds the file in the usual location, it is history like any other file. Files stored this way by older versions are not recognized; `prune --departed-before` can delete them, but it also selects departed files from the usual directories, so preview without `--apply` first
 - moved, renamed, and copied files are suppressed by content hash to avoid double counting; a departed file that only partly overlaps counted usage is served without the overlapping events
 - `llm-usage prune` previews or deletes departed-file rows explicitly

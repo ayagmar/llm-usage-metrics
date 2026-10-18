@@ -23,7 +23,12 @@ import {
   type EventStoreFileEntry,
   type ReplaceFileEventsInput,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
+import {
+  createToolCallEvent,
+  createUsageRecord,
+  type SourceAdapter,
+  type SourceParseFileDiagnostics,
+} from '@ayagmar/agent-sessions';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
 
@@ -546,6 +551,70 @@ describe('build-usage-data-parsing', () => {
 
     // 5,000 events per batch: a + b cross the bound, c is flushed at the end.
     expect(batches).toEqual([['a.jsonl', 'b.jsonl'], ['c.jsonl']]);
+  });
+
+  it('stores tool calls with their file and counts them toward the write batch', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-tool-call-batches-'));
+    tempDirs.push(tempDir);
+
+    const files = ['a', 'b', 'c'].map((name) => path.join(tempDir, `${name}.jsonl`));
+
+    for (const filePath of files) {
+      await writeFingerprintFixture(filePath, '{}\n', 1_700_000_001);
+    }
+
+    // One request and 3,000 tool calls per file.
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      capabilities: { kinds: ['usage', 'tool_call'] },
+      discoverFiles: async () => files,
+      read: readFrom(async () => []),
+      readEvents: async function* (filePath) {
+        const sessionId = path.basename(filePath, '.jsonl');
+        const timestamp = '2026-02-01T00:00:00.000Z';
+        yield createUsageRecord({ source: 'pi', sessionId, timestamp, inputTokens: 1 });
+
+        for (let index = 0; index < 3_000; index += 1) {
+          yield createToolCallEvent({
+            source: 'pi',
+            sessionId,
+            timestamp,
+            name: 'bash',
+            status: 'ok',
+          });
+        }
+      },
+    };
+    const batches: [file: string, usage: number, toolCalls: number][][] = [];
+    const replaceFilesEvents = vi.fn(
+      (_store: EventStore, inputs: readonly ReplaceFileEventsInput[]) => {
+        batches.push(
+          inputs.map((input) => [
+            path.basename(input.filePath),
+            input.events.length,
+            input.sessionEvents?.length ?? 0,
+          ]),
+        );
+      },
+    );
+
+    await parseSelectedAdapters([adapter], 1, {
+      eventStore: { enabled: true, path: path.join(tempDir, 'events.db') },
+      eventStoreDeps: {
+        openEventStore: async () => ({}) as EventStore,
+        closeEventStore: vi.fn(),
+        getFileEntry: () => undefined,
+        replaceFilesEvents,
+      },
+    });
+
+    expect(batches).toEqual([
+      [
+        ['a.jsonl', 1, 3_000],
+        ['b.jsonl', 1, 3_000],
+      ],
+      [['c.jsonl', 1, 3_000]],
+    ]);
   });
 
   it('keeps parsed output and returns one warning when the event store fails', async () => {

@@ -753,7 +753,7 @@ describe('event-store', () => {
     try {
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '4' });
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
 
       const contentHashes = store.database
         .prepare('SELECT content_hash FROM events ORDER BY id ASC')
@@ -786,7 +786,7 @@ describe('event-store', () => {
 
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '4' });
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
       expect(store.database.prepare('SELECT content_hash FROM events').get()).toEqual({
         content_hash: computeEventContentHash(event),
       });
@@ -887,7 +887,7 @@ describe('event-store', () => {
     try {
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '4' });
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
       expect(
         store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
       ).toEqual([
@@ -1389,6 +1389,8 @@ describe('event-store', () => {
     await expect(openEventStore(dbPath)).rejects.toBeInstanceOf(EventStoreSchemaVersionError);
     await expect(readEventStoreSummary(dbPath)).resolves.toEqual({
       eventCount: 1,
+      toolCallCount: 0,
+      messageCount: 0,
       schemaVersion: '999',
     });
   });
@@ -1640,7 +1642,9 @@ describe('event-store', () => {
     replaceCodexFile(store, { filePath: '/tmp/b.jsonl' });
     replaceCodexFile(store, { filePath: '/tmp/c.jsonl' });
 
-    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(4);
+    // events, files and override-only statements, and the seven of tool calls, messages and
+    // their file keys.
+    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(11);
     closeEventStore(store);
   });
 
@@ -1716,10 +1720,14 @@ END;
     const fakeSqlite = createFakeSqliteModule({
       "SELECT value FROM meta WHERE key = 'schemaVersion'": { value: EVENT_STORE_SCHEMA_VERSION },
       'SELECT COUNT(*) AS count FROM events': { count: 5 },
+      'SELECT COUNT(*) AS count FROM tool_calls': { count: 3 },
+      'SELECT COUNT(*) AS count FROM messages': { count: 2 },
     });
 
     await expect(readEventStoreSummary('/tmp/events.db', async () => fakeSqlite)).resolves.toEqual({
       eventCount: 5,
+      toolCallCount: 3,
+      messageCount: 2,
       schemaVersion: EVENT_STORE_SCHEMA_VERSION,
     });
     expect(fakeSqlite.constructorCalls).toEqual([
@@ -1743,6 +1751,8 @@ END;
 
     await expect(readEventStoreSummary(dbPath)).resolves.toEqual({
       eventCount: 1,
+      toolCallCount: 0,
+      messageCount: 0,
       schemaVersion: EVENT_STORE_SCHEMA_VERSION,
     });
   });

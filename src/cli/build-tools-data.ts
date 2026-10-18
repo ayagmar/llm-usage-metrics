@@ -1,7 +1,6 @@
 import { dedupeToolCalls } from '@ayagmar/agent-sessions';
 
 import { buildEventProjectLabels, toProjectLabel } from '../aggregate/project-key.js';
-import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
 import { mapSessionRepoRoots } from '../session/aggregate-sessions.js';
 import { aggregateTools, type ToolRow, type ToolTotals } from '../tools/aggregate-tools.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -22,8 +21,6 @@ import type {
   ToolsCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
-
-export const LIVE_TOOL_CALLS_NOTE = formatLiveEventsNote('Tool calls');
 
 /** A tool row with its projects labelled as `projects` labels them. */
 export type ToolsReportRow = ToolRow & {
@@ -73,14 +70,10 @@ export async function buildToolsData(
     configuredOptions,
     userConfigResolution.cliOptions,
   );
-  // Tool calls are only in local files on disk: no history, no other machines, no sync.
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,
     since: window.since,
     until: window.until,
-    history: false,
-    machine: [LOCAL_MACHINE_NAME],
-    sync: false,
   };
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'tools.dataset.total', () =>
     buildUsageEventDataset(datasetOptions, {
@@ -123,7 +116,7 @@ export async function buildToolsData(
       sourceFailures: dataset.sourceFailures,
       pricingOrigin: 'none',
       warnings: [...dataset.warnings, ...failedReads],
-      notes: [...dataset.notes, LIVE_TOOL_CALLS_NOTE],
+      notes: [...dataset.notes, formatLiveEventsNote('Tool calls', dataset)],
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone,

@@ -2,10 +2,10 @@ import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
 import type { SessionRow } from '../session/session-row.js';
 import { buildSessionTimeline } from '../session/session-timeline.js';
-import { dedupeToolCalls } from '@ayagmar/agent-sessions';
+import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
@@ -178,7 +178,7 @@ export async function buildSessionData(
       readLiveSessionEvents(dataset, {
         kinds: ['tool_call', 'message'],
         filePaths: new Set(
-          dataset.parsedFiles
+          [...dataset.parsedFiles, ...(dataset.ledger?.historyFiles ?? [])]
             .filter((file) => file.source === session.source)
             .map((file) => file.filePath),
         ),
@@ -200,7 +200,7 @@ export async function buildSessionData(
       projectLabels,
       diagnostics: buildDiagnostics(sessionEvents, {
         warnings: formatFailedLiveReads(LIVE_TIMELINE_SUBJECT, live.failedFilePaths),
-        notes: [formatLiveEventsNote(LIVE_TIMELINE_SUBJECT)],
+        notes: [formatLiveEventsNote(LIVE_TIMELINE_SUBJECT, dataset)],
       }),
     };
   }

@@ -3,16 +3,20 @@ import { chmod, link, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
-import { createUsageEvent, normalizeSourceId, type UsageEvent } from '../domain/usage-event.js';
+import { createUsageEvent, type UsageEvent } from '../domain/usage-event.js';
 import {
   loadNodeSqliteModule,
   type FileDependencyFingerprint as EventStoreDependencyFingerprint,
-  type FileFingerprint as EventStoreFileFingerprint,
+  type FileFingerprint,
   compareByCodePoint,
   hasErrorCode,
   takeUncountedEvents,
 } from '@ayagmar/agent-sessions/internal';
-import { computeEventContentHash, type SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
+import {
+  computeEventContentHash,
+  normalizeSourceId,
+  type SourceSkippedRowReasonStat,
+} from '@ayagmar/agent-sessions';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';
 import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
@@ -30,14 +34,34 @@ import {
 } from './event-store-database.js';
 import {
   assertSupportedSchemaVersion,
-  EVENT_STORE_SCHEMA_VERSION,
+  EventStoreSchemaVersionError,
+  hasSchemaVersion,
   initializeSchema,
 } from './event-store-schema.js';
+import {
+  countFileSessionEvents,
+  deleteFileSessionEvents,
+  prepareSelectFileSessionEvents,
+  prepareSessionEventStatements,
+  selectFileSessionEvents,
+  writeFileSessionEvents,
+  type StoredSessionEvent,
+  type StoredSessionEventKind,
+} from './event-store-session-events.js';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 
 const loadEventStoreSqliteModule: LoadEventStoreSqliteModule = () =>
   loadNodeSqliteModule('Event store');
+
+/** A file's fingerprint as the store keys it. */
+export type EventStoreFileFingerprint = FileFingerprint & {
+  /**
+   * The kinds besides usage the store keeps for the file's source, sorted; unset for a
+   * usage-only source. Part of the key, so a file stored before they were kept re-ingests.
+   */
+  storedKinds?: readonly StoredSessionEventKind[];
+};
 
 export type EventStoreFileEntry = {
   fingerprint: string;
@@ -50,6 +74,8 @@ export type ReplaceFileEventsInput = {
   filePath: string;
   fingerprint: EventStoreFileFingerprint;
   events: UsageEvent[];
+  /** The file's tool calls and messages, in the order the adapter yielded them. */
+  sessionEvents?: readonly StoredSessionEvent[];
   skippedRows: number;
   skippedRowReasons?: SourceSkippedRowReasonStat[];
   now: number;
@@ -68,11 +94,15 @@ export type DeleteStoredFilesInput = {
 
 export type DeleteStoredFilesResult = {
   deletedFileCount: number;
+  /** Usage events, tool calls and messages. */
   deletedEventCount: number;
 };
 
 export type EventStoreSummary = {
+  /** Usage events. */
   eventCount: number;
+  toolCallCount: number;
+  messageCount: number;
   schemaVersion?: string;
 };
 
@@ -82,9 +112,11 @@ export type EventStoreStoredFile = {
 };
 
 export type EventStoreFileSnapshot = EventStoreStoredFile & {
-  /** A digest of `events`: it changes exactly when they do. */
+  /** A digest of `events` and `sessionEvents`: it changes exactly when they do. */
   revision: string;
   events: UsageEvent[];
+  /** The file's tool calls and messages; empty for a file without usage events. */
+  sessionEvents: StoredSessionEvent[];
 };
 
 function normalizeStoreSource(source: string): string {
@@ -179,8 +211,13 @@ function normalizeEventStoreFingerprint(
   dependencies.sort(compareDependencyFingerprint);
 
   const parserVersion = toText(fingerprint.parserVersion);
+  const storedKinds = [...new Set(fingerprint.storedKinds)].sort(compareByCodePoint);
 
-  return parserVersion ? { parserVersion, dependencies } : { dependencies };
+  return {
+    ...(parserVersion && { parserVersion }),
+    ...(storedKinds.length > 0 && { storedKinds }),
+    dependencies,
+  };
 }
 
 export function serializeEventStoreFingerprint(fingerprint: EventStoreFileFingerprint): string {
@@ -404,11 +441,18 @@ export async function readEventStoreSummary(
     const schemaVersionRow = database
       .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
       .get();
-    const countRow = database.prepare('SELECT COUNT(*) AS count FROM events').get();
+    const schemaVersion = toText(schemaVersionRow?.value);
+    const countRows = (tableName: 'events' | 'tool_calls' | 'messages'): number =>
+      toNonNegativeInteger(
+        database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get()?.count,
+      ) ?? 0;
+    const hasSessionEvents = hasSchemaVersion(schemaVersion, 5);
 
     return {
-      eventCount: toNonNegativeInteger(countRow?.count) ?? 0,
-      schemaVersion: toText(schemaVersionRow?.value),
+      eventCount: countRows('events'),
+      toolCallCount: hasSessionEvents ? countRows('tool_calls') : 0,
+      messageCount: hasSessionEvents ? countRows('messages') : 0,
+      schemaVersion,
     };
   } finally {
     database.close();
@@ -593,10 +637,9 @@ export async function readEventStoreEvents(
     assertSupportedSchemaVersion(database);
     const meta = readMetaValues(database);
     // A read-only open cannot migrate, and stores older than v4 lack the one-hour column.
-    const cacheWrite1hColumn =
-      meta.get('schemaVersion') === EVENT_STORE_SCHEMA_VERSION
-        ? 'cache_write_1h_tokens'
-        : '0 AS cache_write_1h_tokens';
+    const cacheWrite1hColumn = hasSchemaVersion(meta.get('schemaVersion'), 4)
+      ? 'cache_write_1h_tokens'
+      : '0 AS cache_write_1h_tokens';
     const fromTimestamp = window.fromTimestamp ?? '';
     const toTimestamp = window.toTimestamp ?? '\uFFFF';
     const statement = database.prepare(
@@ -626,6 +669,59 @@ export async function readEventStoreEvents(
     }
 
     return { meta, events };
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * Reads the stored tool calls and messages of `files`, each file's in the order its adapter
+ * yielded them, from a store opened read-only in one read transaction. A row the event
+ * constructors reject is skipped; a file the store does not hold has none.
+ */
+export async function readStoredSessionEvents(
+  filePath: string,
+  files: readonly EventStoreStoredFile[],
+  kinds: ReadonlySet<StoredSessionEventKind>,
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<StoredSessionEvent[][]> {
+  const sqliteModule = await loadSqliteModule();
+
+  if (!isEventStoreSqliteModule(sqliteModule)) {
+    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
+  }
+
+  const database = new sqliteModule.DatabaseSync(filePath, {
+    readOnly: true,
+    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+  });
+
+  try {
+    const schemaVersion = readMetaValues(database).get('schemaVersion');
+
+    if (!hasSchemaVersion(schemaVersion, 5)) {
+      throw new EventStoreSchemaVersionError(schemaVersion);
+    }
+
+    const select = prepareSelectFileSessionEvents(database, kinds);
+
+    if (!select) {
+      return files.map(() => []);
+    }
+
+    database.exec('BEGIN');
+
+    try {
+      return files.map((file) =>
+        selectFileSessionEvents(
+          select,
+          normalizeStoreSource(file.source),
+          normalizeStoreFilePath(file.filePath),
+        ),
+      );
+    } finally {
+      database.exec('COMMIT');
+    }
   } finally {
     database.close();
   }
@@ -749,9 +845,9 @@ export function readDepartedFileEvents(
  * transaction, so a concurrent run that rewrites a file cannot be seen half-written. As
  * reports do, a history file, or a file of a source in `repeatingSources` (see
  * `eventsRepeatAcrossFiles`), is read without the events the files before it already
- * hold, decided on this same snapshot. A file's revision is a digest of the events read,
- * so it changes exactly when they do. Invalid rows are skipped, as for history; a file
- * the store does not hold has no events.
+ * hold, decided on this same snapshot. A file's revision is a digest of the events read
+ * and of its tool calls and messages, so it changes exactly when they do. Invalid rows are
+ * skipped, as for history; a file the store does not hold has no events.
  */
 export function readStoredFileSnapshots(
   store: EventStore,
@@ -765,6 +861,10 @@ export function readStoredFileSnapshots(
   const repeatingSources = options.repeatingSources ?? new Set<string>();
   const snapshots: EventStoreFileSnapshot[] = [];
   const countedHashes = new Map<string, number>();
+  const selectSessionEvents = prepareSelectFileSessionEvents(
+    store.database,
+    new Set(['tool_call', 'message']),
+  );
   const readSnapshot = (
     file: EventStoreStoredFile,
     selectEvents: (events: UsageEvent[]) => UsageEvent[],
@@ -772,12 +872,24 @@ export function readStoredFileSnapshots(
     const source = normalizeStoreSource(file.source);
     const filePath = normalizeStoreFilePath(file.filePath);
     const events = selectEvents(readDepartedFileEvents(store, source, filePath));
+    // A file without usage is not exported, so neither are its tool calls and messages.
+    const sessionEvents =
+      selectSessionEvents && events.length > 0
+        ? selectFileSessionEvents(selectSessionEvents, source, filePath)
+        : [];
+    const revision = createHash('sha256').update(JSON.stringify(events));
+
+    // Only when present: a file without them keeps the revision older versions gave it.
+    if (sessionEvents.length > 0) {
+      revision.update(JSON.stringify(sessionEvents));
+    }
 
     snapshots.push({
       source,
       filePath,
-      revision: createHash('sha256').update(JSON.stringify(events)).digest('hex').slice(0, 16),
+      revision: revision.digest('hex').slice(0, 16),
       events,
+      sessionEvents,
     });
   };
 
@@ -847,11 +959,17 @@ export function deleteStoredFiles(
     const deleteOverrideOnlyFile = store.database.prepare(
       'DELETE FROM override_only_files WHERE source = ? AND file_path = ?',
     );
+    const sessionEventStatements = (store.statements.sessionEvents ??=
+      prepareSessionEventStatements(store.database));
 
     for (const file of normalizedFiles) {
-      result.deletedEventCount += countMatchingRows(store, 'events', file.source, file.filePath);
+      result.deletedEventCount +=
+        countMatchingRows(store, 'events', file.source, file.filePath) +
+        countFileSessionEvents(store.database, file.source, file.filePath);
+
       result.deletedFileCount += countMatchingRows(store, 'files', file.source, file.filePath);
       deleteEvents.run(file.source, file.filePath);
+      deleteFileSessionEvents(sessionEventStatements, file.source, file.filePath);
       deleteFile.run(file.source, file.filePath);
       deleteOverrideOnlyFile.run(file.source, file.filePath);
     }
@@ -889,6 +1007,7 @@ export function replaceFilesEvents(
     skippedRowReasons: stringifySkippedRowReasons(input.skippedRowReasons),
     ingestedAt: Math.max(0, Math.trunc(input.now)),
     events: input.events.map((event) => createUsageEvent(event)),
+    sessionEvents: input.sessionEvents ?? [],
     overrideOnly: input.overrideOnly === true,
   }));
 
@@ -924,6 +1043,9 @@ export function replaceFilesEvents(
       'SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM files WHERE source = ? AND file_path = ?)',
     ].join('\n'),
   ));
+  const sessionEventStatements = (store.statements.sessionEvents ??= prepareSessionEventStatements(
+    store.database,
+  ));
 
   runTransaction(store.database, () => {
     for (const write of writes) {
@@ -957,6 +1079,7 @@ export function replaceFilesEvents(
           event.costMode,
         );
       });
+      writeFileSessionEvents(sessionEventStatements, source, filePath, write.sessionEvents);
 
       upsertFile.run(
         source,

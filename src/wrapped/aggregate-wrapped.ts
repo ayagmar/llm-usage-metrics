@@ -3,8 +3,8 @@ import {
   calculateLongestStreak,
   findBusiestDay,
 } from '../aggregate/daily-activity.js';
-import { computeActiveMs } from '@ayagmar/agent-sessions';
-import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
+import { computeActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
+import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getIsoDayOfWeekFromDateKey, getLocalHour, getPeriodKey } from '../utils/time-buckets.js';
 import type { WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';

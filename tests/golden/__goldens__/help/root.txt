@@ -61,9 +61,8 @@ Commands:
   trends [options]                    Show daily cost or token usage trends
   session [options]                   Show usage grouped by conversation session
   tools [options]                     Show tool calls per tool with errors, error rate and sessions,
-                                      most calls first, read from claude, codex and pi session files
-                                      on disk (last 7 days unless --last, --since, --until, or
-                                      --all)
+                                      most calls first, from claude, codex and pi sessions (last 7
+                                      days unless --last, --since, --until, or --all)
   context [options]                   Show peak prompt sizes per model or session, long-context
                                       requests and what their tier rates added (last 7 days unless
                                       --last, --since, --until, or --all)
@@ -75,7 +74,7 @@ Commands:
                                       plan prices, per plan and project (full history unless --last,
                                       --since, or --until)
   wrapped [options]                   Show a yearly usage recap with an optional share report
-  events [options]                    Export normalized usage events as JSONL or CSV
+  events [options]                    Export usage events as JSONL, CSV, or OTLP traces or metrics
   pricing [options] <model...>        Explain how model names resolve to prices: the matched pricing
                                       key and rule, overrides, where the prices came from, rates per
                                       1M tokens and tiers (never reads usage)

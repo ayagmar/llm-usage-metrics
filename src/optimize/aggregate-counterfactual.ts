@@ -1,12 +1,12 @@
 import type { UsageReportRow } from '../domain/usage-report-row.js';
-import { hasBillableTokenBuckets, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
 import {
   calculateEstimatedCostUsd,
   canEstimateUsageCost,
   hasUsedBucketWithUndefinedRate,
 } from '../pricing/cost-engine.js';
 import type { ModelPricing, PricingSource } from '../pricing/types.js';
-import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { compareByCodePoint, hasBillableTokenBuckets } from '@ayagmar/agent-sessions/internal';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
 import { addUsd, roundUsd } from '../utils/usd-math.js';
 

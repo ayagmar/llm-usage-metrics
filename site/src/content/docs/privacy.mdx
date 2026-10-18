@@ -24,7 +24,7 @@ The ledger stores token counts and metadata, not session content. Your prompts, 
 
 ## Network requests
 
-The tool makes exactly two kinds of HTTP request. Neither sends any of your usage data.
+The tool makes two kinds of HTTP request on its own. Neither sends any of your usage data. A third, the OTLP push, happens only when you ask for it.
 
 ### Pricing refresh
 
@@ -39,10 +39,15 @@ The tool makes exactly two kinds of HTTP request. Neither sends any of your usag
 - **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. It is skipped for `statusline`, `machine export`, `config`, `completion`, `help`, `-h`/`--help`, `--help-all`, `-V`/`--version`, and when run through `npx`.
 - **Turn it off:** set `LLM_USAGE_SKIP_UPDATE_CHECK=1`, or `update.skipCheck = true` in the config file.
 
+### OTLP push
+
+- **What:** POST requests carrying the `events --format otlp-traces` or `otlp-metrics` export: token counts, costs, models, tool names and session ids, without message text or, unless `--otel-include-paths` is given, paths.
+- **When:** only when you pass `--otlp-endpoint <url>`, and only to that URL. See [Push to a receiver](/llm-usage-metrics/otel/#push-to-a-receiver).
+
 ## Other processes it starts
 
 - **`--share`** writes an HTML report to the current directory, then opens it in your browser. Nothing is uploaded, and the page loads nothing from the network. It holds project folder names, machine names and model names, but never full paths, session IDs or message text; `--redact` replaces project and machine names with `project-N` and `machine-N`. Pass `--no-open` to skip opening the browser.
-- **Multiple machines:** `machine add` and machine sync run your system `ssh` to reach machines you added yourself. The remote machine runs `llm-usage machine export` and sends back its usage events (the same fields as the ledger) plus its hostname. Nothing goes anywhere else. See [Multiple machines](/llm-usage-metrics/machines/).
+- **Multiple machines:** `machine add` and machine sync run your system `ssh` to reach machines you added yourself. The remote machine runs `llm-usage machine export` and sends back its usage events, tool calls and turns (the same fields as the ledger, so never message text or tool input and output) plus its hostname. Nothing goes anywhere else. See [Multiple machines](/llm-usage-metrics/machines/).
 - **`git log`** for `efficiency` reports, as described above.
 
 ## Run fully offline
@@ -50,5 +55,6 @@ The tool makes exactly two kinds of HTTP request. Neither sends any of your usag
 1. Pass `--pricing-offline` (or set `pricing.offline = true`).
 2. Set `LLM_USAGE_SKIP_UPDATE_CHECK=1` (or `update.skipCheck = true`).
 3. Do not configure remote machines.
+4. Do not pass `--otlp-endpoint`.
 
 With these set, the tool makes no network requests.

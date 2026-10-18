@@ -31,7 +31,11 @@ import {
   readClaudeRowUuids,
   resolveClaudeForkParentPath,
 } from './claude-fork-transcript.js';
-import { ClaudeSessionEvents, shouldParseClaudeSessionLineBytes } from './claude-session-events.js';
+import {
+  ClaudeSessionEvents,
+  leanClaudeSessionLineBytes,
+  shouldParseClaudeSessionLineBytes,
+} from './claude-session-events.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
 import { recordMalformedLine, resolveReadKinds } from '../session-event-helpers.js';
@@ -476,7 +480,10 @@ export class ClaudeSourceAdapter implements SourceAdapter {
         }
       }
 
-      yield* usageRows.flush();
+      for (const event of usageRows.flush()) {
+        yield event;
+      }
+
       return;
     }
 
@@ -495,6 +502,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     for await (const items of readClassifiedJsonlObjectBatches(filePath, {
       shouldParseLineBytes: shouldParseClaudeSessionLineBytes,
       isUsageLineBytes: shouldParseClaudeJsonlLineBytes,
+      leanLineBytes: plan.raw ? undefined : leanClaudeSessionLineBytes,
       onMalformedLine: (lineBytes) => {
         recordMalformedLine(diagnostics, kinds, shouldParseClaudeJsonlLineBytes(lineBytes));
       },
@@ -504,15 +512,21 @@ export class ClaudeSourceAdapter implements SourceAdapter {
           usageRows.add(record);
         }
 
-        yield* sessionEvents.add(record);
+        for (const event of sessionEvents.add(record)) {
+          yield event;
+        }
       }
     }
 
     // Unanswered tool calls come before the usage, which is sorted at the end of the file.
-    yield* sessionEvents.finish();
+    for (const event of sessionEvents.finish()) {
+      yield event;
+    }
 
     if (readsUsage) {
-      yield* usageRows.flush();
+      for (const event of usageRows.flush()) {
+        yield event;
+      }
     }
   }
 }

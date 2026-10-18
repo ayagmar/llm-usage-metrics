@@ -1,25 +1,29 @@
 import { parentPort, Worker } from 'node:worker_threads';
 import type { WorkerOptions } from 'node:worker_threads';
 
-import { withCostModes, type ParseFileDiagnostics, type SourceId } from '../domain/usage-event.js';
+import type { SourceId } from '@ayagmar/agent-sessions';
 import {
   canParseSourceOnWorker,
   createWorkerParseAdapter,
   getParseWorkerRoots,
 } from '@ayagmar/agent-sessions/registry';
-import {
-  collectFile,
-  type SourceAdapter,
-  type SourceParseFileDiagnostics,
-} from '@ayagmar/agent-sessions';
+import { collectFile, type SourceAdapter } from '@ayagmar/agent-sessions';
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import {
+  collectFileForEventStore,
+  withStoreCostModes,
+  type ParsedFileForEventStore,
+  type StoreParseFileDiagnostics,
+} from './parse/stored-session-events.js';
 
 export type ParseWorkerTask = {
   sourceId: SourceId;
   filePath: string;
   /** The resolved roots of the adapter that owns the file; the worker never resolves its own. */
   roots: readonly string[];
+  /** Read the file for the event store, with the tool calls and messages it keeps. */
+  forEventStore: boolean;
 };
 
 export type ParseWorkerRequestMessage = ParseWorkerTask & {
@@ -30,7 +34,7 @@ export type ParseWorkerResponseMessage =
   | {
       taskId: number;
       ok: true;
-      diagnostics: SourceParseFileDiagnostics;
+      diagnostics: StoreParseFileDiagnostics;
     }
   | {
       taskId: number;
@@ -49,8 +53,8 @@ export type ParseWorkerSpawner = (entryUrl: URL, options: WorkerOptions) => Pars
 export type ParseWorkerPool = {
   parse(
     task: ParseWorkerTask,
-    inlineParse: () => Promise<ParseFileDiagnostics>,
-  ): Promise<ParseFileDiagnostics>;
+    inlineParse: () => Promise<ParsedFileForEventStore>,
+  ): Promise<ParsedFileForEventStore>;
   status(): 'ready' | 'fallback';
   terminate(): Promise<void>;
 };
@@ -58,8 +62,8 @@ export type ParseWorkerPool = {
 type PendingParseTask = {
   id: number;
   task: ParseWorkerTask;
-  inlineParse: () => Promise<ParseFileDiagnostics>;
-  resolve: (diagnostics: ParseFileDiagnostics) => void;
+  inlineParse: () => Promise<ParsedFileForEventStore>;
+  resolve: (diagnostics: ParsedFileForEventStore) => void;
   reject: (error: unknown) => void;
 };
 
@@ -68,7 +72,7 @@ type WorkerSlot = {
   currentTask?: PendingParseTask;
 };
 
-function isSourceParseFileDiagnostics(value: unknown): value is SourceParseFileDiagnostics {
+function isStoreParseFileDiagnostics(value: unknown): value is StoreParseFileDiagnostics {
   const diagnostics = asRecord(value);
 
   if (!diagnostics || !Array.isArray(diagnostics.events)) {
@@ -80,7 +84,8 @@ function isSourceParseFileDiagnostics(value: unknown): value is SourceParseFileD
   }
 
   return (
-    diagnostics.skippedRowReasons === undefined || Array.isArray(diagnostics.skippedRowReasons)
+    (diagnostics.skippedRowReasons === undefined || Array.isArray(diagnostics.skippedRowReasons)) &&
+    (diagnostics.sessionEvents === undefined || Array.isArray(diagnostics.sessionEvents))
   );
 }
 
@@ -104,7 +109,7 @@ function readWorkerResponse(message: unknown): ParseWorkerResponseMessage | unde
     return undefined;
   }
 
-  if (response.ok === true && isSourceParseFileDiagnostics(response.diagnostics)) {
+  if (response.ok === true && isStoreParseFileDiagnostics(response.diagnostics)) {
     return {
       taskId: response.taskId,
       ok: true,
@@ -133,7 +138,8 @@ export function readWorkerRequest(message: unknown): ParseWorkerRequestMessage |
     typeof request.sourceId !== 'string' ||
     typeof request.filePath !== 'string' ||
     !Array.isArray(request.roots) ||
-    !request.roots.every((root): root is string => typeof root === 'string')
+    !request.roots.every((root): root is string => typeof root === 'string') ||
+    typeof request.forEventStore !== 'boolean'
   ) {
     return undefined;
   }
@@ -143,6 +149,7 @@ export function readWorkerRequest(message: unknown): ParseWorkerRequestMessage |
     sourceId: request.sourceId,
     filePath: request.filePath,
     roots: request.roots,
+    forEventStore: request.forEventStore,
   };
 }
 
@@ -282,6 +289,7 @@ export function createParseWorkerPool(options: {
           sourceId: task.task.sourceId,
           filePath: task.task.filePath,
           roots: task.task.roots,
+          forEventStore: task.task.forEventStore,
         });
       } catch {
         disablePool();
@@ -306,7 +314,7 @@ export function createParseWorkerPool(options: {
     slot.currentTask = undefined;
 
     if (response.ok) {
-      currentTask.resolve(withCostModes(response.diagnostics));
+      currentTask.resolve(withStoreCostModes(response.diagnostics));
     } else {
       resolveInline(currentTask);
     }
@@ -320,7 +328,7 @@ export function createParseWorkerPool(options: {
         return inlineParse();
       }
 
-      return new Promise<ParseFileDiagnostics>((resolve, reject) => {
+      return new Promise<ParsedFileForEventStore>((resolve, reject) => {
         queue.push({
           id: nextTaskId,
           task,
@@ -374,7 +382,9 @@ export async function handleParseWorkerRequest(
     return {
       taskId: request.taskId,
       ok: true,
-      diagnostics: await collectFile(adapter, request.filePath),
+      diagnostics: request.forEventStore
+        ? await collectFileForEventStore(adapter, request.filePath)
+        : await collectFile(adapter, request.filePath),
     };
   } catch (error) {
     return {

@@ -5,9 +5,10 @@ import {
 } from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
-import { normalizeSourceId } from '../domain/usage-event.js';
+import { normalizeSourceId } from '@ayagmar/agent-sessions';
 import { normalizeStoredEvent } from './event-store-codec.js';
 import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
+import { sessionEventCountSql } from './event-store-session-events.js';
 
 export type EventStoreHistoryDiscoveredFile = {
   source: string;
@@ -50,6 +51,7 @@ type DepartedFile = {
 export type ClassifiedDepartedFile = {
   source: string;
   filePath: string;
+  /** Stored rows: usage events, tool calls and messages. */
   eventCount: number;
   newestTimestamp?: string;
   suppressed: boolean;
@@ -314,7 +316,12 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
     .prepare(
       [
         'SELECT files.source, files.file_path, files.ingested_at,',
-        '  COUNT(events.id) AS event_count, MAX(events.timestamp) AS newest_timestamp',
+        '  COUNT(events.id) + COALESCE((',
+        `    SELECT ${sessionEventCountSql('event_file')}`,
+        '    FROM session_event_files AS event_file',
+        '    WHERE event_file.source = files.source AND event_file.file_path = files.file_path',
+        '  ), 0) AS event_count,',
+        '  MAX(events.timestamp) AS newest_timestamp',
         'FROM files',
         'JOIN history_selected_sources AS selected',
         '  ON files.source = selected.source',

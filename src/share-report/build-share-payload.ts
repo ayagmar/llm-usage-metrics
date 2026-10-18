@@ -1,5 +1,5 @@
-import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
-import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
+import { IDLE_GAP_CAP_MS, getEventSessionKey } from '@ayagmar/agent-sessions';
+import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { findEventBlockKey, toBlockKey, type UsageBlock } from '../blocks/aggregate-blocks.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { shiftDateKey } from '../utils/date-key.js';

@@ -1211,8 +1211,8 @@ Options:
 Usage: llm-usage tools [options]
 
 Show tool calls per tool with errors, error rate and sessions, most calls first,
-read from claude, codex and pi session files on disk (last 7 days unless --last,
---since, --until, or --all)
+from claude, codex and pi sessions (last 7 days unless --last, --since, --until,
+or --all)
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -1253,6 +1253,16 @@ Options:
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
                                  timezone)
+  --history                      Include usage from files that no longer exist
+                                 on disk (on by default; when passed, fails if
+                                 the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist
+                                 on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
+  --no-sync                      Use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --top <n>                      Show only the top N tools by calls (default 20;
                                  0 shows all)
@@ -1684,7 +1694,7 @@ Options:
 ```text
 Usage: llm-usage events [options]
 
-Export normalized usage events as JSONL or CSV
+Export usage events as JSONL, CSV, or OTLP traces or metrics
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -1752,7 +1762,13 @@ Options:
                                  all)
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
-  --format <name>                Export format: jsonl | csv (default: "jsonl")
+  --format <name>                Export format: jsonl | csv | otlp-traces |
+                                 otlp-metrics (default: "jsonl")
+  --otel-include-paths           With otlp-traces: add repository paths to spans
+                                 (left out by default)
+  --otlp-endpoint <url>          With an OTLP format: POST to <url>/v1/traces or
+                                 /v1/metrics instead of printing; headers from
+                                 OTEL_EXPORTER_OTLP_HEADERS
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -2220,13 +2236,13 @@ Search across root and command help. See Command help above to check which flags
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--dsh-dir` | - | `<path>` | Path to DeepSeek Harness sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--force` | - | - | Overwrite an existing config file \(config only\) |
-| `--format` | - | `<name>` | Export format: jsonl \| csv \(default: "jsonl"\) \(events only\) |
+| `--format` | - | `<name>` | Export format: jsonl \| csv \| otlp-traces \| otlp-metrics \(default: "jsonl"\) \(events only\) |
 | `--full` | - | - | Fetch every file again instead of only the changed ones \(sync only\) |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--granularity` | - | `<period>` | Add rows per period and project \(choices: "daily", "weekly", "monthly"\) \(projects only\) |
 | `--help-all` | - | - | summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune: Display help including the per-source path flags; pricing, config, machine, sync, schema, completion: Display help for command |
-| `--history` | - | - | Include usage from files that no longer exist on disk \(on by default; when passed, fails if the event store is unavailable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
+| `--history` | - | - | Include usage from files that no longer exist on disk \(on by default; when passed, fails if the event store is unavailable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
@@ -2236,16 +2252,18 @@ Search across root and command help. See Command help above to check which flags
 | `--known` | - | `<path>` | Leave out files already held at the same revision, as listed in this JSON file \(- for stdin\) \(machine only\) |
 | `--last` | - | `<n>` | hourly: Report the last N days hour by hour \(1-31\), counting today; daily, context: Report the last N days, counting the current day; weekly: Report the last N weeks, counting the current week; monthly, projects, value: Report the last N months, counting the current month; trends: Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided; tools, blocks: Report the last N days, counting today \(default 7\) |
 | `--list` | - | - | List available schema names \(schema only\) |
-| `--machine` | - | `<name>` | Count only these machines \(repeatable or comma-separated; local is this one; default: all\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
+| `--machine` | - | `<name>` | Count only these machines \(repeatable or comma-separated; local is this one; default: all\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, pricing only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
 | `--no-cost` | - | - | hourly, projects, blocks, value: Leave cost out of the table, e.g. for screenshots; daily, weekly, monthly: Leave cost out of the table and share report, e.g. for screenshots |
-| `--no-history` | - | - | Leave out usage from files that no longer exist on disk \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
+| `--no-history` | - | - | Leave out usage from files that no longer exist on disk \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline only\) |
 | `--no-open` | - | - | With --share, write the report without opening it \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
-| `--no-sync` | - | - | Use other machines' cached usage without refreshing it over ssh \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events only\) |
+| `--no-sync` | - | - | Use other machines' cached usage without refreshing it over ssh \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
+| `--otel-include-paths` | - | - | With otlp-traces: add repository paths to spans \(left out by default\) \(events only\) |
+| `--otlp-endpoint` | - | `<url>` | With an OTLP format: POST to &lt;url&gt;/v1/traces or /v1/metrics instead of printing; headers from OTEL\_EXPORTER\_OTLP\_HEADERS \(events only\) |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--plan` | - | `<id>` | Plan to compare with, over the sources it covers \(repeatable; default claude-max-20x, or chatgpt-pro-200 when the source filter leaves out claude\). Two plans that cover the same source each count its full cost \(choices: "claude-pro", "claude-max-5x", "claude-max-20x", "chatgpt-go", "chatgpt-plus", "chatgpt-pro-100", "chatgpt-pro-200", "chatgpt-pro-500"\) \(value only\) |
@@ -2336,6 +2354,9 @@ llm-usage wrapped --year 2026 --share
 llm-usage wrapped --year 2026 --json
 llm-usage events --format jsonl > events.jsonl
 llm-usage events --format csv --since 2026-01-01
+llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl
+llm-usage events --format otlp-metrics --since 2026-06-01 > metrics.jsonl
+llm-usage events --format otlp-traces --otlp-endpoint http://127.0.0.1:4318
 llm-usage pricing claude-sonnet-4-5
 llm-usage pricing gpt-5 gpt-5-codex --json
 llm-usage pricing my-model --pricing-overrides ./overrides.json

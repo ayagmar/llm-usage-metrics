@@ -93,7 +93,10 @@ describe('parse-worker-pool', () => {
     });
 
     await expect(
-      pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] }, inlineParse),
+      pool.parse(
+        { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
+        inlineParse,
+      ),
     ).resolves.toEqual(createDiagnostics(0));
     await expect(pool.terminate()).resolves.toBeUndefined();
     expect(inlineParse).toHaveBeenCalledTimes(1);
@@ -113,20 +116,32 @@ describe('parse-worker-pool', () => {
     });
 
     const firstResult = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       async () => createDiagnostics(99),
     );
     const secondResult = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'], forEventStore: false },
       async () => createDiagnostics(99),
     );
 
     expect(workers).toHaveLength(2);
     expect(workers[0].postedMessages).toEqual([
-      { taskId: 1, sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      {
+        taskId: 1,
+        sourceId: 'codex',
+        filePath: '/tmp/a.jsonl',
+        roots: ['/tmp'],
+        forEventStore: false,
+      },
     ]);
     expect(workers[1].postedMessages).toEqual([
-      { taskId: 2, sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'] },
+      {
+        taskId: 2,
+        sourceId: 'codex',
+        filePath: '/tmp/b.jsonl',
+        roots: ['/tmp'],
+        forEventStore: false,
+      },
     ]);
 
     workers[1].emitMessage({
@@ -166,7 +181,7 @@ describe('parse-worker-pool', () => {
     };
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       async () => createDiagnostics(99),
     );
     worker.emitMessage({
@@ -196,7 +211,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       inlineParse,
     );
 
@@ -221,7 +236,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       inlineParse,
     );
 
@@ -245,7 +260,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       async (): Promise<ParseFileDiagnostics> => {
         throw new Error('inline failed');
       },
@@ -270,7 +285,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       inlineParse,
     );
 
@@ -291,7 +306,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       inlineParse,
     );
 
@@ -312,7 +327,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       inlineParse,
     );
 
@@ -336,11 +351,11 @@ describe('parse-worker-pool', () => {
     });
 
     const firstResult = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       firstInlineParse,
     );
     const secondResult = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'], forEventStore: false },
       secondInlineParse,
     );
 
@@ -350,13 +365,19 @@ describe('parse-worker-pool', () => {
     await expect(secondResult).resolves.toEqual(createDiagnostics(2));
     await expect(
       pool.parse(
-        { sourceId: 'codex', filePath: '/tmp/c.jsonl', roots: ['/tmp'] },
+        { sourceId: 'codex', filePath: '/tmp/c.jsonl', roots: ['/tmp'], forEventStore: false },
         thirdInlineParse,
       ),
     ).resolves.toEqual(createDiagnostics(3));
 
     expect(worker.postedMessages).toEqual([
-      { taskId: 1, sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      {
+        taskId: 1,
+        sourceId: 'codex',
+        filePath: '/tmp/a.jsonl',
+        roots: ['/tmp'],
+        forEventStore: false,
+      },
     ]);
     expect(firstInlineParse).toHaveBeenCalledTimes(1);
     expect(secondInlineParse).toHaveBeenCalledTimes(1);
@@ -375,7 +396,10 @@ describe('parse-worker-pool', () => {
     });
 
     await expect(
-      pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] }, inlineParse),
+      pool.parse(
+        { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
+        inlineParse,
+      ),
     ).resolves.toEqual(createDiagnostics(5));
 
     expect(inlineParse).toHaveBeenCalledTimes(1);
@@ -403,11 +427,11 @@ describe('parse-worker-pool', () => {
     });
 
     const firstResult = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       firstInlineParse,
     );
     const secondResult = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'], forEventStore: false },
       secondInlineParse,
     );
 
@@ -442,14 +466,14 @@ describe('parse-worker-pool', () => {
     });
 
     const firstResult = pool.parse(
-      { sourceId: 'claude', filePath: '/tmp/a.jsonl', roots: ['/claude'] },
+      { sourceId: 'claude', filePath: '/tmp/a.jsonl', roots: ['/claude'], forEventStore: false },
       async () => createDiagnostics(99),
     );
     workers[0].emitMessage({ taskId: 1, ok: true, diagnostics: createDiagnostics(1) });
     await expect(firstResult).resolves.toEqual(createDiagnostics(1));
 
     const secondResult = pool.parse(
-      { sourceId: 'pi', filePath: '/tmp/b.jsonl', roots: ['/pi'] },
+      { sourceId: 'pi', filePath: '/tmp/b.jsonl', roots: ['/pi'], forEventStore: false },
       async () => createDiagnostics(99),
     );
     workers[0].emitMessage({ taskId: 2, ok: true, diagnostics: createDiagnostics(2) });
@@ -472,8 +496,14 @@ describe('parse-worker-pool', () => {
     });
 
     const results = ['a', 'b', 'c'].map((name) =>
-      pool.parse({ sourceId: 'codex', filePath: `/tmp/${name}.jsonl`, roots: ['/tmp'] }, async () =>
-        createDiagnostics(99),
+      pool.parse(
+        {
+          sourceId: 'codex',
+          filePath: `/tmp/${name}.jsonl`,
+          roots: ['/tmp'],
+          forEventStore: false,
+        },
+        async () => createDiagnostics(99),
       ),
     );
 
@@ -497,7 +527,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       inlineParse,
     );
     await pool.terminate();
@@ -516,7 +546,7 @@ describe('parse-worker-pool', () => {
     });
 
     const result = pool.parse(
-      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'], forEventStore: false },
       async () => createDiagnostics(99),
     );
 
@@ -558,7 +588,7 @@ describe('parse worker source registry', () => {
 
 describe('parse worker requests', () => {
   it('rejects a request without string roots', () => {
-    const request = { taskId: 1, sourceId: 'pi', filePath: '/tmp/a.jsonl' };
+    const request = { taskId: 1, sourceId: 'pi', filePath: '/tmp/a.jsonl', forEventStore: true };
 
     expect(readWorkerRequest({ ...request, roots: ['/tmp'] })).toEqual({
       ...request,
@@ -566,12 +596,15 @@ describe('parse worker requests', () => {
     });
     expect(readWorkerRequest(request)).toBeUndefined();
     expect(readWorkerRequest({ ...request, roots: [1] })).toBeUndefined();
+    expect(
+      readWorkerRequest({ ...request, roots: ['/tmp'], forEventStore: undefined }),
+    ).toBeUndefined();
   });
 
   it('answers a source that does not parse on workers with an error', async () => {
     await expect(
       handleParseWorkerRequest(
-        { taskId: 3, sourceId: 'gemini', filePath: '/tmp/a.json', roots: [] },
+        { taskId: 3, sourceId: 'gemini', filePath: '/tmp/a.json', roots: [], forEventStore: false },
         new Map(),
       ),
     ).resolves.toEqual({
@@ -583,7 +616,13 @@ describe('parse worker requests', () => {
 
   it('reports a parse failure instead of throwing', async () => {
     const response = await handleParseWorkerRequest(
-      { taskId: 4, sourceId: 'pi', filePath: '/nonexistent/a.jsonl', roots: ['/nonexistent'] },
+      {
+        taskId: 4,
+        sourceId: 'pi',
+        filePath: '/nonexistent/a.jsonl',
+        roots: ['/nonexistent'],
+        forEventStore: false,
+      },
       new Map(),
     );
 

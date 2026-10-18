@@ -40,7 +40,11 @@ import {
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEventsWithLookback } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
-import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
+import {
+  loadMachineUsage,
+  selectMachines,
+  type MachineUsageSummary,
+} from '../machines/load-machine-usage.js';
 import {
   formatMachinesNote,
   formatRefreshFailure,
@@ -186,6 +190,8 @@ export type UsageEventDataset = {
     /** Events those files hold that the run counted once, as copies of another session's. */
     copiedEventCount: number;
   };
+  /** The other machines whose cached usage this run read; unset when it read none. */
+  machines?: MachineUsageSummary[];
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
   readEnvVarOverrides: () => EnvVarOverride[];
 };
@@ -403,6 +409,7 @@ export async function buildUsageEventDataset(
 
     const machineWarnings: string[] = [];
     const machineNotes: string[] = [];
+    let machines: MachineUsageSummary[] | undefined;
 
     if (!machineSelection.includeLocal) {
       parseResultsForFiltering = parseResultsForFiltering.map((result) => ({
@@ -449,6 +456,7 @@ export async function buildUsageEventDataset(
           }),
       );
       parseResultsForFiltering = appendMachineEvents(parseResultsForFiltering, machineUsage.events);
+      machines = machineUsage.machines;
       machineWarnings.push(...machineUsage.warnings);
       machineNotes.push(...machineUsage.notes);
 
@@ -545,6 +553,7 @@ export async function buildUsageEventDataset(
       lookbackEvents,
       parsedFiles,
       ledger,
+      machines,
       pricingRuntimeConfig,
       readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,
     };

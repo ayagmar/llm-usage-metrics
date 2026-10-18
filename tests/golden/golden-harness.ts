@@ -25,7 +25,10 @@ import { M10_E2_GOLDEN_NAMES } from './m10-e2-names.js';
 import { M12_CONFIG_SHOW_GOLDEN_NAMES } from './m12-config-show-names.js';
 import { M12_TIMELINE_GOLDEN_NAMES } from './m12-timeline-names.js';
 import { M12_TOOLS_GOLDEN_NAMES } from './m12-tools-names.js';
+import { M13_OTLP_METRICS_GOLDEN_NAMES } from './m13-otlp-metrics-names.js';
+import { M13_OTLP_TRACES_GOLDEN_NAMES } from './m13-otlp-traces-names.js';
 import { M12_CONTEXT_GOLDEN_NAMES } from './m12-context-names.js';
+import { M13_OC_GOLDEN_NAMES } from './m13-oc-names.js';
 
 /** The day after the latest fixture event, so summary's windows hold June data. */
 export const FIXED_NOW = new Date('2026-06-21T12:00:00.000Z');
@@ -517,5 +520,9 @@ export async function listExpectedGoldenNames(): Promise<string[]> {
     ...M12_TOOLS_GOLDEN_NAMES,
     ...M12_CONTEXT_GOLDEN_NAMES,
     ...M12_TIMELINE_GOLDEN_NAMES,
+    // M13 cards' goldens.
+    ...M13_OC_GOLDEN_NAMES,
+    ...M13_OTLP_TRACES_GOLDEN_NAMES,
+    ...M13_OTLP_METRICS_GOLDEN_NAMES,
   ].sort();
 }

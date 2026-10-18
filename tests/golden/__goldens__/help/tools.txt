@@ -1,7 +1,7 @@
 Usage: llm-usage tools [options]
 
-Show tool calls per tool with errors, error rate and sessions, most calls first, read from claude,
-codex and pi session files on disk (last 7 days unless --last, --since, --until, or --all)
+Show tool calls per tool with errors, error rate and sessions, most calls first, from claude, codex
+and pi sessions (last 7 days unless --last, --since, --until, or --all)
 
 Options:
   --help-all                     Display help including the per-source path flags
@@ -17,6 +17,12 @@ Options:
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system timezone)
+  --history                      Include usage from files that no longer exist on disk (on by
+                                 default; when passed, fails if the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist on disk
+  --machine <name>               Count only these machines (repeatable or comma-separated; local is
+                                 this one; default: all)
+  --no-sync                      Use other machines' cached usage without refreshing it over ssh
   --markdown                     Render output as markdown table
   --top <n>                      Show only the top N tools by calls (default 20; 0 shows all)
   --by-source                    Split each tool row by source

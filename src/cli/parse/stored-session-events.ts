@@ -1,0 +1,112 @@
+import {
+  collectFile,
+  createReadDiagnostics,
+  readEvents,
+  toParseDiagnostics,
+  type SourceAdapter,
+  type SourceParseFileDiagnostics,
+  type UsageEvent,
+  type UsageRecord,
+} from '@ayagmar/agent-sessions';
+import { getFileFingerprint, isReadReasonCode } from '@ayagmar/agent-sessions/internal';
+
+import { withCostModes, type ParseFileDiagnostics } from '../../domain/usage-event.js';
+import type {
+  EventStoreFileFingerprint,
+  StoredSessionEvent,
+  StoredSessionEventKind,
+} from '../../persistence/event-store.js';
+
+// In the order the store fingerprint lists them.
+const STORED_SESSION_EVENT_KINDS: readonly StoredSessionEventKind[] = ['message', 'tool_call'];
+
+/** A file read for the event store: its usage as `collectFile` reads it, and what else it keeps. */
+export type StoreParseFileDiagnostics = SourceParseFileDiagnostics & {
+  /** Tool calls and messages in read order; unset for a usage-only source. */
+  sessionEvents?: StoredSessionEvent[];
+};
+
+/** `StoreParseFileDiagnostics` as the CLI holds it: every usage event carries a cost mode. */
+export type ParsedFileForEventStore = ParseFileDiagnostics & {
+  sessionEvents?: StoredSessionEvent[];
+};
+
+export function withStoreCostModes(
+  diagnostics: StoreParseFileDiagnostics,
+): ParsedFileForEventStore {
+  return { ...withCostModes(diagnostics), sessionEvents: diagnostics.sessionEvents };
+}
+
+/** The kinds besides usage the event store keeps for the adapter's files. */
+export function getStoredSessionEventKinds(
+  adapter: Pick<SourceAdapter, 'capabilities'>,
+): StoredSessionEventKind[] {
+  const declared = adapter.capabilities?.kinds ?? [];
+  return STORED_SESSION_EVENT_KINDS.filter((kind) => declared.includes(kind));
+}
+
+/**
+ * The file's fingerprint with the kinds the store keeps for its source, so a file stored
+ * while the store kept fewer kinds no longer matches and is read again.
+ */
+export async function getEventStoreFileFingerprint(
+  adapter: SourceAdapter,
+  filePath: string,
+): Promise<EventStoreFileFingerprint | undefined> {
+  const fingerprint = await getFileFingerprint(adapter, filePath);
+  const storedKinds = getStoredSessionEventKinds(adapter);
+
+  return fingerprint && storedKinds.length > 0 ? { ...fingerprint, storedKinds } : fingerprint;
+}
+
+function toUsageEvent(record: UsageRecord): UsageEvent {
+  // The keys readEvents adds to the event `read` yields; the rest keep its order.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { kind, messageId, requestId, rawProvider, raw, ...event } = record;
+  return event;
+}
+
+/**
+ * Reads a file once for the event store. A source that declares tool calls or messages is
+ * read with `readEvents` for usage and those kinds: its usage events and skipped rows are
+ * what `collectFile` returns (the readEvents contract), and the other kinds' skipped rows
+ * are left out. Any other source is read with `collectFile`.
+ */
+export async function collectFileForEventStore(
+  adapter: SourceAdapter,
+  filePath: string,
+): Promise<StoreParseFileDiagnostics> {
+  const storedKinds = getStoredSessionEventKinds(adapter);
+
+  if (storedKinds.length === 0) {
+    return collectFile(adapter, filePath);
+  }
+
+  const diagnostics = createReadDiagnostics();
+  const events: UsageEvent[] = [];
+  const sessionEvents: StoredSessionEvent[] = [];
+
+  for await (const event of readEvents(adapter, filePath, {
+    kinds: ['usage', ...storedKinds],
+    diagnostics,
+  })) {
+    if (event.kind === 'usage') {
+      events.push(toUsageEvent(event));
+    } else if (event.kind === 'tool_call' || event.kind === 'message') {
+      sessionEvents.push(event);
+    }
+  }
+
+  const readReasons = new Map<string, number>();
+  let skippedRows = diagnostics.skippedRows;
+
+  for (const [reason, count] of diagnostics.skippedRowReasons) {
+    if (isReadReasonCode(reason)) {
+      readReasons.set(reason, count);
+    } else {
+      skippedRows -= count;
+    }
+  }
+
+  return { ...toParseDiagnostics(events, skippedRows, readReasons), sessionEvents };
+}

@@ -189,9 +189,12 @@ function createEventBase(
 
 /** Copies the defined values of `fields` onto `target`, so undefined keys stay absent. */
 function assignDefined<T extends object>(target: T, fields: Record<string, unknown>): T {
-  for (const [key, value] of Object.entries(fields)) {
+  // `fields` is always an object literal, so `for...in` sees only its own keys, in order.
+  for (const key in fields) {
+    const value = fields[key];
+
     if (value !== undefined) {
-      Object.assign(target, { [key]: value });
+      Reflect.set(target, key, value);
     }
   }
 

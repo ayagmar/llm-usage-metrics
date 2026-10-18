@@ -5,7 +5,7 @@ description: Discovery paths, overrides, and usage parsing for OpenCode.
 
 ## Data format
 
-- SQLite database
+- SQLite database. OpenCode V1 stores messages in the `message` table. OpenCode V2 stores them in `session_message`, one row per model step, with the session's directory in `session_v2`
 
 ## Path selection
 
@@ -24,8 +24,10 @@ llm-usage daily --source opencode --opencode-db /path/to/opencode.db
 ## Parsing notes
 
 - database is opened in read-only mode
-- assistant message rows are parsed into normalized events
-- `reasoningTokens` is a subset of `outputTokens`. OpenCode releases since April 2026 store `tokens.output` without reasoning while the SDK `tokens.total` includes it; the adapter adds `tokens.reasoning` back when the total shows reasoning outside the stored buckets, and leaves older rows (output already inclusive, or no total at all) unchanged. Gemini rows written before February 2026 stored thoughts outside `output`; they are corrected only when the stored output is smaller than the reasoning count. A positive `tokens.total` is kept as the event total; otherwise the buckets are summed.
-- a positive `cost` on a row is kept as its explicit cost; the provider comes from `providerID`, and `repoRoot` from the row's `path.root`, `path.cwd` or `cwd`
+- assistant message rows are parsed into normalized events; an OpenCode V2 database gives one event per step, each with its own tokens and cost
+- OpenCode V2 migrates a V1 database in place: it copies each message into `session_message` under the same id and keeps the old tables. Such a message is read once, from `message`, so its history parses as it did before the upgrade
+- a database with neither layout fails with a schema drift error
+- `reasoningTokens` is a subset of `outputTokens`. OpenCode releases since April 2026 store `tokens.output` without reasoning while the SDK `tokens.total` includes it; the adapter adds `tokens.reasoning` back when the total shows reasoning outside the stored buckets, and leaves older rows (output already inclusive, or no total at all) unchanged. Gemini rows written before February 2026 stored thoughts outside `output`; they are corrected only when the stored output is smaller than the reasoning count. OpenCode V2 rows always store `tokens.output` without reasoning and have no total, so reasoning is always added back. A positive `tokens.total` is kept as the event total; otherwise the buckets are summed.
+- a positive `cost` on a row is kept as its explicit cost; the provider comes from `providerID` (`model.providerID` in V2), and `repoRoot` from the row's `path.root`, `path.cwd` or `cwd`, or for V2 from the session's `directory`
 - malformed rows are skipped and surfaced in diagnostics
 - busy/locked DB errors use bounded retry before failing with actionable guidance

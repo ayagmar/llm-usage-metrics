@@ -1,8 +1,8 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { findSpendSpikes, resolveSpikeBaselineStart } from '../aggregate/spend-spikes.js';
-import { computeActiveMs } from '@ayagmar/agent-sessions';
-import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
+import { computeActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
+import type { UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
 import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../pricing/cost-engine.js';

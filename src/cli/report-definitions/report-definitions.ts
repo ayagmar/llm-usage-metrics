@@ -691,7 +691,7 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
     commandName: 'events',
     docsLabel: 'events',
     kind: 'specialized',
-    description: 'Export normalized usage events as JSONL or CSV',
+    description: 'Export usage events as JSONL, CSV, or OTLP traces or metrics',
     sharedOptionProfile: 'events',
     helpExamples: [
       {
@@ -703,10 +703,31 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
         command: 'llm-usage events --format csv --since 2026-01-01',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage events --format otlp-metrics --since 2026-06-01 > metrics.jsonl',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage events --format otlp-traces --otlp-endpoint http://127.0.0.1:4318',
+        includeInCliReference: true,
+      },
     ],
   },
   register(command) {
-    command.option('--format <name>', 'Export format: jsonl | csv', 'jsonl');
+    command
+      .option('--format <name>', 'Export format: jsonl | csv | otlp-traces | otlp-metrics', 'jsonl')
+      .option(
+        '--otel-include-paths',
+        'With otlp-traces: add repository paths to spans (left out by default)',
+      )
+      .option(
+        '--otlp-endpoint <url>',
+        'With an OTLP format: POST to <url>/v1/traces or /v1/metrics instead of printing; headers from OTEL_EXPORTER_OTLP_HEADERS',
+      );
     addRepoFilterOption(command).action((options: EventsCommandOptions) =>
       runEventsReport(options),
     );
@@ -785,7 +806,7 @@ const toolsReportDefinition: ReportRuntimeDefinition = {
     commandName: 'tools',
     docsLabel: 'tools',
     kind: 'specialized',
-    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, read from claude, codex and pi session files on disk (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
+    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, from claude, codex and pi sessions (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
     sharedOptionProfile: 'tools',
     helpExamples: [
       {

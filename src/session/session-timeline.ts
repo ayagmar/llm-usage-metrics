@@ -1,11 +1,7 @@
-import {
-  normalizeOptionalModel,
-  type MessageEvent,
-  type ToolCallEvent,
-  type UsageEvent,
-} from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import type { MessageEvent, ToolCallEvent } from '@ayagmar/agent-sessions';
 import type { TokenBuckets } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { compareByCodePoint, normalizeOptionalModel } from '@ayagmar/agent-sessions/internal';
 import { addUsd } from '../utils/usd-math.js';
 
 /** One priced request, with the session's cost up to and including it. */

@@ -1,5 +1,7 @@
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 
+import type { SessionEventStatements } from './event-store-session-events.js';
+
 export type EventStoreStatement = {
   all: (...parameters: unknown[]) => Record<string, unknown>[];
   get: (...parameters: unknown[]) => Record<string, unknown> | undefined;
@@ -35,6 +37,7 @@ export type EventStore = {
     insertEvent?: EventStoreStatement;
     upsertFile?: EventStoreStatement;
     markOverrideOnlyFile?: EventStoreStatement;
+    sessionEvents?: SessionEventStatements;
   };
 };
 

@@ -282,6 +282,45 @@ describe('opencode row parser', () => {
     ]);
   });
 
+  it('parses V2 step rows: nested model, session directory, output stored without reasoning', () => {
+    const { events } = parseOpenCodeMessageRows(
+      [
+        {
+          row_id: 'step-1',
+          row_session_id: 'session-v2',
+          row_time: 1_781_000_000_000,
+          row_type: 'assistant',
+          row_directory: '/workspace/repo',
+          data_json: JSON.stringify({
+            agent: 'build',
+            model: { id: 'claude-sonnet-4-5', providerID: 'anthropic', variant: 'default' },
+            cost: 0.01,
+            // Output at or above reasoning would read as inclusive on a V1 row without a total.
+            tokens: { input: 100, output: 50, reasoning: 20, cache: { read: 300, write: 5 } },
+          }),
+        },
+      ],
+      'opencode',
+    );
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        sessionId: 'session-v2',
+        timestamp: new Date(1_781_000_000_000).toISOString(),
+        repoRoot: '/workspace/repo',
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-5',
+        inputTokens: 100,
+        outputTokens: 70,
+        reasoningTokens: 20,
+        cacheReadTokens: 300,
+        cacheWriteTokens: 5,
+        totalTokens: 475,
+        costUsd: 0.01,
+      }),
+    ]);
+  });
+
   it('adds reasoning back into output only for rows that store it outside output', () => {
     const row = (id: string, tokens: Record<string, unknown>) => ({
       row_id: id,

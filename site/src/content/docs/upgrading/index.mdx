@@ -40,9 +40,15 @@ New commands: `hourly`, `projects`, `blocks`, `value`, `pricing <model...>`, [`t
 
 A cold run (empty event store, as on a first run or after a parser update) is faster than in 0.11.0 and peaks higher in memory, since Claude and pi files now parse on the worker pool. Set `parseWorkers` (or `LLM_USAGE_PARSE_WORKERS`) lower on a machine with little memory. See [Configuration](/llm-usage-metrics/configuration/).
 
+### Event store
+
+The store moves to schema v5 on the first run and keeps each claude, codex and pi file's tool calls and messages, so `tools` and `session --timeline` read them from it. That run reads those sources' files on disk again once, which takes about as long as a cold run for them. A file that departed before the upgrade keeps its usage and has no tool calls. The event counts of `prune` (`eventCount`, `candidateEventCount`, `deletedEventCount`), `doctor` and `config show` now include tool calls and messages. See [Caching and history](/llm-usage-metrics/caching/).
+
 ### Multiple machines
 
 `machine export` records each source's parser version in the bundle header. The bundle version stays 1, and older readers ignore the field. When two machines parse a shared session's source with different parser versions, sync matches their events by timestamp instead of by content hash, and a warning names the sources and both versions until both machines run the same release. A machine last synced by a version that recorded no parser versions keeps the exact-match merge, and a note asks you to sync it after updating there. See [Multiple machines](/llm-usage-metrics/machines/#how-it-works).
+
+Bundles also carry each file's tool calls and turns, without text, still as version 1: 0.11.0 reads them and ignores the new field, and this version reads 0.11.0 bundles as usage only. `tools` now includes other machines like the other reports, which can sync a machine whose last sync is due; pass `--machine local` for this machine alone or `--no-sync` to skip the sync. A machine's tool calls appear after it is updated and synced again; its files with tool calls are then sent once more. The first sync of each machine after this machine upgrades asks for all its files, so tool calls that a 0.11.0 sync dropped arrive too.
 
 ### Library
 
