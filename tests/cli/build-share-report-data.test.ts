@@ -167,6 +167,19 @@ describe('buildShareReportData', () => {
     expect(spawnSsh).not.toHaveBeenCalled();
   });
 
+  it('picks the --model rule from the window, not from the blocks lookback week', async () => {
+    // The exact name appears only in the lookback; inside the window, only a dated variant does.
+    const data = await buildShareReportData(
+      request({ options: { timezone: 'UTC', pricingOffline: true, model: ['claude-opus-4-1'] } }),
+      deps([
+        usage({ timestamp: '2026-05-28T10:00:00.000Z', model: 'claude-opus-4-1' }),
+        usage({ timestamp: '2026-06-15T10:00:00.000Z', model: 'claude-opus-4-1-20250805' }),
+      ]),
+    );
+
+    expect(data.dictionaries.models).toEqual(['claude-opus-4-1-20250805']);
+  });
+
   it('echoes the filters as values, --repo as a flag only', async () => {
     const data = await buildShareReportData(
       request({

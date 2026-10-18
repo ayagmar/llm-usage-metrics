@@ -40,11 +40,10 @@ import type {
   ShareReportMeta,
 } from '../share-report/types.js';
 import { logger } from '../utils/logger.js';
-import { shiftDateKey } from '../utils/date-key.js';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
-import { BLOCKS_LOOKBACK_DAYS, readWholeStreams } from './build-blocks-data.js';
+import { readBlocksDataset } from './build-blocks-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
   getPerRequestSourceIds,
@@ -52,7 +51,6 @@ import {
   resolvePricingSource,
   shouldLoadPricingSource,
 } from './build-usage-data-pricing.js';
-import { buildUsageEventDataset } from './build-usage-event-dataset.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
@@ -203,29 +201,21 @@ export async function buildShareReportData(
   );
   const now = deps.now?.() ?? new Date();
   const { since, until } = request.window;
-  const lookbackSince = since === null ? undefined : shiftDateKey(since, -BLOCKS_LOOKBACK_DAYS);
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,
-    since: lookbackSince,
+    since: since ?? undefined,
     until: until ?? undefined,
     sync: false,
   };
-  const datasetConfigResolution = { ...userConfigResolution, options: datasetOptions };
-  const datasetDeps: BuildUsageDataDeps = {
-    ...deps,
-    userConfigResolution: datasetConfigResolution,
-  };
   const runtimeProfile = deps.runtimeProfile;
 
-  const dataset = await measureRuntimeProfileStage(runtimeProfile, 'share.dataset', () =>
-    buildUsageEventDataset(datasetOptions, datasetDeps),
+  const { dataset, lookbackSince, events, wholeStreams } = await readBlocksDataset(
+    datasetOptions,
+    userConfigResolution,
+    deps,
+    'share',
   );
-  const wholeStreams = await measureRuntimeProfileStage(runtimeProfile, 'share.whole_streams', () =>
-    readWholeStreams(dataset, datasetConfigResolution, deps),
-  );
-  const allEvents = request.scopeEvents
-    ? await request.scopeEvents(dataset.filteredEvents, timezone)
-    : dataset.filteredEvents;
+  const allEvents = request.scopeEvents ? await request.scopeEvents(events, timezone) : events;
   const inWindow = allEvents.map(
     (event) => since === null || getPeriodKey(event.timestamp, 'daily', timezone) >= since,
   );
@@ -255,8 +245,7 @@ export async function buildShareReportData(
       rangeStartMs:
         lookbackSince === undefined ? undefined : getLocalDayStartMs(lookbackSince, timezone),
       sourceOrder,
-      contextEvents:
-        wholeStreams.events ?? (request.scopeEvents ? dataset.filteredEvents : undefined),
+      contextEvents: wholeStreams.events ?? (request.scopeEvents ? events : undefined),
     }),
   );
 

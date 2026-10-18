@@ -91,7 +91,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 `runBlocksReport(options)`
 
-1. `buildUsageEventDataset(...)` and pricing, from a lookback before the window so a block that started earlier keeps its start
+1. `readBlocksDataset(...)` (`src/cli/build-blocks-data.ts`, shared with `--share`): `buildUsageEventDataset(...)` with a `lookbackSince` a week before the window, so a block that started earlier keeps its start while filters resolve over the window, then pricing
 2. `readWholeStreams(...)` when `--repo`, `--model`, `--provider` or `--machine` narrowed the events: each source's whole stream over the same dates, so blocks keep the account's 5-hour windows; `--machine` reads every machine's cached usage again for this
 3. `aggregateBlocks(...)` (`src/blocks`) places the windows on the whole stream and counts the narrowed events in them
 4. `renderBlocksReport(...)`, with the active block's burn rate
