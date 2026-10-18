@@ -174,7 +174,13 @@ export function sumDailyTotals(
       continue;
     }
 
-    const totals = dailyTotals.get(date) ?? { totalTokens: 0 };
+    let totals = dailyTotals.get(date);
+
+    if (!totals) {
+      totals = { totalTokens: 0 };
+      dailyTotals.set(date, totals);
+    }
+
     totals.totalTokens += event.totalTokens;
 
     if (event.costUsd === undefined) {
@@ -182,8 +188,6 @@ export function sumDailyTotals(
     } else {
       totals.costUsd = addUsd(totals.costUsd ?? 0, event.costUsd);
     }
-
-    dailyTotals.set(date, totals);
   }
 
   return dailyTotals;

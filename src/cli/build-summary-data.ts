@@ -84,6 +84,13 @@ function resolvePreviousWindow(window: SummaryWindow): UsageDateWindow {
   return { since, until };
 }
 
+function findEarliestSince(windows: readonly UsageDateWindow[], today: string): string {
+  return windows.reduce(
+    (earliest, window) => (window.since < earliest ? window.since : earliest),
+    today,
+  );
+}
+
 // Two days of usage are too few to scale to a month.
 const MIN_PROJECTION_DAYS = 3;
 
@@ -263,13 +270,23 @@ export async function buildSummaryData(
   // Other machines' events carry their name; this machine's carry none.
   const countsOtherMachines = pricedEvents.some((event) => event.machine !== undefined);
   const eventsByWindow = new Map<SummaryPeriodKey, UsageEvent[]>();
-  const periods = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.aggregate', () =>
-    windows.map((window): SummaryPeriod => {
-      const windowEvents = pricedEvents.filter(createWindowEventFilter(window, timezone));
+  const previousWindows = windows.map(resolvePreviousWindow);
+  const periods = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.aggregate', () => {
+    // Every window and previous window ends by today, so one pass over the span from the
+    // earliest of them leaves the window filters fewer events to scan, in the same order.
+    const spanEvents = pricedEvents.filter(
+      createWindowEventFilter(
+        { since: findEarliestSince([...windows, ...previousWindows], today), until: today },
+        timezone,
+      ),
+    );
+
+    return windows.map((window, index): SummaryPeriod => {
+      const windowEvents = spanEvents.filter(createWindowEventFilter(window, timezone));
       eventsByWindow.set(window.key, windowEvents);
       const summary = summarizeUsageWindow(windowEvents, timezone, sourceOrder);
-      const previousWindow = resolvePreviousWindow(window);
-      const previousEvents = pricedEvents.filter(createWindowEventFilter(previousWindow, timezone));
+      const previousWindow = previousWindows[index];
+      const previousEvents = spanEvents.filter(createWindowEventFilter(previousWindow, timezone));
       const period: SummaryPeriod = {
         key: window.key,
         label: window.label,
@@ -290,8 +307,8 @@ export async function buildSummaryData(
       }
 
       return period;
-    }),
-  );
+    });
+  });
 
   const { activity, spike } = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
@@ -321,14 +338,8 @@ export async function buildSummaryData(
   // the month's previous window lies apart from it.
   const bestDay = activity.bestDay?.costUsd === undefined ? undefined : activity.bestDay.date;
   const shownWindowFilters = [
-    {
-      since: windows.reduce(
-        (earliest, window) => (window.since < earliest ? window.since : earliest),
-        today,
-      ),
-      until: today,
-    },
-    ...windows.map(resolvePreviousWindow),
+    { since: findEarliestSince(windows, today), until: today },
+    ...previousWindows,
   ].map((window) => createWindowEventFilter(window, timezone));
   const isInSomeWindow = (event: UsageEvent) =>
     shownWindowFilters.some((isInWindow) => isInWindow(event));

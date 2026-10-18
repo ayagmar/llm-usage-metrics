@@ -45,7 +45,8 @@ type LocalDateWindowCache = {
   byDayIndex: Map<number, LocalDateWindow>;
 };
 
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 const SECOND_MS = 1000;
 const dateTimeFormatterCache = new Map<string, Intl.DateTimeFormat>();
@@ -136,7 +137,7 @@ function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLoc
  * the same one: every field in range, and a year of at least 100 (`Date.UTC` maps years
  * 0–99 to 1900–1999). Callers handle undefined with their general path.
  */
-function parseCanonicalTimestampMs(value: string): number | undefined {
+export function parseCanonicalTimestampMs(value: string): number | undefined {
   if (
     value.length !== 24 ||
     value.charCodeAt(4) !== 45 ||
@@ -175,7 +176,28 @@ function parseCanonicalTimestampMs(value: string): number | undefined {
     return undefined;
   }
 
-  return Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  return (
+    getUtcDayStartMs(year, month, day) +
+    hour * HOUR_MS +
+    minute * MINUTE_MS +
+    second * SECOND_MS +
+    millisecond
+  );
+}
+
+// Timestamps mostly come in time order, so consecutive ones share a day: its UTC midnight
+// is kept instead of calling `Date.UTC` for every timestamp.
+const lastUtcDay = { year: 0, month: 0, day: 0, startMs: 0 };
+
+function getUtcDayStartMs(year: number, month: number, day: number): number {
+  if (day !== lastUtcDay.day || month !== lastUtcDay.month || year !== lastUtcDay.year) {
+    lastUtcDay.year = year;
+    lastUtcDay.month = month;
+    lastUtcDay.day = day;
+    lastUtcDay.startMs = Date.UTC(year, month - 1, day);
+  }
+
+  return lastUtcDay.startMs;
 }
 
 function parseLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {

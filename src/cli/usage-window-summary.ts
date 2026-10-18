@@ -65,28 +65,6 @@ function addUsageTotals(target: UsageWindowTotals, source: UsageTotals): void {
   }
 }
 
-function activeDaysBySource(
-  events: UsageEvent[],
-  timezone: string,
-): {
-  totalDays: Set<string>;
-  sourceDays: Map<string, Set<string>>;
-} {
-  const totalDays = new Set<string>();
-  const sourceDays = new Map<string, Set<string>>();
-
-  for (const event of events) {
-    const day = getPeriodKey(event.timestamp, 'daily', timezone);
-    totalDays.add(day);
-
-    const days = sourceDays.get(event.source) ?? new Set<string>();
-    days.add(day);
-    sourceDays.set(event.source, days);
-  }
-
-  return { totalDays, sourceDays };
-}
-
 function eventCountsBySource(events: UsageEvent[]): Map<string, number> {
   const counts = new Map<string, number>();
 
@@ -120,27 +98,31 @@ export function summarizeUsageWindow(
     includeModelBreakdown: false,
   });
   const sourceCounts = eventCountsBySource(events);
-  const activeDays = activeDaysBySource(events, timezone);
   const totals = createEmptyWindowTotals();
   addUsageTotals(totals, findGrandTotal(rows));
   totals.events = events.length;
-  totals.activeDays = activeDays.totalDays.size;
 
   const sources = new Map<string, UsageWindowTotals>();
+  const activeDays = new Set<string>();
 
+  // A daily source row exists for each day a source has events, so the rows give the
+  // active days without bucketing the events again.
   for (const row of rows) {
     if (row.rowType !== 'period_source') {
       continue;
     }
 
+    activeDays.add(row.periodKey);
     const sourceTotals = sources.get(row.source) ?? createEmptyWindowTotals();
     addUsageTotals(sourceTotals, row);
+    sourceTotals.activeDays += 1;
     sources.set(row.source, sourceTotals);
   }
 
+  totals.activeDays = activeDays.size;
+
   for (const [source, sourceTotals] of sources) {
     sourceTotals.events = sourceCounts.get(source) ?? 0;
-    sourceTotals.activeDays = activeDays.sourceDays.get(source)?.size ?? 0;
   }
 
   return { totals, sources };
