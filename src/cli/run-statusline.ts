@@ -320,18 +320,15 @@ function isStaleLock(lock: LockState, now: number): boolean {
 }
 
 /**
- * Removes the lock at `lockPath` if it is still `expected`. The lock is first renamed to a
- * name only this call uses, so of several ticks racing to remove one lock only one gets
- * it. A tick that got a newer lock than the one it read puts it back, so no tick removes a
- * lock it does not own. A tick's own lock is known by its unique token; a lock read
- * earlier also by its mtime, since an empty lock left by a crash reads the same as one
- * just created and not yet written. With three or more ticks racing, the put-back can
- * replace a lock taken meanwhile: both holders then parse, as they would with no lock.
+ * Removes a stale lock if it is still the one read as `expected`. The lock is first renamed
+ * to a name only this call uses, so of several ticks reclaiming one lock only one gets it.
+ * A tick that got a newer lock than the one it read puts it back, so no tick removes a
+ * lock it does not own. Content and mtime both identify the lock: an empty lock left by a
+ * crash reads the same as one just created and not yet written. With three or more ticks
+ * reclaiming at once, the put-back can replace a lock taken meanwhile: both holders then
+ * parse, as they would with no lock.
  */
-async function removeLockIfUnchanged(
-  lockPath: string,
-  expected: LockState | { content: string },
-): Promise<void> {
+async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<void> {
   const claimPath = `${lockPath}.${randomUUID()}`;
 
   try {
@@ -346,10 +343,7 @@ async function removeLockIfUnchanged(
 
   const claimed = await readLock(claimPath);
 
-  if (
-    claimed?.content === expected.content &&
-    (!('mtimeMs' in expected) || claimed.mtimeMs === expected.mtimeMs)
-  ) {
+  if (claimed?.content === expected.content && claimed.mtimeMs === expected.mtimeMs) {
     await rm(claimPath, { force: true });
   } else {
     await rename(claimPath, lockPath);
@@ -368,6 +362,13 @@ export async function acquireStatuslineLock(
   // The pid tells other ticks whether the holder still runs; the UUID makes the lock this
   // tick's alone, also against another tick of the same process.
   const token = `${String(process.pid)} ${randomUUID()}`;
+  const release = async () => {
+    // A lock taken over after it went stale is the other tick's to remove. Never renamed:
+    // that would leave the path free for a third tick while the other tick holds it.
+    if ((await readFile(lockPath, 'utf8').catch(() => undefined)) === token) {
+      await rm(lockPath, { force: true });
+    }
+  };
   const deadline = Date.now() + waitMs;
 
   try {
@@ -378,9 +379,7 @@ export async function acquireStatuslineLock(
         const handle = await open(lockPath, 'wx', 0o600);
         await handle.writeFile(token);
         await handle.close();
-        // A lock taken over after it went stale is the other tick's to remove. A failed
-        // release leaves the lock to go stale once this process exits.
-        return () => removeLockIfUnchanged(lockPath, { content: token }).catch(() => undefined);
+        return release;
       } catch (error) {
         if (!hasErrorCode(error, 'EEXIST')) {
           throw error;
@@ -390,7 +389,7 @@ export async function acquireStatuslineLock(
       const lock = await readLock(lockPath);
 
       if (lock && isStaleLock(lock, Date.now())) {
-        await removeLockIfUnchanged(lockPath, lock);
+        await reclaimStaleLock(lockPath, lock);
       } else if (Date.now() >= deadline) {
         return undefined;
       } else {
