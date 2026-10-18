@@ -271,6 +271,21 @@ describe('resuming across read chunks', () => {
     expect(pieces.events).toEqual(full.events);
     expect(pieces.reads.map((read) => read.restarted)).toEqual([true, false, false, false]);
   });
+
+  it('hashes a line that spans several chunks after a shorter line', async () => {
+    const adapter = new LineLocalAdapter();
+    const content = `{"type":"user","pad":"${'x'.repeat(1000)}"}\n{"type":"user","pad":"${'x'.repeat(2_500_000)}"}\n`;
+    const filePath = await createSessionFile(content);
+    const first = await readWith(adapter, filePath);
+
+    expect(first.cursor?.offset).toBe(Buffer.byteLength(content));
+    expect(first.cursor?.prefixHash).toBe(createHash('sha256').update(content).digest('hex'));
+
+    await appendFile(filePath, '{"type":"user"}\n');
+    const resumed = await readWith(adapter, filePath, { from: first.cursor });
+
+    expect(resumed.startCalls).toEqual([{ restarted: false }]);
+  });
 });
 
 describe('cursor invalidation', () => {

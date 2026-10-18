@@ -171,7 +171,8 @@ class CursorPrefixTracker {
     const chunkEnd = this.chunkStart + chunk.length;
 
     if (chunkEnd > this.hashedTo) {
-      this.pending.push(Buffer.from(chunk.subarray(this.hashedTo - this.chunkStart)));
+      // A chunk inside an unfinished line that began in an earlier chunk is kept whole.
+      this.pending.push(Buffer.from(chunk.subarray(Math.max(0, this.hashedTo - this.chunkStart))));
     }
 
     this.chunkStart = chunkEnd;
