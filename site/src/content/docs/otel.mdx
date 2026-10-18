@@ -42,9 +42,9 @@ Session logs record when a response arrived, not how long the request took. Ever
 Ids are derived from the data, not generated:
 
 - `traceId`: the first 16 bytes of SHA-256 over the source and session id.
-- `spanId`: the first 8 bytes of SHA-256 over the trace id, the span kind and a key: the tool call id when the call has one, else the span's position among the session's usage events or tool calls, in timestamp order.
+- `spanId`: the first 8 bytes of SHA-256 over the trace id, the span kind and a key. A tool call with an id is keyed by that id. A usage event is keyed by its timestamp and model, a tool call without an id by its timestamp and tool name, each with a counter that tells apart entries sharing those values. The root span's key is the session alone.
 
-The same input gives the same bytes. A backend that deduplicates by trace and span id keeps one copy when you send the same export twice. A session that gains events later keeps its trace id, but the spans keyed by position can shift.
+The same input gives the same bytes. A backend that deduplicates by trace and span id keeps one copy when you send the same export twice, and a span keeps its id in any date window or filter that includes it. The root span does not: each export of a session writes it with the times and token sums of the events in that export, so exporting a session in two windows writes its root span twice with different values.
 
 ### Errors
 
@@ -174,9 +174,9 @@ Trace backends generally accept spans with old timestamps, but some only make th
 llm-usage events --format otlp-traces --since 2026-06-01 --otlp-endpoint http://127.0.0.1:4318
 ```
 
-- The URL is the receiver's base: `/v1/traces` or `/v1/metrics` is appended, as with `OTEL_EXPORTER_OTLP_ENDPOINT`. It must start with `http:` or `https:` and must not hold a user name or password.
+- The URL is the receiver's base: `/v1/traces` or `/v1/metrics` is appended, as with `OTEL_EXPORTER_OTLP_ENDPOINT`. It must start with `http:` or `https:` and must not hold a user name or password. A query string is sent but left out of the summary line and errors.
 - The request bodies hold the same resources the file export holds, in the same order. Whole lines are grouped into requests of up to 4 MiB; a single line larger than that goes alone.
-- Each request waits 10 seconds for an answer. A `429` or `503` with `Retry-After` is retried once, after that delay, if it is at most 60 seconds. Any other failure stops the push and exits with status 1; the error names the HTTP status, the receiver's message, and how many batches went through before it.
+- Each request waits 10 seconds for an answer. A `429` or `503` with `Retry-After` is retried once, after that delay, if it is at most 60 seconds. Redirects are not followed: a `3xx` answer is a failure, so pass the URL the receiver redirects to. Any other failure stops the push and exits with status 1; the error names the HTTP status, the receiver's message, and how many batches went through before it.
 - `stdout` stays empty. `stderr` gets one line with the spans or points sent, the number of requests, and any items the receiver reported as rejected in a partial success.
 - Headers come from `OTEL_EXPORTER_OTLP_HEADERS` in the OpenTelemetry format, `key=value` pairs separated by commas with percent-encoded values. They are never taken from the command line and never printed.
 

@@ -182,6 +182,23 @@ describe('events --otlp-endpoint', () => {
     expect(receiver.requests.map((request) => request.url)).toEqual(['/otlp/v1/metrics']);
   });
 
+  it('sends the endpoint query string but never prints it', async () => {
+    const receiver = await startReceiver((response, index) => {
+      response.writeHead(index === 0 ? 200 : 400).end('{}');
+    });
+    const otlpEndpoint = `${receiver.endpoint}/otlp?token=dummy#part`;
+
+    const output = await runEvents({ format: 'otlp-metrics', otlpEndpoint });
+    const failure = runEvents({ format: 'otlp-metrics', otlpEndpoint });
+
+    expect(receiver.requests[0].url).toBe('/otlp/v1/metrics?token=dummy');
+    expect(output.stderr).toContain(`to ${receiver.endpoint}/otlp/v1/metrics\n`);
+    await expect(failure).rejects.toThrow(
+      `OTLP push to ${receiver.endpoint}/otlp/v1/metrics failed`,
+    );
+    await expect(failure).rejects.not.toThrow('dummy');
+  });
+
   it('reports spans the receiver rejected in a partial success', async () => {
     const receiver = await startReceiver((response) =>
       response.end(
@@ -261,6 +278,25 @@ describe('events --otlp-endpoint', () => {
       runEvents({ format: 'otlp-metrics', otlpEndpoint: `${receiver.endpoint}/v1/metrics` }),
     ).rejects.toThrow('HTTP 404 Not Found (not here); pass the receiver base URL');
   });
+
+  it.each([302, 307])(
+    'fails on a %i redirect without following it or sending the headers on',
+    async (status) => {
+      setHeadersEnv('x-api-key=dummy');
+      const target = await startReceiver();
+      const receiver = await startReceiver((response) =>
+        response.writeHead(status, { Location: `${target.endpoint}/elsewhere` }).end(),
+      );
+
+      await expect(
+        runEvents({ format: 'otlp-traces', otlpEndpoint: receiver.endpoint }),
+      ).rejects.toThrow(
+        new RegExp(`HTTP ${status} .*; the receiver redirects; pass the final receiver URL$`, 'u'),
+      );
+      expect(receiver.requests).toHaveLength(1);
+      expect(target.requests).toEqual([]);
+    },
+  );
 
   it('times out when the receiver does not answer', async () => {
     const receiver = await startReceiver(() => undefined);

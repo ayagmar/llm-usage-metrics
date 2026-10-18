@@ -193,6 +193,23 @@ describe('events --format otlp-traces', () => {
     expect(beforeAll).toBe('');
   });
 
+  it('gives each usage event its own chat span id across windowed exports', async () => {
+    const piOnly = { source: 'pi', piDir: path.resolve('tests/fixtures/e2e/pi') };
+    const chatIds = async (options: EventsCommandOptions) =>
+      parseLines<OtlpTracesData>(await exportEvents({ ...piOnly, ...options }))
+        .flatMap(spansOf)
+        .filter((span) => span.name.startsWith('chat'))
+        .map((span) => span.spanId);
+
+    const all = await chatIds({ format: 'otlp-traces' });
+    const january = await chatIds({ format: 'otlp-traces', until: '2026-01-31' });
+    const february = await chatIds({ format: 'otlp-traces', since: '2026-02-01' });
+
+    expect(january).toHaveLength(1);
+    expect(february).toHaveLength(1);
+    expect(all).toEqual([...january, ...february]);
+  });
+
   it('rejects --otel-include-paths without --format otlp-traces', async () => {
     await expect(runEventsReport({ format: 'jsonl', otelIncludePaths: true })).rejects.toThrow(
       '--otel-include-paths needs --format otlp-traces',

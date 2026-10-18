@@ -41,6 +41,7 @@ const REVISION_PREFIX = 'machine-export:';
 /**
  * Set by every sync of a version that stores tool calls and messages. A cache without it
  * may hold revisions whose tool calls an older version dropped, so it is not trusted.
+ * Change its value ('1') when the reader starts keeping more (a new status, role or kind).
  */
 const SESSION_EVENTS_KEPT_KEY = 'sessionEventsKept';
 

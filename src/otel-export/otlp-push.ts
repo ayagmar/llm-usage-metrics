@@ -33,6 +33,7 @@ export type OtlpPushDeps = {
 };
 
 export type OtlpPushResult = {
+  /** The signal URL without its query string or fragment, which can hold a token. */
   url: string;
   items: number;
   unit: 'spans' | 'points';
@@ -122,6 +123,12 @@ function signalUrl(endpoint: URL, kind: OtlpPushSignal['kind']): string {
   const base = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
   url.pathname = `${base}/v1/${kind}`;
   return url.toString();
+}
+
+/** What a summary or error names: the endpoint's query string can carry a token. */
+function printableUrl(url: string): string {
+  const { origin, pathname } = new URL(url);
+  return `${origin}${pathname}`;
 }
 
 function countItems(signal: OtlpPushSignal, index: number): number {
@@ -229,6 +236,10 @@ function statusHint(status: number): string {
     return `check the credentials in ${OTLP_HEADERS_ENV_VAR}`;
   }
 
+  if (status >= 300 && status < 400) {
+    return 'the receiver redirects; pass the final receiver URL';
+  }
+
   if (status === 404) {
     return 'pass the receiver base URL; /v1/traces or /v1/metrics is appended';
   }
@@ -279,6 +290,9 @@ async function postBatch(
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: batch.body,
+        // Following would turn a 301-303 into a GET counted as success, and send the headers
+        // (and with 307/308 the payload) to wherever the receiver points.
+        redirect: 'manual',
         signal: AbortSignal.timeout(deps.otlpTimeoutMs),
       });
     } catch (error) {
@@ -338,7 +352,13 @@ export async function pushOtlp(
   const url = signalUrl(endpoint, signal.kind);
   const unit = signal.kind === 'traces' ? 'spans' : 'points';
   const batches = buildBatches(signal, resolvedDeps.otlpMaxBatchBytes);
-  const result: OtlpPushResult = { url, items: 0, unit, batches: 0, rejected: 0 };
+  const result: OtlpPushResult = {
+    url: printableUrl(url),
+    items: 0,
+    unit,
+    batches: 0,
+    rejected: 0,
+  };
 
   for (const batch of batches) {
     let response: Response;
@@ -351,7 +371,7 @@ export async function pushOtlp(
       }
 
       throw new Error(
-        `OTLP push to ${url} failed after ${result.batches} of ${batches.length} batches (${result.items} ${unit} sent): ${error.message}`,
+        `OTLP push to ${result.url} failed after ${result.batches} of ${batches.length} batches (${result.items} ${unit} sent): ${error.message}`,
         { cause: error },
       );
     }
