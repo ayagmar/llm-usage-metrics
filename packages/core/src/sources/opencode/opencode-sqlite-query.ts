@@ -9,7 +9,9 @@ type OpenCodeSqliteDatabase = {
 
 type PartQueryColumns = {
   tableName: string;
+  idColumn: string;
   messageIdColumn: string;
+  timeColumn: string | undefined;
   dataColumn: string;
 };
 
@@ -83,31 +85,25 @@ function resolveRequiredMessageColumns(messageColumns: readonly string[]): Messa
 
 /**
  * V1 sets a message's tokens to its last step's while adding up the cost of every step,
- * and writes one `step-finish` part per step with that step's tokens. This sums those
- * parts per message. The `LIKE` skips most parts before their JSON is parsed, and is
- * several times faster than `instr` on large part tables.
+ * and writes one `step-finish` part per step with that step's tokens and cost. This
+ * returns those parts, as a JSON array, for each message with more than one, so every
+ * step can be read as its own request. The `LIKE` skips most parts before their JSON is
+ * parsed, and is several times faster than `instr` on large part tables.
  */
-function createStepTotalsJoin(parts: PartQueryColumns, messageIdColumn: string): string {
+function createStepPartsJoin(parts: PartQueryColumns, messageIdColumn: string): string {
   const data = escapeIdentifier(parts.dataColumn);
-  const sumOf = (jsonPath: string, alias: string): string =>
-    `    SUM(json_extract(${data}, '${jsonPath}')) AS ${alias},`;
+  const time = parts.timeColumn ? escapeIdentifier(parts.timeColumn) : 'NULL';
 
   return [
     'LEFT JOIN (',
     '  SELECT',
     `    ${escapeIdentifier(parts.messageIdColumn)} AS step_message_id,`,
-    '    COUNT(*) AS step_count,',
-    sumOf('$.tokens.input', 'step_input_tokens'),
-    sumOf('$.tokens.output', 'step_output_tokens'),
-    sumOf('$.tokens.reasoning', 'step_reasoning_tokens'),
-    sumOf('$.tokens.cache.read', 'step_cache_read_tokens'),
-    sumOf('$.tokens.cache.write', 'step_cache_write_tokens'),
-    // A total only when every step has one, as a partial sum would not match the buckets.
-    `    CASE WHEN COUNT(json_extract(${data}, '$.tokens.total')) = COUNT(*) THEN SUM(json_extract(${data}, '$.tokens.total')) END AS step_total_tokens`,
+    `    json_group_array(json_object('id', ${escapeIdentifier(parts.idColumn)}, 'time', ${time}, 'part', json(${data}))) AS step_parts_json`,
     `  FROM ${escapeIdentifier(parts.tableName)}`,
     `  WHERE ${data} LIKE '%"step-finish"%'`,
     `    AND CASE WHEN json_valid(${data}) = 1 THEN json_extract(${data}, '$.type') END = 'step-finish'`,
     `  GROUP BY ${escapeIdentifier(parts.messageIdColumn)}`,
+    '  HAVING COUNT(*) > 1',
     `) AS steps ON steps.step_message_id = ${escapeIdentifier(messageIdColumn)}`,
   ].join('\n');
 }
@@ -120,23 +116,15 @@ function createPrimaryQuery(
   const rowSessionId = columns.sessionIdColumn
     ? `${escapeIdentifier(columns.sessionIdColumn)} AS row_session_id`
     : 'NULL AS row_session_id';
-  const stepColumns = parts
-    ? [
-        ',',
-        '  steps.step_count, steps.step_input_tokens, steps.step_output_tokens,',
-        '  steps.step_reasoning_tokens, steps.step_cache_read_tokens,',
-        '  steps.step_cache_write_tokens, steps.step_total_tokens',
-      ]
-    : [];
 
   return [
     'SELECT',
     `  ${escapeIdentifier(columns.idColumn)} AS row_id,`,
     `  ${escapeIdentifier(columns.timestampColumn)} AS row_time,`,
     `  ${rowSessionId},`,
-    `  ${escapeIdentifier(columns.dataColumn)} AS data_json${stepColumns.join('\n')}`,
+    `  ${escapeIdentifier(columns.dataColumn)} AS data_json${parts ? ',\n  steps.step_parts_json' : ''}`,
     `FROM ${escapeIdentifier(tableName)}`,
-    ...(parts ? [createStepTotalsJoin(parts, columns.idColumn)] : []),
+    ...(parts ? [createStepPartsJoin(parts, columns.idColumn)] : []),
     [
       'WHERE CASE',
       `  WHEN json_valid(${escapeIdentifier(columns.dataColumn)}) = 1`,
@@ -188,7 +176,7 @@ function resolveMessageQueryColumns(
   return resolveRequiredMessageColumns(listColumnNames(database, messageTableName));
 }
 
-/** The V1 `part` table, when it has the columns the step totals need. */
+/** The V1 `part` table, when it has the columns the step parts need. */
 function resolvePartQueryColumns(
   database: OpenCodeSqliteDatabase,
   tableNames: readonly string[],
@@ -200,10 +188,14 @@ function resolvePartQueryColumns(
   }
 
   const partColumns = listColumnNames(database, tableName);
+  const idColumn = resolveIdentifierCaseInsensitive(partColumns, ['id']);
   const messageIdColumn = resolveIdentifierCaseInsensitive(partColumns, ['message_id']);
+  const timeColumn = resolveIdentifierCaseInsensitive(partColumns, ['time_created']);
   const dataColumn = resolveIdentifierCaseInsensitive(partColumns, ['data']);
 
-  return messageIdColumn && dataColumn ? { tableName, messageIdColumn, dataColumn } : undefined;
+  return idColumn && messageIdColumn && dataColumn
+    ? { tableName, idColumn, messageIdColumn, timeColumn, dataColumn }
+    : undefined;
 }
 
 function queryV1MessageRows(

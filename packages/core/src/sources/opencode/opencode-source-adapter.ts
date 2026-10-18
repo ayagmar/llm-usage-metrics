@@ -215,11 +215,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     try {
       try {
         for (const row of rows) {
-          const event = parseOpenCodeMessageRow(row, this.id, diagnostics);
-
-          if (event) {
-            yield event;
-          }
+          yield* parseOpenCodeMessageRow(row, this.id, diagnostics);
         }
       } finally {
         database.close();
