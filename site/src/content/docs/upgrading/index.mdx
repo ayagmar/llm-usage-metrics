@@ -1,0 +1,96 @@
+---
+title: 'Upgrading'
+description: 'Breaking changes by version and how to update scripts and integrations.'
+---
+
+This page lists the changes that can break a script or move a number you compare against, newest first. Additions that change nothing you already rely on are left out; the [CHANGELOG](https://github.com/ayagmar/llm-usage-metrics/blob/master/CHANGELOG.md) has the full list.
+
+Every report's `--json` output carries `schemaVersion: 1` since 0.8.0. New fields have been added to it since then, but none has been renamed or removed, so a script that reads the fields it knows keeps working.
+
+## Unreleased
+
+These changes are on the main branch and not yet in a release.
+
+### Share reports are HTML
+
+`--share` writes one self-contained interactive HTML file instead of a 1200×630 SVG card plus an HTML page that exported a PNG. The file names keep their stem and change extension: `usage-monthly-share.svg` becomes `usage-monthly-share.html`, `llm-usage-wrapped-2026.svg` becomes `llm-usage-wrapped-2026.html`, and so on. A script that picks up `*-share.svg` needs to look for the `.html` file. `--no-open` still writes the file without opening it, and the new `--redact` labels projects `project-N` and machines `machine-N`. See [Interactive report](/llm-usage-metrics/share/).
+
+### Costs
+
+- **Long-context tiers.** A request whose prompt is over a model's LiteLLM threshold (Claude Haiku 5.5 over 100,000 tokens, Gemini 2.5 Pro over 200,000, GPT-5.4 and later over 272,000) now bills at the higher tier for the whole request. This applies to claude, gemini, pi, opencode and antigravity events, and raises the cost of long sessions on those models. See [Long-context tiers](/llm-usage-metrics/pricing/#long-context-tiers).
+- **The pricing cache is refetched once.** Caches written before tiers existed are discarded. With the default pricing URL, an offline run or a failed fetch then uses the bundled snapshot until an online run refreshes the cache.
+- **Priority rates.** Prices are unchanged. A model that LiteLLM lists only with a priority rate for a token bucket was already priced at that rate; stderr now counts those events. See [Priority rates](/llm-usage-metrics/pricing/#priority-rates).
+- **Retired prices.** A retired price is dropped when a live LiteLLM key prices the same name at the same rates, so a few model names now resolve to a different pricing key. `llm-usage pricing <model>` shows which key a name reaches.
+- **`optimize` baseline.** The baseline is priced at base rates, as the candidates are, so a tier premium never shows up as savings. Its baseline cost can be lower than what other reports show for the same period.
+- **`--cost-mode explicit|estimated|both`.** New on every command with pricing options. The default, `both`, keeps the earlier behaviour. Without the flag, stderr now counts events that logged `$0` with tokens and were estimated. `--cost-mode` cannot be combined with `--no-cost`.
+
+### Reports and output
+
+- **`events` CSV** gains a `cacheWrite1hTokens` column, appended after `machine`. Scripts that read columns by position keep working; scripts that check the column count need one more.
+- **`session` table.** The `Repo` column is now `Project`, labelled as the [projects report](/llm-usage-metrics/projects/) labels it: folders with the same name stay apart, and sessions with no repository read `(unattributed)`. Labels come from every session in the window, so `--top` and `--id` no longer change them, and `--by-repo` merges directories that differ only by a trailing slash into one row, as `projects` does.
+- **`config show`** prints the effective setup in sections (config file, sources, event store, machines, pricing, defaults), each value with its origin: `flag`, `env var`, `config` or `default`. It no longer prints the `Config file:` line and the `Active config:` block. A script that needs only the config file path should use `llm-usage config path`; one that reads settings should use `config show --json` ([report-config-show.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-config-show.v1.schema.json)). See [Configuration](/llm-usage-metrics/configuration/#showing-the-effective-setup).
+- **`--no-cost`** on `hourly`, `daily`, `weekly`, `monthly` and `blocks` no longer loads or fetches prices. Models with the same token total are then ordered by logged cost only, so two tied models can swap places in a model list.
+- **`--version` after a command.** `llm-usage daily --version` now fails with an unknown-option error; put the flag first, `llm-usage --version`.
+- **Error messages.** `projects --top 0` and other invalid values now fail with `--top must be a positive integer`, as the other reports do, and `optimize --top` rejects leading zeros such as `01`.
+- **Terminal tables** align text left and numbers right in every report, including the stacked list on narrow terminals. `prune` summaries and the per-source lines of `doctor` say `1 file` and `2 files` instead of `file(s)`. `trends` uses whole token ticks on its axis and the tables' compact number style, so its token totals read `2.17K` instead of `2.2K`. Efficiency and optimize print the shared no-usage message instead of an all-zero table.
+
+New commands: `hourly`, `projects`, `blocks`, `value`, `pricing <model...>`, [`tools`](/llm-usage-metrics/tools/) and [`context`](/llm-usage-metrics/context/), and `session --id <id> --timeline` lists one session [request by request](/llm-usage-metrics/session/#timeline). `summary --json` gains `previous` on each period and `spike` for a [spend spike](/llm-usage-metrics/usage/) in the last 7 days; cost `trends --json` sets `spike: true` on spike days. `daily`, `weekly`, `monthly`, `trends` and `compare` gain `--by-repo` (as does the new `hourly`), and `--repo` counts only some projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize`, `tools`, `context` and `events`. See [Choose a report](/llm-usage-metrics/reports/).
+
+### Memory on cold runs
+
+A cold run (empty event store, as on a first run or after a parser update) is faster than in 0.11.0 and peaks higher in memory, since Claude and pi files now parse on the worker pool. Set `parseWorkers` (or `LLM_USAGE_PARSE_WORKERS`) lower on a machine with little memory. See [Configuration](/llm-usage-metrics/configuration/).
+
+### Event store
+
+The store moves to schema v5 on the first run and keeps each claude, codex and pi file's tool calls and messages, so `tools` and `session --timeline` read them from it. That run reads those sources' files on disk again once, which takes about as long as a cold run for them. A file that departed before the upgrade keeps its usage and has no tool calls. The event counts of `prune` (`eventCount`, `candidateEventCount`, `deletedEventCount`), `doctor` and `config show` now include tool calls and messages. See [Caching and history](/llm-usage-metrics/caching/).
+
+Running 0.11.0 again afterwards, for example `npx llm-usage-metrics@0.11.0` to compare numbers, leaves the v5 store untouched: 0.11.0 warns that it does not support v5 and reads every file on disk cold, so files that departed since are missing from its reports.
+
+### Multiple machines
+
+`machine export` records each source's parser version in the bundle header. The bundle version stays 1, and older readers ignore the field. When two machines parse a shared session's source with different parser versions, sync matches their events by timestamp instead of by content hash, and a warning names the sources and both versions until both machines run the same release. A machine last synced by a version that recorded no parser versions is matched by timestamp the same way, and a note asks you to sync it after updating there. See [Multiple machines](/llm-usage-metrics/machines/#how-it-works).
+
+Bundles also carry each file's tool calls and turns, without text, still as version 1: 0.11.0 reads them and ignores the new field, and this version reads 0.11.0 bundles as usage only. Events in a bundle carry `singleRequest`, which 0.11.0 ignores; a 0.11.0 bundle has none, so this version sets it on that machine's claude, gemini, pi, opencode and antigravity events and leaves its codex events at base rates. `tools` now includes other machines like the other reports, which can sync a machine whose last sync is due; pass `--machine local` for this machine alone or `--no-sync` to skip the sync. A machine's tool calls appear after it is updated and synced again; its files with tool calls are then sent once more. The first sync of each machine after this machine upgrades asks for all its files, so tool calls that a 0.11.0 sync dropped arrive too.
+
+### Library
+
+The parsers now live in their own package, [`@ayagmar/agent-sessions`](/llm-usage-metrics/library/), versioned separately from the CLI. Install it with `npm install @ayagmar/agent-sessions` to use the parsers in your own tools. The CLI bundles it and its behaviour does not change.
+
+If you built the package from this repository before it reached a release: `since` and `until` now throw on a date-only bound that is not an ISO date (`'2026/06/01'`, `'June 1, 2026'`), which `Date.parse` reads as local midnight; pass `'2026-06-01'` or a full timestamp with an offset. `maxBusyRetries` on the opencode, goose and antigravity adapters throws when the adapter is created unless it is a non-negative integer.
+
+## 0.11.0
+
+- **Claude sessions continued in a new session** count the copied rows once, in the session whose first event is earlier. Claude totals drop for users of Claude Desktop's continued sessions.
+- **`statusline` and `events` reject options they never used.** `statusline` no longer accepts `--json`, `--quiet`, `--pricing-url`, `--pricing-offline` or `--no-sync`, and `events` no longer accepts `--json` (use `--format jsonl` or `--format csv`). Passing one now fails with an unknown-option error.
+- **`trends --last N`** replaces `--days N`; `--days` stays as an alias.
+- **Empty reports** print one message, which names the window and any filters passed, instead of empty charts, zero tables or dashed rows. JSON output is unchanged.
+- **Files read through a custom directory flag** (`--claude-dir ./export`, `--source-dir`) are no longer served as history by reports over the usual directories.
+
+## 0.10.2
+
+- **Claude one-hour cache writes** bill at LiteLLM's one-hour rate (2x input instead of 1.25x), so Claude costs rise for sessions that use the one-hour cache. Events stored before 0.10.2 whose log file is gone keep the standard rate.
+
+## 0.10.0 and 0.10.1
+
+These releases added [multiple machines](/llm-usage-metrics/machines/), Bun support, the Claude Code session in `statusline`, and `--last N` and `--no-cost` on `daily`, `weekly` and `monthly`. Nothing existing changed.
+
+## 0.9.0
+
+- **`daily` covers the last 7 days** without `--since` or `--until`, including `--json` and `--markdown`. Pass `--all` for the full history.
+- **`weekly` covers the last 8 weeks** without dates. Pass `--all` or `--since` for the full history.
+- **A bare `llm-usage`** runs the summary instead of printing help.
+- **Reports include usage from departed files** by default. Pass `--no-history` for the previous behaviour.
+- **The event store moves** from the cache directory to the data directory (`~/.local/share/llm-usage-metrics/events.db` on Linux). The next report copies the old ledger once and leaves the old file for you to delete. See [Caching and history](/llm-usage-metrics/caching/).
+- **Node.js 23 is not supported**; Node.js 22.16+ and 24+ are.
+- **Token totals for several sources drop**: reasoning is no longer counted twice in pi, qwen, copilot, dsh and openclaw totals, cached input is no longer counted twice for gemini, qwen and openclaw, and Roo Code and Kilo Code input no longer includes cache tokens.
+
+## 0.8.0
+
+- **JSON envelope and field renames.** Every `--json` payload moves under `.data`, and three fields are renamed. [Upgrading to 0.8](/llm-usage-metrics/upgrading/0-8/) has the field table and the `jq` changes.
+- **The config file is TOML.** The CLI stops with an error while a `config.json` sits next to the TOML path. Run `llm-usage config init` for a commented template, copy your settings over, and remove the old file. See [Configuration](/llm-usage-metrics/configuration/).
+- **Tuning environment variables are config keys.** `LLM_USAGE_PARSE_MAX_PARALLEL`, `LLM_USAGE_PRICING_CACHE_TTL_MS`, `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS`, `LLM_USAGE_UPDATE_CACHE_TTL_MS` and `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS` are no longer read; set `parseMaxParallel`, `pricing.cacheTtlMs`, `pricing.fetchTimeoutMs`, `update.cacheTtlMs` and `update.fetchTimeoutMs` instead.
+- **The parse cache is a SQLite event store.** The old JSON cache shards are ignored and safe to delete.
+
+## Before 0.8.0
+
+Releases before 0.8.0 recorded no breaking changes. See the [CHANGELOG](https://github.com/ayagmar/llm-usage-metrics/blob/master/CHANGELOG.md) for their fixes and features.

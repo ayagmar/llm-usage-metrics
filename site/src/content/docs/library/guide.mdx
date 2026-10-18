@@ -1,0 +1,176 @@
+---
+title: 'Reading and composing'
+description: 'Read, collect, and dedupe events from agent logs with the library.'
+---
+
+There are two ways in. `readSources` on `./registry` reads every file of the sources you name and dedupes them the way the CLI does. An adapter from `./sources/<id>` reads one file at a time and leaves the rest to you. Start with `readSources`; drop to adapters when you need your own file list, your own dedup or a cursor.
+
+## Read every source
+
+```ts
+import { createSourceContext } from '@ayagmar/agent-sessions';
+import { readSources } from '@ayagmar/agent-sessions/registry';
+
+const context = createSourceContext({
+  onDiagnostic: (diagnostic) => console.error(`${diagnostic.source}: ${diagnostic.message}`),
+});
+
+const tokens = new Map();
+const toolCalls = new Map();
+
+for await (const event of readSources(context, ['claude', 'codex', 'pi'], {
+  kinds: ['usage', 'tool_call'],
+  since: '2026-01-01',
+})) {
+  if (event.kind === 'usage') {
+    const key = `${event.source} ${event.model ?? '(no model)'}`;
+    tokens.set(key, (tokens.get(key) ?? 0) + event.totalTokens);
+  } else if (event.kind === 'tool_call') {
+    toolCalls.set(event.name, (toolCalls.get(event.name) ?? 0) + 1);
+  }
+}
+
+console.log(Object.fromEntries(tokens));
+console.log(Object.fromEntries(toolCalls));
+```
+
+This prints total tokens per source and model, then how often each tool was called. Save it as `usage.mjs` and run it with `node usage.mjs`; it has no type annotations, so it also runs unchanged as TypeScript.
+
+What `readSources(context, ids, options)` does:
+
+- **Order.** Sources come out in registry order whatever order `ids` lists them in (pi, then codex, then claude above), files in discovery order, and each file's events in file order.
+- **Options.** `kinds`, `text` and `raw` as for `readEvents` below, plus `since`, `until`, `dedupe`, `diagnostics` and `roots`.
+- **Dedup.** `dedupe` is on by default and counts repeated usage once, as the CLI does: `repeatedAcrossFiles` for pi, then `copiedSessions` for claude. `since` and `until` apply after it. With `dedupe` on, each file's events are collected before they are yielded, and a claude source is held in full until its last file. `dedupe: false` streams.
+- **Failures.** Without `onDiagnostic`, a failed discovery or read throws. With it, the failure becomes a `warn` diagnostic: a failed discovery skips the source, and a failed read moves on to the next file. With `dedupe` on, a file whose read fails yields none of its events, as in the CLI. With `dedupe: false`, the events it yielded before the failure are already out, so a retry of that file counts them again.
+- **Other locations.** `roots` maps a source id to the directories to read instead of its defaults, for example `new Map([['codex', ['/path/to/codex/sessions']]])`. An explicit root must exist. opencode and goose, which read one database, take exactly one path.
+
+An unknown id, a `roots` entry for a source not in `ids`, or an invalid `since` or `until` throws before anything is read.
+
+### Another home directory
+
+Adapters find their default locations from the context. To read a copy of another home directory:
+
+```ts
+const context = createSourceContext({ homeDir: '/mnt/backup/home/me', env: {} });
+```
+
+Pass `env: {}` too. Without it the context holds `process.env`, and a `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `GEMINI_CLI_HOME`, `XDG_DATA_HOME` or similar variable set on this machine moves those sources away from the home directory you passed.
+
+## The sources registry
+
+`./registry` also builds the adapters it reads with:
+
+- `getDefaultSourceIds()` returns every source id in registry order.
+- `createDefaultAdapters({ sourceIds, roots }, context)` builds one adapter per id. Without `sourceIds` it builds them all.
+- `getSourceStorageFormat(id)` returns `'jsonl'`, `'json'` or `'sqlite'`.
+
+## Read one file
+
+Every adapter finds its files with `discoverFiles()` and reads one with `read(filePath)`, which yields that file's usage events:
+
+```ts
+import { collectFile } from '@ayagmar/agent-sessions';
+import { CodexSourceAdapter } from '@ayagmar/agent-sessions/sources/codex';
+
+const codex = new CodexSourceAdapter();
+
+for (const filePath of await codex.discoverFiles()) {
+  const { events, skippedRows, skippedRowReasons } = await collectFile(codex, filePath);
+}
+```
+
+- `read` yields as it goes and can throw after it has yielded events. Those events are valid but the file was not read to the end. `collectFile` gives you a file's events all or nothing, with the skipped-row counts sorted by reason.
+- `collect(iterable)` turns any async iterable into an array.
+- Breaking out of a `for await` loop closes every file and database handle the read opened before `return()` resolves.
+- A read holds its file or database while you iterate. For the SQLite sources (opencode, goose, antigravity) that is an open read transaction: in WAL mode a snapshot the agent cannot checkpoint past, in rollback-journal mode a shared lock that blocks the agent's writes. Do not await slow work between events of a SQLite read.
+- A SQLite read that finds the database busy or locked is retried `maxBusyRetries` times (an adapter option, default 2; `0` turns retries off), waiting `busyRetryDelayMs` (default 50) times the attempt number before each retry. A `maxBusyRetries` that is not a non-negative integer throws when the adapter is created.
+
+A directory-backed adapter takes `{ dir, requireDir, context }`; opencode and goose take `{ dbPath, context }`. `dir` replaces the default location; `requireDir: true` makes a missing `dir` a discovery error instead of no files.
+
+## Event kinds
+
+`read` yields usage only. `readEvents(adapter, filePath, options)` reads the same file and yields `SessionEvent`, a union of four kinds that share `kind`, `source`, `sessionId` and `timestamp`:
+
+| `kind`         | Type               | Adds                                                                                     |
+| -------------- | ------------------ | ---------------------------------------------------------------------------------------- |
+| `usage`        | `UsageRecord`      | every `UsageEvent` field, then `messageId`, `requestId` and `rawProvider` when known     |
+| `message`      | `MessageEvent`     | `role` (`user`, `assistant` or `system`) and `textLength`; `text` only with `text: true` |
+| `tool_call`    | `ToolCallEvent`    | `name` and `status` (`ok`, `error` or `unknown`), and `durationMs` when the source logs it |
+| `session_meta` | `SessionMetaEvent` | any of `cwd`, `title`, `gitBranch`, `agentVersion`, `parentSessionId`, `model`, `rawProvider` |
+
+claude, codex and pi produce all four kinds. Every other source produces `usage` only; asking it for another kind yields nothing for that kind, not an error. `capabilities.kinds` on an adapter lists what it produces.
+
+`readEvents` options are `kinds` (default: every kind the adapter declares), `text` (message text and session titles, default off), `raw` (the parsed source record on each event, default off), `diagnostics` and `resume`. Only claude, codex and pi attach `raw`; other sources yield usage records without it, and without `messageId`, `requestId` or `rawProvider`, even with `raw: true`. `kinds('usage', 'tool_call')` is the same filter as a stage, and narrows the type; `isUsageRecord(event)` narrows one event.
+
+On usage events, `inputTokens` excludes cache reads and writes, `outputTokens` includes reasoning, and `reasoningTokens` is the reasoning part of it.
+
+## Stages and dedup
+
+A stage is a function from one async iterable to another (`Stage<In, Out>`). `pipe(source, ...stages)` chains up to six.
+
+- `since(bound)` keeps events at or after `bound`, and `until(bound)` events before it. Bounds are compared as instants. A string with a time of day but no UTC offset (`'2026-06-01T10:00'`) throws, since it means different instants in different time zones. A bare ISO date is midnight UTC; a date alone in another form (`'June 1, 2026'`) throws for the same reason.
+- `bySession()` groups events into `{ source, sessionId, events }` in the order each session first appears. It buffers its whole input.
+- `repeatedAcrossFiles()` takes one array of events per file, in file order, and drops usage an earlier file already yielded. Use it for sources with `capabilities.eventsRepeatAcrossFiles` (pi: forks of one parent each copy its entries).
+- `copiedSessions()` drops usage that a continued session copied from the session it continues, for sources with `capabilities.sessionsCopyEvents` (claude). It buffers its whole input, since which copy is kept depends on every session's first event.
+
+Both dedup stages compare usage only; other kinds pass through. `dedupeRepeatedAcrossFiles` and `dedupeCopiedSessions` are the same steps for arrays, and `computeEventContentHash` is the hash they compare. For tool calls, `dedupeToolCalls` keeps one call per source and call id, so a call a resumed or forked transcript repeats counts once.
+
+This reproduces what `readSources` does for pi and claude, one source at a time:
+
+```ts
+import {
+  collect,
+  copiedSessions,
+  createSourceContext,
+  pipe,
+  readEvents,
+  repeatedAcrossFiles,
+  since,
+} from '@ayagmar/agent-sessions';
+import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
+import { PiSourceAdapter } from '@ayagmar/agent-sessions/sources/pi';
+
+const context = createSourceContext();
+const pi = new PiSourceAdapter({ context });
+const claude = new ClaudeSourceAdapter({ context });
+
+// One array per file, so a file that fails to read contributes nothing.
+async function* fileBatches(adapter) {
+  for (const filePath of await adapter.discoverFiles()) {
+    yield await collect(readEvents(adapter, filePath, { kinds: ['usage'] }));
+  }
+}
+
+async function* flatten(batches) {
+  for await (const batch of batches) yield* batch;
+}
+
+// pi: forks of one parent can each hold copies of its entries.
+const piUsage = pipe(fileBatches(pi), repeatedAcrossFiles(), since('2026-01-01'));
+// claude: a continued session copies rows from the session it continues.
+const claudeUsage = pipe(flatten(fileBatches(claude)), copiedSessions(), since('2026-01-01'));
+
+for (const [source, usage] of [['pi', piUsage], ['claude', claudeUsage]]) {
+  let totalTokens = 0;
+  for await (const event of usage) totalTokens += event.totalTokens;
+  console.log(source, totalTokens);
+}
+```
+
+It prints one line per source with its total tokens, the same totals `readSources(context, ['pi', 'claude'], { kinds: ['usage'], since: '2026-01-01' })` adds up to. Dedup comes before `since` because which copy of an event is kept can depend on events outside the window.
+
+## Diagnostics
+
+Pass a sink to see the rows a read skipped:
+
+```ts
+import { createReadDiagnostics } from '@ayagmar/agent-sessions';
+
+const diagnostics = createReadDiagnostics();
+for await (const event of codex.read(filePath, { diagnostics })) {
+  // ...
+}
+console.log(diagnostics.skippedRows, diagnostics.skippedRowReasons);
+```
+
+`skippedRows` grows by one per skipped row and `skippedRowReasons` counts each reason code. The counts are complete only once the read finishes. The package README lists the reason codes.

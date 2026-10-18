@@ -41,7 +41,7 @@ describe('warnIfTerminalTableOverflows', () => {
     warnIfTerminalTableOverflows('│ Period │ Source │', warnSpy, { isTTY: true, columns: 10 });
 
     expect(warnSpy).toHaveBeenCalledWith(
-      'Report table is wider than terminal by 9 column(s). Use fullscreen/maximized terminal for better readability.',
+      'Report table is wider than terminal by 9 columns. Use fullscreen/maximized terminal for better readability.',
     );
   });
 });

@@ -2,15 +2,20 @@ import type { Command } from 'commander';
 
 export type SharedOptionProfile =
   | 'usage'
+  | 'hourly'
+  | 'rollup'
+  | 'pricing'
   | 'summary'
   | 'specialized'
   | 'compare'
   | 'trends'
   | 'session'
+  | 'tools'
   | 'wrapped'
   | 'events'
   | 'statusline'
-  | 'doctor';
+  | 'doctor'
+  | 'config';
 
 export type ReportHelpExample = {
   command: string;

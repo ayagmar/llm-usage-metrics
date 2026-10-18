@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "report": "trends",
+  "data": {
+    "metric": "cost",
+    "dateRange": {
+      "from": "2026-06-14",
+      "to": "2026-06-16"
+    },
+    "totalSeries": {
+      "source": "combined",
+      "buckets": [
+        {
+          "date": "2026-06-14",
+          "value": 0,
+          "observed": false
+        },
+        {
+          "date": "2026-06-15",
+          "value": 0.089475,
+          "observed": true
+        },
+        {
+          "date": "2026-06-16",
+          "value": 0,
+          "observed": false
+        }
+      ],
+      "summary": {
+        "total": 0.089475,
+        "average": 0.029825,
+        "peak": {
+          "date": "2026-06-15",
+          "value": 0.089475
+        },
+        "incomplete": false,
+        "observedDayCount": 1
+      }
+    },
+    "projectSeries": [
+      {
+        "repoRoot": "/w/a/api",
+        "project": "a/api",
+        "buckets": [
+          {
+            "date": "2026-06-14",
+            "value": 0,
+            "observed": false
+          },
+          {
+            "date": "2026-06-15",
+            "value": 0.039,
+            "observed": true
+          },
+          {
+            "date": "2026-06-16",
+            "value": 0,
+            "observed": false
+          }
+        ],
+        "summary": {
+          "total": 0.039,
+          "average": 0.013,
+          "peak": {
+            "date": "2026-06-15",
+            "value": 0.039
+          },
+          "incomplete": false,
+          "observedDayCount": 1
+        }
+      },
+      {
+        "repoRoot": "/w/b/api",
+        "project": "b/api",
+        "buckets": [
+          {
+            "date": "2026-06-14",
+            "value": 0,
+            "observed": false
+          },
+          {
+            "date": "2026-06-15",
+            "value": 0.031875,
+            "observed": true
+          },
+          {
+            "date": "2026-06-16",
+            "value": 0,
+            "observed": false
+          }
+        ],
+        "summary": {
+          "total": 0.031875,
+          "average": 0.010625,
+          "peak": {
+            "date": "2026-06-15",
+            "value": 0.031875
+          },
+          "incomplete": false,
+          "observedDayCount": 1
+        }
+      },
+      {
+        "repoRoot": null,
+        "project": "(unattributed)",
+        "buckets": [
+          {
+            "date": "2026-06-14",
+            "value": 0,
+            "observed": false
+          },
+          {
+            "date": "2026-06-15",
+            "value": 0.006175,
+            "observed": true
+          },
+          {
+            "date": "2026-06-16",
+            "value": 0,
+            "observed": false
+          }
+        ],
+        "summary": {
+          "total": 0.006175,
+          "average": 0.002058333333,
+          "peak": {
+            "date": "2026-06-15",
+            "value": 0.006175
+          },
+          "incomplete": false,
+          "observedDayCount": 1
+        }
+      },
+      {
+        "repoRoot": "/w/a/api/src",
+        "project": "src",
+        "buckets": [
+          {
+            "date": "2026-06-14",
+            "value": 0,
+            "observed": false
+          },
+          {
+            "date": "2026-06-15",
+            "value": 0.0054,
+            "observed": true
+          },
+          {
+            "date": "2026-06-16",
+            "value": 0,
+            "observed": false
+          }
+        ],
+        "summary": {
+          "total": 0.0054,
+          "average": 0.0018,
+          "peak": {
+            "date": "2026-06-15",
+            "value": 0.0054
+          },
+          "incomplete": false,
+          "observedDayCount": 1
+        }
+      },
+      {
+        "repoRoot": "C:\\src\\web",
+        "project": "web",
+        "buckets": [
+          {
+            "date": "2026-06-14",
+            "value": 0,
+            "observed": false
+          },
+          {
+            "date": "2026-06-15",
+            "value": 0.00525,
+            "observed": true
+          },
+          {
+            "date": "2026-06-16",
+            "value": 0,
+            "observed": false
+          }
+        ],
+        "summary": {
+          "total": 0.00525,
+          "average": 0.00175,
+          "peak": {
+            "date": "2026-06-15",
+            "value": 0.00525
+          },
+          "incomplete": false,
+          "observedDayCount": 1
+        }
+      },
+      {
+        "repoRoot": "/w/c/tools",
+        "project": "tools",
+        "buckets": [
+          {
+            "date": "2026-06-14",
+            "value": 0,
+            "observed": false
+          },
+          {
+            "date": "2026-06-15",
+            "value": 0.001775,
+            "observed": true
+          },
+          {
+            "date": "2026-06-16",
+            "value": 0,
+            "observed": false
+          }
+        ],
+        "summary": {
+          "total": 0.001775,
+          "average": 0.000591666667,
+          "peak": {
+            "date": "2026-06-15",
+            "value": 0.001775
+          },
+          "incomplete": false,
+          "observedDayCount": 1
+        }
+      }
+    ]
+  }
+}

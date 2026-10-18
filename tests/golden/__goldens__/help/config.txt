@@ -1,0 +1,17 @@
+Usage: llm-usage config [options] [command]
+
+Manage user configuration
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  init [options]  Write a commented config template
+  show [options]  Print the effective configuration and where each value comes from
+  path [options]  Print the resolved config file path
+  help [command]  display help for command
+
+Examples:
+  $ llm-usage config init
+  $ llm-usage config show
+  $ llm-usage config path

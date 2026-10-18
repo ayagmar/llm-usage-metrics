@@ -1,0 +1,101 @@
+---
+title: 'Tool calls'
+description: 'Tool calls per tool from Claude Code, Codex and pi logs, with errors, error rate, and sessions.'
+---
+
+`llm-usage tools` counts the tool calls your agents made: one row per tool name with its calls, how many returned an error, the error rate, calls with no recorded result, the sessions that used it, and the project whose sessions called it most. It answers which tools your agents lean on and which ones fail.
+
+```bash
+llm-usage tools
+llm-usage tools --by-source --top 10
+```
+
+## Where the calls come from
+
+Claude Code, Codex, and pi log tool calls; the other sources do not, so their sessions never appear here. Tool names are shown as each source logs them: Claude Code's `Bash` and pi's `bash` are two rows.
+
+The event store keeps each file's tool calls next to its usage (name, status, ids and times, never the call's input or output), so a warm run reads them from the store instead of the session files. A file that no longer exists keeps its tool calls when [history](/llm-usage-metrics/caching/) serves its usage, as reports do by default for the usual directories. [Other machines](/llm-usage-metrics/machines/) count as in other reports, from their last sync, and `--machine` and `--no-sync` work as they do there. A machine running a version older than this one sends usage only, so its calls appear once it is updated and synced again. One line on `stderr` says what was read. `tools` never loads prices.
+
+With the event store off (`LLM_USAGE_EVENT_STORE=0`), every run reads the session files in the window from disk, and files that no longer exist are not counted. The first run after upgrading from a version whose store kept usage only reads the claude, codex and pi files again to store their tool calls; a file that departed before then has its usage and no tool calls.
+
+A resumed or forked session can copy calls from the session it continued. A call with the same tool call id in two sessions of one source is counted once.
+
+## Read the report
+
+```text
+╭──────────────┬───────┬────────┬────────────┬─────────┬──────────┬────────────────╮
+│ Tool         │ Calls │ Errors │ Error Rate │ Unknown │ Sessions │ Top Project    │
+├──────────────┼───────┼────────┼────────────┼─────────┼──────────┼────────────────┤
+│ Bash         │     4 │      1 │      25.0% │       0 │        2 │ a/api          │
+├──────────────┼───────┼────────┼────────────┼─────────┼──────────┼────────────────┤
+│ exec_command │     3 │      1 │      33.3% │       0 │        1 │ tools          │
+├──────────────┼───────┼────────┼────────────┼─────────┼──────────┼────────────────┤
+│ Edit         │     1 │      0 │          - │       1 │        1 │ a/api          │
+├──────────────┼───────┼────────┼────────────┼─────────┼──────────┼────────────────┤
+│ TOTAL        │    15 │      4 │      30.8% │       2 │        4 │                │
+╰──────────────┴───────┴────────┴────────────┴─────────┴──────────┴────────────────╯
+```
+
+- **Errors** are calls whose result the source marks as failed.
+- **Unknown** are calls with no result in their file, such as a call interrupted mid-run, or a status the source logs that the CLI does not recognise.
+- **Error Rate** is errors divided by the calls with a known result, so unknown calls do not lower it. It shows `-` when no call has a result.
+- **Sessions** counts the distinct sessions that made the calls.
+- **Top Project** is the project whose sessions made most of the calls, labelled as in [Projects](/llm-usage-metrics/projects/). A session's project comes from its usage; a session with no usage in the window is `(unattributed)`.
+
+Rows are sorted by calls, most first. `--top N` shows the first N rows (20 by default, `0` for all); the TOTAL row still counts every call and reads `TOTAL (all N)` when rows were left out. On a narrow terminal each row is listed as labelled values instead.
+
+## Split and filter
+
+`--by-source` splits each tool's row by source, and `--by-repo` by project; with `--by-repo` the Top Project column is dropped, since each row is one project. The two combine.
+
+```bash
+llm-usage tools --by-repo --markdown
+llm-usage tools --source claude --repo api
+```
+
+`--repo` keeps the calls of sessions whose usage is in the given projects. `--source` limits the sources read.
+
+## Set the window
+
+Without date flags, `tools` covers the last 7 days, counting today. `--last N` covers the last N days, `--since` and `--until` take inclusive dates in the `--timezone`, and `--all` reads every session file on disk. `--last` cannot be combined with the other three, and `--all` cannot be combined with dates.
+
+## Output
+
+`tools` supports terminal, `--json`, and `--markdown` output. JSON follows [report-tools.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-tools.v1.schema.json):
+
+```json
+{
+  "schemaVersion": 1,
+  "report": "tools",
+  "data": {
+    "timezone": "UTC",
+    "since": "2026-06-15",
+    "until": null,
+    "bySource": false,
+    "byRepo": false,
+    "rowCount": 9,
+    "rows": [
+      {
+        "name": "Bash",
+        "calls": 4,
+        "errors": 1,
+        "unknown": 0,
+        "errorRate": 0.25,
+        "sessions": 2,
+        "topRepoRoot": "/w/a/api",
+        "topProject": "a/api"
+      }
+    ],
+    "totals": {
+      "calls": 15,
+      "errors": 4,
+      "unknown": 2,
+      "errorRate": 0.3076923076923077,
+      "sessions": 4,
+      "tools": 9
+    }
+  }
+}
+```
+
+`rowCount` counts the rows before `--top`. With `--by-source` each row has `source`; with `--by-repo` it has `repoRoot` (null for no root) and `project`. `errorRate` is null when no call has a known result.

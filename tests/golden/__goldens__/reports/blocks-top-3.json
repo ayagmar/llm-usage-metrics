@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "report": "blocks",
+  "data": {
+    "estimated": true,
+    "blockHours": 5,
+    "timezone": "UTC",
+    "since": "2026-06-15",
+    "until": null,
+    "top": {
+      "count": 3,
+      "rankedBy": "cost"
+    },
+    "blockCount": 8,
+    "blocks": [
+      {
+        "source": "claude",
+        "start": "2026-06-21T10:00:00.000Z",
+        "end": "2026-06-21T15:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-21T10:15:00.000Z",
+        "lastEventAt": "2026-06-21T10:15:00.000Z",
+        "eventCount": 1,
+        "inputTokens": 5000,
+        "outputTokens": 1200,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 20000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 26200,
+        "costUsd": 0.039,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 5000,
+            "outputTokens": 1200,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 20000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 26200,
+            "costUsd": 0.039
+          }
+        ],
+        "active": {
+          "remainingMinutes": 180,
+          "tokensPerHour": 13100,
+          "costUsdPerHour": 0.0195
+        }
+      },
+      {
+        "source": "claude",
+        "start": "2026-06-15T09:00:00.000Z",
+        "end": "2026-06-15T14:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-15T09:10:00.000Z",
+        "lastEventAt": "2026-06-15T11:05:00.000Z",
+        "eventCount": 4,
+        "inputTokens": 4900,
+        "outputTokens": 1250,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 10000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 16150,
+        "costUsd": 0.03645,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 4900,
+            "outputTokens": 1250,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 16150,
+            "costUsd": 0.03645
+          }
+        ],
+        "active": null
+      },
+      {
+        "source": "claude",
+        "start": "2026-06-15T18:00:00.000Z",
+        "end": "2026-06-15T23:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-15T18:30:00.000Z",
+        "lastEventAt": "2026-06-15T18:30:00.000Z",
+        "eventCount": 1,
+        "inputTokens": 3000,
+        "outputTokens": 900,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 3900,
+        "costUsd": 0.0225,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 3000,
+            "outputTokens": 900,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 3900,
+            "costUsd": 0.0225
+          }
+        ],
+        "active": null
+      }
+    ],
+    "activeBlocks": [
+      {
+        "source": "claude",
+        "start": "2026-06-21T10:00:00.000Z",
+        "end": "2026-06-21T15:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-21T10:15:00.000Z",
+        "lastEventAt": "2026-06-21T10:15:00.000Z",
+        "eventCount": 1,
+        "inputTokens": 5000,
+        "outputTokens": 1200,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 20000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 26200,
+        "costUsd": 0.039,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 5000,
+            "outputTokens": 1200,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 20000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 26200,
+            "costUsd": 0.039
+          }
+        ],
+        "active": {
+          "remainingMinutes": 180,
+          "tokensPerHour": 13100,
+          "costUsdPerHour": 0.0195
+        }
+      },
+      {
+        "source": "codex",
+        "start": "2026-06-21T10:00:00.000Z",
+        "end": "2026-06-21T15:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-21T10:50:00.000Z",
+        "lastEventAt": "2026-06-21T11:20:00.000Z",
+        "eventCount": 2,
+        "inputTokens": 4500,
+        "outputTokens": 800,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 5300,
+        "costUsd": 0.013625,
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 4500,
+            "outputTokens": 800,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 5300,
+            "costUsd": 0.013625
+          }
+        ],
+        "active": {
+          "remainingMinutes": 180,
+          "tokensPerHour": 2650,
+          "costUsdPerHour": 0.0068125
+        }
+      }
+    ]
+  }
+}

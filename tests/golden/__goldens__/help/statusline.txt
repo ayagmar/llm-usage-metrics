@@ -1,0 +1,38 @@
+Usage: llm-usage statusline [options]
+
+Print one line with today's cost, your streak, and month to date, led by the session's cost and
+context use under Claude Code (for status bars; never fetches)
+
+Options:
+  --help-all                     Display help including the per-source path flags
+  --source-dir <source-id=path>  Override source directory for directory-backed sources (repeatable)
+  --source <name>                Filter by source id (repeatable or comma-separated, supported
+                                 sources (17): pi, codex, gemini, droid, opencode, openclaw, claude,
+                                 copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                 antigravity, dsh)
+  --verbose                      Print detailed diagnostics on stderr (per-source counts, routine
+                                 skips, config, env)
+  --timezone <iana>              Timezone for bucketing (default: system timezone)
+  --provider <name>              Billing-provider filter (normalized to billing entity; e.g. openai,
+                                 anthropic, google, moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated; exact when exact match
+                                 exists after source/provider/date filters, otherwise substring)
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
+                                 precedence over LiteLLM)
+  --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
+                                 LiteLLM), or both (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
+  --history                      Include usage from files that no longer exist on disk (on by
+                                 default; when passed, fails if the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist on disk
+  --machine <name>               Count only these machines (repeatable or comma-separated; local is
+                                 this one; default: all)
+  -h, --help                     display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage statusline
+  $ llm-usage statusline --source claude

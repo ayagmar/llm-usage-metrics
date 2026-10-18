@@ -3,7 +3,22 @@ import path from 'node:path';
 
 import { defineConfig } from 'vitest/config';
 
+// Forward slashes on every platform: the `$1` splice below must yield a valid specifier on
+// Windows too.
+const coreSourceRoot = path.resolve(import.meta.dirname, 'packages/core/src').replaceAll('\\', '/');
+
 export default defineConfig({
+  // Mirrors the tsconfig `paths`: the CLI resolves the core package to its source, never
+  // to a built dist or a root dependency.
+  resolve: {
+    alias: [
+      { find: /^@ayagmar\/agent-sessions$/, replacement: `${coreSourceRoot}/index.ts` },
+      {
+        find: /^@ayagmar\/agent-sessions\/(.+)$/,
+        replacement: `${coreSourceRoot}/$1/index.ts`,
+      },
+    ],
+  },
   test: {
     include: ['tests/**/*.test.ts'],
     // Windows CI runners are several times slower at SQLite and child-process work; the
@@ -35,6 +50,20 @@ export default defineConfig({
         'src/pricing/types.ts',
         'src/trends/trends-series.ts',
         'src/wrapped/wrapped-recap.ts',
+        // Types only.
+        'src/share-report/types.ts',
+        // Browser entry and DOM glue: they lay out what the tested models return and wire
+        // events, with no logic of their own; covered by visual QA.
+        'src/share-report/client/ui/main.ts',
+        'src/share-report/client/ui/shell/app.ts',
+        'src/share-report/client/ui/shell/dom.ts',
+        'src/share-report/client/ui/shell/render.ts',
+        'src/share-report/client/ui/controls/render.ts',
+        'src/share-report/client/ui/tables/render.ts',
+        'src/share-report/client/ui/panels/render.ts',
+        'src/share-report/client/ui/export/browser.ts',
+        'src/share-report/client/ui/state/browser.ts',
+        'src/share-report/client/ui/charts/mount.ts',
       ],
       reporter: ['text', 'text-summary', 'json-summary', 'lcov'],
     },

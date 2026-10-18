@@ -48,6 +48,10 @@ vi.mock('../../src/cli/build-wrapped-data.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/cli/build-share-report-data.js', () => ({
+  buildShareReport: vi.fn(),
+}));
+
 vi.mock('../../src/cli/share-artifact.js', () => ({
   writeShareFile: vi.fn(async (fileName: string) => `/tmp/${fileName}`),
   openShareFile: vi.fn(async () => {
@@ -55,9 +59,11 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
   }),
 }));
 
+import { buildShareReport } from '../../src/cli/build-share-report-data.js';
 import { buildWrappedData } from '../../src/cli/build-wrapped-data.js';
 import { buildWrappedReport, runWrappedReport } from '../../src/cli/run-wrapped-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
+import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
 
 describe('run-wrapped-report', () => {
   afterEach(() => {
@@ -123,9 +129,11 @@ describe('run-wrapped-report', () => {
     ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
-  it('writes a wrapped share SVG while keeping the report body on stdout', async () => {
+  it('writes a wrapped share report while keeping the report body on stdout', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    vi.mocked(buildShareReport).mockResolvedValue({ data: readFixturePayload().data });
 
     try {
       await runWrappedReport({
@@ -133,14 +141,23 @@ describe('run-wrapped-report', () => {
         share: true,
       });
 
-      expect(writeShareFile).toHaveBeenCalledTimes(2);
-      const [fileName, svg] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
-      expect(fileName).toBe('llm-usage-wrapped-2026.svg');
-      expect(svg).toContain('2026 Wrapped');
+      // The page holds wrapped's year and opens on all of it, with the recap embedded.
+      const [request] = vi.mocked(buildShareReport).mock.calls[0] ?? [];
+      expect(request).toMatchObject({
+        command: 'wrapped',
+        window: { since: '2026-01-01', until: '2026-12-31' },
+        initialView: { since: '2026-01-01', until: '2026-12-31', granularity: 'week' },
+        envelope: { report: 'wrapped', data: { year: 2026, totalTokens: 1_000 } },
+      });
+
+      expect(writeShareFile).toHaveBeenCalledTimes(1);
+      const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
+      expect(fileName).toBe('llm-usage-wrapped-2026.html');
+      expect(page).toContain('id="report-data"');
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Wrapped 2026');
-      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote wrapped share SVG');
+      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote wrapped share report');
     } finally {
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();

@@ -19,10 +19,19 @@
           "type": "string"
         },
         "hostname": { "description": "Host name of the exporting machine.", "type": "string" },
-        "exportedAt": { "description": "ISO 8601 time of the export.", "type": "string" }
+        "exportedAt": { "description": "ISO 8601 time of the export.", "type": "string" },
+        "parserVersions": {
+          "description": "Source id to the parser version the export read it with. Optional: older exports leave it out, and readers that predate it ignore it.",
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "singleRequestFlag": {
+          "description": "Events carry singleRequest. Optional: older exports leave it out, and readers take the flag from the event's source (antigravity, claude, gemini, opencode, pi).",
+          "const": true
+        }
       },
       "required": ["type", "format", "version", "cliVersion", "hostname", "exportedAt"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "file": {
       "description": "The events of one counted file the reader does not hold at this revision.",
@@ -36,7 +45,7 @@
           "minLength": 1
         },
         "revision": {
-          "description": "Opaque; changes exactly when the file's events change.",
+          "description": "Opaque; changes exactly when the file's events, tool calls or messages change.",
           "type": "string",
           "minLength": 1
         },
@@ -47,6 +56,11 @@
           "items": {
             "$ref": "https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json"
           }
+        },
+        "sessionEvents": {
+          "description": "The file's tool calls and messages, in the order the source logged them. Optional: left out when the file has none and by older exports; readers that predate it ignore it. Never holds message text or tool input and output.",
+          "type": "array",
+          "items": { "oneOf": [{ "$ref": "#/$defs/toolCall" }, { "$ref": "#/$defs/message" }] }
         }
       },
       "required": ["type", "source", "filePath", "revision", "events"],
@@ -72,12 +86,50 @@
           }
         },
         "eventCount": {
-          "description": "Total events across all listed files.",
+          "description": "Total usage events across all listed files; tool calls and messages are not counted.",
           "type": "integer",
           "minimum": 0
         }
       },
       "required": ["type", "files", "eventCount"],
+      "additionalProperties": false
+    },
+    "toolCall": {
+      "description": "A tool call: its name, how it ended and when, without its input or output.",
+      "type": "object",
+      "properties": {
+        "kind": { "const": "tool_call" },
+        "source": { "type": "string", "minLength": 1 },
+        "sessionId": { "type": "string", "minLength": 1 },
+        "timestamp": { "description": "ISO 8601 time of the call.", "type": "string" },
+        "toolCallId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["ok", "error", "unknown"] },
+        "completedAt": { "description": "ISO 8601 time of the result.", "type": "string" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "messageId": {
+          "description": "The assistant message that made the call.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["kind", "source", "sessionId", "timestamp", "name", "status"],
+      "additionalProperties": false
+    },
+    "message": {
+      "description": "A user, assistant or system turn: its role, ids, model and text length, never its text.",
+      "type": "object",
+      "properties": {
+        "kind": { "const": "message" },
+        "source": { "type": "string", "minLength": 1 },
+        "sessionId": { "type": "string", "minLength": 1 },
+        "timestamp": { "description": "ISO 8601 time of the turn.", "type": "string" },
+        "role": { "enum": ["user", "assistant", "system"] },
+        "messageId": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "textLength": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["kind", "source", "sessionId", "timestamp", "role", "textLength"],
       "additionalProperties": false
     }
   }

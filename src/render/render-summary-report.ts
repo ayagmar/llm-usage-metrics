@@ -1,11 +1,22 @@
 import { markdownTable } from 'markdown-table';
 
-import type { SummaryDataResult, SummaryPeriod } from '../cli/usage-data-contracts.js';
+import { SPIKE_BASELINE_DAYS } from '../aggregate/spend-spikes.js';
+import type {
+  SummaryDataResult,
+  SummaryPeriod,
+  SummarySpendSpike,
+} from '../cli/usage-data-contracts.js';
 import { renderActivityHeatmap } from './activity-heatmap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { formatApproxUsd, formatCompact, formatInteger, formatUsd } from './share-svg-theme.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import {
+  formatApproxUsd,
+  formatInteger,
+  formatStatuslineCompact,
+  formatUsd,
+} from './format-number.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,
@@ -28,21 +39,9 @@ export type RenderSummaryReportOptions = {
 
 const summaryTableHeaders = ['Period', 'Cost', 'Tokens', 'Top source'] as const;
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 function formatCost(period: SummaryPeriod): string {
-  if (period.totals.costUsd === undefined) {
-    return '-';
-  }
-
   // A `~` marks totals that leave out events whose model has no known price.
-  return `${period.totals.costIncomplete ? '~' : ''}${usdFormatter.format(period.totals.costUsd)}`;
+  return formatApproxUsd(period.totals.costUsd, period.totals.costIncomplete);
 }
 
 /** A part's share of the period cost, or undefined when either cost is unknown or zero. */
@@ -71,7 +70,7 @@ function toTableRow(period: SummaryPeriod): string[] {
   return [
     period.label,
     formatCost(period),
-    integerFormatter.format(period.totals.totalTokens),
+    formatInteger(period.totals.totalTokens),
     formatTopSource(period),
   ];
 }
@@ -81,31 +80,29 @@ function hasAnyUsage(summaryData: SummaryDataResult): boolean {
 }
 
 function toNoRecentUsageMessage(summaryData: SummaryDataResult, filtered: boolean): string {
+  const recentScope = 'in the last 7 days or this month';
+
   if (filtered) {
-    return 'No usage in the last 7 days or this month for the selected filters.';
+    return formatNoUsageMessage(true, recentScope);
   }
 
   // Synced machines can supply usage even when this machine has no files.
   const latestDay = summaryData.activity.days.filter((day) => day.totalTokens > 0).at(-1);
 
   if (latestDay) {
-    return `No usage in the last 7 days or this month. Latest usage: ${latestDay.date}. Try \`llm-usage monthly --all\`.`;
+    return `${formatNoUsageMessage(false, recentScope)} Latest usage: ${latestDay.date}. Try \`llm-usage monthly --all\`.`;
   }
 
   if (summaryData.diagnostics.sessionStats.some((stat) => stat.filesFound > 0)) {
-    return 'No usage in the past year. Try `llm-usage monthly --all`.';
+    return `${formatNoUsageMessage(false, 'in the past year')} Try \`llm-usage monthly --all\`.`;
   }
 
-  return 'No usage found in the last 7 days or this month. Run `llm-usage doctor` to see which sources were found.';
+  return `${formatNoUsageMessage(false, recentScope)} Run \`llm-usage doctor\` to see which sources were found.`;
 }
 
 function getTitle(summaryData: SummaryDataResult): string {
   const today = summaryData.periods[0]?.until ?? '';
   return `Usage summary for ${today} (${summaryData.timezone})`;
-}
-
-function formatDays(count: number): string {
-  return `${formatInteger(count)} day${count === 1 ? '' : 's'}`;
 }
 
 function formatBestDay(activity: SummaryDataResult['activity']): string {
@@ -119,13 +116,13 @@ function formatBestDay(activity: SummaryDataResult['activity']): string {
     bestDay.costUsd === undefined
       ? ''
       : ` · ${formatApproxUsd(bestDay.costUsd, bestDay.costIncomplete)}`;
-  return `${bestDay.date}${cost} · ${formatCompact(bestDay.totalTokens)} tokens`;
+  return `${bestDay.date}${cost} · ${formatStatuslineCompact(bestDay.totalTokens)} tokens`;
 }
 
 function toActivityStats(activity: SummaryDataResult['activity']): [string, string][] {
   return [
-    ['Current streak', formatDays(activity.currentStreak)],
-    ['Longest streak', formatDays(activity.longestStreak)],
+    ['Current streak', pluralize(activity.currentStreak, 'day')],
+    ['Longest streak', pluralize(activity.longestStreak, 'day')],
     ['Best day', formatBestDay(activity)],
     ['Active days', formatInteger(activity.activeDays)],
   ];
@@ -174,7 +171,7 @@ function renderTerminalActivity(
   ];
 }
 
-type MonthNote = { text: string; warning: boolean };
+type SummaryNote = { text: string; warning: boolean };
 
 function formatTokenShare(tokens: number, totalTokens: number): string {
   return `${String(Math.round((tokens / totalTokens) * 100))}%`;
@@ -198,7 +195,7 @@ function formatMachinesNote(monthToDate: SummaryPeriod | undefined): string | un
   const parts = monthToDate.machines.map((machine) => {
     if (!byCost) {
       const share = formatTokenShare(machine.totalTokens, monthToDate.totals.totalTokens);
-      return `${machine.machine} ${formatCompact(machine.totalTokens)} tokens (${share})`;
+      return `${machine.machine} ${formatStatuslineCompact(machine.totalTokens)} tokens (${share})`;
     }
 
     const cost = formatApproxUsd(machine.costUsd, machine.costIncomplete);
@@ -211,13 +208,35 @@ function formatMachinesNote(monthToDate: SummaryPeriod | undefined): string | un
   return `This month by machine: ${parts.join(', ')}`;
 }
 
-/** Cost by machine, month-end projection, budget status, and cache savings, in that order. */
-function toMonthNotes(summaryData: SummaryDataResult): MonthNote[] {
+type EscapeName = (name: string) => string;
+
+const keepName: EscapeName = (name) => name;
+
+function formatSpikeNote(spike: SummarySpendSpike, escapeName: EscapeName): string {
+  const multiple = (spike.costUsd / spike.medianActiveDayUsd).toFixed(1);
+  const against = `${multiple}× the median active day (${formatUsd(spike.medianActiveDayUsd)}) of the ${SPIKE_BASELINE_DAYS} days before`;
+  const drivers = [
+    ...(spike.project === undefined ? [] : [`top project ${escapeName(spike.project)}`]),
+    ...(spike.model === undefined ? [] : [`top model ${escapeName(spike.model)}`]),
+  ];
+  const cost = formatApproxUsd(spike.costUsd, spike.costIncomplete);
+
+  return `Spend spike on ${spike.date}: ${cost}, ${against}${drivers.length > 0 ? `; ${drivers.join(', ')}` : ''}`;
+}
+
+/**
+ * The last 7 days' spend spike, then cost by machine, month-end projection, budget status,
+ * and cache savings, in that order. `escapeName` escapes the project and model names.
+ */
+function toSummaryNotes(summaryData: SummaryDataResult, escapeName: EscapeName): SummaryNote[] {
   const { monthEnd } = summaryData;
   const monthToDate = summaryData.periods.find((period) => period.key === 'monthToDate');
   const spentUsd = monthToDate?.totals.costUsd;
   const spent = formatApproxUsd(spentUsd, monthToDate?.totals.costIncomplete);
-  const notes: MonthNote[] = [];
+  const notes: SummaryNote[] =
+    summaryData.spike === undefined
+      ? []
+      : [{ text: formatSpikeNote(summaryData.spike, escapeName), warning: false }];
   const machinesNote = formatMachinesNote(monthToDate);
 
   if (machinesNote !== undefined) {
@@ -299,21 +318,18 @@ function renderTerminalSummaryReport(
       rowMetas,
       layout: 'compact',
       multilineColumnIndex: 0,
+      columnKinds: ['text', 'measure', 'measure', 'text'],
       multilineColumnWidth: 13,
-      leftAlignedColumnIndexes: [3],
       terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
     }),
   );
 
-  const monthNotes = toMonthNotes(summaryData);
+  const notes = toSummaryNotes(summaryData, keepName);
 
-  if (monthNotes.length > 0) {
+  if (notes.length > 0) {
     const palette = options.palette ?? defaultTerminalStylePalette;
     const warn = (text: string) => (useColor ? palette.yellow(text) : text);
-    lines.push(
-      '',
-      ...monthNotes.map((note) => (note.warning ? warn(`⚠ ${note.text}`) : note.text)),
-    );
+    lines.push('', ...notes.map((note) => (note.warning ? warn(`⚠ ${note.text}`) : note.text)));
   }
 
   if (summaryData.activity.activeDays > 0) {
@@ -342,8 +358,8 @@ function renderMarkdownSummaryReport(summaryData: SummaryDataResult): string {
       rows.map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
       { align: ['l', 'l', 'r', 'r', 'l'] },
     ),
-    // Notes are plain sentences of dates and amounts, so they need no Markdown escaping.
-    ...toMonthNotes(summaryData).flatMap((note) => [
+    // Notes are plain sentences of dates and amounts; only the names in them need escaping.
+    ...toSummaryNotes(summaryData, toMarkdownSafeCell).flatMap((note) => [
       '',
       note.warning ? `⚠ ${note.text}` : note.text,
     ]),
@@ -372,6 +388,7 @@ export function renderSummaryReport(
         monthEnd: summaryData.monthEnd,
         monthToDateCacheSavingsUsd: summaryData.monthToDateCacheSavingsUsd,
         activity: summaryData.activity,
+        spike: summaryData.spike,
       });
     case 'markdown':
       return renderMarkdownSummaryReport(summaryData);

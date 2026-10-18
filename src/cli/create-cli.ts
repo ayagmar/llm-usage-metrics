@@ -1,13 +1,16 @@
-import { Command, Help } from 'commander';
+import { Command, Help, Option } from 'commander';
 
 import { setLogLevel } from '../utils/logger.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
 import {
   createReportCommands,
   createRootDescription,
+  formatHelpExamples,
+  getRootHelpExamples,
   GRANULARITY_ARGUMENT_VALUES,
   SUMMARY_COMMAND_NAME,
 } from './report-definitions/report-definitions.js';
+import { revealHiddenOptions } from './report-definitions/shared-report-options.js';
 import { createConfigCommand } from './create-config-command.js';
 import { createMachineCommand, createSyncCommand } from './create-machine-command.js';
 import { createCompletionCommand, COMPLETION_SHELLS } from './create-completion-command.js';
@@ -127,6 +130,31 @@ function wrapHelpOnNarrowTerminals(command: Command): void {
   }
 }
 
+/**
+ * `--help-all` prints a command's help with its hidden options revealed: the per-source
+ * path flags of the report commands. The docs tell users to type it on any command, so
+ * commands that do not declare it get it too, left out of their help since there it
+ * prints the usual help.
+ */
+function addHelpAllOption(command: Command): void {
+  if (!command.options.some((option) => option.long === '--help-all')) {
+    command.addOption(new Option('--help-all', 'Display help for command').hideHelp());
+  }
+
+  command.on('option:help-all', () => {
+    revealHiddenOptions(command);
+    command.help();
+  });
+
+  if (command.commands.length > 0) {
+    command.enablePositionalOptions();
+  }
+
+  for (const subcommand of command.commands) {
+    addHelpAllOption(subcommand);
+  }
+}
+
 export function createCli(options: CreateCliOptions = {}): Command {
   const program = new Command();
 
@@ -134,7 +162,8 @@ export function createCli(options: CreateCliOptions = {}): Command {
     .name('llm-usage')
     .description(createRootDescription())
     .version(options.version ?? '0.0.0')
-    .showHelpAfterError();
+    .showHelpAfterError()
+    .addHelpText('after', formatHelpExamples(getRootHelpExamples()));
 
   for (const command of createReportCommands()) {
     const isSummary = isSummaryCommand(command);
@@ -180,6 +209,17 @@ export function createCli(options: CreateCliOptions = {}): Command {
       setLogLevel('debug');
     }
   });
+
+  // Every parent passes the rest of the line to the subcommand it names, so a group
+  // sees `config init --help-all` as `init --help-all`, not as its own `--help-all`.
+  program.enablePositionalOptions();
+  for (const command of program.commands) {
+    addHelpAllOption(command);
+  }
+  // The root has no hidden options, so its --help-all prints the root help, not the summary's.
+  program
+    .addOption(new Option('--help-all', 'Display help for command').hideHelp())
+    .on('option:help-all', () => program.help());
 
   wrapHelpOnNarrowTerminals(program);
 

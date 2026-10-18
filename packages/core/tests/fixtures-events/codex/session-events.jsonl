@@ -1,0 +1,29 @@
+{"timestamp":"2026-10-01T09:00:00.000Z","type":"session_meta","payload":{"id":"codex-events-session","timestamp":"2026-10-01T09:00:00.000Z","cwd":"/work/demo-repo","originator":"codex_cli_rs","cli_version":"0.99.0","model_provider":"Azure-East","git":{"commit_hash":"abc123","branch":"feature/events"}}}
+{"timestamp":"2026-10-01T09:00:00.100Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"<permissions instructions>sandboxed</permissions instructions>"},{"type":"input_text","text":"Be brief."}]}}
+{"timestamp":"2026-10-01T09:00:00.200Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions for /work/demo-repo\n\nUse pnpm."},{"type":"input_text","text":"<environment_context>\n  <cwd>/work/demo-repo</cwd>\n</environment_context>"}]}}
+{"timestamp":"2026-10-01T09:00:01.000Z","type":"turn_context","payload":{"cwd":"/work/demo-repo","model":"gpt-5.5-codex","effort":"high"}}
+{"timestamp":"2026-10-01T09:00:01.100Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"List the files, then search the docs."}]}}
+{"timestamp":"2026-10-01T09:00:01.150Z","type":"event_msg","payload":{"type":"user_message","message":"List the files, then search the docs."}}
+{"timestamp":"2026-10-01T09:00:02.000Z","type":"response_item","payload":{"type":"reasoning","summary":[],"encrypted_content":"opaque"}}
+{"timestamp":"2026-10-01T09:00:03.000Z","type":"response_item","payload":{"type":"message","role":"assistant","id":"msg-a1","phase":"commentary","content":[{"type":"output_text","text":"Listing files."}]}}
+{"timestamp":"2026-10-01T09:00:03.500Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"ls\"}","call_id":"call-ls"}}
+{"timestamp":"2026-10-01T09:00:04.000Z","type":"response_item","payload":{"type":"custom_tool_call","status":"completed","call_id":"call-patch","name":"apply_patch","input":"*** Begin Patch\n*** End Patch"}}
+{"timestamp":"2026-10-01T09:00:04.250Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-ls","output":"README.md\nsrc"}}
+{"timestamp":"2026-10-01T09:00:04.500Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call-patch","output":"Done"}}
+{"timestamp":"2026-10-01T09:00:05.000Z","type":"response_item","payload":{"type":"web_search_call","status":"completed","action":{"type":"search","query":"demo docs"}}}
+{"timestamp":"2026-10-01T09:00:05.500Z","type":"response_item","payload":{"type":"web_search_call","id":"ws-2","status":"failed","action":{"type":"search","query":"demo docs v2"}}}
+{"timestamp":"2026-10-01T09:00:05.600Z","type":"response_item","payload":{"type":"web_search_call","status":"in_progress"}}
+{"timestamp":"2026-10-01T09:00:06.000Z","type":"token_usage_record","payload":{"response_id":"resp-1","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":80,"reasoning_output_tokens":30,"total_tokens":1280}}}
+{"timestamp":"2026-10-01T09:00:06.100Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":80,"reasoning_output_tokens":30,"total_tokens":1280},"last_token_usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":80,"reasoning_output_tokens":30,"total_tokens":1280}}}}
+{"timestamp":"2026-10-01T09:00:07.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"sleep 100\"}","call_id":"call-unanswered"}}
+{"timestamp":"2026-10-01T09:00:07.100Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"ls\"}","call_id":"call-ls"}}
+{"timestamp":"2026-10-01T09:00:07.200Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-ls","output":"README.md\nsrc"}}
+{"timestamp":"2026-10-01T09:00:07.300Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-never-made","output":"stray"}}
+{"timestamp":"2026-10-01T09:00:07.400Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{}"}}
+{"timestamp":"2026-10-01T09:00:07.500Z","type":"response_item","payload":{"type":"message","role":"tool","content":[{"type":"output_text","text":"unexpected role"}]}}
+{"timestamp":"2026-10-01T09:00:07.600Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Here is the list."},{"type":"output_text","text":"And the docs."}]}}
+{"timestamp":"2026-10-01T09:00:07.700Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<turn_aborted>\nThe user interrupted.\n</turn_aborted>"}]}}
+{"timestamp":"2026-10-01T09:00:07.800Z","type":"response_item","payload":{"type":"message"
+{"timestamp":"2026-10-01T09:00:07.900Z","type":"event_msg","payload":{"type":"token_count"
+{"timestamp":"2026-10-01T09:00:08.000Z","type":"token_usage_record","payload":{"response_id":"resp-2","usage":{"input_tokens":1500,"cached_input_tokens":1200,"output_tokens":40,"reasoning_output_tokens":0,"total_tokens":1540}}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":9000,"cached_input_tokens":0,"output_tokens":10,"reasoning_output_tokens":0,"total_tokens":9010}}}}

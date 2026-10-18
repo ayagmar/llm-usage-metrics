@@ -1,0 +1,5 @@
+┌───────────────────┐
+│ Tool Calls Report │
+└───────────────────┘
+
+No tool calls found for the selected filters.

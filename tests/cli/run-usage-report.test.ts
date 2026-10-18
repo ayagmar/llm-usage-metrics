@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -7,6 +7,7 @@ import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+import { readSharePayload } from '../helpers/share-html.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
 const tempDirs: string[] = [];
@@ -47,7 +48,7 @@ describe('buildUsageReport', () => {
     try {
       const report = await buildUsageReport('daily', {
         all: true,
-        droidDir: path.resolve('tests/fixtures/droid/report'),
+        droidDir: path.resolve('packages/core/tests/fixtures/droid/report'),
         source: 'droid',
         timezone: 'UTC',
         json: true,
@@ -95,8 +96,8 @@ describe('buildUsageReport', () => {
   it('builds markdown report with source-separated rows', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       source: directoryBackedSources,
       timezone: 'UTC',
       markdown: true,
@@ -115,8 +116,8 @@ describe('buildUsageReport', () => {
   it('builds markdown report with per-model column layout when requested', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       source: directoryBackedSources,
       timezone: 'UTC',
       markdown: true,
@@ -130,8 +131,8 @@ describe('buildUsageReport', () => {
   it('builds json report when --json semantics are requested', async () => {
     const report = await buildUsageReport('weekly', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       source: directoryBackedSources,
       timezone: 'UTC',
       json: true,
@@ -152,8 +153,8 @@ describe('buildUsageReport', () => {
   it('filters rows to a single source when --source is provided', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       timezone: 'UTC',
       source: 'codex',
       json: true,
@@ -173,8 +174,8 @@ describe('buildUsageReport', () => {
   it('supports comma-separated source filters', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       timezone: 'UTC',
       source: 'pi,codex',
       json: true,
@@ -586,8 +587,8 @@ describe('buildUsageReport', () => {
     try {
       await runUsageReport('daily', {
         all: true,
-        piDir: path.resolve('tests/fixtures/pi'),
-        codexDir: path.resolve('tests/fixtures/codex'),
+        piDir: path.resolve('packages/core/tests/fixtures/pi'),
+        codexDir: path.resolve('packages/core/tests/fixtures/codex'),
         source: directoryBackedSources,
         timezone: 'UTC',
         pricingOffline: true,
@@ -652,8 +653,8 @@ describe('buildUsageReport', () => {
     try {
       await runUsageReport('daily', {
         all: true,
-        piDir: path.resolve('tests/fixtures/pi'),
-        codexDir: path.resolve('tests/fixtures/codex'),
+        piDir: path.resolve('packages/core/tests/fixtures/pi'),
+        codexDir: path.resolve('packages/core/tests/fixtures/codex'),
         source: directoryBackedSources,
         timezone: 'UTC',
         pricingOffline: true,
@@ -684,15 +685,26 @@ describe('buildUsageReport', () => {
     ).rejects.toThrow('--compact applies to terminal and markdown tables; drop it with --json');
   });
 
-  it('rejects --by-machine with --share', async () => {
+  it('accepts --by-machine and --by-repo with --share: the page splits by machine and project', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-split-sessions-'));
+    tempDirs.push(emptyDir);
+
     await expect(
-      buildUsageReport('daily', { all: true, byMachine: true, share: true }),
-    ).rejects.toThrow('--by-machine splits the table only; drop it with --share');
+      buildUsageReport('daily', {
+        all: true,
+        byMachine: true,
+        byRepo: true,
+        share: true,
+        piDir: emptyDir,
+        codexDir: emptyDir,
+        source: directoryBackedSources,
+      }),
+    ).resolves.toEqual(expect.any(String));
   });
 
   it('rejects --no-cost with --json', async () => {
     await expect(buildUsageReport('daily', { all: true, cost: false, json: true })).rejects.toThrow(
-      '--no-cost applies to tables and the share card; drop it with --json',
+      '--no-cost applies to tables and the share report; drop it with --json',
     );
   });
 
@@ -802,6 +814,81 @@ describe('buildUsageReport', () => {
     expect(stderr.some((line) => line.includes('~ marks costs'))).toBe(false);
   });
 
+  async function runWithBundledPricing(
+    piDir: string,
+    extraOptions: { cost?: boolean; costMode?: 'explicit' | 'estimated' | 'both' } = {},
+  ): Promise<{ stderr: string[]; stdout: string }> {
+    // The default URL falls back to the bundled snapshot when the fetch fails.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network unavailable');
+      }),
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await runUsageReport('daily', {
+      all: true,
+      piDir,
+      source: 'pi',
+      timezone: 'UTC',
+      ...extraOptions,
+    });
+
+    return {
+      stderr: errorSpy.mock.calls.map((call) => String(call[0])),
+      stdout: logSpy.mock.calls.map((call) => String(call[0])).join('\n'),
+    };
+  }
+
+  const explicitZeroNote =
+    '2 events logged $0 by pi were estimated from LiteLLM; use --cost-mode explicit to keep $0';
+
+  it('notes the logged $0 events it estimated, by source', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0.5 },
+    ]);
+
+    const { stderr, stdout } = await runWithBundledPricing(piDir);
+
+    expect(stderr).toContainEqual(expect.stringContaining(explicitZeroNote));
+    expect(stdout).not.toContain('logged $0');
+  });
+
+  it('drops the logged $0 note once a cost mode is chosen or cost is hidden', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0 },
+    ]);
+
+    for (const options of [{ costMode: 'both' as const }, { cost: false }]) {
+      const { stderr } = await runWithBundledPricing(piDir, options);
+      expect(stderr.some((line) => line.includes('logged $0'))).toBe(false);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('keeps logged $0 under --cost-mode explicit and marks events without a logged cost', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0.5 },
+      { model: 'gpt-4.1' },
+    ]);
+
+    const { stderr, stdout } = await runWithBundledPricing(piDir, { costMode: 'explicit' });
+
+    expect(stdout).toContain('~$0.50');
+    expect(stderr.filter((line) => line.includes('~ marks costs'))).toEqual([
+      expect.stringContaining(
+        '~ marks costs that leave out 1 event with no logged cost (--cost-mode explicit)',
+      ),
+    ]);
+    expect(stderr.some((line) => line.includes('logged $0'))).toBe(false);
+  });
+
   it('keeps runUsageReport JSON output data-only on stdout while still emitting diagnostics', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-json-no-logs-'));
     tempDirs.push(emptyDir);
@@ -829,7 +916,7 @@ describe('buildUsageReport', () => {
     }
   });
 
-  it('writes usage share SVG when --share is enabled', async () => {
+  it('writes the usage share report when --share is enabled', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-sessions-'));
     const shareDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-output-'));
     tempDirs.push(emptyDir, shareDir);
@@ -860,17 +947,20 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
     }
 
-    const svgPath = path.join(shareDir, 'usage-monthly-share.svg');
-    const svgContent = await readFile(svgPath, 'utf8');
+    expect(await readdir(shareDir)).toEqual(['usage-monthly-share.html']);
+    const { data } = readSharePayload(
+      await readFile(path.join(shareDir, 'usage-monthly-share.html'), 'utf8'),
+    );
 
-    expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('Tokens');
-    expect(svgContent).toContain('llm-usage monthly --share');
-    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
+    expect(data.meta.command).toBe('monthly');
+    // monthly has no default window: the file holds all history and opens on it by month.
+    expect(data.meta.window).toEqual({ since: null, until: null });
+    expect(data.meta.initialView).toEqual({ since: null, until: null, granularity: 'month' });
+    expect(stderrLines.some((line) => line.includes('Wrote usage share report'))).toBe(true);
     expect(logCallCount).toBe(1);
   });
 
-  it('warns when usage share SVG cannot be opened after writing', async () => {
+  it('warns when the usage share report cannot be opened after writing', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-open-failure-sessions-'));
     tempDirs.push(emptyDir);
 
@@ -898,7 +988,9 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
     }
 
-    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Could not open usage share page'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Wrote usage share report'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Could not open usage share report'))).toBe(
+      true,
+    );
   });
 });

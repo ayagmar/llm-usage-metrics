@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json",
   "title": "llm-usage-metrics usage report output (v1)",
-  "description": "Envelope and payload for daily/weekly/monthly usage report --json output.",
+  "description": "Envelope and payload for hourly, daily, weekly, and monthly usage report --json output.",
   "type": "object",
   "allOf": [
     {
@@ -55,6 +55,18 @@
         "machine": {
           "description": "With --by-machine, per-source rows only: the machine the usage came from (local for this one).",
           "type": "string"
+        },
+        "repoRoot": {
+          "description": "With --by-repo, per-source rows only: the project's recorded working directory, or null for usage without one.",
+          "type": ["string", "null"]
+        },
+        "project": {
+          "description": "With --by-repo, per-source rows only: the project's display label.",
+          "type": "string"
+        },
+        "repeatedHour": {
+          "description": "Hourly only, on period rows: the local hour occurred twice (a DST fall-back), and the row covers both occurrences.",
+          "const": true
         },
         "models": {
           "description": "Model identifiers active in the row.",

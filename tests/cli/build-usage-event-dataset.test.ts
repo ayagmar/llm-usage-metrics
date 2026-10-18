@@ -13,8 +13,9 @@ import {
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
 import { loadHistoryEvents } from '../../src/persistence/event-store-history.js';
-import { ClaudeSourceAdapter } from '../../src/sources/claude/claude-source-adapter.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
 
@@ -57,7 +58,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
@@ -298,7 +299,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 0 events from 0 departed files (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -320,7 +321,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 0 events from 0 departed files (0 suppressed as moved or duplicated).',
     ]);
     expect(openEventStoreSpy).toHaveBeenCalledTimes(1);
     expect(openEventStoreSpy).toHaveBeenCalledWith(eventStorePath);
@@ -384,7 +385,7 @@ describe('buildUsageEventDataset history', () => {
       discoverFiles: async () => {
         throw new Error('pi discovery failed');
       },
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
 
@@ -407,7 +408,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 0 events from 0 departed files (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -449,7 +450,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([matchingEvent]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 3 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 3 events from 1 departed file (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -476,7 +477,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([departedEvent]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 1 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 1 event from 1 departed file (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -612,12 +613,12 @@ describe('buildUsageEventDataset history', () => {
     // The stored event sits inside the window only so a wrongly departed file would show.
     const liveEvent = createEvent({ sessionId: 'live' });
     const departedEvent = createEvent({ sessionId: 'departed' });
-    const parseFile = vi.fn(async () => [liveEvent]);
+    const parse = vi.fn(async () => [liveEvent]);
     const adapter: SourceAdapter = {
       id: 'codex',
       capabilities: { eventsPrecedeFileMtime: true },
       discoverFiles: async () => [liveFilePath],
-      parseFile,
+      read: readFrom(parse),
     };
     const deps = { ...createDatasetDeps(eventStorePath), createAdapters: () => [adapter] };
 
@@ -635,11 +636,11 @@ describe('buildUsageEventDataset history', () => {
       deps,
     );
 
-    expect(parseFile).toHaveBeenCalledTimes(1);
+    expect(parse).toHaveBeenCalledTimes(1);
     expect(dataset.filteredEvents).toEqual([departedEvent]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 1 event(s) from 1 departed file(s) (1 suppressed as moved or duplicated).',
+      'History: included 1 event from 1 departed file (1 suppressed as moved or duplicated).',
     ]);
   });
 });

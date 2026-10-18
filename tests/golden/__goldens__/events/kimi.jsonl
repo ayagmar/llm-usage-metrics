@@ -1,0 +1,1 @@
+{"source":"kimi","sessionId":"session-kimi","timestamp":"2026-06-15T12:25:00.000Z","provider":"moonshot","model":"kimi-k2.6","inputTokens":40,"outputTokens":20,"reasoningTokens":0,"cacheReadTokens":5,"cacheWriteTokens":5,"cacheWrite1hTokens":0,"totalTokens":70,"costMode":"estimated"}

@@ -1,15 +1,21 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import type * as FsPromises from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { buildSummaryData } from '../../src/cli/build-summary-data.js';
 import {
+  acquireStatuslineLock,
   buildStatusline,
+  buildStatuslineData,
   formatStatusline,
   parseClaudeCodeSession,
   runStatusline,
+  STATUSLINE_EMPTY_STORE_HINT,
 } from '../../src/cli/run-statusline.js';
 import type {
   SummaryDataResult,
@@ -17,8 +23,27 @@ import type {
   UsageWindowTotals,
 } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { logger, setLogLevel } from '../../src/utils/logger.js';
+import { readFrom } from '../helpers/fake-read.js';
+
+const fsHooks = vi.hoisted(() => ({
+  /** Runs once, after the next `readFile` call reads its file. */
+  afterReadFile: undefined as (() => Promise<void>) | undefined,
+}));
+
+vi.mock('node:fs/promises', async () => {
+  const actual = await vi.importActual<typeof FsPromises>('node:fs/promises');
+  const readFile = async (...args: Parameters<typeof actual.readFile>) => {
+    const content = await actual.readFile(...args);
+    const hook = fsHooks.afterReadFile;
+    fsHooks.afterReadFile = undefined;
+    await hook?.();
+    return content;
+  };
+
+  return { ...actual, readFile };
+});
 
 function totals(overrides: Partial<UsageWindowTotals> = {}): UsageWindowTotals {
   return {
@@ -191,7 +216,7 @@ describe('buildStatusline', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => ['/tmp/codex.jsonl'],
-      parseFile: async () => [
+      read: readFrom(async () => [
         createUsageEvent({
           source: 'codex',
           sessionId: 'session-1',
@@ -203,7 +228,7 @@ describe('buildStatusline', () => {
           totalTokens: 1_000_000,
           costMode: 'estimated',
         }),
-      ],
+      ]),
     };
 
     // gpt-4.1 bundled pricing: $2.00 per 1M input tokens.
@@ -211,6 +236,188 @@ describe('buildStatusline', () => {
       '$2.00 today · 1d streak · $2.00 this month',
     );
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  function codexAdapter(events: Parameters<typeof createUsageEvent>[0][]): SourceAdapter {
+    return {
+      id: 'codex',
+      discoverFiles: async () => ['/tmp/codex.jsonl'],
+      read: readFrom(async () => events.map((event) => createUsageEvent(event))),
+    };
+  }
+
+  function codexEvent(
+    timestamp: string,
+    overrides: Partial<Parameters<typeof createUsageEvent>[0]> = {},
+  ): Parameters<typeof createUsageEvent>[0] {
+    return {
+      source: 'codex',
+      sessionId: 'session-1',
+      timestamp,
+      provider: 'openai',
+      model: 'gpt-4.1',
+      inputTokens: 1_000,
+      outputTokens: 0,
+      totalTokens: 1_000,
+      ...overrides,
+    };
+  }
+
+  it('counts only month-to-date events in the pricing notes, unlike the summary', async () => {
+    // Mar 3: the summary's last 7 days reach back into February.
+    const runDeps = {
+      ...deps([
+        codexAdapter([
+          codexEvent('2026-03-03T09:00:00.000Z', { model: 'unpriced-model-x' }),
+          codexEvent('2026-02-27T09:00:00.000Z', { model: 'unpriced-model-x' }),
+        ]),
+      ]),
+      now: () => new Date('2026-03-03T18:00:00.000Z'),
+    };
+
+    const statusline = await buildStatuslineData({ timezone: 'UTC' }, runDeps);
+    const summary = await buildSummaryData({ timezone: 'UTC', pricingOffline: true }, runDeps);
+
+    expect(statusline.diagnostics.notes).toEqual([
+      '~ marks costs that leave out 1 event with no known price (models: unpriced-model-x)',
+    ]);
+    expect(summary.diagnostics.notes).toEqual([
+      '~ marks costs that leave out 2 events with no known price (models: unpriced-model-x)',
+    ]);
+  });
+
+  it('loads prices when only events before the month need them, as the summary does', async () => {
+    const resolvePricingSource = vi.fn(async () => {
+      throw new Error('pricing source is down');
+    });
+    const runDeps = {
+      ...deps([
+        codexAdapter([
+          // Logged costs this month need no prices; February's estimate does.
+          codexEvent('2026-03-10T09:00:00.000Z', { costMode: 'explicit', costUsd: 1 }),
+          codexEvent('2026-02-10T09:00:00.000Z', { costMode: 'estimated' }),
+        ]),
+      ]),
+      resolvePricingSource,
+    };
+
+    await expect(buildStatusline({ timezone: 'UTC' }, runDeps)).rejects.toThrow(
+      'pricing source is down',
+    );
+    await expect(
+      buildSummaryData({ timezone: 'UTC', pricingOffline: true }, runDeps),
+    ).rejects.toThrow('pricing source is down');
+
+    const ignoring = { timezone: 'UTC', ignorePricingFailures: true };
+    const statusline = await buildStatuslineData(ignoring, runDeps);
+    const summary = await buildSummaryData({ ...ignoring, pricingOffline: true }, runDeps);
+
+    expect(statusline.diagnostics.pricingWarning).toBe(
+      'Could not load pricing; continuing without estimated costs: pricing source is down',
+    );
+    expect(statusline.diagnostics.pricingWarning).toBe(summary.diagnostics.pricingWarning);
+    expect(formatStatusline(statusline)).toBe('$1.00 today · 1d streak · $1.00 this month');
+    expect(resolvePricingSource).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('acquireStatuslineLock', () => {
+  async function withLockPath(run: (lockPath: string) => Promise<void>): Promise<void> {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-lock-'));
+
+    try {
+      await run(path.join(dir, 'store', 'events.sqlite.statusline.lock'));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('lets one tick hold the lock until it releases it', async () => {
+    await withLockPath(async (lockPath) => {
+      const release = await acquireStatuslineLock(lockPath, 0);
+      expect(release).toBeTypeOf('function');
+      await expect(acquireStatuslineLock(lockPath, 100)).resolves.toBeUndefined();
+
+      await release?.();
+      const next = await acquireStatuslineLock(lockPath, 0);
+      expect(next).toBeTypeOf('function');
+      await next?.();
+    });
+  });
+
+  it('takes over a lock left by an exited process or held too long', async () => {
+    await withLockPath(async (lockPath) => {
+      const exited = spawnSync(process.execPath, ['-e', '']);
+      await acquireStatuslineLock(lockPath, 0);
+      await writeFile(lockPath, String(exited.pid));
+      const afterExit = await acquireStatuslineLock(lockPath, 0);
+      expect(afterExit).toBeTypeOf('function');
+      await expect(readFile(lockPath, 'utf8')).resolves.toMatch(`${String(process.pid)} `);
+
+      // Still this process's lock, but ten minutes old.
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toBeTypeOf('function');
+    });
+  });
+
+  it('lets only one of two ticks reclaiming the same stale lock through', async () => {
+    await withLockPath(async (lockPath) => {
+      await acquireStatuslineLock(lockPath, 0);
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+
+      // The second tick reads the stale lock, then the first takes it over before the
+      // second acts on what it read.
+      let first: (() => Promise<void>) | undefined;
+      fsHooks.afterReadFile = async () => {
+        first = await acquireStatuslineLock(lockPath, 0);
+      };
+      const second = await acquireStatuslineLock(lockPath, 0);
+
+      expect(first).toBeTypeOf('function');
+      expect(second).toBeUndefined();
+      await first?.();
+      await expect(readdir(path.dirname(lockPath))).resolves.toEqual([]);
+    });
+  });
+
+  it('keeps a lock another tick took over held while the old holder releases', async () => {
+    await withLockPath(async (lockPath) => {
+      // A held the lock past the stale age and B took it over while A still ran.
+      const releaseA = await acquireStatuslineLock(lockPath, 0);
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+      const releaseB = await acquireStatuslineLock(lockPath, 0);
+      const lockB = await readFile(lockPath, 'utf8');
+
+      // C starts while A releases.
+      let releaseC: (() => Promise<void>) | undefined;
+      fsHooks.afterReadFile = async () => {
+        releaseC = await acquireStatuslineLock(lockPath, 0);
+      };
+      await releaseA?.();
+
+      expect(releaseC).toBeUndefined();
+      await expect(readFile(lockPath, 'utf8')).resolves.toBe(lockB);
+      await releaseB?.();
+    });
+  });
+
+  it('leaves a lock another tick took over in place on release', async () => {
+    await withLockPath(async (lockPath) => {
+      // Held past the stale age, so another tick takes it over while this one still runs.
+      const release = await acquireStatuslineLock(lockPath, 0);
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+      const next = await acquireStatuslineLock(lockPath, 0);
+      const nextLock = await readFile(lockPath, 'utf8');
+
+      await release?.();
+      await expect(readFile(lockPath, 'utf8')).resolves.toBe(nextLock);
+      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toBeUndefined();
+      await next?.();
+    });
   });
 });
 
@@ -281,6 +488,57 @@ describe('runStatusline', () => {
       logSpy.mockRestore();
       errorSpy.mockRestore();
       await rm(emptyDir, { recursive: true, force: true });
+    }
+  });
+
+  it('prints a warming-up line while another tick holds the lock', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-locked-'));
+    const storePath = path.join(dir, 'events.sqlite');
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', storePath);
+    const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+
+    try {
+      await runStatusline(
+        { source: 'codex', codexDir: dir, timezone: 'UTC' },
+        { stdin: Readable.from([Buffer.from(claudeCodeInput)]) },
+      );
+
+      expect(logSpy.mock.calls).toEqual([['$1.23 session · 42% context · warming up…']]);
+    } finally {
+      await release?.();
+      vi.unstubAllEnvs();
+      setLogLevel('info');
+      logSpy.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('hints once per event store on stderr when there is no usage at all', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-empty-'));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(dir, 'events.sqlite'));
+
+    try {
+      const options = { source: 'codex', codexDir: dir, timezone: 'UTC' };
+      await runStatusline(options, { stdin: Readable.from([]) });
+      await runStatusline(options, { stdin: Readable.from([]) });
+
+      // Node 22 also warns on stderr the first time it loads node:sqlite.
+      const hints = stderrSpy.mock.calls.filter(([chunk]) =>
+        String(chunk).includes(STATUSLINE_EMPTY_STORE_HINT),
+      );
+      expect(hints).toEqual([[`${STATUSLINE_EMPTY_STORE_HINT}\n`]]);
+      expect(logSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllEnvs();
+      setLogLevel('info');
+      logSpy.mockRestore();
+      stderrSpy.mockRestore();
+      await rm(dir, { recursive: true, force: true });
     }
   });
 });

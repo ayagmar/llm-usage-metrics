@@ -1,0 +1,73 @@
+---
+title: 'Share report'
+description: 'How the interactive HTML report is built from report data.'
+---
+
+import ShareDataFlow from '@components/diagrams/ShareDataFlow.astro';
+
+`--share` writes one HTML file that holds the data and the code to explore it: no server, no network, no other files. [Interactive report](/llm-usage-metrics/share/) covers what you can do in the page; this page covers how the file is built, in `src/cli/build-share-report-data.ts` and `src/share-report/`.
+
+<ShareDataFlow />
+
+## Which commands
+
+`summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `efficiency`, `optimize`, and `wrapped` accept `--share`, with `--no-open` and `--redact`. The file goes to the current directory under a fixed name per command (for example `usage-daily-share.html`, `compare-share.html`, `llm-usage-wrapped-<year>.html`) and replaces a file of that name: the old entry is unlinked and the new file created with mode `0600`, so a symlink at that name is never followed. `--no-open` and `--redact` without `--share` are errors.
+
+The command still prints its normal report to stdout. Before it does, it writes the file, logs `Wrote <report> share report: <path>` to stderr, and opens it with the system handler (`xdg-open`, `open`, or `rundll32` on Windows) unless `--no-open` is passed. A file that cannot be opened is a warning, not a failure.
+
+## The second read
+
+The page needs more than the command's own rows: every event in the window, so the browser can regroup them. After building the report, the command reads the events again through `buildUsageEventDataset`, with the same options and three changes:
+
+- `since` moves back 7 days, so 5-hour blocks that started before the window are placed correctly;
+- `until` is the command's resolved window end;
+- machine sync is off, so other machines are read from their caches as the first read left them.
+
+Pricing loads once and prices every event in each cost mode (`explicit`, `estimated`, `both`), so the page can switch modes. When pricing cannot load, the estimated modes are dropped with a warning and listed in the payload as unavailable. `--no-cost` embeds no costs.
+
+## The payload
+
+The payload has `schemaVersion: 1` and `report: 'share'`; `schema/report-share.v1.schema.json` describes it. Its `data` holds:
+
+- `meta`: the command, time zone, window, initial view, cost mode, the filters in use (the `--repo` value itself is never embedded), and whether names are redacted.
+- `dictionaries`: the periods, sources, models, projects, and machines that the other parts index into.
+- `cube`: one cell per period, source, model, project, and machine, stored as columns. Each cell holds the token buckets, event count, active time, and the cost in each mode with a count of events missing a price. Periods are hours; when the hourly cube would make the file too large, cells more than 90 days before the window end roll up to days.
+- `sessions`: up to the 200 newest sessions per project, with tokens, cost, active time, and models. A session is labeled `source · date time`, never by its session id. Older sessions are counted, not listed.
+- `blocks`: estimated 5-hour blocks per source, across machines.
+- `envelope`: for `summary`, `compare`, `trends`, `efficiency`, `optimize`, and `wrapped`, the command's own `--json` output, so the page can show the command's panel.
+
+Active time is the gaps between consecutive events in a session, each capped at 5 minutes, credited to the later event's cell.
+
+## Names and paths
+
+Project labels never hold a full home path, even without `--redact`: a home directory collapses to `~`, and labels that only a full path would tell apart get ` #2`, ` #3`. A model name that looks like a path keeps only its last part. The envelope drops path fields (`repoRoot`, `cwd`, `filePath` and others) and scrubs paths from other strings.
+
+`--redact` replaces project names with `project-N` and machine names with `machine-N`, numbered by total tokens. `(unattributed)` and `local` stay as they are. Models whose name holds a path or that LiteLLM does not list get `model-N`; to tell which, prices load even with `--no-cost`, and when they do not load every model gets `model-N`. The time zone and session start and end times stay. The same maps scrub the run's `stderr` lines (`ShareArtifact.scrubLog`, applied through the logger): names become their stand-ins and paths `<path>`, except the `Wrote … share report` line. The page's own "hide names" switch only masks the display; the file still holds the names.
+
+## The HTML file
+
+`renderShareHtml` writes one document: a content security policy, an inline stylesheet, the payload as a JSON `<script>` block, and the client as an inline script. The policy is
+
+```txt
+default-src 'none'; script-src '<sha256>'; style-src '<sha256>'; img-src blob:; base-uri 'none'; form-action 'none'
+```
+
+so the page can run only its own script and style and cannot load or send anything. The payload is escaped for a script context. The client is built from `src/share-report/client/` by `scripts/build-share-client.mjs` (esbuild, minified) into `client-bundle.generated.ts`, which the CLI build includes.
+
+The file aims to stay under 8 MB. Past that, the CLI only warns and suggests a shorter window or narrower filters.
+
+## In the browser
+
+The client decodes the payload, then does all grouping itself:
+
+- rolls the cube up by hour (where hourly detail exists), day, ISO week, or month;
+- filters by date range, source, model, project, and machine (blocks ignore the model, project, and machine filters);
+- draws cost and tokens over time, projects, model mix, cache hit rate, cost per active hour, an hour-by-weekday heatmap, and 5-hour blocks, and lists projects with their sessions;
+- keeps the view in the URL hash, so a link reopens the same view, and "Save this view" writes a copy of the file that opens on it;
+- exports charts as SVG or PNG.
+
+## Related pages
+
+- [Interactive report](/llm-usage-metrics/share/): using the page.
+- [Machine merge](/llm-usage-metrics/architecture/machine-merge/): where the machine dimension comes from.
+- [Event model](/llm-usage-metrics/architecture/event-model/): the events the cube is built from.

@@ -10,10 +10,14 @@ import {
   type UsageTableColumnId,
   type UsageTableLayout,
   type UsageTokenFormat,
+  usageTableColumnKinds,
   usageTableHeaders,
 } from './row-cells.js';
 import {
-  resolveTtyColumns,
+  isValidTerminalWidth,
+  measureCellWidth,
+  padEndVisible,
+  resolveTerminalWidth,
   splitCellLines,
   truncateTableColumn,
   visibleWidth,
@@ -133,18 +137,6 @@ function colorizeHeader(headerCells: readonly string[], useColor: boolean): stri
   );
 }
 
-function isValidTerminalWidth(width: unknown): width is number {
-  return typeof width === 'number' && Number.isFinite(width) && width > 0;
-}
-
-function resolveTerminalWidth(override: number | undefined): number | undefined {
-  if (isValidTerminalWidth(override)) {
-    return Math.floor(override);
-  }
-
-  return resolveTtyColumns(process.stdout);
-}
-
 function measureTableWidth(tableOutput: string): number {
   return tableOutput
     .trimEnd()
@@ -152,16 +144,8 @@ function measureTableWidth(tableOutput: string): number {
     .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
 }
 
-function measureCellWidth(cell: string): number {
-  return splitCellLines(cell).reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
-}
-
 function measureColumnWidth(rows: readonly (readonly string[])[], columnIndex: number): number {
   return rows.reduce((maxWidth, row) => Math.max(maxWidth, measureCellWidth(row[columnIndex])), 0);
-}
-
-function padVisibleEnd(value: string, width: number): string {
-  return `${value}${' '.repeat(Math.max(0, width - visibleWidth(value)))}`;
 }
 
 function formatCompactModelsCell(value: string, width: number): string {
@@ -194,7 +178,7 @@ function formatCompactModelsCell(value: string, width: number): string {
     compactLines.push(
       cells
         .map((cell, columnIndex) =>
-          columnIndex === cells.length - 1 ? cell : padVisibleEnd(cell, longestLineWidth),
+          columnIndex === cells.length - 1 ? cell : padEndVisible(cell, longestLineWidth),
         )
         .join(' '.repeat(compactModelsColumnGap)),
     );
@@ -453,6 +437,7 @@ function renderPreparedTable(
     measureBodyRows: preparedRows.map((row) => selectColumns(row, columns)),
     rowMetas: toRowMetas(rows),
     layout: options.tableLayout === 'per_model_columns' ? 'top_aligned' : 'compact',
+    columnKinds: selectColumns(usageTableColumnKinds, columns),
     multilineColumnIndex: prepared.showsModels
       ? columns.indexOf(modelsColumnIndex)
       : columns.indexOf(sourceColumnIndex),

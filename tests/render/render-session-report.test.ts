@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { SessionDataResult } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { renderSessionReport } from '../../src/render/render-session-report.js';
+import type { SessionTimelineRow } from '../../src/session/session-timeline.js';
+import { overrideStdoutTty } from '../helpers/stdout.js';
 
 function createDiagnostics(timezone: string): SessionDataResult['diagnostics'] {
   return {
@@ -40,6 +42,7 @@ function createSessionData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    projectLabels: new Map([['/home/user/project-alpha', 'project-alpha']]),
     diagnostics: createDiagnostics('America/New_York'),
   };
 }
@@ -78,6 +81,10 @@ function createRepoData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    projectLabels: new Map([
+      ['/home/user/project-alpha', 'project-alpha'],
+      [undefined, '(unattributed)'],
+    ]),
     diagnostics: createDiagnostics('UTC'),
   };
 }
@@ -190,10 +197,10 @@ describe('renderSessionReport', () => {
     });
 
     const durationColumnRow = output.split('\n').find((line) => line.includes('…abcdef123456'));
-    expect(durationColumnRow).toContain('│ - ');
+    expect(durationColumnRow).toMatch(/│ +- │ 3,340 │/u);
   });
 
-  it('renders a dash for sessions without a repo root', () => {
+  it('labels sessions without a repo root as unattributed', () => {
     const data = createSessionData();
 
     if (data.grouping !== 'session') {
@@ -208,7 +215,26 @@ describe('renderSessionReport', () => {
     });
 
     expect(output).not.toContain('project-alpha');
-    expect(output).toContain('│ -');
+    expect(output).toContain('(unattributed)');
+  });
+
+  it('prints the labels the result carries, which can cover rows it does not show', () => {
+    const data = createSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    const [row] = data.rows;
+    data.rows = [{ ...row, repoRoot: '/home/user/work/app/' }];
+    data.projectLabels = new Map([
+      ['/home/user/work/app', 'work/app'],
+      ['/home/user/oss/app', 'oss/app'],
+    ]);
+
+    const output = renderSessionReport(data, 'markdown', { timezone: 'UTC' });
+
+    expect(output).toContain('| work/app');
   });
 
   it('renders markdown output with session columns and escaped model lines', () => {
@@ -226,7 +252,7 @@ describe('renderSessionReport', () => {
 
     expect(output).toContain('| Session');
     expect(output).toContain('| Source');
-    expect(output).toContain('| Repo');
+    expect(output).toContain('| Project');
     expect(output).toContain('| Duration');
     expect(output).toContain('1h 0m');
     expect(output).toContain('…abcdef123456');
@@ -259,17 +285,17 @@ describe('renderSessionReport', () => {
     expect(parsed.data[0]).not.toHaveProperty('diagnostics');
   });
 
-  it('renders repo rows with basenames, a no-repo bucket, and comma-joined sources', () => {
+  it('renders repo rows with project labels, an unattributed bucket, and comma-joined sources', () => {
     const output = renderSessionReport(createRepoData(), 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
 
     expect(output).toContain('Session Usage Report');
-    expect(output).toContain('Repo');
+    expect(output).toContain('Project');
     expect(output).toContain('Sessions');
     expect(output).toContain('project-alpha');
-    expect(output).toContain('(no repo)');
+    expect(output).toContain('(unattributed)');
     expect(output).toContain('codex, pi');
     expect(output).toContain('$4.56');
     expect(output).not.toContain('/home/user/project-alpha');
@@ -314,5 +340,122 @@ describe('renderSessionReport', () => {
     // Without filters, the message must not blame filters the user never passed.
     expect(output).toContain('No usage data found.');
     expect(filteredOutput).toContain('No usage data found for the selected filters.');
+  });
+});
+
+function createTimelineData(rows: SessionTimelineRow[]): SessionDataResult {
+  const sessionData = createSessionData();
+
+  if (sessionData.grouping !== 'session') {
+    throw new Error('expected session grouping');
+  }
+
+  return {
+    grouping: 'timeline',
+    session: sessionData.rows[0],
+    rows,
+    projectLabels: sessionData.projectLabels,
+    diagnostics: sessionData.diagnostics,
+  };
+}
+
+function usageRow(timestamp: string, costUsd: number, runningCostUsd: number): SessionTimelineRow {
+  return {
+    kind: 'usage',
+    timestamp,
+    model: 'gpt-5-codex',
+    inputTokens: 1_000,
+    outputTokens: 200,
+    reasoningTokens: 0,
+    cacheReadTokens: 3_000,
+    cacheWriteTokens: 0,
+    totalTokens: 4_200,
+    costUsd,
+    runningCostUsd,
+  };
+}
+
+function toolCallRow(name: string, status: 'ok' | 'error' = 'ok'): SessionTimelineRow {
+  return { kind: 'tool_call', timestamp: '2026-01-02T01:01:00.000Z', name, status };
+}
+
+describe('renderSessionReport --timeline', () => {
+  const rows: SessionTimelineRow[] = [
+    { kind: 'message', timestamp: '2026-01-02T00:59:00.000Z', role: 'user' },
+    usageRow('2026-01-02T01:00:00.000Z', 0.5, 0.5),
+    ...['Read', 'Bash', 'Bash', 'Read', 'Bash'].map((name) => toolCallRow(name)),
+    toolCallRow('Bash', 'error'),
+    { kind: 'message', timestamp: '2026-01-02T01:01:00.000Z', role: 'system' },
+    usageRow('2026-01-02T02:00:00.000Z', 0.25, 0.75),
+  ];
+
+  it('folds the tool calls between two requests into one line, most-called tool first', () => {
+    const output = renderSessionReport(createTimelineData(rows), 'markdown', { timezone: 'UTC' });
+    // Markdown pads cells; one space apart is enough to read the cells.
+    const lines = output
+      .split('\n')
+      .slice(2)
+      .map((line) => line.replaceAll(/ +/gu, ' '));
+
+    expect(lines).toHaveLength(4);
+    expect(lines[0]).toContain('| 00:59:00 | 1 user turn |');
+    expect(lines[1]).toContain('| gpt-5-codex | 1,000 | 3,000 | 0 | 200 | $0.50 | $0.50 |');
+    expect(lines[2]).toContain('6 tool calls: Bash ×4, Read ×2, 1 error');
+    expect(lines[3]).toContain('$0.25 | $0.75 |');
+  });
+
+  it('heads the terminal table with the session, its span, requests and cost', () => {
+    const output = renderSessionReport(createTimelineData(rows), 'terminal', {
+      timezone: 'UTC',
+      useColor: false,
+    });
+
+    expect(output).toContain('Session Timeline');
+    expect(output).toContain('codex · session-abcdef123456 · project-alpha');
+    expect(output).toContain('2026-01-02 01:00-02:00 (1h 0m) · 2 requests · ~$1.23');
+  });
+
+  it('lists each row as label and value lines on a narrow terminal', () => {
+    const restoreStdout = overrideStdoutTty(60);
+
+    try {
+      const output = renderSessionReport(createTimelineData(rows), 'terminal', {
+        timezone: 'UTC',
+        useColor: false,
+      });
+
+      expect(output.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
+      expect(output).toContain(
+        '01:01:00\n  Event        6 tool calls: Bash ×4, Read ×2,\n               1 error',
+      );
+    } finally {
+      restoreStdout();
+    }
+  });
+
+  it('prints times of day, with the date on the first row of each later day', () => {
+    const output = renderSessionReport(
+      createTimelineData([
+        usageRow('2026-01-02T23:59:00.000Z', 0.5, 0.5),
+        usageRow('2026-01-03T00:01:00.000Z', 0.25, 0.75),
+        usageRow('2026-01-03T00:02:00.000Z', 0.25, 1),
+      ]),
+      'markdown',
+      { timezone: 'UTC' },
+    );
+
+    expect(
+      output
+        .split('\n')
+        .slice(2)
+        .map((line) => line.split(' | ')[0].trimEnd()),
+    ).toEqual(['| 23:59:00', '| 2026-01-03 00:01:00', '| 00:02:00']);
+  });
+
+  it('renders JSON with every row and its kind, unfolded', () => {
+    const output = renderSessionReport(createTimelineData(rows), 'json', { timezone: 'UTC' });
+    const data = (JSON.parse(output) as { data: { rows: { kind: string }[] } }).data;
+
+    expect(data.rows.map((row) => row.kind)).toEqual(rows.map((row) => row.kind));
   });
 });

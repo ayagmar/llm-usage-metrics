@@ -10,9 +10,9 @@ import type { SpawnSsh } from './machine-ssh.js';
 import { syncMachine, type MachineSyncOutcome } from './sync-machine.js';
 
 /** Reports refresh a machine whose last sync, or attempt, is at least this old. */
-export const MACHINE_REFRESH_INTERVAL_MS = 10 * 60_000;
+const MACHINE_REFRESH_INTERVAL_MS = 10 * 60_000;
 /** A report waits this long for a machine before it uses the cached usage. */
-export const MACHINE_REFRESH_TIMEOUT_MS = 30_000;
+const MACHINE_REFRESH_TIMEOUT_MS = 30_000;
 
 async function claimDueSync(name: string, now: number): Promise<boolean> {
   // A cheap read-only look first: a fresh cache takes no write lock.

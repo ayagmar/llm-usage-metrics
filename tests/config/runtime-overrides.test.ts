@@ -38,6 +38,33 @@ describe('runtime overrides', () => {
     });
   });
 
+  it('caps an auto worker count at eight and keeps an explicit count', () => {
+    const cappedAuto = Math.max(0, Math.min(8, availableParallelism() - 1));
+
+    expect(getParsingRuntimeConfig({}, {}).parseWorkers).toBe(cappedAuto);
+    expect(getParsingRuntimeConfig({ LLM_USAGE_PARSE_WORKERS: 'auto' }, {}).parseWorkers).toBe(
+      cappedAuto,
+    );
+    expect(getParsingRuntimeConfig({}, { parseWorkers: 'auto' }).parseWorkers).toBe(cappedAuto);
+    expect(getParsingRuntimeConfig({ LLM_USAGE_PARSE_WORKERS: '6' }, {}).parseWorkers).toBe(6);
+    expect(getParsingRuntimeConfig({}, { parseWorkers: 6 }).parseWorkers).toBe(6);
+  });
+
+  it('caps an auto worker count at six when the run writes the event store', () => {
+    const cappedAuto = Math.max(0, Math.min(6, availableParallelism() - 1));
+    const workers = (
+      env: NodeJS.ProcessEnv,
+      config: Parameters<typeof getParsingRuntimeConfig>[1],
+    ) => getParsingRuntimeConfig(env, config, true).parseWorkers;
+
+    expect(workers({}, {})).toBe(cappedAuto);
+    expect(workers({ LLM_USAGE_PARSE_WORKERS: 'auto' }, {})).toBe(cappedAuto);
+    expect(workers({}, { parseWorkers: 'auto' })).toBe(cappedAuto);
+    expect(workers({ LLM_USAGE_PARSE_WORKERS: 'many' }, {})).toBe(cappedAuto);
+    expect(workers({ LLM_USAGE_PARSE_WORKERS: '8' }, {})).toBe(8);
+    expect(workers({}, { parseWorkers: 8 })).toBe(8);
+  });
+
   it('reads valid numeric overrides from env', () => {
     const env: NodeJS.ProcessEnv = {
       LLM_USAGE_PARSE_WORKERS: '6',

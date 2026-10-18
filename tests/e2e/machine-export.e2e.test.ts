@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -17,13 +18,19 @@ import {
   readStoredFileSnapshots,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import {
+  createToolCallEvent,
+  type SourceAdapter,
+  type ToolCallEvent,
+  type ToolCallStatus,
+} from '@ayagmar/agent-sessions';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 import type {
   MachineExportEndLine,
   MachineExportFileLine,
   MachineExportLine,
 } from '../../src/machines/machine-export-bundle.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 let rootDir: string;
 
@@ -99,6 +106,8 @@ describe('machine export e2e', () => {
     }
 
     expect(lines[0]).toMatchObject({ type: 'header', hostname: os.hostname() });
+    // Version 1 headers can gain fields; a reader built on this schema must still accept them.
+    expect(validate({ ...lines[0], addedLater: true }), JSON.stringify(validate.errors)).toBe(true);
     expect(fileLines(lines).map((line) => line.source)).toEqual(['pi', 'codex']);
 
     const exportedEvents = fileLines(lines).flatMap((line) => line.events);
@@ -191,7 +200,9 @@ describe('machine export e2e', () => {
         opens += 1;
 
         if (opens === 2) {
-          store.database.exec("DELETE FROM events WHERE source = 'pi'");
+          store.database.exec(
+            "DELETE FROM events WHERE file_id IN (SELECT id FROM files WHERE source = 'pi')",
+          );
         }
 
         return store;
@@ -200,7 +211,7 @@ describe('machine export e2e', () => {
 
     expect(fileLines(lines).map((line) => line.source)).toEqual(['codex']);
     expect(stderr.mock.calls.flat().join('\n')).toMatch(
-      /machine export left out \d+ event\(s\) that reports count but the event store does not hold/,
+      /machine export left out \d+ events? that reports count but the event store does not hold/,
     );
   });
 
@@ -248,7 +259,9 @@ describe('machine export e2e', () => {
 
         if (opens === 2) {
           store.database
-            .prepare('DELETE FROM events WHERE file_path = ?')
+            .prepare(
+              'DELETE FROM events WHERE file_id = (SELECT id FROM files WHERE file_path = ?)',
+            )
             .run(path.join(projectDir, 'solo.jsonl'));
         }
 
@@ -257,7 +270,7 @@ describe('machine export e2e', () => {
     });
 
     expect(stderr.mock.calls.flat().join('\n')).toMatch(
-      'machine export left out 1 event(s) that reports count but the event store does not hold',
+      'machine export left out 1 event that reports count but the event store does not hold',
     );
   });
 
@@ -268,7 +281,7 @@ describe('machine export e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [goodFile, badFile],
-      parseFile: async (filePath) => {
+      read: readFrom(async (filePath) => {
         const sessionId = (await readFile(filePath, 'utf8')).trim();
 
         if (sessionId === 'FAIL') {
@@ -284,7 +297,7 @@ describe('machine export e2e', () => {
             costMode: 'estimated',
           }),
         ];
-      },
+      }),
     };
     const deps = { createAdapters: () => [adapter] };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
@@ -313,7 +326,7 @@ describe('machine export e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [parentFile, forkFile].filter((filePath) => existsSync(filePath)),
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         (await readFile(filePath, 'utf8'))
           .trim()
           .split('\n')
@@ -326,6 +339,7 @@ describe('machine export e2e', () => {
               costMode: 'estimated',
             }),
           ),
+      ),
     };
     const deps = { createAdapters: () => [adapter] };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
@@ -374,7 +388,9 @@ describe('machine export e2e', () => {
     // Another run drops the live copy after this run's history, before its export read.
     const { lines, parentFile, forkFile } = await exportForkOfDeletedParent((store) => {
       store.database
-        .prepare("DELETE FROM events WHERE file_path = ? AND session_id = 'shared'")
+        .prepare(
+          "DELETE FROM events WHERE file_id = (SELECT id FROM files WHERE file_path = ?) AND session_id = 'shared'",
+        )
         .run(path.join(rootDir, 'fork.json'));
     });
 
@@ -391,7 +407,7 @@ describe('machine export e2e', () => {
       id: 'pi',
       capabilities: { eventsRepeatAcrossFiles: true },
       discoverFiles: async () => [firstFile, secondFile],
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         (await readFile(filePath, 'utf8'))
           .trim()
           .split('\n')
@@ -404,6 +420,7 @@ describe('machine export e2e', () => {
               costMode: 'estimated',
             }),
           ),
+      ),
     };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["pi"]\n');
     await writeFile(firstFile, 'parent\nfork-a');
@@ -452,6 +469,59 @@ describe('machine export e2e', () => {
 
       expect(after.events).toHaveLength(2);
       expect(after.revision).not.toBe(before.revision);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('changes a revision when only tool calls change, and keeps the usage-only one without', async () => {
+    const store = await openEventStore(path.join(rootDir, 'tools.db'));
+    const fingerprint = { dependencies: [{ path: '/a.jsonl', exists: true, size: 1, mtimeMs: 1 }] };
+    const usage = createUsageEvent({
+      source: 'codex',
+      sessionId: 'a',
+      timestamp: '2026-10-01T10:00:00.000Z',
+      costMode: 'estimated',
+    });
+    const call = (status: ToolCallStatus) =>
+      createToolCallEvent({
+        source: 'codex',
+        sessionId: 'a',
+        timestamp: '2026-10-01T10:00:01.000Z',
+        name: 'exec_command',
+        status,
+      });
+    const snapshotWith = (sessionEvents: ToolCallEvent[]) => {
+      replaceFileEvents(store, {
+        source: 'codex',
+        filePath: '/a.jsonl',
+        fingerprint,
+        events: [usage],
+        sessionEvents,
+        skippedRows: 0,
+        now: 1,
+      });
+      const [snapshot] = readStoredFileSnapshots(store, [
+        { source: 'codex', filePath: '/a.jsonl' },
+      ]);
+      return snapshot;
+    };
+
+    try {
+      const usageOnly = snapshotWith([]);
+      const ok = snapshotWith([call('ok')]);
+      const failed = snapshotWith([call('error')]);
+
+      // The digest 0.11.0 gave every file: a reader holding a file without tool calls at
+      // it is not sent the file again after the upgrade.
+      expect(usageOnly.revision).toBe(
+        createHash('sha256')
+          .update(JSON.stringify([usage]))
+          .digest('hex')
+          .slice(0, 16),
+      );
+      expect(ok.sessionEvents).toEqual([call('ok')]);
+      expect(new Set([usageOnly.revision, ok.revision, failed.revision]).size).toBe(3);
     } finally {
       closeEventStore(store);
     }

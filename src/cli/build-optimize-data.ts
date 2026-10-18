@@ -6,10 +6,10 @@ import {
   collectCanonicalProviderRoots,
   inferCanonicalProviderRootsFromModels,
   matchesCanonicalProviderFilter,
-} from '../domain/provider-normalization.js';
+} from '@ayagmar/agent-sessions/internal';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -20,9 +20,9 @@ import type {
 import {
   buildCounterfactualRows,
   normalizeCandidateModels,
-  parseTopOption,
 } from '../optimize/aggregate-counterfactual.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { parsePositiveTopOption } from './top-option.js';
 
 export type BuildOptimizeDataDeps = BuildUsageDataDeps;
 
@@ -86,7 +86,7 @@ export async function buildOptimizeData(
   deps: BuildOptimizeDataDeps = {},
 ): Promise<OptimizeDataResult> {
   const candidateModels = normalizeCandidateModels(options.candidateModel);
-  const top = parseTopOption(options.top);
+  const top = parsePositiveTopOption(options.top);
 
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
@@ -109,8 +109,12 @@ export async function buildOptimizeData(
       ),
   );
 
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'force');
+  // Candidates are priced from period totals at base rates, so the baseline skips
+  // per-request tier rates too; otherwise a tier premium would read as savings.
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'force', {
+    perRequestRates: false,
+  });
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
 
   const usageRows = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
@@ -162,7 +166,7 @@ export async function buildOptimizeData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, pricedEvents),
+    notes: withPricingNotes(dataset.notes, pricedEvents, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

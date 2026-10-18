@@ -1,18 +1,16 @@
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import {
   inferCanonicalProviderRootsFromModels,
   intersectCanonicalProviderRoots,
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
-} from '../domain/provider-normalization.js';
-import {
-  getDefaultSourceIds,
-  getSourceOverrideOptions,
-} from '../sources/create-default-adapters.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
+  compareByCodePoint,
+} from '@ayagmar/agent-sessions/internal';
+import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 import { suggestClosest } from '../utils/suggest-closest.js';
+import { normalizeRepoFilter, type RepoFilter } from './repo-filter.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
+import { getSourceOverrideOptions, parseSourceDirectoryOverrides } from './source-cli-options.js';
 
 import type { ReportCommandOptions } from './usage-data-contracts.js';
 
@@ -25,6 +23,7 @@ export type NormalizedBuildUsageInputs = {
   sourceFilterLabel: string;
   modelFilter: string[] | undefined;
   machineFilter: Set<string> | undefined;
+  repoFilter?: RepoFilter;
   explicitSourceIds: Set<string>;
   pricingUrl: string | undefined;
 };
@@ -219,6 +218,13 @@ function detectDefaultTimezone(): string {
   return 'UTC';
 }
 
+/** `--timezone` trimmed, else the system timezone (UTC when none is detected); validated. */
+export function resolveReportTimezone(timezone: string | undefined): string {
+  const resolved = timezone !== undefined ? timezone.trim() : detectDefaultTimezone();
+  validateTimezone(resolved);
+  return resolved;
+}
+
 export function normalizeBuildUsageInputs(
   options: ReportCommandOptions,
   /** The options as given on the command line, before config defaults were applied. */
@@ -226,9 +232,7 @@ export function normalizeBuildUsageInputs(
 ): NormalizedBuildUsageInputs {
   const { normalizedPricingUrl } = validateBuildOptions(options);
 
-  const timezone =
-    options.timezone !== undefined ? options.timezone.trim() : detectDefaultTimezone();
-  validateTimezone(timezone);
+  const timezone = resolveReportTimezone(options.timezone);
 
   const providerFilter = normalizeProviderFilter(options.provider);
   const sourceFilter = normalizeSourceFilter(options.source);
@@ -253,6 +257,7 @@ export function normalizeBuildUsageInputs(
         : '--source',
     modelFilter,
     machineFilter: normalizeMachineFilter(options.machine),
+    repoFilter: normalizeRepoFilter(options.repo),
     explicitSourceIds,
     pricingUrl: normalizedPricingUrl,
   };

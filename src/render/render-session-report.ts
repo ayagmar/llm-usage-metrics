@@ -1,17 +1,21 @@
-import path from 'node:path';
-
 import { markdownTable } from 'markdown-table';
 
+import { toProjectLabel } from '../aggregate/project-key.js';
 import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { formatDuration } from './format-duration.js';
-import { limitNamedModels } from './format-model-list.js';
+import { formatApproxUsd, formatInteger } from './format-number.js';
+import { truncateNames } from './truncate-names.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
+import {
+  renderMarkdownSessionTimeline,
+  renderTerminalSessionTimeline,
+} from './render-session-timeline.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 
 export type SessionReportFormat = 'terminal' | 'markdown' | 'json';
@@ -24,12 +28,12 @@ export type RenderSessionReportOptions = {
   filtered?: boolean;
 };
 
-const MODELS_COLUMN_WIDTH = 32;
+export const MODELS_COLUMN_WIDTH = 32;
 
 const sessionTableHeaders = [
   'Session',
   'Source',
-  'Repo',
+  'Project',
   'Last Activity',
   'Duration',
   'Total',
@@ -37,20 +41,18 @@ const sessionTableHeaders = [
   'Models',
 ] as const;
 
-const repoTableHeaders = ['Repo', 'Sessions', 'Last Activity', 'Total', 'Cost', 'Sources'] as const;
+const repoTableHeaders = [
+  'Project',
+  'Sessions',
+  'Last Activity',
+  'Total',
+  'Cost',
+  'Sources',
+] as const;
 
 const MAX_NAMED_MODELS = 2;
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-function truncateSessionId(sessionId: string): string {
+export function truncateSessionId(sessionId: string): string {
   if (sessionId.length <= 12) {
     return sessionId;
   }
@@ -58,35 +60,28 @@ function truncateSessionId(sessionId: string): string {
   return `…${sessionId.slice(-12)}`;
 }
 
-function formatInteger(value: number): string {
-  return integerFormatter.format(value);
-}
-
 function formatCost(row: { costUsd?: number; costIncomplete?: boolean }): string {
-  if (row.costUsd === undefined) {
-    return '-';
-  }
-
-  const formatted = usdFormatter.format(row.costUsd);
-  return row.costIncomplete ? `~${formatted}` : formatted;
+  return formatApproxUsd(row.costUsd, row.costIncomplete);
 }
 
-function formatModels(models: readonly string[]): string {
+export function formatModels(models: readonly string[]): string {
   if (models.length === 0) {
     return '-';
   }
 
-  return limitNamedModels(models, MAX_NAMED_MODELS).join('\n');
+  return truncateNames(models, MAX_NAMED_MODELS).join('\n');
 }
+
+type ProjectLabels = ReadonlyMap<string | undefined, string>;
 
 function toSessionTableCells(
   row: SessionRow,
-  options: { timezone: string; truncateSessionIds: boolean },
+  options: { timezone: string; truncateSessionIds: boolean; projectLabels: ProjectLabels },
 ): string[] {
   return [
     options.truncateSessionIds ? truncateSessionId(row.sessionId) : row.sessionId,
     row.source,
-    row.repoRoot ? path.basename(row.repoRoot) : '-',
+    toProjectLabel(row.repoRoot, options.projectLabels),
     getPeriodKey(row.lastActivity, 'daily', options.timezone),
     formatDuration(row.durationMs),
     formatInteger(row.totalTokens),
@@ -95,9 +90,13 @@ function toSessionTableCells(
   ];
 }
 
-function toRepoTableCells(row: SessionRepoRow, timezone: string): string[] {
+function toRepoTableCells(
+  row: SessionRepoRow,
+  timezone: string,
+  projectLabels: ProjectLabels,
+): string[] {
   return [
-    row.repoRoot ? path.basename(row.repoRoot) : '(no repo)',
+    toProjectLabel(row.repoRoot, projectLabels),
     formatInteger(row.sessionCount),
     getPeriodKey(row.lastActivity, 'daily', timezone),
     formatInteger(row.totalTokens),
@@ -106,21 +105,28 @@ function toRepoTableCells(row: SessionRepoRow, timezone: string): string[] {
   ];
 }
 
+/** The session and repo lists; `--timeline` renders on its own. */
+type SessionListData = Exclude<SessionDataResult, { grouping: 'timeline' }>;
+
 type SessionTableCells = {
   headers: string[];
   bodyRows: string[][];
-  markdownAlign: ('l' | 'r')[];
+  align: ('l' | 'r')[];
 };
 
 function buildTableCells(
-  sessionData: SessionDataResult,
+  sessionData: SessionListData,
   options: RenderSessionReportOptions,
 ): SessionTableCells {
+  const { projectLabels } = sessionData;
+
   if (sessionData.grouping === 'repo') {
     return {
       headers: [...repoTableHeaders],
-      bodyRows: sessionData.rows.map((row) => toRepoTableCells(row, options.timezone)),
-      markdownAlign: ['l', 'r', 'l', 'r', 'r', 'l'],
+      bodyRows: sessionData.rows.map((row) =>
+        toRepoTableCells(row, options.timezone, projectLabels),
+      ),
+      align: ['l', 'r', 'l', 'r', 'r', 'l'],
     };
   }
 
@@ -130,9 +136,10 @@ function buildTableCells(
       toSessionTableCells(row, {
         timezone: options.timezone,
         truncateSessionIds: options.truncateSessionIds ?? true,
+        projectLabels,
       }),
     ),
-    markdownAlign: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
+    align: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
   };
 }
 
@@ -144,11 +151,11 @@ function toRowMeta(): TableRowMeta {
 }
 
 function renderTerminalSessionReport(
-  sessionData: SessionDataResult,
+  sessionData: SessionListData,
   options: RenderSessionReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
-  const { headers, bodyRows } = buildTableCells(sessionData, options);
+  const { headers, bodyRows, align } = buildTableCells(sessionData, options);
   const outputLines = [
     renderReportHeader({
       title: 'Session Usage Report',
@@ -176,6 +183,7 @@ function renderTerminalSessionReport(
       measureBodyRows: wrappedRows,
       rowMetas: wrappedRows.map(() => toRowMeta()),
       layout: 'top_aligned',
+      columnKinds: columnKindsFromAlign(align),
       multilineColumnIndex: modelsColumnIndex,
       multilineColumnWidth: MODELS_COLUMN_WIDTH,
       terminalWidth: resolveTtyColumns(process.stdout),
@@ -187,15 +195,36 @@ function renderTerminalSessionReport(
 }
 
 function renderMarkdownSessionReport(
-  sessionData: SessionDataResult,
+  sessionData: SessionListData,
   options: RenderSessionReportOptions,
 ): string {
-  const { headers, bodyRows, markdownAlign } = buildTableCells(sessionData, options);
+  const { headers, bodyRows, align } = buildTableCells(sessionData, options);
   const safeBodyRows = bodyRows.map((row) => row.map((cell) => toMarkdownSafeCell(cell)));
 
   return markdownTable([headers, ...safeBodyRows], {
-    align: markdownAlign,
+    align,
   });
+}
+
+function renderSessionTimelineReport(
+  sessionData: Extract<SessionDataResult, { grouping: 'timeline' }>,
+  format: SessionReportFormat,
+  options: RenderSessionReportOptions,
+): string {
+  const { session, rows } = sessionData;
+
+  switch (format) {
+    case 'json':
+      return renderReportJson('session', { session, rows });
+    case 'markdown':
+      return renderMarkdownSessionTimeline(session, rows, options.timezone);
+    case 'terminal':
+      return renderTerminalSessionTimeline(session, rows, {
+        timezone: options.timezone,
+        useColor: options.useColor ?? shouldUseColorByDefault(),
+        projectLabel: toProjectLabel(session.repoRoot, sessionData.projectLabels),
+      });
+  }
 }
 
 export function renderSessionReport(
@@ -203,6 +232,10 @@ export function renderSessionReport(
   format: SessionReportFormat,
   options: RenderSessionReportOptions,
 ): string {
+  if (sessionData.grouping === 'timeline') {
+    return renderSessionTimelineReport(sessionData, format, options);
+  }
+
   switch (format) {
     case 'json':
       return renderReportJson('session', sessionData.rows);

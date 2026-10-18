@@ -55,7 +55,7 @@ llm-usage sync                # fetch every machine now
 The `stderr` summary says which machines a report includes and when each was last fetched:
 
 ```text
-ℹ Machines: laptop (synced 4 min ago); left out 1,204 event(s) already counted.
+ℹ Machines: laptop (synced 4 min ago); left out 1,204 events already counted.
 ```
 
 `--machine` limits a report to some machines; `local` is this one:
@@ -65,15 +65,15 @@ llm-usage monthly --machine laptop
 llm-usage monthly --machine local,vps
 ```
 
-Reports combine every machine into the same rows. To see each machine apart, `--by-machine` splits each source row of `daily`, `weekly` and `monthly` by machine, and `events` names the machine of each event from another machine:
+Reports combine every machine into the same rows. To see each machine apart, `--by-machine` splits each source row of `hourly`, `daily`, `weekly` and `monthly` by machine, and `events` names the machine of each event from another machine:
 
 ```bash
 llm-usage monthly --by-machine     # claude (local), claude (laptop), ...
 ```
 
-Until you add a machine, every row is `(local)`. Share cards (`--share`) combine machines, except the summary's.
+Until you add a machine, every row is `(local)`. Share reports (`--share`) can filter and stack by machine.
 
-The summary (`llm-usage` with no command) splits this month's cost by machine under its table, for example `This month by machine: local $412.10 (81%), laptop $96.70 (19%)`, and `llm-usage summary --share` draws the same split as a bar on the card. A month without a known cost is split by tokens instead. `--json` lists each period's machines under `machines`.
+The summary (`llm-usage` with no command) splits this month's cost by machine under its table, for example `This month by machine: local $412.10 (81%), laptop $96.70 (19%)`. A month without a known cost is split by tokens instead. `--json` lists each period's machines under `machines`.
 
 A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts only that directory, without other machines, unless you name them with `--machine`. `statusline` includes other machines too, from their last fetch; it never connects to them, so a status bar stays fast.
 
@@ -81,8 +81,13 @@ A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts o
 
 - `llm-usage sync` runs `llm-usage machine export` on each machine over ssh. The machine refreshes its own [event store](/llm-usage-metrics/caching/) and sends only the files that changed since the last fetch, in a [versioned format](/llm-usage-metrics/output-formats/#machine-export).
 - What it sends is what that machine's own reports count, history included, for the sources its own config selects. Costs are calculated here, with this machine's pricing.
+- The export carries the machine's hostname, each file's absolute path there (for example `/home/<user>/.claude/projects/…`), and each event's session id, model and absolute repository root. They are stored in `machines/<name>.db` on this machine.
+- The export also sends each file's tool calls and turns (name, status, ids, times, role, model and text length; never message text or a tool's input and output), so [`tools`](/llm-usage-metrics/tools/) and `session --timeline` show them for other machines too. A machine running an older version sends usage only: its usage merges as before, and its tool calls and turns appear after it is updated and synced again. The first sync after this machine upgrades from 0.11.0 or older fetches every file once, since the older version dropped the tool calls it received. A file with tool calls but no usage is not sent.
 - Each machine's usage is kept in its own file, `machines/<name>.db`, next to this machine's event store; your own ledger never mixes with it. A failed fetch keeps the previous copy, and `machine list` shows the error.
-- The same session can reach several machines (a copied `~/.claude`, a synced or shared home directory). An event already counted, from this machine or one added before, is counted once. A session continued on another machine keeps its new turns. This relies on both machines parsing logs the same way, so the `Machines:` note warns when another machine runs a different llm-usage-metrics version.
+- The same session can reach several machines (a copied `~/.claude`, a synced or shared home directory). An event already counted, from this machine or one added before, is counted once. A session continued on another machine keeps its new turns. The `Machines:` note says when another machine runs a different llm-usage-metrics version.
+- An export records the parser version of each source. When the machine that served a session first reads its source with another parser version, or either side did not record one, the copies may not match exactly. Turns are then matched by timestamp and model first, then by timestamp alone, since the two parsers can name a model differently. So two turns in the same millisecond each match their own copy, but a turn only the other machine has is dropped when it shares a millisecond with an unmatched local turn. The copy already counted wins, turns only the other machine has are kept (the `Machines:` note counts the dropped ones in what it left out), and a warning names the sources and both versions (`unrecorded` for a missing one) until llm-usage is updated on both machines. A disabled machine gets a note instead.
+- Tool calls and turns follow the same rules per session: one already counted from this machine or an earlier one is left out, matched exactly, or by kind and timestamp when the parser versions differ.
+- A machine last synced by a version that did not record parser versions is matched by timestamp in the same way, and a note asks you to sync it after updating llm-usage there.
 - Repository paths are those of the machine the usage came from: `efficiency --repo-dir` and `session --by-repo` treat the same repository at another path as a different one.
 
 ## Manage machines

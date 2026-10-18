@@ -7,6 +7,9 @@ import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
+import { writeClaudeForkSession, writePiParentAndFork } from '../helpers/fork-fixtures.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
+
 const execFileAsync = promisify(execFile);
 const distCliPath = path.resolve('dist/index.js');
 const distBinPath = path.resolve('dist/bin.js');
@@ -77,6 +80,29 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
     expect(viaBin.stdout).toBe(viaIndex.stdout);
     expect(JSON.parse(viaBin.stdout)).toMatchObject({ report: 'usage' });
   });
+
+  // npm only warns about `engines`, so an unsupported Node must still get a clear message.
+  it.each(['20.11.0', '22.15.1', '23.11.0'])(
+    'names the supported Node versions on Node %s',
+    async (version) => {
+      const fakeVersion = `Object.defineProperty(process.versions, 'node', { value: '${version}' });`;
+      const failure = (await execFileAsync(
+        process.execPath,
+        [
+          '--import',
+          `data:text/javascript,${encodeURIComponent(fakeVersion)}`,
+          distBinPath,
+          '--version',
+        ],
+        { encoding: 'utf8', env: createSmokeEnv() },
+      ).catch((error: unknown) => error)) as ExecFileFailure;
+
+      expect(failure.code).toBe(1);
+      expect(failure.stderr).toBe(
+        `llm-usage requires Node.js 22.16+ or 24+; this is Node.js ${version}.\n`,
+      );
+    },
+  );
 
   it('prints data-only monthly JSON from the built CLI', async () => {
     const { stdout, stderr } = await execFileAsync(
@@ -226,6 +252,79 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
     expect(workersOn.stderr).toContain('LLM_USAGE_PARSE_WORKERS=2');
     expect(workersOff.stderr).toContain('LLM_USAGE_PARSE_WORKERS=0');
   }, 15_000);
+
+  it('matches built-binary claude and pi output with every file parsed on workers', async () => {
+    const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'dist-cli-fork-workers-'));
+
+    try {
+      const projectsDir = path.join(tempDir, 'claude-projects');
+      const subagentsDir = await writeClaudeForkSession(path.join(projectsDir, 'repo'));
+      const piParentDir = path.join(tempDir, 'pi-a');
+      const piForkDir = path.join(tempDir, 'pi-b');
+      await writePiParentAndFork(piParentDir, piForkDir);
+
+      const runDaily = async (claudeDir: string, workers: string) => {
+        const args = [
+          distCliPath,
+          'daily',
+          '--json',
+          '--timezone',
+          'UTC',
+          '--source',
+          'claude,pi',
+          '--claude-dir',
+          claudeDir,
+          '--pi-dir',
+          piParentDir,
+          '--pi-dir',
+          piForkDir,
+          '--since',
+          '2026-01-01',
+          '--pricing-offline',
+          '--verbose',
+        ];
+        const { stdout, stderr } = await execFileAsync(process.execPath, args, {
+          encoding: 'utf8',
+          env: {
+            ...createSmokeEnv(),
+            HOME: tempDir,
+            LLM_USAGE_PARSE_WORKERS: workers,
+            LLM_USAGE_PARSE_WORKER_MIN_BYTES: '0',
+            LLM_USAGE_PROFILE_RUNTIME: '1',
+          },
+          maxBuffer: 1024 * 1024,
+          timeout: 10_000,
+        });
+        // Profile lines carry timings; the skipped-row diagnostics must match exactly.
+        const diagnostics = stderr
+          .split('\n')
+          .filter((line) => line.toLowerCase().includes('skipped'))
+          .join('\n');
+        return { stdout, stderr, diagnostics };
+      };
+
+      const reports: string[] = [];
+
+      // The fork's parent inside, then outside, the scanned Claude directory.
+      for (const claudeDir of [projectsDir, subagentsDir]) {
+        const workersOn = await runDaily(claudeDir, '2');
+        const workersOff = await runDaily(claudeDir, '0');
+
+        expect(workersOn.stdout).toBe(workersOff.stdout);
+        expect(workersOn.diagnostics).toBe(workersOff.diagnostics);
+        expect(workersOn.diagnostics).not.toBe('');
+        expect(workersOn.stderr).toMatch(/source claude:.*parseWorkers=engaged/);
+        expect(workersOn.stderr).toMatch(/source pi:.*parseWorkers=engaged/);
+        expect(workersOff.stderr).not.toContain('parseWorkers=engaged');
+        reports.push(workersOn.stdout);
+      }
+
+      // Counting the parent drops the fork's replayed row.
+      expect(reports[0]).not.toBe(reports[1]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it('fails a real command with an actionable malformed-config error', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dist-cli-bad-config-run-'));

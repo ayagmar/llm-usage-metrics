@@ -8,7 +8,11 @@ import {
   parseAdapterEvents,
   parseSelectedAdapters,
 } from '../../src/cli/build-usage-data-parsing.js';
-import type { ParseWorkerPool } from '../../src/cli/parse-worker-pool.js';
+import {
+  createParseWorkerPool,
+  type ParseWorkerLike,
+  type ParseWorkerPool,
+} from '../../src/cli/parse-worker-pool.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
@@ -19,11 +23,14 @@ import {
   type EventStoreFileEntry,
   type ReplaceFileEventsInput,
 } from '../../src/persistence/event-store.js';
-import type {
-  SourceAdapter,
-  SourceParseFileDiagnostics,
-} from '../../src/sources/source-adapter.js';
+import {
+  createToolCallEvent,
+  createUsageRecord,
+  type SourceAdapter,
+  type SourceParseFileDiagnostics,
+} from '@ayagmar/agent-sessions';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
+import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
 
@@ -40,7 +47,7 @@ function createDelayedAdapter(
   return {
     id,
     discoverFiles: async () => [filePath],
-    parseFile: async () => {
+    read: readFrom(async () => {
       stats.current += 1;
       stats.max = Math.max(stats.max, stats.current);
 
@@ -61,7 +68,7 @@ function createDelayedAdapter(
       } finally {
         stats.current -= 1;
       }
-    },
+    }),
   };
 }
 
@@ -75,7 +82,7 @@ function createStoreBackedAdapter(id: string, files: string[]): SourceAdapter {
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => [
+    read: readFrom(async (filePath) => [
       createUsageEvent({
         source: id,
         sessionId: path.basename(filePath, '.jsonl'),
@@ -83,7 +90,7 @@ function createStoreBackedAdapter(id: string, files: string[]): SourceAdapter {
         inputTokens: 1,
         totalTokens: 1,
       }),
-    ],
+    ]),
   };
 }
 
@@ -95,7 +102,7 @@ function createCountingJsonlAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => {
+    read: readFrom(async (filePath) => {
       parseCallCounter.count += 1;
       const content = await readFile(filePath, 'utf8');
       const totalTokens =
@@ -113,7 +120,7 @@ function createCountingJsonlAdapter(
           totalTokens,
         }),
       ];
-    },
+    }),
   };
 }
 
@@ -127,7 +134,7 @@ function createAuxiliaryDependencyAdapter(
     id,
     discoverFiles: async () => files,
     getParseDependencies: async (filePath) => [getDependencyPath(filePath)],
-    parseFile: async (filePath) => {
+    read: readFrom(async (filePath) => {
       parseCallCounter.count += 1;
       const dependencyPath = getDependencyPath(filePath);
 
@@ -168,7 +175,7 @@ function createAuxiliaryDependencyAdapter(
 
         throw error;
       }
-    },
+    }),
   };
 }
 
@@ -181,9 +188,9 @@ function createAdapterWithDiagnostics(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => parseDiagnosticsByFile[filePath]?.events ?? [],
-    parseFileWithDiagnostics: async (filePath) =>
-      parseDiagnosticsByFile[filePath] ?? { events: [], skippedRows: 0 },
+    read: readWithDiagnostics(
+      async (filePath) => parseDiagnosticsByFile[filePath] ?? { events: [], skippedRows: 0 },
+    ),
   };
 }
 
@@ -202,6 +209,50 @@ function createInlineWorkerPool(status: 'ready' | 'fallback' = 'ready'): ParseWo
     status: () => status,
     terminate: async () => undefined,
   };
+}
+
+/** A worker that declines every task, so the pool reruns it inline. */
+function createDecliningWorker(): ParseWorkerLike {
+  let onMessage: ((message: unknown) => void) | undefined;
+  const worker: ParseWorkerLike = {
+    postMessage: (message) => {
+      setTimeout(() => onMessage?.({ taskId: message.taskId, ok: false, error: 'declined' }), 1);
+    },
+    terminate: async () => 0,
+    on: (event, listener) => {
+      if (event === 'message') {
+        onMessage = listener;
+      }
+
+      return worker;
+    },
+  };
+
+  return worker;
+}
+
+function createWorkerSourceAdapters(sourceIds: readonly string[], filesPerSource: number) {
+  return sourceIds.map((sourceId) =>
+    createAdapterWithDiagnostics(
+      sourceId,
+      Object.fromEntries(
+        Array.from({ length: filesPerSource }, (_, index) => [
+          `/data/${sourceId}/${index}.jsonl`,
+          {
+            events: [
+              createUsageEvent({
+                source: sourceId,
+                sessionId: `${sourceId}-${index}`,
+                timestamp: '2026-02-01T00:00:00.000Z',
+                totalTokens: 1,
+              }),
+            ],
+            skippedRows: 0,
+          },
+        ]),
+      ),
+    ),
+  );
 }
 
 describe('build-usage-data-parsing', () => {
@@ -225,12 +276,12 @@ describe('build-usage-data-parsing', () => {
     const failingAdapter: SourceAdapter = {
       id: 'CoDex',
       discoverFiles: () => rejectWithUnknown('plain failure'),
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const succeedingAdapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [],
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
 
     const result = await parseSelectedAdapters([failingAdapter, succeedingAdapter], 1);
@@ -243,7 +294,7 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => ['/tmp/a.jsonl', '/tmp/b.jsonl', '/tmp/c.jsonl'],
-      parseFile: async (filePath) => {
+      read: readFrom(async (filePath) => {
         if (filePath === '/tmp/b.jsonl') {
           throw new Error('file vanished mid-run');
         }
@@ -257,7 +308,7 @@ describe('build-usage-data-parsing', () => {
             totalTokens: 1,
           }),
         ];
-      },
+      }),
     };
 
     const result = await parseSelectedAdapters([adapter], 1);
@@ -311,13 +362,54 @@ describe('build-usage-data-parsing', () => {
     },
   );
 
+  it('gives adapter events the cost mode their cost implies and keeps one already set', async () => {
+    const adapterEvent = (sessionId: string, costUsd?: number) => ({
+      source: 'pi',
+      sessionId,
+      timestamp: '2026-02-01T00:00:00.000Z',
+      inputTokens: 1,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      cacheWrite1hTokens: 0,
+      totalTokens: 1,
+      costUsd,
+    });
+    const storedMode = { ...adapterEvent('stored', 0.5), costMode: 'estimated' as const };
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      discoverFiles: async () => ['/tmp/a.jsonl'],
+      read: readFrom(async () => [
+        adapterEvent('unpriced'),
+        adapterEvent('logged', 0.25),
+        storedMode,
+      ]),
+    };
+
+    const result = await parseSelectedAdapters([adapter], 1);
+    const events = result.successfulParseResults[0].events;
+
+    expect(events.map((event) => [event.sessionId, event.costUsd, event.costMode])).toEqual([
+      ['unpriced', undefined, 'estimated'],
+      ['logged', 0.25, 'explicit'],
+      ['stored', 0.5, 'estimated'],
+    ]);
+    // Event JSON feeds the events output and machine-export revisions.
+    expect(events.map((event) => Object.keys(event).slice(-2))).toEqual([
+      ['costUsd', 'costMode'],
+      ['costUsd', 'costMode'],
+      ['costUsd', 'costMode'],
+    ]);
+  });
+
   it('reports a source failure when every file fails to parse', async () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => ['/tmp/a.jsonl', '/tmp/b.jsonl'],
-      parseFile: async () => {
+      read: readFrom(async () => {
         throw new Error('permission denied');
-      },
+      }),
     };
 
     const result = await parseSelectedAdapters([adapter], 1);
@@ -326,7 +418,7 @@ describe('build-usage-data-parsing', () => {
     expect(result.sourceFailures).toEqual([
       {
         source: 'pi',
-        reason: 'All 2 file(s) failed to parse for source pi: permission denied',
+        reason: 'All 2 files failed to parse for source pi: permission denied',
       },
     ]);
   });
@@ -428,7 +520,7 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => files,
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         Array.from({ length: 3_000 }, (_, index) =>
           createUsageEvent({
             source: 'pi',
@@ -438,6 +530,7 @@ describe('build-usage-data-parsing', () => {
             totalTokens: 1,
           }),
         ),
+      ),
     };
     const batches: string[][] = [];
     const replaceFilesEvents = vi.fn(
@@ -458,6 +551,70 @@ describe('build-usage-data-parsing', () => {
 
     // 5,000 events per batch: a + b cross the bound, c is flushed at the end.
     expect(batches).toEqual([['a.jsonl', 'b.jsonl'], ['c.jsonl']]);
+  });
+
+  it('stores tool calls with their file and counts them toward the write batch', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-tool-call-batches-'));
+    tempDirs.push(tempDir);
+
+    const files = ['a', 'b', 'c'].map((name) => path.join(tempDir, `${name}.jsonl`));
+
+    for (const filePath of files) {
+      await writeFingerprintFixture(filePath, '{}\n', 1_700_000_001);
+    }
+
+    // One request and 3,000 tool calls per file.
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      capabilities: { kinds: ['usage', 'tool_call'] },
+      discoverFiles: async () => files,
+      read: readFrom(async () => []),
+      readEvents: async function* (filePath) {
+        const sessionId = path.basename(filePath, '.jsonl');
+        const timestamp = '2026-02-01T00:00:00.000Z';
+        yield createUsageRecord({ source: 'pi', sessionId, timestamp, inputTokens: 1 });
+
+        for (let index = 0; index < 3_000; index += 1) {
+          yield createToolCallEvent({
+            source: 'pi',
+            sessionId,
+            timestamp,
+            name: 'bash',
+            status: 'ok',
+          });
+        }
+      },
+    };
+    const batches: [file: string, usage: number, toolCalls: number][][] = [];
+    const replaceFilesEvents = vi.fn(
+      (_store: EventStore, inputs: readonly ReplaceFileEventsInput[]) => {
+        batches.push(
+          inputs.map((input) => [
+            path.basename(input.filePath),
+            input.events.length,
+            input.sessionEvents?.length ?? 0,
+          ]),
+        );
+      },
+    );
+
+    await parseSelectedAdapters([adapter], 1, {
+      eventStore: { enabled: true, path: path.join(tempDir, 'events.db') },
+      eventStoreDeps: {
+        openEventStore: async () => ({}) as EventStore,
+        closeEventStore: vi.fn(),
+        getFileEntry: () => undefined,
+        replaceFilesEvents,
+      },
+    });
+
+    expect(batches).toEqual([
+      [
+        ['a.jsonl', 1, 3_000],
+        ['b.jsonl', 1, 3_000],
+      ],
+      [['c.jsonl', 1, 3_000]],
+    ]);
   });
 
   it('keeps parsed output and returns one warning when the event store fails', async () => {
@@ -763,7 +920,9 @@ describe('build-usage-data-parsing', () => {
     const store = await openEventStore(eventStorePath);
     try {
       store.database
-        .prepare("UPDATE events SET cost_mode = 'broken' WHERE file_path = ?")
+        .prepare(
+          "UPDATE events SET cost_mode = 'broken' WHERE file_id = (SELECT id FROM files WHERE file_path = ?)",
+        )
         .run(filePath);
     } finally {
       closeEventStore(store);
@@ -795,10 +954,7 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => [filePath],
-      parseFile: async () => {
-        throw new Error('parseFile should not be used');
-      },
-      parseFileWithDiagnostics: async () => {
+      read: readWithDiagnostics(async () => {
         if (!allowParse) {
           throw new Error('store hit should skip adapter parse');
         }
@@ -817,7 +973,7 @@ describe('build-usage-data-parsing', () => {
           skippedRows: 2,
           skippedRowReasons: [{ reason: 'no_token_usage', count: 2 }],
         };
-      },
+      }),
     };
 
     await parseSelectedAdapters([adapter], 1, {
@@ -967,6 +1123,78 @@ describe('build-usage-data-parsing', () => {
 
     expect(createPool).not.toHaveBeenCalled();
     expect(parseCalls.count).toBe(3);
+  });
+
+  it('shares one parse pool, bounded by the worker count, across every worker source', async () => {
+    const spawnWorker = vi.fn(createDecliningWorker);
+    let terminateCalls = 0;
+    const createPool = vi.fn((options: Parameters<typeof createParseWorkerPool>[0]) => {
+      const pool = createParseWorkerPool({ ...options, spawnWorker });
+      return {
+        ...pool,
+        terminate: async () => {
+          terminateCalls += 1;
+          await pool.terminate();
+        },
+      };
+    });
+    const runtimeProfile = new RuntimeProfileCollector(() => 0);
+    const sourceIds = ['claude', 'pi', 'codex'];
+
+    const result = await parseSelectedAdapters(createWorkerSourceAdapters(sourceIds, 4), 8, {
+      parseWorkers: { workerCount: 3, minBytes: 0, createPool },
+      runtimeProfile,
+    });
+
+    expect(createPool).toHaveBeenCalledTimes(1);
+    expect(createPool).toHaveBeenCalledWith(expect.objectContaining({ workerCount: 3 }));
+    expect(spawnWorker).toHaveBeenCalledTimes(3);
+    expect(terminateCalls).toBe(1);
+    expect(result.sourceFailures).toEqual([]);
+    expect(
+      result.successfulParseResults.map((parseResult) =>
+        parseResult.events.map((event) => event.sessionId),
+      ),
+    ).toEqual(sourceIds.map((sourceId) => [0, 1, 2, 3].map((index) => `${sourceId}-${index}`)));
+    expect(
+      runtimeProfile.snapshot().sourceStats.map((stats) => [stats.source, stats.parseWorkers]),
+    ).toEqual([
+      ['claude', 'engaged'],
+      ['codex', 'engaged'],
+      ['pi', 'engaged'],
+    ]);
+  });
+
+  it('creates no parse pool when no source sends it work', async () => {
+    const createPool = vi.fn(() => createInlineWorkerPool());
+
+    await parseSelectedAdapters(createWorkerSourceAdapters(['claude', 'pi'], 2), 4, {
+      parseWorkers: { workerCount: 3, minBytes: Number.MAX_SAFE_INTEGER, createPool },
+    });
+
+    expect(createPool).not.toHaveBeenCalled();
+  });
+
+  it('terminates the shared parse pool when a source fails', async () => {
+    const terminate = vi.fn(async () => undefined);
+    const createPool = vi.fn(() => ({ ...createInlineWorkerPool(), terminate }));
+    const failingAdapter: SourceAdapter = {
+      id: 'claude',
+      discoverFiles: async () => ['/data/claude/broken.jsonl'],
+      read: readWithDiagnostics(async () => {
+        throw new Error('broken file');
+      }),
+    };
+
+    const result = await parseSelectedAdapters(
+      [failingAdapter, ...createWorkerSourceAdapters(['pi'], 2)],
+      4,
+      { parseWorkers: { workerCount: 2, minBytes: 0, createPool } },
+    );
+
+    expect(result.sourceFailures.map((failure) => failure.source)).toEqual(['claude']);
+    expect(createPool).toHaveBeenCalledTimes(1);
+    expect(terminate).toHaveBeenCalledTimes(1);
   });
 
   it('dispatches largest misses first while preserving inline output order', async () => {
@@ -1126,10 +1354,13 @@ describe('build-usage-data-parsing', () => {
       const parseCalls = { count: 0 };
       const adapter = createCountingJsonlAdapter('pi', [files.old], parseCalls);
 
-      await parseSelectedAdapters([withMtimeSkip(adapter)], 1, {});
-      await parseSelectedAdapters([adapter], 1, { since });
+      const withoutSince = await parseSelectedAdapters([withMtimeSkip(adapter)], 1, {});
+      const withoutCapability = await parseSelectedAdapters([adapter], 1, { since });
 
       expect(parseCalls.count).toBe(2);
+      for (const result of [withoutSince, withoutCapability]) {
+        expect(result.parsedFiles).toEqual([{ source: 'pi', filePath: files.old }]);
+      }
     });
 
     it('parses an old file whose parse dependency changed inside the window', async () => {
@@ -1157,8 +1388,12 @@ describe('build-usage-data-parsing', () => {
       const eventStorePath = path.join(tempDir, 'events.db');
       const options = { since, eventStore: { enabled: true as const, path: eventStorePath } };
 
-      await parseSelectedAdapters([adapter], 1, options);
+      const ingestRun = await parseSelectedAdapters([adapter], 1, options);
       expect(parseCalls.count).toBe(1);
+      // Counted for the ledger, but marked so live reads leave it out.
+      expect(ingestRun.parsedFiles).toEqual([
+        { source: 'pi', filePath: files.old, beforeWindow: true },
+      ]);
 
       const readFileEvents = vi.fn();
       const skippedRun = await parseSelectedAdapters([adapter], 1, {

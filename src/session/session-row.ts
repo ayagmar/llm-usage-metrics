@@ -1,5 +1,5 @@
 import type { UsageTotals } from '../domain/usage-report-row.js';
-import type { SourceId } from '../domain/usage-event.js';
+import type { SourceId } from '@ayagmar/agent-sessions';
 
 export type SessionRow = UsageTotals & {
   rowType: 'session';

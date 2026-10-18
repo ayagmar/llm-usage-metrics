@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node", "vitest/globals"],
+    // Examples import the package by name; resolve it to the sources, not dist.
+    "paths": {
+      "@ayagmar/agent-sessions": ["./src/index.ts"],
+      "@ayagmar/agent-sessions/*": ["./src/*/index.ts"]
+    }
+  },
+  "include": ["src", "tests", "examples", "tsup.config.ts", "vitest.config.ts"]
+}

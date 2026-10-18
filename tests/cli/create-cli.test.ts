@@ -11,7 +11,7 @@ import {
   getCliReferenceExamples,
   getReportDefinitionMetas,
 } from '../../src/cli/report-definitions/report-definitions.js';
-import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
+import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
 
 const tempDirs: string[] = [];
 
@@ -33,7 +33,31 @@ const usageReportFlags = [
   '--history',
   '--machine',
   '--by-machine',
+  '--by-repo',
+  '--repo',
   '--last',
+  '--no-cost',
+  ...sourcePathFlags,
+];
+
+/** The usage-profile flags projects, blocks and value keep, beside their own. */
+const rollupReportFlags = [
+  '--json',
+  '--markdown',
+  '--source',
+  '--since',
+  '--until',
+  '--timezone',
+  '--provider',
+  '--model',
+  '--cost-mode',
+  '--history',
+  '--machine',
+  '--no-sync',
+  '--repo',
+  '--last',
+  '--all',
+  '--compact',
   '--no-cost',
   ...sourcePathFlags,
 ];
@@ -43,22 +67,29 @@ function getLongFlags(command: Command | undefined): string[] {
 }
 
 describe('createCli', () => {
-  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, config, machine, sync, schema, and completion commands', () => {
+  it('registers the report commands, then config, machine, sync, schema, and completion', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
     expect(cli.commands.map((command) => command.name())).toEqual([
       'summary',
+      'hourly',
       'daily',
       'weekly',
       'monthly',
+      'projects',
       'compare',
       'efficiency',
       'optimize',
       'trends',
       'session',
+      'tools',
+      'context',
+      'blocks',
+      'value',
       'wrapped',
       'events',
+      'pricing',
       'statusline',
       'doctor',
       'prune',
@@ -76,9 +107,70 @@ describe('createCli', () => {
     { command: 'weekly', present: usageReportFlags, absent: [] },
     { command: 'monthly', present: usageReportFlags, absent: [] },
     {
+      command: 'hourly',
+      present: [
+        '--by-repo',
+        '--repo',
+        '--by-machine',
+        '--compact',
+        '--no-cost',
+        '--last',
+        '--all',
+        '--per-model-columns',
+        '--json',
+        '--markdown',
+        '--since',
+        '--history',
+        '--no-sync',
+        ...sourcePathFlags,
+      ],
+      absent: ['--share', '--no-open'],
+    },
+    {
+      command: 'projects',
+      present: [...rollupReportFlags, '--granularity', '--top'],
+      absent: ['--share', '--no-open', '--per-model-columns', '--by-repo', '--by-machine'],
+    },
+    {
+      command: 'blocks',
+      present: [...rollupReportFlags, '--top'],
+      absent: ['--share', '--no-open', '--per-model-columns', '--by-repo', '--by-machine'],
+    },
+    {
+      command: 'value',
+      present: [...rollupReportFlags, '--plan', '--plan-price'],
+      absent: ['--share', '--no-open', '--per-model-columns', '--by-repo', '--by-machine'],
+    },
+    {
+      // Explains prices only: no usage is read, so no source, date or cost flags.
+      command: 'pricing',
+      present: [
+        '--pricing-url',
+        '--pricing-overrides',
+        '--pricing-offline',
+        '--json',
+        '--markdown',
+        '--quiet',
+      ],
+      absent: [
+        '--source',
+        '--source-dir',
+        '--verbose',
+        '--since',
+        '--timezone',
+        '--model',
+        '--ignore-pricing-failures',
+        '--cost-mode',
+        '--history',
+        '--no-sync',
+        '--share',
+        ...sourcePathFlags,
+      ],
+    },
+    {
       command: 'optimize',
-      present: ['--candidate-model', '--top', '--share', '--history'],
-      absent: ['--repo-dir', '--per-model-columns'],
+      present: ['--candidate-model', '--top', '--share', '--history', '--repo'],
+      absent: ['--repo-dir', '--per-model-columns', '--by-repo'],
     },
     {
       command: 'trends',
@@ -87,6 +179,8 @@ describe('createCli', () => {
         '--days',
         '--metric',
         '--by-source',
+        '--by-repo',
+        '--repo',
         '--json',
         '--share',
         '--history',
@@ -100,6 +194,7 @@ describe('createCli', () => {
         '--top',
         '--id',
         '--by-repo',
+        '--repo',
         '--json',
         '--markdown',
         '--source',
@@ -118,6 +213,8 @@ describe('createCli', () => {
       present: [
         '--vs-since',
         '--vs-until',
+        '--by-repo',
+        '--repo',
         '--source',
         '--timezone',
         '--pricing-url',
@@ -150,8 +247,14 @@ describe('createCli', () => {
     },
     {
       command: 'efficiency',
-      present: ['--repo-dir', '--include-merge-commits', '--share', '--ignore-pricing-failures'],
-      absent: ['--per-model-columns'],
+      present: [
+        '--repo-dir',
+        '--repo',
+        '--include-merge-commits',
+        '--share',
+        '--ignore-pricing-failures',
+      ],
+      absent: ['--per-model-columns', '--by-repo'],
     },
     {
       command: 'doctor',
@@ -171,14 +274,31 @@ describe('createCli', () => {
     {
       // Export stream: --format replaces --json.
       command: 'events',
-      present: ['--format', '--source', '--since', '--pricing-url', '--history', '--no-sync'],
-      absent: ['--json', '--markdown', '--share'],
+      present: [
+        '--format',
+        '--source',
+        '--since',
+        '--pricing-url',
+        '--history',
+        '--no-sync',
+        '--repo',
+      ],
+      absent: ['--json', '--markdown', '--share', '--by-repo'],
     },
     {
       // Always offline and silent, and never syncs over ssh.
       command: 'statusline',
       present: ['--source', '--verbose', '--pricing-overrides', '--history', '--machine'],
-      absent: ['--json', '--quiet', '--pricing-url', '--pricing-offline', '--no-sync', '--since'],
+      absent: [
+        '--json',
+        '--quiet',
+        '--pricing-url',
+        '--pricing-offline',
+        '--no-sync',
+        '--since',
+        '--repo',
+        '--by-repo',
+      ],
     },
     {
       command: 'prune',
@@ -199,6 +319,35 @@ describe('createCli', () => {
 
     expect(present.filter((flag) => !flags.includes(flag))).toEqual([]);
     expect(absent.filter((flag) => flags.includes(flag))).toEqual([]);
+  });
+
+  it('registers --share, --no-open and --redact together, only on the share commands', () => {
+    const shareCommands = createCli()
+      .commands.filter((command) => {
+        const flags = getLongFlags(command);
+        return ['--share', '--no-open', '--redact'].every((flag) => flags.includes(flag));
+      })
+      .map((command) => command.name())
+      .sort();
+    const anyShareFlag = createCli()
+      .commands.filter((command) =>
+        getLongFlags(command).some((flag) => ['--share', '--no-open', '--redact'].includes(flag)),
+      )
+      .map((command) => command.name())
+      .sort();
+
+    expect(shareCommands).toEqual([
+      'compare',
+      'daily',
+      'efficiency',
+      'monthly',
+      'optimize',
+      'summary',
+      'trends',
+      'weekly',
+      'wrapped',
+    ]);
+    expect(anyShareFlag).toEqual(shareCommands);
   });
 
   it('registers dedicated source override flags in the frozen manifest order', () => {
@@ -241,7 +390,10 @@ describe('createCli', () => {
 
     for (const command of reportCommands) {
       expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
-      expect(command.options.some((option) => option.long === '--verbose')).toBe(true);
+      // pricing reads no usage, so it has no per-source diagnostics to show.
+      expect(command.options.some((option) => option.long === '--verbose')).toBe(
+        command.name() !== 'pricing',
+      );
     }
   });
 
@@ -278,8 +430,10 @@ describe('createCli', () => {
 
   it('renders help output with command and npx examples', () => {
     const cli = createCli();
-    const help = cli.helpInformation();
-    const compactHelp = help.replace(/\s+/gu, ' ');
+    let help = '';
+    cli.configureOutput({ writeOut: (chunk) => (help += chunk) }).outputHelp();
+    // A wrapped example joins back into the command it was split from.
+    const compactHelp = help.replaceAll(' \\\n', ' ').replace(/\s+/gu, ' ');
     const dailyCommandHelp = cli.commands
       .find((command) => command.name() === 'daily')
       ?.helpInformation();
@@ -322,15 +476,85 @@ describe('createCli', () => {
           })
           .outputHelp();
 
-        // Example commands and the usage synopsis are meant to be copied whole, and one
-        // word cannot be split.
-        const overflowing = text
-          .split('\n')
-          .filter((line) => !line.trimStart().startsWith('$ ') && !line.startsWith('Usage: '))
+        // The usage synopsis is meant to be copied whole, and one word cannot be split.
+        // Examples wrap between flags, so one flag or redirect with its value can still
+        // overflow.
+        const lines = text.split('\n');
+        const overflowing = lines
+          .filter((line, index) => {
+            const isExample = line.startsWith('  $ ') || lines[index - 1]?.endsWith(' \\');
+            const words = line.replace(/ \\$/u, '').trim().split(' ');
+            const isOnePair = words.length === 2 && (words[0].startsWith('-') || words[0] === '>');
+            return !line.startsWith('Usage: ') && !(isExample && isOnePair);
+          })
           .filter((line) => line.length > columns && line.trim().includes(' '));
 
         expect(overflowing, `${command.name()} at ${String(columns)}`).toEqual([]);
       }
+    }
+  });
+
+  it('prints the help for --help-all on every command and subcommand', async () => {
+    const commandPaths = (command: Command, parents: string[]): string[][] =>
+      command.commands.flatMap((subcommand) => {
+        const commandPath = [...parents, subcommand.name()];
+        return [commandPath, ...commandPaths(subcommand, commandPath)];
+      });
+    const paths = commandPaths(createCli(), []);
+
+    expect(paths).toContainEqual(['config', 'show']);
+    expect(paths).toContainEqual(['machine']);
+
+    for (const commandPath of paths) {
+      const cli = createCli();
+      let output = '';
+      const capture = (command: Command): void => {
+        command.exitOverride().configureOutput({
+          writeOut: (chunk) => (output += chunk),
+          writeErr: (chunk) => (output += chunk),
+        });
+        command.commands.forEach(capture);
+      };
+      capture(cli);
+
+      await expect(
+        cli.parseAsync([...commandPath, '--help-all'], { from: 'user' }),
+        commandPath.join(' '),
+      ).rejects.toMatchObject({ exitCode: 0 });
+      expect(output, commandPath.join(' ')).toMatch(
+        new RegExp(`^Usage: llm-usage ${commandPath.join(' ')} `, 'u'),
+      );
+      if (commandPath[0] === 'daily') {
+        expect(output).toContain('--claude-dir');
+      }
+    }
+  });
+
+  // Without its own --help-all the root passed the flag to the summary, the default command.
+  it('prints the root help for a bare --help-all', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+
+    await expect(cli.parseAsync(['--help-all'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 0,
+    });
+    expect(output.text()).toMatch(/^Usage: llm-usage \[options\] \[command\]\n/u);
+    expect(output.text()).toContain('Examples:\n  $ llm-usage\n');
+  });
+
+  it('rejects --all with date flags on a report whose default is the full history', async () => {
+    for (const args of [
+      ['session', '--all', '--since', '2026-01-01'],
+      ['events', '--all', '--until', '2026-01-01'],
+    ]) {
+      const cli = createCli();
+      let output = '';
+      for (const command of cli.commands) {
+        command.exitOverride().configureOutput({ writeErr: (chunk) => (output += chunk) });
+      }
+
+      await expect(cli.parseAsync(args, { from: 'user' })).rejects.toMatchObject({ exitCode: 1 });
+      expect(output).toContain("option '--all' cannot be used with option");
     }
   });
 
@@ -376,16 +600,23 @@ describe('createCli', () => {
   it('exports shared report metadata and CLI reference examples', () => {
     expect(getReportDefinitionMetas().map((meta) => meta.commandName)).toEqual([
       'summary',
+      'hourly',
       'daily',
       'weekly',
       'monthly',
+      'projects',
       'compare',
       'efficiency',
       'optimize',
       'trends',
       'session',
+      'tools',
+      'context',
+      'blocks',
+      'value',
       'wrapped',
       'events',
+      'pricing',
       'statusline',
       'doctor',
       'prune',
@@ -429,6 +660,24 @@ describe('createCli', () => {
       code: 'commander.version',
     });
     expect(output.trim()).toBe('1.2.3');
+  });
+
+  it('reads --version only before the command word', async () => {
+    const cli = createCli({ version: '1.2.3' });
+    let output = '';
+    const capture = (command: Command): void => {
+      command.exitOverride().configureOutput({
+        writeOut: (chunk) => (output += chunk),
+        writeErr: (chunk) => (output += chunk),
+      });
+      command.commands.forEach(capture);
+    };
+    capture(cli);
+
+    await expect(cli.parseAsync(['daily', '--version'], { from: 'user' })).rejects.toMatchObject({
+      code: 'commander.unknownOption',
+    });
+    expect(output).toContain("unknown option '--version'");
   });
 
   function captureOutput(cli: ReturnType<typeof createCli>): { text: () => string } {
@@ -608,6 +857,114 @@ describe('createCli', () => {
     expect(daily.options.find((option) => option.long === '--claude-dir')?.hidden).toBe(true);
   });
 
+  it('rejects --cost-mode with --no-cost and leaves the mode unset when not passed', async () => {
+    const cli = createCli();
+    const daily = cli.commands.find((command) => command.name() === 'daily');
+
+    if (!daily) {
+      throw new Error('daily command missing');
+    }
+
+    const output = captureOutput(daily);
+    await expect(
+      daily.parseAsync(['--no-cost', '--cost-mode', 'both'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+    expect(output.text()).toContain(
+      "error: option '--no-cost' cannot be used with option '--cost-mode <mode>'",
+    );
+
+    const dailyAction = vi.fn();
+    const accepting = createCli();
+    captureOutput(accepting);
+    accepting.commands.find((command) => command.name() === 'daily')?.action(dailyAction);
+    await accepting.parseAsync(['daily', '--no-cost'], { from: 'user' });
+    await accepting.parseAsync(['daily', '--cost-mode', 'explicit'], { from: 'user' });
+
+    expect(dailyAction.mock.calls[0]?.[0]).toMatchObject({ cost: false });
+    expect(dailyAction.mock.calls[0]?.[0]).not.toHaveProperty('costMode');
+    expect(dailyAction.mock.calls[1]?.[0]).toMatchObject({ cost: true, costMode: 'explicit' });
+  });
+
+  function findCommand(cli: ReturnType<typeof createCli>, name: string): Command {
+    const command = cli.commands.find((candidate) => candidate.name() === name);
+
+    if (!command) {
+      throw new Error(`${name} command missing`);
+    }
+
+    return command;
+  }
+
+  it('collects repeated --plan ids and rejects an unknown one with the plan ids', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const valueAction = vi.fn();
+    findCommand(cli, 'value').action(valueAction);
+
+    await cli.parseAsync(['value', '--plan', 'claude-pro', '--plan', 'chatgpt-plus'], {
+      from: 'user',
+    });
+    await cli.parseAsync(['value'], { from: 'user' });
+
+    expect(valueAction.mock.calls[0]?.[0]).toMatchObject({
+      plan: ['claude-pro', 'chatgpt-plus'],
+    });
+    // No commander default: the value report applies its own, so a passed plan replaces it.
+    expect(valueAction.mock.calls[1]?.[0]).not.toHaveProperty('plan');
+
+    const value = findCommand(createCli(), 'value');
+    const output = captureOutput(value);
+    await expect(
+      value.parseAsync(['--plan', 'claude-ultra'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+    expect(output.text()).toContain(
+      'Allowed choices are claude-pro, claude-max-5x, claude-max-20x, chatgpt-go, chatgpt-plus, chatgpt-pro-100, chatgpt-pro-200, chatgpt-pro-500.',
+    );
+  });
+
+  it('collects --repo values and limits --granularity to daily, weekly and monthly', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const projectsAction = vi.fn();
+    findCommand(cli, 'projects').action(projectsAction);
+
+    await cli.parseAsync(
+      ['projects', '--repo', 'api,./web', '--repo', '(unattributed)', '--granularity', 'weekly'],
+      { from: 'user' },
+    );
+
+    expect(projectsAction.mock.calls[0]?.[0]).toMatchObject({
+      repo: ['api,./web', '(unattributed)'],
+      granularity: 'weekly',
+    });
+
+    const projects = findCommand(createCli(), 'projects');
+    const output = captureOutput(projects);
+    await expect(
+      projects.parseAsync(['--granularity', 'hourly'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+    expect(output.text()).toContain('Allowed choices are daily, weekly, monthly.');
+  });
+
+  it('passes every model name to pricing and requires at least one', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const pricingAction = vi.fn();
+    findCommand(cli, 'pricing').action(pricingAction);
+
+    await cli.parseAsync(['pricing', 'gpt-5', 'claude-sonnet-4-5', '--json'], { from: 'user' });
+
+    expect(pricingAction.mock.calls[0]?.[0]).toEqual(['gpt-5', 'claude-sonnet-4-5']);
+    expect(pricingAction.mock.calls[0]?.[1]).toMatchObject({ json: true });
+
+    const pricing = findCommand(createCli(), 'pricing');
+    const output = captureOutput(pricing);
+    await expect(pricing.parseAsync([], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+    expect(output.text()).toContain("missing required argument 'model'");
+  });
+
   it('accepts repeated directory flags and keeps database flags single', async () => {
     const cli = createCli();
     captureOutput(cli);
@@ -641,13 +998,23 @@ describe('createCli', () => {
     expect(output.text()).not.toContain('Did you mean');
   });
 
-  it('offers --all on daily and weekly only', () => {
+  // `daily --all` works, so `monthly --all` and the rest must too.
+  it('offers --all on every report that reads usage', () => {
     const cli = createCli();
-    const commandsWithAll = cli.commands
-      .filter((command) => command.options.some((option) => option.long === '--all'))
-      .map((command) => command.name());
+    const hasOption = (command: Command, long: string) =>
+      command.options.some((option) => option.long === long);
+    // A command reads usage when it takes --no-history. statusline is a status bar line
+    // with a fixed window, not a report.
+    const usageReports = getReportDefinitionMetas()
+      .map((meta) => cli.commands.find((command) => command.name() === meta.commandName))
+      .filter((command): command is Command => command !== undefined)
+      .filter((command) => hasOption(command, '--no-history'))
+      .filter((command) => command.name() !== 'statusline');
 
-    expect(commandsWithAll).toEqual(['daily', 'weekly']);
+    expect(usageReports.map((command) => command.name())).toContain('wrapped');
+    expect(
+      usageReports.filter((command) => !hasOption(command, '--all')).map((c) => c.name()),
+    ).toEqual([]);
   });
 
   it('rejects --quiet together with --verbose', async () => {

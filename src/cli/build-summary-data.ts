@@ -1,15 +1,29 @@
-import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily-activity.js';
+import {
+  resolveActivityStart,
+  sumDailyTotals,
+  toDailyActivity,
+  type DailyTotals,
+} from '../aggregate/daily-activity.js';
+import { buildEventProjectLabels } from '../aggregate/project-key.js';
+import { findSpendSpikes, findSpikeDrivers } from '../aggregate/spend-spikes.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
-import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { getDaysInMonth } from '../utils/date-key.js';
+import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
+import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
+import {
+  createPreviousMonthToDateWindow,
+  createPreviousSameLengthWindow,
+} from './build-compare-data.js';
+import { resolvePeriodsSince } from './build-usage-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
+  type UsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
@@ -21,15 +35,16 @@ import type {
   SummaryPeriod,
   SummaryPeriodKey,
   SummarySourceTotals,
+  SummarySpendSpike,
   UsageWindowTotals,
 } from './usage-data-contracts.js';
 import {
-  isEventWithinWindow,
+  createWindowEventFilter,
   summarizeUsageWindow,
   type UsageDateWindow,
 } from './usage-window-summary.js';
 
-type SummaryWindow = UsageDateWindow & {
+export type SummaryWindow = UsageDateWindow & {
   key: SummaryPeriodKey;
   label: string;
 };
@@ -44,11 +59,36 @@ export function resolveSummaryWindows(timezone: string, now: Date): SummaryWindo
     {
       key: 'last7Days',
       label: `Last ${SUMMARY_RECENT_DAYS} days`,
-      since: shiftLocalDateKey(today, -(SUMMARY_RECENT_DAYS - 1)),
+      since: resolvePeriodsSince('daily', today, SUMMARY_RECENT_DAYS),
       until: today,
     },
-    { key: 'monthToDate', label: 'Month to date', since: `${today.slice(0, 8)}01`, until: today },
+    {
+      key: 'monthToDate',
+      label: 'Month to date',
+      since: resolvePeriodsSince('monthly', today, 1),
+      until: today,
+    },
   ];
+}
+
+/**
+ * The window a period is set against, by `compare`'s rules: month to date against the same days
+ * of the previous month (clamped to its last day), the others against as many days just before.
+ */
+function resolvePreviousWindow(window: SummaryWindow): UsageDateWindow {
+  const { since, until } =
+    window.key === 'monthToDate'
+      ? createPreviousMonthToDateWindow(window)
+      : createPreviousSameLengthWindow(window);
+
+  return { since, until };
+}
+
+function findEarliestSince(windows: readonly UsageDateWindow[], today: string): string {
+  return windows.reduce(
+    (earliest, window) => (window.since < earliest ? window.since : earliest),
+    today,
+  );
 }
 
 // Two days of usage are too few to scale to a month.
@@ -56,13 +96,11 @@ const MIN_PROJECTION_DAYS = 3;
 
 export function resolveMonthEnd(
   today: string,
-  monthToDate: SummaryPeriod | undefined,
+  monthToDate: Pick<SummaryPeriod, 'totals'> | undefined,
   budgetUsd: number | undefined,
 ): SummaryMonthEnd {
   const daysElapsed = Number(today.slice(8, 10));
-  const daysInMonth = new Date(
-    Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
-  ).getUTCDate();
+  const daysInMonth = getDaysInMonth(Number(today.slice(0, 4)), Number(today.slice(5, 7)));
   const costUsd = monthToDate?.totals.costUsd;
   const monthEnd: SummaryMonthEnd = { daysElapsed, daysInMonth };
   const hasUsage = (monthToDate?.totals.events ?? 0) > 0;
@@ -86,17 +124,28 @@ export function resolveMonthEnd(
  * Unlike `hasCliFilters` (filter-match-warnings.ts), dates are not counted: the summary has
  * no date flags, and this only decides whether the monthly budget applies.
  *
- * The budget covers all usage, so a run narrowed by --source, --provider, or --model
- * cannot be measured against it. A `sources` list in the config file is the user's
+ * The budget covers all usage, so a run narrowed by --source, --provider, --model, or
+ * --repo cannot be measured against it. A `sources` list in the config file is the user's
  * standing view, not a narrowing, so it keeps the budget.
  */
 function isNarrowedByCliFilters(cliOptions: SummaryCommandOptions): boolean {
   const source = cliOptions.source;
   const model = cliOptions.model;
+  const repo = cliOptions.repo;
   const hasSource = Array.isArray(source) ? source.length > 0 : Boolean(source);
   const hasModel = Array.isArray(model) ? model.length > 0 : Boolean(model);
+  const hasRepo = Array.isArray(repo) ? repo.length > 0 : Boolean(repo);
 
-  return hasSource || hasModel || Boolean(cliOptions.provider);
+  return hasSource || hasModel || hasRepo || Boolean(cliOptions.provider);
+}
+
+/** The config's monthly budget, unless CLI filters narrow the run. */
+export function resolveMonthlyBudgetUsd(
+  userConfigResolution: UserConfigResolution,
+): number | undefined {
+  return isNarrowedByCliFilters(userConfigResolution.cliOptions)
+    ? undefined
+    : userConfigResolution.loadedConfig.config.monthlyBudgetUsd;
 }
 
 function compareByCost(left: UsageWindowTotals, right: UsageWindowTotals): number {
@@ -139,10 +188,53 @@ function summarizeMachines(
     .sort(compareMachinesByCost);
 }
 
-export async function buildSummaryData(
+/** The costliest spike day of `window`, with the project and model that drove it. */
+function findWindowSpendSpike(
+  dailyTotals: ReadonlyMap<string, DailyTotals>,
+  events: readonly UsageEvent[],
+  window: UsageDateWindow,
+  timezone: string,
+): SummarySpendSpike | undefined {
+  const dailyCostUsd = new Map(
+    [...dailyTotals].map(([date, totals]) => [date, totals.costUsd ?? 0]),
+  );
+  const spike = findSpendSpikes(dailyCostUsd, { from: window.since, to: window.until }).reduce<
+    SummarySpendSpike | undefined
+  >(
+    (costliest, day) => (costliest && costliest.costUsd >= day.costUsd ? costliest : day),
+    undefined,
+  );
+
+  if (spike === undefined) {
+    return undefined;
+  }
+
+  const dayEvents = events.filter(
+    createWindowEventFilter({ since: spike.date, until: spike.date }, timezone),
+  );
+
+  return {
+    ...spike,
+    costIncomplete: dailyTotals.get(spike.date)?.costIncomplete,
+    ...findSpikeDrivers(dayEvents, buildEventProjectLabels(events)),
+  };
+}
+
+export type SummaryDataset = {
+  userConfigResolution: UserConfigResolution;
+  timezone: string;
+  windows: SummaryWindow[];
+  today: string;
+  /** First day of the activity grid, a year back, which covers every summary window. */
+  since: string;
+  dataset: UsageEventDataset;
+};
+
+/** The unpriced events of the summary's year, shared by the summary and the statusline. */
+export async function buildSummaryDataset(
   options: SummaryCommandOptions,
   deps: BuildSummaryDataDeps = {},
-): Promise<SummaryDataResult> {
+): Promise<SummaryDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
   const { timezone } = normalizeBuildUsageInputs(
@@ -151,7 +243,6 @@ export async function buildSummaryData(
   );
   const windows = resolveSummaryWindows(timezone, deps.now?.() ?? new Date());
   const today = windows[0].until;
-  // The activity grid reaches back a year, which covers every summary window.
   const since = resolveActivityStart(today);
   const datasetOptions = { ...configuredOptions, since, until: today, timezone };
   const dataset = await measureRuntimeProfileStage(
@@ -163,17 +254,39 @@ export async function buildSummaryData(
         userConfigResolution: { ...userConfigResolution, options: datasetOptions },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+
+  return { userConfigResolution, timezone, windows, today, since, dataset };
+}
+
+export async function buildSummaryData(
+  options: SummaryCommandOptions,
+  deps: BuildSummaryDataDeps = {},
+): Promise<SummaryDataResult> {
+  const { userConfigResolution, timezone, windows, today, since, dataset } =
+    await buildSummaryDataset(options, deps);
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
   // Other machines' events carry their name; this machine's carry none.
   const countsOtherMachines = pricedEvents.some((event) => event.machine !== undefined);
-  const periods = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.aggregate', () =>
-    windows.map((window): SummaryPeriod => {
-      const windowEvents = pricedEvents.filter((event) =>
-        isEventWithinWindow(event, window, timezone),
-      );
+  const eventsByWindow = new Map<SummaryPeriodKey, UsageEvent[]>();
+  const previousWindows = windows.map(resolvePreviousWindow);
+  const periods = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.aggregate', () => {
+    // Every window and previous window ends by today, so one pass over the span from the
+    // earliest of them leaves the window filters fewer events to scan, in the same order.
+    const spanEvents = pricedEvents.filter(
+      createWindowEventFilter(
+        { since: findEarliestSince([...windows, ...previousWindows], today), until: today },
+        timezone,
+      ),
+    );
+
+    return windows.map((window, index): SummaryPeriod => {
+      const windowEvents = spanEvents.filter(createWindowEventFilter(window, timezone));
+      eventsByWindow.set(window.key, windowEvents);
       const summary = summarizeUsageWindow(windowEvents, timezone, sourceOrder);
+      const previousWindow = previousWindows[index];
+      const previousEvents = spanEvents.filter(createWindowEventFilter(previousWindow, timezone));
       const period: SummaryPeriod = {
         key: window.key,
         label: window.label,
@@ -183,6 +296,10 @@ export async function buildSummaryData(
         sources: [...summary.sources]
           .map(([source, totals]) => ({ source, ...totals }))
           .sort(compareSourcesByCost),
+        previous: {
+          ...previousWindow,
+          totals: summarizeUsageWindow(previousEvents, timezone, sourceOrder).totals,
+        },
       };
 
       if (countsOtherMachines) {
@@ -190,43 +307,56 @@ export async function buildSummaryData(
       }
 
       return period;
-    }),
-  );
+    });
+  });
 
-  const activity = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.activity', () =>
-    aggregateDailyActivity(pricedEvents, { from: since, to: today, timezone }),
+  const { activity, spike } = measureRuntimeProfileStageSync(
+    deps.runtimeProfile,
+    'summary.activity',
+    () => {
+      const dailyTotals = sumDailyTotals(pricedEvents, { from: since, to: today, timezone });
+      // Today, the last 7 days, then month to date (resolveSummaryWindows).
+      const [, last7Days] = windows;
+
+      return {
+        activity: toDailyActivity(dailyTotals, { from: since, to: today }),
+        spike: findWindowSpendSpike(dailyTotals, pricedEvents, last7Days, timezone),
+      };
+    },
   );
 
   const monthToDate = periods.find((period) => period.key === 'monthToDate');
-  const monthToDateWindow = windows.find((window) => window.key === 'monthToDate');
+  const monthToDateEvents = eventsByWindow.get('monthToDate');
   const monthToDateCacheSavingsUsd =
-    pricingSource && monthToDateWindow
-      ? estimateCacheSavingsUsd(
-          pricedEvents.filter((event) => isEventWithinWindow(event, monthToDateWindow, timezone)),
-          pricingSource,
-        )
+    pricingSource && monthToDateEvents
+      ? estimateCacheSavingsUsd(monthToDateEvents, pricingSource, pricingResult.pricingPolicy)
       : undefined;
 
-  // The `~` marks only appear on the windows and on the best day's cost.
+  // The `~` marks only appear on the windows (the spike day's among them), their previous
+  // windows and the best day's cost.
+  // Every window ends today, so together they span one range from the earliest window start;
+  // the month's previous window lies apart from it.
   const bestDay = activity.bestDay?.costUsd === undefined ? undefined : activity.bestDay.date;
+  const shownWindowFilters = [
+    { since: findEarliestSince(windows, today), until: today },
+    ...previousWindows,
+  ].map((window) => createWindowEventFilter(window, timezone));
+  const isInSomeWindow = (event: UsageEvent) =>
+    shownWindowFilters.some((isInWindow) => isInWindow(event));
+  const isOnBestDay = bestDay
+    ? createWindowEventFilter({ since: bestDay, until: bestDay }, timezone)
+    : () => false;
   const shownCostEvents = pricedEvents.filter(
-    (event) =>
-      windows.some((window) => isEventWithinWindow(event, window, timezone)) ||
-      getPeriodKey(event.timestamp, 'daily', timezone) === bestDay,
+    (event) => isInSomeWindow(event) || isOnBestDay(event),
   );
 
   return {
     timezone,
     periods,
-    monthEnd: resolveMonthEnd(
-      today,
-      monthToDate,
-      isNarrowedByCliFilters(userConfigResolution.cliOptions)
-        ? undefined
-        : userConfigResolution.loadedConfig.config.monthlyBudgetUsd,
-    ),
+    monthEnd: resolveMonthEnd(today, monthToDate, resolveMonthlyBudgetUsd(userConfigResolution)),
     monthToDateCacheSavingsUsd,
     activity,
+    spike,
     diagnostics: buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,
       successfulParseResults: dataset.successfulParseResults,
@@ -234,7 +364,7 @@ export async function buildSummaryData(
       pricingOrigin,
       pricingWarning,
       warnings: dataset.warnings,
-      notes: withUnpricedEventsNote(dataset.notes, shownCostEvents),
+      notes: withPricingNotes(dataset.notes, shownCostEvents, pricingResult),
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone,

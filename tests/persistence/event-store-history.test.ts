@@ -17,7 +17,8 @@ import {
   classifyDepartedFiles,
   loadHistoryEvents,
 } from '../../src/persistence/event-store-history.js';
-import { compareByCodePoint } from '../../src/utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { createToolCallEvent } from '@ayagmar/agent-sessions';
 
 const tempDirs: string[] = [];
 
@@ -125,7 +126,7 @@ type ReferenceMultiset = { counts: Map<string, number>; hasNullHash: boolean };
 function referenceMultiset(store: EventStore, source: string, filePath: string): ReferenceMultiset {
   const rows = store.database
     .prepare(
-      'SELECT content_hash AS content_hash, COUNT(*) AS count FROM events WHERE source = ? AND file_path = ? GROUP BY content_hash',
+      'SELECT content_hash AS content_hash, COUNT(*) AS count FROM events WHERE file_id = (SELECT id FROM files WHERE source = ? AND file_path = ?) GROUP BY content_hash',
     )
     .all(source, filePath);
   const counts = new Map<string, number>();
@@ -208,7 +209,7 @@ function referenceHistory(store: EventStore, source: string) {
   }
 
   const selectEvents = store.database.prepare(
-    'SELECT source, session_id, timestamp, model, provider, repo_root, input_tokens, output_tokens, reasoning_tokens, cache_read_tokens, cache_write_tokens, total_tokens, cost_usd, cost_mode, content_hash FROM events WHERE source = ? AND file_path = ? ORDER BY event_index ASC',
+    'SELECT files.source, session_id, timestamp, model, provider, repo_root, input_tokens, output_tokens, reasoning_tokens, cache_read_tokens, cache_write_tokens, total_tokens, cost_usd, cost_mode, content_hash FROM files JOIN events ON events.file_id = files.id WHERE files.source = ? AND files.file_path = ? ORDER BY event_index ASC',
   );
   const events: UsageEvent[] = [];
 
@@ -651,7 +652,9 @@ describe('event-store history', () => {
     try {
       writeStoredFile(store, { filePath: '/tmp/deleted.jsonl', events: [deletedEvent] });
       store.database
-        .prepare('UPDATE events SET content_hash = NULL WHERE file_path = ?')
+        .prepare(
+          'UPDATE events SET content_hash = NULL WHERE file_id = (SELECT id FROM files WHERE file_path = ?)',
+        )
         .run('/tmp/deleted.jsonl');
 
       const result = loadHistoryEvents(store, {
@@ -684,7 +687,9 @@ describe('event-store history', () => {
         events: [sharedEvent, otherEvent],
       });
       store.database
-        .prepare('UPDATE events SET content_hash = NULL WHERE file_path = ? AND session_id = ?')
+        .prepare(
+          'UPDATE events SET content_hash = NULL WHERE file_id = (SELECT id FROM files WHERE file_path = ?) AND session_id = ?',
+        )
         .run('/tmp/deleted.jsonl', 'shared');
 
       const result = loadHistoryEvents(store, {
@@ -905,7 +910,9 @@ describe('event-store history', () => {
         now: (now += 1),
       });
       store.database
-        .prepare('UPDATE events SET content_hash = NULL WHERE file_path = ?')
+        .prepare(
+          'UPDATE events SET content_hash = NULL WHERE file_id = (SELECT id FROM files WHERE file_path = ?)',
+        )
         .run('/tmp/nullish.jsonl');
 
       const input = { selectedSources: ['codex'], discoveredFiles: [] };
@@ -956,6 +963,75 @@ describe('event-store history', () => {
         suppressedFileCount: 1,
         servedEventCount: 1,
       });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+});
+
+describe('departed files with tool calls and messages', () => {
+  function writeWithToolCalls(
+    store: EventStore,
+    filePath: string,
+    events: UsageEvent[],
+    toolCallCount: number,
+  ): void {
+    replaceFileEvents(store, {
+      source: 'codex',
+      filePath,
+      fingerprint: createFingerprint(filePath),
+      events,
+      sessionEvents: Array.from({ length: toolCallCount }, (_, index) =>
+        createToolCallEvent({
+          source: 'codex',
+          sessionId: 'session-1',
+          timestamp: '2026-02-14T10:00:01.000Z',
+          name: 'exec_command',
+          status: 'ok',
+          toolCallId: `call-${index}`,
+        }),
+      ),
+      skippedRows: 0,
+      now: 1_000,
+    });
+  }
+
+  it('serves a departed file and its tool calls by its usage, suppresses one with no usage', async () => {
+    const store = await createTempStore();
+
+    try {
+      writeWithToolCalls(store, '/logs/live.jsonl', [createEvent()], 1);
+      writeWithToolCalls(store, '/logs/moved.jsonl', [createEvent()], 1);
+      writeWithToolCalls(
+        store,
+        '/logs/departed.jsonl',
+        [createEvent({ sessionId: 'departed' })],
+        2,
+      );
+      writeWithToolCalls(store, '/logs/tools-only.jsonl', [], 3);
+      const input = {
+        selectedSources: ['codex'],
+        discoveredFiles: [{ source: 'codex', filePath: '/logs/live.jsonl' }],
+      };
+
+      const history = loadHistoryEvents(store, input);
+
+      // The served files are the ones whose tool calls a report reads; the moved copy and
+      // the file with tool calls but no usage are suppressed, so theirs are not.
+      expect(history.servedFiles).toEqual([{ source: 'codex', filePath: '/logs/departed.jsonl' }]);
+      expect(history.suppressedFileCount).toBe(2);
+      // Prune counts every stored row of a departed file.
+      expect(
+        classifyDepartedFiles(store, input).map((file) => [
+          file.filePath,
+          file.eventCount,
+          file.suppressed,
+        ]),
+      ).toEqual([
+        ['/logs/departed.jsonl', 3, false],
+        ['/logs/moved.jsonl', 2, true],
+        ['/logs/tools-only.jsonl', 3, true],
+      ]);
     } finally {
       closeEventStore(store);
     }

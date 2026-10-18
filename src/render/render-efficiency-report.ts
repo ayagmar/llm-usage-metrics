@@ -5,9 +5,10 @@ import type { EfficiencyDataResult } from '../cli/usage-data-contracts.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
 import { resolveTtyColumns, splitCellLines, visibleWidth } from './table-text-layout.js';
+import { styleDeltaCell } from './terminal-style-policy.js';
 import { selectColumns, type UsageTokenFormat } from './row-cells.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
@@ -18,6 +19,8 @@ export type EfficiencyReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderEfficiencyReportOptions = {
   granularity: ReportGranularity;
   useColor?: boolean;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 const periodColumnIndex = 0;
@@ -231,26 +234,6 @@ function fitTableCellsToTerminal(
   };
 }
 
-function styleDeltaCell(
-  value: number,
-  formattedValue: string,
-  options: { useColor: boolean },
-): string {
-  if (!options.useColor) {
-    return formattedValue;
-  }
-
-  if (value > 0) {
-    return pc.green(formattedValue);
-  }
-
-  if (value < 0) {
-    return pc.red(formattedValue);
-  }
-
-  return pc.dim(formattedValue);
-}
-
 function styleEfficiencyTerminalRows(
   rows: EfficiencyRow[],
   bodyRows: string[][],
@@ -282,17 +265,17 @@ function styleEfficiencyTerminalRows(
     styledCells[linesAddedColumnIndex] = styleDeltaCell(
       row.linesAdded,
       styledCells[linesAddedColumnIndex],
-      options,
+      options.useColor,
     );
     styledCells[linesDeletedColumnIndex] = styleDeltaCell(
       row.linesDeleted * -1,
       styledCells[linesDeletedColumnIndex],
-      options,
+      options.useColor,
     );
     styledCells[linesChangedColumnIndex] = styleDeltaCell(
       row.linesChanged,
       styledCells[linesChangedColumnIndex],
-      options,
+      options.useColor,
     );
 
     const costValue = row.costUsd;
@@ -395,6 +378,9 @@ function renderTerminalEfficiencyTable(
     measureBodyRows: fittedCells.bodyRows,
     rowMetas,
     layout: 'compact',
+    columnKinds: fittedCells.headerCells.map((_, index) =>
+      index === periodColumnIndex ? 'text' : 'measure',
+    ),
     multilineColumnIndex: periodColumnIndex,
     multilineColumnWidth:
       fittedCells.widths[periodColumnIndex] ?? efficiencyTableHeaders[periodColumnIndex].length,
@@ -418,6 +404,15 @@ function renderMarkdownEfficiencyTable(rows: EfficiencyRow[]): string {
   });
 }
 
+/** Only the ALL row: no period had both commits and usage. */
+function hasNoEfficiencyPeriods(efficiencyData: EfficiencyDataResult): boolean {
+  return efficiencyData.rows.every((row) => row.rowType === 'grand_total');
+}
+
+function formatNoEfficiencyUsageMessage(options: RenderEfficiencyReportOptions): string {
+  return formatNoUsageMessage(options.filtered ?? false, 'in periods with commits');
+}
+
 function renderTerminalEfficiencyReport(
   efficiencyData: EfficiencyDataResult,
   options: RenderEfficiencyReportOptions,
@@ -431,6 +426,11 @@ function renderTerminalEfficiencyReport(
       useColor,
     }),
   );
+
+  if (hasNoEfficiencyPeriods(efficiencyData)) {
+    outputLines.push('', formatNoEfficiencyUsageMessage(options));
+    return { output: outputLines.join('\n'), notes: [] };
+  }
 
   const table = renderTerminalEfficiencyTable(efficiencyData.rows, { useColor });
   outputLines.push('', table.output);
@@ -453,7 +453,12 @@ export function renderEfficiencyReportWithNotes(
         notes: [],
       };
     case 'markdown':
-      return { output: renderMarkdownEfficiencyTable(efficiencyData.rows), notes: [] };
+      return {
+        output: hasNoEfficiencyPeriods(efficiencyData)
+          ? formatNoEfficiencyUsageMessage(options)
+          : renderMarkdownEfficiencyTable(efficiencyData.rows),
+        notes: [],
+      };
     case 'terminal':
       return renderTerminalEfficiencyReport(efficiencyData, options);
   }

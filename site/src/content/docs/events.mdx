@@ -1,13 +1,13 @@
 ---
 title: Events Export
-description: Stream normalized usage events as JSONL or CSV for jq, DuckDB, or warehouse workflows.
+description: Stream normalized usage events as JSONL or CSV for jq, DuckDB, or warehouse workflows, or export them as OpenTelemetry traces and metrics.
 ---
 
-`llm-usage events` streams the normalized usage events every report is built from — one record per model interaction, after source parsing, normalization, and pricing. It is the raw-data counterpart to the aggregated reports.
+`llm-usage events` streams the normalized usage events every report is built from: one record per [usage record the source logged](/llm-usage-metrics/library/contracts/#per-request-usage), after source parsing, normalization, and pricing. It is the raw-data counterpart to the aggregated reports.
 
 ## Command structure
 
-```bash
+```text
 llm-usage events [options]
 ```
 
@@ -21,15 +21,17 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 
 ## Options
 
-- `--format <name>`: `jsonl` (default) or `csv`
-- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
+- `--format <name>`: `jsonl` (default), `csv`, `otlp-traces`, or `otlp-metrics` ([OpenTelemetry export](/llm-usage-metrics/otel/))
+- `--otel-include-paths`: with `otlp-traces`, add repository paths to the spans
+- `--otlp-endpoint <url>`: with `otlp-traces` or `otlp-metrics`, POST the export to an OTLP/HTTP receiver instead of printing it ([Push to a receiver](/llm-usage-metrics/otel/#push-to-a-receiver))
+- shared filters apply: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, `--cost-mode`, and `--no-history`
 
-`events` is an export stream, not a report: it takes `--format jsonl` or `--format csv` instead of `--json`, and has no `--markdown` or `--share`. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
+`events` is an export stream, not a report: it takes `--format` instead of `--json`, and has no `--markdown` or `--share`. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
 
 ## Export contract
 
-- **jsonl** (default): one JSON object per line with the exact `UsageEvent` field names; absent optionals (`repoRoot`, `provider`, `model`, `costUsd`, `machine`) are omitted, not `null`. `machine` names the [machine](/llm-usage-metrics/machines/) an event came from; this machine's own events have none. Lines are **not** wrapped in the report envelope. Each line validates against [events-line.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json).
-- **csv**: a frozen header row with all 15 columns in declaration order (`source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine`; `machine` was appended in the multi-machine release), RFC 4180 quoting, empty string for absent optionals. New fields will only ever be appended as trailing columns. Cells that begin with a spreadsheet formula trigger (`=`, `+`, `-`, `@`, tab, carriage return) are prefixed with a single apostrophe to prevent formula execution, per OWASP CSV-injection guidance; use `--format jsonl` when you need raw values.
+- **jsonl** (default): one JSON object per line with the exact `UsageEvent` field names; absent optionals (`repoRoot`, `provider`, `model`, `singleRequest`, `costUsd`, `machine`) are omitted, not `null`. `singleRequest` is `true` when the event records exactly one model request, the events [long-context tiers](/llm-usage-metrics/pricing/#long-context-tiers) apply to; the CSV has no column for it. `machine` names the [machine](/llm-usage-metrics/machines/) an event came from; this machine's own events have none. Lines are **not** wrapped in the report envelope. Each line validates against [events-line.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json).
+- **csv**: a frozen header row with all 16 columns (`source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine,cacheWrite1hTokens`; `machine` was appended in the multi-machine release, then `cacheWrite1hTokens`, the part of `cacheWriteTokens` cached for one hour), RFC 4180 quoting, empty string for absent optionals. New fields will only ever be appended as trailing columns. Cells that begin with a spreadsheet formula trigger (`=`, `+`, `-`, `@`, tab, carriage return) are prefixed with a single apostrophe to prevent formula execution, per OWASP CSV-injection guidance; use `--format jsonl` when you need raw values.
 - **Ordering** is deterministic: `timestamp`, then `source`, then `sessionId`, then original parse order.
 
 ```json
@@ -45,24 +47,14 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
   "reasoningTokens": 20,
   "cacheReadTokens": 50,
   "cacheWriteTokens": 0,
+  "cacheWrite1hTokens": 0,
   "totalTokens": 300,
+  "singleRequest": true,
   "costUsd": 0.0017,
   "costMode": "estimated"
 }
 ```
 
-## OTel mapping
+## OpenTelemetry
 
-No OpenTelemetry exporter is shipped or promised. The table documents how a consumer maps exported fields onto the OTel GenAI semantic conventions, so a future exporter (or your own pipeline) has a stable contract to build from:
-
-| export field | OTel mapping |
-| --- | --- |
-| `model` | `gen_ai.request.model` |
-| `provider` | `gen_ai.provider.name` |
-| `inputTokens` | `gen_ai.usage.input_tokens` |
-| `outputTokens` | `gen_ai.usage.output_tokens` |
-| `cacheReadTokens` | `gen_ai.usage.cache_read.input_tokens` |
-| `cacheWriteTokens` | `gen_ai.usage.cache_creation.input_tokens` |
-| `reasoningTokens` | no stable semconv; suggested `llm_usage.reasoning_tokens` |
-| `costUsd`, `costMode` | no semconv; suggested `llm_usage.cost_usd`, `llm_usage.cost_mode` |
-| `source`, `sessionId`, `repoRoot`, `timestamp` | resource/span attributes (`service.name`-like `source`; `session.id`; VCS path; event time) |
+`--format otlp-traces` exports sessions as OTLP/JSON traces instead of usage lines, and `--format otlp-metrics` exports daily token, cost and tool duration metrics. [OpenTelemetry export](/llm-usage-metrics/otel/) describes the span tree, the metrics, the attribute mapping onto the GenAI conventions, and a Collector config that replays the file into a backend.

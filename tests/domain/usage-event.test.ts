@@ -1,67 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  createUsageEvent,
-  hasBillableTokenBuckets,
-  isPriceableEvent,
-} from '../../src/domain/usage-event.js';
+import { createUsageEvent } from '../../src/domain/usage-event.js';
 
-describe('createUsageEvent', () => {
-  it('normalizes counters and trusts declared total tokens when provided', () => {
-    const event = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-1',
-      timestamp: '2026-02-12T10:00:00Z',
-      inputTokens: 10,
-      outputTokens: '25',
-      reasoningTokens: 5.9,
-      cacheReadTokens: -1,
-      cacheWriteTokens: undefined,
-      totalTokens: 20,
-      costUsd: '0.15',
-    });
-
-    expect(event).toMatchObject({
-      source: 'pi',
-      sessionId: 'session-1',
-      inputTokens: 10,
-      outputTokens: 25,
-      reasoningTokens: 5,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      totalTokens: 20,
-      costUsd: 0.15,
-      costMode: 'explicit',
-    });
-  });
-
-  it('falls back to component total when declared total is missing', () => {
-    const event = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-component-total',
-      timestamp: '2026-02-12T10:00:00Z',
-      inputTokens: 10,
-      outputTokens: 25,
-      reasoningTokens: 5,
-      cacheReadTokens: 2,
-    });
-
-    expect(event.totalTokens).toBe(42);
-  });
-
-  it('preserves an explicit zero total token value', () => {
-    const event = createUsageEvent({
-      source: 'droid',
-      sessionId: 'session-zero-total',
-      timestamp: '2026-02-12T10:00:00Z',
-      reasoningTokens: 5,
-      totalTokens: 0,
-    });
-
-    expect(event.totalTokens).toBe(0);
-    expect(event.reasoningTokens).toBe(5);
-  });
-
+describe('createUsageEvent cost mode', () => {
   it('defaults to estimated mode when cost is missing', () => {
     const event = createUsageEvent({
       source: 'codex',
@@ -75,6 +16,30 @@ describe('createUsageEvent', () => {
     expect(event.costUsd).toBeUndefined();
   });
 
+  it('defaults to explicit mode when a cost is given', () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-1',
+      timestamp: '2026-02-12T10:00:00Z',
+      costUsd: '0.15',
+    });
+
+    expect(event.costMode).toBe('explicit');
+    expect(event.costUsd).toBe(0.15);
+  });
+
+  it('keeps a stored estimated mode on a priced event', () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-priced',
+      timestamp: '2026-02-12T10:00:00Z',
+      costUsd: 0.5,
+      costMode: 'estimated',
+    });
+
+    expect(event.costMode).toBe('estimated');
+  });
+
   it('throws when explicit costMode has no cost', () => {
     expect(() =>
       createUsageEvent({
@@ -83,158 +48,46 @@ describe('createUsageEvent', () => {
         timestamp: '2026-02-12T10:00:00Z',
         costMode: 'explicit',
       }),
-    ).toThrow('requires costUsd');
+    ).toThrow('UsageEvent with costMode "explicit" requires costUsd');
   });
 
-  it('throws on empty source or session id', () => {
+  it('reports the source first, then the cost mode, then the session id and timestamp', () => {
     expect(() =>
       createUsageEvent({
         source: ' ',
-        sessionId: 'session-4',
-        timestamp: '2026-02-12T10:00:00Z',
+        sessionId: ' ',
+        timestamp: 'not a date',
+        costMode: 'explicit',
       }),
-    ).toThrow('source');
+    ).toThrow('UsageEvent source must be a non-empty string');
 
     expect(() =>
       createUsageEvent({
         source: 'pi',
         sessionId: ' ',
-        timestamp: '2026-02-12T10:00:00Z',
+        timestamp: 'not a date',
+        costMode: 'explicit',
       }),
-    ).toThrow('sessionId');
-  });
+    ).toThrow('requires costUsd');
 
-  it('throws when source is not a string', () => {
-    expect(() =>
-      createUsageEvent({
-        source: 123 as unknown as string,
-        sessionId: 'session-non-string-source',
-        timestamp: '2026-02-12T10:00:00Z',
-      }),
-    ).toThrow('source');
-  });
-
-  it('strips control characters from session-derived strings', () => {
-    const event = createUsageEvent({
-      source: 'pi',
-      sessionId: 'abc\u0007def',
-      timestamp: '2026-02-12T10:00:00Z',
-      repoRoot: '/x\u009B/y',
-      model: 'GPT\u001B[2J-4',
-      inputTokens: 1,
-      outputTokens: 1,
-    });
-
-    expect(event.sessionId).toBe('abcdef');
-    expect(event.repoRoot).toBe('/x/y');
-    expect(event.model).toBe('gpt[2j-4');
-  });
-
-  it('throws when session id contains only control characters', () => {
     expect(() =>
       createUsageEvent({
         source: 'pi',
-        sessionId: '\u001B\u0007',
-        timestamp: '2026-02-12T10:00:00Z',
+        sessionId: ' ',
+        timestamp: 'not a date',
       }),
     ).toThrow('sessionId');
   });
 
-  it('normalizes model identifiers to lowercase', () => {
+  // Serialized events feed machine-export revisions and the event goldens.
+  it('serializes costMode right after costUsd', () => {
     const event = createUsageEvent({
       source: 'pi',
-      sessionId: 'session-model-normalization',
+      sessionId: 'session-order',
       timestamp: '2026-02-12T10:00:00Z',
-      model: ' GPT-4.1 ',
-      inputTokens: 1,
-      outputTokens: 1,
+      costUsd: 0.25,
     });
 
-    expect(event.model).toBe('gpt-4.1');
-  });
-
-  it('strips control characters when normalizing model keys', () => {
-    const event = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-model-control-chars',
-      timestamp: '2026-02-12T10:00:00Z',
-      model: ' GPT\u001B[2J-4.1 ',
-      inputTokens: 1,
-      outputTokens: 1,
-    });
-    const controlOnlyModelEvent = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-model-control-only',
-      timestamp: '2026-02-12T10:00:00Z',
-      model: '\u0007',
-      inputTokens: 1,
-      outputTokens: 1,
-    });
-
-    expect(event.model).toBe('gpt[2j-4.1');
-    expect(controlOnlyModelEvent.model).toBeUndefined();
-  });
-
-  it('truncates model keys longer than 256 characters', () => {
-    const event = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-model-truncation',
-      timestamp: '2026-02-12T10:00:00Z',
-      model: 'm'.repeat(300),
-      inputTokens: 1,
-      outputTokens: 1,
-    });
-
-    expect(event.model).toBe('m'.repeat(256));
-  });
-
-  it('normalizes provider identifiers to billing entities', () => {
-    const event = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-provider-normalization',
-      timestamp: '2026-02-12T10:00:00Z',
-      provider: ' OpenAI-Codex ',
-      inputTokens: 1,
-      outputTokens: 1,
-    });
-
-    expect(event.provider).toBe('openai');
-  });
-
-  it('keeps repo root metadata when provided', () => {
-    const event = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-repo-root',
-      timestamp: '2026-02-12T10:00:00Z',
-      repoRoot: ' /workspace/repo ',
-      inputTokens: 1,
-      outputTokens: 1,
-    });
-
-    expect(event.repoRoot).toBe('/workspace/repo');
-  });
-
-  it('treats total-only usage as non-priceable until billable buckets exist', () => {
-    const totalOnlyEvent = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-total-only',
-      timestamp: '2026-02-12T10:00:00Z',
-      model: 'gpt-5.2',
-      totalTokens: 42,
-    });
-
-    const billableEvent = createUsageEvent({
-      source: 'pi',
-      sessionId: 'session-billable',
-      timestamp: '2026-02-12T10:00:00Z',
-      model: 'gpt-5.2',
-      inputTokens: 21,
-      totalTokens: 42,
-    });
-
-    expect(hasBillableTokenBuckets(totalOnlyEvent)).toBe(false);
-    expect(isPriceableEvent(totalOnlyEvent)).toBe(false);
-    expect(hasBillableTokenBuckets(billableEvent)).toBe(true);
-    expect(isPriceableEvent(billableEvent)).toBe(true);
+    expect(Object.keys(event).slice(-2)).toEqual(['costUsd', 'costMode']);
   });
 });

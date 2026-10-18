@@ -1,13 +1,18 @@
 ---
 title: Trends
-description: Chart daily cost or token usage in the terminal, JSON, or a share card.
+description: Chart daily cost or token usage in the terminal, JSON, or an interactive share report.
 ---
+
+import TerminalShot from '../../components/TerminalShot.astro';
+import termTrends from '../../assets/screenshots/term-trends.webp';
 
 `trends` shows daily movement over time instead of a tabular aggregate.
 
-```bash
+```text
 llm-usage trends [options]
 ```
+
+<TerminalShot src={termTrends} label="llm-usage trends output" alt="Terminal output of llm-usage trends: a bar chart of daily cost over the last 30 days, with the total, the daily average, and the peak day underneath" />
 
 ## Examples
 
@@ -24,25 +29,30 @@ llm-usage trends --since 2026-02-01 --until 2026-02-28
 # Per-source JSON output
 llm-usage trends --by-source --json
 
-# Write the combined series as an SVG
+# One row per project
+llm-usage trends --by-repo --metric active-hours
+
+# Write an interactive HTML report of the last 14 days
 llm-usage trends --last 14 --share
 ```
 
 ## Options
 
-- `--last <n>`: chart the last n local calendar days, counting today (`--days <n>` is an alias)
-- `--metric <name>`: `cost`, `tokens`, or `active-hours`
+- `--last <n>`: chart the last n local calendar days, counting today
+- `--all`: chart every day from the first day with usage through today; not with `--last`, `--since` or `--until`
+- `--metric <name>`: `cost` (default), `tokens`, or `active-hours`
 - `--by-source`: render one sparkline row per source
-- `--share`: write the combined series to `trends-share.svg` and a `trends-share.html` page with PNG export
-- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
+- `--by-repo`: render one sparkline row per [project](/llm-usage-metrics/projects/); cannot be combined with `--by-source`
+- `--share`: write an [interactive report](/llm-usage-metrics/share/) `trends-share.html` of the date range
+- shared filters apply: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--no-history`
 
-`trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
+`trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. In the share report you can split the charts by source, model, project, or machine, whatever the command's flags.
 
 ## `--last` vs `--since` / `--until`
 
 - If you pass `--last <n>`, the range is `today - (n - 1)` through local today.
 - If you pass neither `--last` nor explicit date flags, the command defaults to the last 30 local calendar days.
-- `--last` cannot be combined with `--since` or `--until`.
+- `--last` cannot be combined with `--since`, `--until` or `--all`, and `--all` cannot be combined with dates.
 - `--until` without `--since` expands back to the earliest observed day after filtering.
 
 ## Metric semantics
@@ -52,6 +62,7 @@ llm-usage trends --last 14 --share
 - Reuses the same pricing pipeline as usage reports.
 - Incomplete pricing is carried into the trend output.
 - Approximate totals and peaks use the existing `~` convention.
+- Marks spend spikes: days that cost at least $1 and at least 3 times the median cost of the active days among the 28 days before them. A day with fewer than 3 active days before it is never a spike. The terminal and Markdown output list them under the totals; JSON sets `spike: true` on those days in `totalSeries`. To check the first days of the chart, `trends` also reads the 28 days before it.
 
 ### `--metric tokens`
 
@@ -62,7 +73,7 @@ llm-usage trends --last 14 --share
 ### `--metric active-hours`
 
 - Charts per-day active time: each day's events are grouped by session, gaps between consecutive events are capped at 5 minutes, and the per-session results are summed.
-- A session crossing midnight splits at the day boundary — each day counts only the gaps between that day's events.
+- A session crossing midnight splits at the day boundary: each day counts only the gaps between that day's events.
 - Terminal and Markdown output format durations (`2h 14m`); JSON `value`, `total`, `average`, and `peak.value` are **milliseconds**, matching session `activeMs`.
 - Skips pricing loads entirely, like `tokens`.
 
@@ -73,6 +84,12 @@ llm-usage trends --last 14 --share
 - source order follows the adapter/source order
 - missing days are zero-filled
 - sources with no observed data in the selected range are omitted
+
+## `--by-repo`
+
+`--by-repo` renders one sparkline row per project, ordered by total, with the same zero-filled days as `--by-source`. JSON carries the rows under `projectSeries`, each with `repoRoot` (`null` for `(unattributed)`), `project`, `buckets`, and `summary`.
+
+With `--metric active-hours`, a session that moves between projects splits into runs at each switch. Each run counts its own capped gaps for its project; the gap across a switch counts for neither, and a return to a project starts a new run. The projects therefore never add up to more than the combined active time.
 
 ## Reading approximate cost output
 

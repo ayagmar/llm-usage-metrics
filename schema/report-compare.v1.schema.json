@@ -26,6 +26,11 @@
           "description": "Per-source cost comparison rows.",
           "type": "array",
           "items": { "$ref": "#/$defs/sourceRow" }
+        },
+        "projects": {
+          "description": "Per-project cost comparison rows, by absolute cost delta then label; present with --by-repo.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/projectRow" }
         }
       },
       "required": ["current", "baseline", "totals", "sources"],
@@ -179,6 +184,43 @@
         }
       },
       "required": ["source", "current", "baseline", "delta", "deltaRatio"],
+      "additionalProperties": false
+    },
+    "projectRow": {
+      "description": "One project's (recorded working directory's) window totals and deltas.",
+      "type": "object",
+      "properties": {
+        "repoRoot": {
+          "description": "Project key (recorded working directory without trailing separators), or null for usage without one.",
+          "type": ["string", "null"]
+        },
+        "project": {
+          "description": "Project display label, the same in both windows.",
+          "type": "string"
+        },
+        "current": { "$ref": "#/$defs/windowTotals" },
+        "baseline": { "$ref": "#/$defs/windowTotals" },
+        "delta": { "$ref": "#/$defs/windowTotalsDelta" },
+        "deltaRatio": {
+          "description": "Per-metric delta fractions keyed by metric name; unresolved entries omitted.",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "inputTokens",
+              "outputTokens",
+              "reasoningTokens",
+              "cacheReadTokens",
+              "cacheWriteTokens",
+              "totalTokens",
+              "costUsd",
+              "events",
+              "activeDays"
+            ]
+          },
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "required": ["repoRoot", "project", "current", "baseline", "delta", "deltaRatio"],
       "additionalProperties": false
     }
   }

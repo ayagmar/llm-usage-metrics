@@ -10,7 +10,7 @@ import {
   runPruneReport,
   type PruneReportResult,
 } from '../../src/cli/run-prune-report.js';
-import { getParseFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
+import { getFileFingerprint } from '@ayagmar/agent-sessions/internal';
 import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
@@ -25,7 +25,9 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
+import { overrideStdoutTty } from '../helpers/stdout.js';
 
 const tempDirs: string[] = [];
 
@@ -91,7 +93,7 @@ async function writeLiveStoredFile(
   options: { filePath: string; events: UsageEvent[]; now?: number },
 ): Promise<void> {
   await writeFile(options.filePath, '{}\n', 'utf8');
-  const fingerprint = await getParseFileFingerprint(createAdapter({ files: [] }), options.filePath);
+  const fingerprint = await getFileFingerprint(createAdapter({ files: [] }), options.filePath);
 
   if (!fingerprint) {
     throw new Error(`cannot fingerprint ${options.filePath}`);
@@ -122,8 +124,8 @@ function createAdapter(options: {
 
       return options.files;
     },
-    async parseFile(filePath) {
-      return options.eventsByFile?.get(filePath) ?? [];
+    async *read(filePath) {
+      yield* options.eventsByFile?.get(filePath) ?? [];
     },
   };
 }
@@ -675,7 +677,7 @@ describe('run-prune-report', () => {
       },
     });
     await expect(stat(dbPath)).rejects.toMatchObject({ code: 'ENOENT' });
-    expect(renderPruneReport(result)).toContain('Deleted 0 file(s) / 0 event(s).');
+    expect(renderPruneReport(result)).toContain('Deleted 0 files / 0 events.');
   });
 
   it('limits discovery to the requested source filter', async () => {
@@ -690,16 +692,12 @@ describe('run-prune-report', () => {
       {
         id: 'codex',
         discoverFiles: codexDiscover,
-        async parseFile() {
-          return [];
-        },
+        read: readFrom(() => []),
       },
       {
         id: 'pi',
         discoverFiles: piDiscover,
-        async parseFile() {
-          return [];
-        },
+        read: readFrom(() => []),
       },
     ];
 
@@ -802,7 +800,7 @@ describe('run-prune-report', () => {
       },
     };
 
-    expect(renderPruneReport(result)).toContain('Would delete 1 file(s) / 1 event(s)');
+    expect(renderPruneReport(result)).toContain('Would delete 1 file / 1 event');
     expect(renderPruneReport(result)).toContain('/tmp/old.jsonl');
   });
 
@@ -827,6 +825,41 @@ describe('run-prune-report', () => {
     expect(rendered).toContain('/tmp/[31mred.jsonl');
     expect(rendered).not.toContain('\u001B');
     expect(rendered).not.toContain('\u202E');
+  });
+
+  it('lists candidates as labelled rows on a terminal narrower than the table', () => {
+    const restoreStdout = overrideStdoutTty(60);
+
+    try {
+      const rendered = renderPruneReport({
+        candidates: [
+          {
+            source: 'codex',
+            filePath: '/tmp/old.jsonl',
+            eventCount: 1250,
+            newestTimestamp: '2025-01-01T00:00:00.000Z',
+            reasons: ['aged'],
+          },
+        ],
+        summary: {
+          storePath: '/tmp/events.db',
+          applied: false,
+          candidateFileCount: 1,
+          candidateEventCount: 1250,
+        },
+      });
+
+      expect(rendered.split('\n').slice(4, 9)).toEqual([
+        'codex · /tmp/old.jsonl',
+        '  Events            1,250',
+        '  Newest timestamp  2025-01-01T00:00:00.000Z',
+        '  Reason            aged',
+        '',
+      ]);
+      expect(rendered).toContain('Would delete 1 file / 1,250 events.');
+    } finally {
+      restoreStdout();
+    }
   });
 
   it('renders apply summaries with reclaimed db, wal, and shm sizes', () => {
@@ -875,7 +908,7 @@ describe('run-prune-report', () => {
     }
 
     expect(stdout.getOutput()).toContain('Event Store Prune');
-    expect(stdout.getOutput()).toContain('Would delete 0 file(s) / 0 event(s)');
+    expect(stdout.getOutput()).toContain('Would delete 0 files / 0 events');
   });
 
   it('surfaces the Active config block and unknown-key warnings on prune', async () => {

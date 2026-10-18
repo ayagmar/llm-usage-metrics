@@ -1,24 +1,17 @@
 import { renderSessionReport, type SessionReportFormat } from '../render/render-session-report.js';
-import { logger } from '../utils/logger.js';
 import { buildSessionData } from './build-session-data.js';
 import {
+  emitLimitNote,
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
+  type LimitedReportDiagnostics,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type {
-  BuildSessionDataDeps,
-  SessionCommandOptions,
-  UsageDiagnostics,
-} from './usage-data-contracts.js';
+import type { BuildSessionDataDeps, SessionCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 
 const sessionReportFormats = STANDARD_REPORT_FORMATS satisfies readonly SessionReportFormat[];
-
-type SessionPreparedDiagnostics = UsageDiagnostics & {
-  limitNote?: string;
-};
 
 async function prepareSessionReport(
   options: SessionCommandOptions,
@@ -28,7 +21,7 @@ async function prepareSessionReport(
     commandOptions: options,
     supportedFormats: sessionReportFormats,
     buildData: () => buildSessionData(options, deps),
-    getDiagnostics: (sessionData): SessionPreparedDiagnostics => ({
+    getDiagnostics: (sessionData): LimitedReportDiagnostics => ({
       ...sessionData.diagnostics,
       limitNote: sessionData.limitNote,
     }),
@@ -42,12 +35,6 @@ async function prepareSessionReport(
   });
 }
 
-function emitSessionReportDiagnostics(diagnostics: SessionPreparedDiagnostics): void {
-  if (diagnostics.limitNote) {
-    logger.info(diagnostics.limitNote);
-  }
-}
-
 export async function buildSessionReport(options: SessionCommandOptions): Promise<string> {
   const preparedReport = await prepareSessionReport(options);
   return preparedReport.output;
@@ -59,6 +46,6 @@ export async function runSessionReport(options: SessionCommandOptions): Promise<
 
   await runStandardPreparedReport({
     preparedReport,
-    emitReportDiagnostics: emitSessionReportDiagnostics,
+    emitReportDiagnostics: emitLimitNote,
   });
 }

@@ -1,0 +1,309 @@
+import { AmpSourceAdapter } from '../sources/amp/index.js';
+import { AntigravitySourceAdapter } from '../sources/antigravity/index.js';
+import { ClaudeSourceAdapter } from '../sources/claude/index.js';
+import { CLINE_EXTENSION_IDS, createClineFamilyAdapter } from '../sources/cline/index.js';
+import { CodexSourceAdapter } from '../sources/codex/index.js';
+import { CopilotSourceAdapter } from '../sources/copilot/index.js';
+import { DroidSourceAdapter } from '../sources/droid/index.js';
+import { DshSourceAdapter } from '../sources/dsh/index.js';
+import { GeminiSourceAdapter } from '../sources/gemini/index.js';
+import { GooseSourceAdapter } from '../sources/goose/index.js';
+import { KimiSourceAdapter } from '../sources/kimi/index.js';
+import { OpenCodeSourceAdapter } from '../sources/opencode/index.js';
+import { OpenClawSourceAdapter } from '../sources/openclaw/index.js';
+import { PiSourceAdapter } from '../sources/pi/index.js';
+import { QwenSourceAdapter } from '../sources/qwen/index.js';
+import type { SourceId } from '../domain/usage-event.js';
+import type { SourceAdapter } from '../sources/source-adapter.js';
+import { createSourceContext, type SourceContext } from '../sources/source-context.js';
+import { MultiDirectorySourceAdapter } from '../sources/multi-directory-source-adapter.js';
+
+/** How a source stores its sessions on disk. */
+export type SourceStorageFormat = 'jsonl' | 'json' | 'sqlite';
+
+/**
+ * Which sources to build and where they read from, keyed by source id. A source without
+ * roots searches its default locations.
+ */
+export type SourceSelection = {
+  roots?: ReadonlyMap<SourceId, readonly string[]>;
+  /** Sources whose roots must exist; the others skip a missing root quietly. */
+  requireExistingRoots?: ReadonlySet<SourceId>;
+  /** Sources to build, kept in registration order; every source when omitted. */
+  sourceIds?: readonly SourceId[];
+};
+
+type ResolvedSourcePath = {
+  path: string | undefined;
+  requireExistingPath: boolean;
+};
+
+type SourceRegistration = {
+  id: string;
+  format: SourceStorageFormat;
+  /** Directory-backed: takes several roots. Otherwise a single file path. */
+  supportsSourceDir: boolean;
+  /**
+   * Builds one adapter over several directories. Without it, each directory gets its own
+   * adapter behind MultiDirectorySourceAdapter.
+   */
+  createForDirectories?: (
+    directories: readonly string[],
+    requireExistingPath: boolean,
+    context: SourceContext,
+  ) => SourceAdapter;
+  /**
+   * Builds the adapter a parse worker parses this source's files with, over the resolved
+   * roots of the adapter that discovered them. Pi and Claude read their roots to find fork
+   * parents, so the worker must not re-resolve them. Unset: files parse inline only.
+   */
+  createParseWorkerAdapter?: (roots: readonly string[]) => SourceAdapter;
+  create: (resolved: ResolvedSourcePath, context: SourceContext) => SourceAdapter;
+};
+
+const dirOptions = ({ path, requireExistingPath }: ResolvedSourcePath, context: SourceContext) => ({
+  dir: path,
+  requireDir: requireExistingPath,
+  context,
+});
+
+const sourceRegistrations: readonly SourceRegistration[] = [
+  {
+    id: 'pi',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    create: (resolved, context) => new PiSourceAdapter(dirOptions(resolved, context)),
+    createParseWorkerAdapter: (roots) => new PiSourceAdapter({ defaultRootDirs: [...roots] }),
+  },
+  {
+    id: 'codex',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    // A Codex fork's parent is looked up under the root that holds the fork.
+    createParseWorkerAdapter: (roots) => new CodexSourceAdapter({ dir: roots[0] }),
+    create: (resolved, context) => new CodexSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'gemini',
+    format: 'json',
+    supportsSourceDir: true,
+    create: (resolved, context) => new GeminiSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'droid',
+    format: 'json',
+    supportsSourceDir: true,
+    create: (resolved, context) => new DroidSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'opencode',
+    format: 'sqlite',
+    supportsSourceDir: false,
+    create: ({ path }, context) => new OpenCodeSourceAdapter({ dbPath: path, context }),
+  },
+  {
+    id: 'openclaw',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    create: (resolved, context) => new OpenClawSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'claude',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    create: (resolved, context) => new ClaudeSourceAdapter(dirOptions(resolved, context)),
+    createParseWorkerAdapter: (roots) => new ClaudeSourceAdapter({ defaultRootDirs: [...roots] }),
+    // Fork deduplication needs every root in one adapter to find a parent transcript.
+    createForDirectories: (directories, requireExistingPath, context) =>
+      new ClaudeSourceAdapter({ dir: directories, requireDir: requireExistingPath, context }),
+  },
+  {
+    id: 'copilot',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    create: (resolved, context) => new CopilotSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'goose',
+    format: 'sqlite',
+    supportsSourceDir: false,
+    create: ({ path }, context) => new GooseSourceAdapter({ dbPath: path, context }),
+  },
+  {
+    id: 'amp',
+    format: 'json',
+    supportsSourceDir: true,
+    create: (resolved, context) => new AmpSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'qwen',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    create: (resolved, context) => new QwenSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'kimi',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    create: (resolved, context) => new KimiSourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'cline',
+    format: 'json',
+    supportsSourceDir: true,
+    create: (resolved, context) =>
+      createClineFamilyAdapter({
+        id: 'cline',
+        extensionId: CLINE_EXTENSION_IDS.cline,
+        ...dirOptions(resolved, context),
+      }),
+  },
+  {
+    id: 'roocode',
+    format: 'json',
+    supportsSourceDir: true,
+    create: (resolved, context) =>
+      createClineFamilyAdapter({
+        id: 'roocode',
+        extensionId: CLINE_EXTENSION_IDS.roocode,
+        ...dirOptions(resolved, context),
+      }),
+  },
+  {
+    id: 'kilocode',
+    format: 'json',
+    supportsSourceDir: true,
+    create: (resolved, context) =>
+      createClineFamilyAdapter({
+        id: 'kilocode',
+        extensionId: CLINE_EXTENSION_IDS.kilocode,
+        ...dirOptions(resolved, context),
+      }),
+  },
+  {
+    id: 'antigravity',
+    format: 'sqlite',
+    supportsSourceDir: true,
+    create: (resolved, context) => new AntigravitySourceAdapter(dirOptions(resolved, context)),
+  },
+  {
+    id: 'dsh',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    create: (resolved, context) => new DshSourceAdapter(dirOptions(resolved, context)),
+  },
+];
+
+function createDirectoryBackedAdapter(
+  source: SourceRegistration,
+  directories: readonly string[],
+  requireExistingPath: boolean,
+  context: SourceContext,
+): SourceAdapter {
+  if (directories.length === 0) {
+    return source.create({ path: undefined, requireExistingPath: false }, context);
+  }
+
+  if (directories.length === 1) {
+    return source.create({ path: directories[0], requireExistingPath }, context);
+  }
+
+  return (
+    source.createForDirectories?.(directories, requireExistingPath, context) ??
+    new MultiDirectorySourceAdapter(
+      directories.map((directory) =>
+        source.create({ path: directory, requireExistingPath }, context),
+      ),
+    )
+  );
+}
+
+/** Every registered source id, in registry order. */
+export function getDefaultSourceIds(): string[] {
+  return sourceRegistrations.map((source) => source.id);
+}
+
+/**
+ * Whether the source reads directories (and may take several) rather than one file.
+ *
+ * @internal
+ */
+export function sourceSupportsDirectories(sourceId: string): boolean {
+  return sourceRegistrations.some((source) => source.id === sourceId && source.supportsSourceDir);
+}
+
+/** The storage format of a registered source. Throws on an unknown id. */
+export function getSourceStorageFormat(sourceId: string): SourceStorageFormat {
+  const registration = sourceRegistrations.find((source) => source.id === sourceId);
+
+  if (!registration) {
+    throw new Error(`Unknown source id: ${sourceId}`);
+  }
+
+  return registration.format;
+}
+
+/**
+ * Whether a parse worker can build this source's adapter and parse its files.
+ *
+ * @internal
+ */
+export function canParseSourceOnWorker(sourceId: string): boolean {
+  return sourceRegistrations.some(
+    (source) => source.id === sourceId && source.createParseWorkerAdapter !== undefined,
+  );
+}
+
+/**
+ * The roots a parse worker needs to parse `filePath` exactly as `adapter` does: those of
+ * the adapter that owns the file, defaults included.
+ *
+ * @internal
+ */
+export function getParseWorkerRoots(adapter: SourceAdapter, filePath: string): readonly string[] {
+  if (adapter instanceof MultiDirectorySourceAdapter) {
+    return adapter.getSearchPathsForFile(filePath);
+  }
+
+  return adapter.getSearchPaths?.() ?? [];
+}
+
+/**
+ * The adapter a parse worker parses with, over the roots from `getParseWorkerRoots`.
+ * Undefined when the source is not registered for worker parsing.
+ *
+ * @internal
+ */
+export function createWorkerParseAdapter(
+  sourceId: string,
+  roots: readonly string[],
+): SourceAdapter | undefined {
+  return sourceRegistrations
+    .find((source) => source.id === sourceId)
+    ?.createParseWorkerAdapter?.(roots);
+}
+
+/**
+ * Builds the selected sources' adapters, in registry order. A source given several roots
+ * reads them all through one adapter. Pass a context to control the home directory and
+ * environment adapters resolve their default locations from; the host's by default.
+ */
+export function createDefaultAdapters(
+  selection: SourceSelection,
+  context: SourceContext = createSourceContext(),
+): SourceAdapter[] {
+  const sourceIds = selection.sourceIds && new Set(selection.sourceIds);
+
+  return sourceRegistrations
+    .filter((source) => !sourceIds || sourceIds.has(source.id))
+    .map((source) => {
+      const roots = selection.roots?.get(source.id) ?? [];
+      const requireExistingPath = selection.requireExistingRoots?.has(source.id) ?? false;
+
+      if (!source.supportsSourceDir) {
+        return source.create({ path: roots[0], requireExistingPath }, context);
+      }
+
+      return createDirectoryBackedAdapter(source, roots, requireExistingPath, context);
+    });
+}

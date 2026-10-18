@@ -1,0 +1,49 @@
+Usage: llm-usage tools [options]
+
+Show tool calls per tool with errors, error rate and sessions, most calls first, from claude, codex
+and pi sessions (last 7 days unless --last, --since, --until, or --all)
+
+Options:
+  --help-all                     Display help including the per-source path flags
+  --source-dir <source-id=path>  Override source directory for directory-backed sources (repeatable)
+  --source <name>                Filter by source id (repeatable or comma-separated, supported
+                                 sources (17): pi, codex, gemini, droid, opencode, openclaw, claude,
+                                 copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                 antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings still print)
+  --verbose                      Print detailed diagnostics on stderr (per-source counts, routine
+                                 skips, config, env)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system timezone)
+  --history                      Include usage from files that no longer exist on disk (on by
+                                 default; when passed, fails if the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist on disk
+  --machine <name>               Count only these machines (repeatable or comma-separated; local is
+                                 this one; default: all)
+  --no-sync                      Use other machines' cached usage without refreshing it over ssh
+  --markdown                     Render output as markdown table
+  --top <n>                      Show only the top N tools by calls (default 20; 0 shows all)
+  --by-source                    Split each tool row by source
+  --by-repo                      Split each tool row by project (the working directory the tool
+                                 recorded)
+  --last <n>                     Report the last N days, counting today (default 7)
+  --all                          Report every tool call on disk instead of the last 7 days
+  --repo <project>               Count only these projects (repeatable or comma-separated, so a
+                                 value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
+                                 this machine) matches that project directory and the projects under
+                                 it; a name or path tail such as work/api matches the end of a
+                                 project directory, not the projects under it; (unattributed)
+                                 matches usage without a recorded directory. Keeps the tool calls of
+                                 sessions whose usage is in these projects
+  -h, --help                     display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage tools
+  $ llm-usage tools --by-source --top 10
+  $ llm-usage tools --last 30 --json
+  $ llm-usage tools --by-repo --markdown

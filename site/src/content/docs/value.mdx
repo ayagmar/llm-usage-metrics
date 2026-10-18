@@ -1,0 +1,128 @@
+---
+title: 'Plan value'
+description: 'Compare API-priced cost with subscription plan prices.'
+---
+
+import TerminalShot from '../../components/TerminalShot.astro';
+import termValue from '../../assets/screenshots/term-value.webp';
+
+`llm-usage value` prices each calendar month of your usage at pay-as-you-go API rates and sets it beside a subscription plan's monthly price, with the projects that used it. It answers "would the API have cost more or less than my plan?", not "what did I pay".
+
+```bash
+llm-usage value
+llm-usage value --plan claude-max-5x --plan chatgpt-plus
+```
+
+## Choose the plan
+
+| Plan id           | Price | Covers   |
+| ----------------- | ----- | -------- |
+| `claude-pro`      | $20   | `claude` |
+| `claude-max-5x`   | $100  | `claude` |
+| `claude-max-20x`  | $200  | `claude` |
+| `chatgpt-go`      | $8    | `codex`  |
+| `chatgpt-plus`    | $20   | `codex`  |
+| `chatgpt-pro-100` | $100  | `codex`  |
+| `chatgpt-pro-200` | $200  | `codex`  |
+| `chatgpt-pro-500` | $500  | `codex`  |
+
+The prices are list prices in USD per month, excluding tax, as checked on the date the report prints under the tables. Check the vendor's pricing page before relying on them; the JSON lists those pages under `checkAt`.
+
+Without `--plan`, the report compares with `claude-max-20x`. When `--source` (or a `sources` list in the [config file](/llm-usage-metrics/configuration/)) leaves out `claude`, it falls back to `chatgpt-pro-200` and says so on `stderr`. When the filter keeps neither `claude` nor `codex`, there is no plan to compare with and the command fails.
+
+`--plan` is repeatable, and each plan gets its own table over the sources it covers. Two plans that cover the same source each count that source's full cost; the report does not split usage between them.
+
+`--plan-price` replaces the list price, for a discount or a regional price. It needs exactly one plan, and the default plan counts as one:
+
+```bash
+llm-usage value --plan claude-pro --plan-price 18 --last 6 --json
+```
+
+## Read the table
+
+<TerminalShot src={termValue} label="llm-usage value output" alt="Terminal output of llm-usage value: for each month, the projects, tokens, and API-priced cost of claude usage beside the $200 claude-max-20x price, with the API-to-plan ratio and the difference" />
+
+| Column     | Meaning                                                                  |
+| ---------- | ------------------------------------------------------------------------ |
+| Month      | Calendar month in the reporting timezone; `*` marks a partial month      |
+| Projects   | The month's [projects](/llm-usage-metrics/projects/) with cost and share |
+| Tokens     | Total tokens of the plan's sources                                       |
+| API Cost   | Cost of the same usage at API prices                                     |
+| Plan       | The plan's monthly price                                                 |
+| API / Plan | API cost divided by the plan price                                       |
+| Difference | API cost minus the plan price; positive means the plan cost less         |
+
+The final `ALL` row sums the months. A month is partial when the window does not cover all of it or it is the current month. Partial months are not prorated: the plan price counts in full, so the current month looks worse for the plan than it will by its end.
+
+API Cost follows `--cost-mode` like the other reports: by default the cost the source logged, otherwise an estimate from LiteLLM prices. A `~` marks a month where some events have no price, so the cost is a lower bound. See [Pricing](/llm-usage-metrics/pricing/).
+
+`--compact` abbreviates token counts and drops Difference; `--no-cost` keeps only Month, Projects, and Tokens.
+
+## Set the window
+
+Without date flags, the report covers every month since your first usage, including months without any. `--last N` covers the last N months, counting the current one; `--since` and `--until` take inclusive dates, and the window never runs past today.
+
+```bash
+llm-usage value --last 3
+llm-usage value --since 2026-01-01 --until 2026-06-30
+```
+
+The shared filters apply, including `--repo` to price only some projects and `--machine` to count only some [machines](/llm-usage-metrics/machines/).
+
+## Output
+
+`value` supports terminal, `--json`, and `--markdown` output, but not `--share`.
+
+```json
+{
+  "schemaVersion": 1,
+  "report": "value",
+  "data": {
+    "asOf": "2026-10-15",
+    "window": { "since": "2026-05-01", "until": "2026-06-21" },
+    "plans": [
+      {
+        "id": "claude-max-20x",
+        "priceUsdPerMonth": 200,
+        "listPriceUsdPerMonth": 200,
+        "priceSource": "list",
+        "sources": ["claude"],
+        "checkAt": ["https://claude.com/pricing"],
+        "references": ["https://www.morphllm.com/claude-code-pricing"],
+        "months": [
+          {
+            "month": "2026-06",
+            "partial": true,
+            "totalTokens": 20050,
+            "apiCostUsd": 0.05895,
+            "costIncomplete": false,
+            "planPriceUsd": 200,
+            "ratio": 0.000295,
+            "differenceUsd": -199.94105,
+            "projects": [
+              {
+                "repoRoot": "/work/a/api",
+                "project": "a/api",
+                "totalTokens": 16400,
+                "costUsd": 0.039,
+                "costIncomplete": false,
+                "costShare": 0.661578
+              }
+            ]
+          }
+        ],
+        "total": {
+          "totalTokens": 21550,
+          "apiCostUsd": 0.06705,
+          "costIncomplete": false,
+          "planPriceUsd": 400,
+          "ratio": 0.000168,
+          "differenceUsd": -399.93295
+        }
+      }
+    ]
+  }
+}
+```
+
+The sample keeps one month and one project. `priceSource` is `override` when `--plan-price` set the price. `months` lists every month in the window, months without usage included. `total.planPriceUsd` counts partial months in full. The full contract is [report-value.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-value.v1.schema.json).

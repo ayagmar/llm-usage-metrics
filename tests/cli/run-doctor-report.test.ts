@@ -442,7 +442,7 @@ describe('run-doctor-report', () => {
     }
   });
 
-  it('counts events for an existing enabled event store', async () => {
+  it('counts usage events, tool calls and messages for an existing enabled event store', async () => {
     const options = await createDoctorFixtureOptions();
     const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-event-store-'));
     tempDirs.push(rootDir);
@@ -450,7 +450,12 @@ describe('run-doctor-report', () => {
     const eventStorePath = path.join(rootDir, 'events.db');
     await writeFile(eventStorePath, '', 'utf8');
 
-    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '4' }));
+    const readEventStoreSummarySpy = vi.fn(async () => ({
+      eventCount: 30,
+      toolCallCount: 8,
+      messageCount: 4,
+      schemaVersion: '5',
+    }));
     const readEventStoreStoredFilesSpy = vi.fn(async () => []);
 
     const results = await buildDoctorResults(
@@ -477,7 +482,7 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'ok',
         itemsFound: 42,
-        detail: '42 event(s), 0 departed file(s), schema v4, 0 B',
+        detail: '42 events, 0 departed files, schema v5, 0 B',
       },
     ]);
   });
@@ -518,10 +523,10 @@ describe('run-doctor-report', () => {
       status: 'ok',
       itemsFound: 3,
     });
-    expect(eventStoreResult?.detail).toMatch(/^3 event\(s\), 1 departed file\(s\), schema v4, .+$/);
+    expect(eventStoreResult?.detail).toMatch(/^3 events, 1 departed file, schema v5, .+$/);
     await expect(readEventStoreSummary(eventStorePath)).resolves.toMatchObject({
       eventCount: 3,
-      schemaVersion: '4',
+      schemaVersion: '5',
     });
   });
 
@@ -573,12 +578,14 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'error',
         error:
-          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v4); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
+          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v5); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
       },
     ]);
     // The doctor check must be read-only: the newer version survives it.
     await expect(readEventStoreSummary(eventStorePath)).resolves.toEqual({
       eventCount: 0,
+      toolCallCount: 0,
+      messageCount: 0,
       schemaVersion: '999',
     });
   });
@@ -726,7 +733,7 @@ describe('run-doctor-report', () => {
       path.join(brokenGeminiDir, 'tmp', 'project', 'chats', 'session.json'),
       'not json',
     );
-    const piDir = path.resolve('tests/fixtures/pi');
+    const piDir = path.resolve('packages/core/tests/fixtures/pi');
 
     const results = await buildDoctorResults(
       {
@@ -805,7 +812,7 @@ describe('run-doctor-report', () => {
     const usageFile = path.join(rootDir, 'usage.jsonl');
     await writeFile(
       usageFile,
-      await readFile(path.resolve('tests/fixtures/pi/session-mixed.jsonl'), 'utf8'),
+      await readFile(path.resolve('packages/core/tests/fixtures/pi/session-mixed.jsonl'), 'utf8'),
     );
     await utimes(usageFile, new Date('2020-01-01'), new Date('2020-01-01'));
 
@@ -833,7 +840,7 @@ describe('run-doctor-report', () => {
   });
 
   it('lists every directory of a source scanned in several directories', async () => {
-    const piDir = path.resolve('tests/fixtures/pi');
+    const piDir = path.resolve('packages/core/tests/fixtures/pi');
     const otherDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-pi-other-'));
     tempDirs.push(otherDir);
 
@@ -892,7 +899,7 @@ describe('renderDoctorText', () => {
     );
 
     expect(output.split('\n')).toEqual([
-      '✔ pi           jsonl   2 file(s)',
+      '✔ pi           jsonl   2 files',
       `    ~${path.sep}${path.join('.pi', 'agent', 'sessions')}`,
       '    /opt/pi',
       '○ goose        sqlite  not installed (no files found)',
@@ -929,7 +936,7 @@ describe('renderDoctorText', () => {
         { homeDir: '' },
       ).split('\n'),
     ).toEqual([
-      '✔ pi              jsonl  2 file(s)',
+      '✔ pi              jsonl  2 files',
       '✔ machine:laptop  ssh    me@laptop: synced 4 min ago, 2 file(s), 1,200 event(s)',
       '✖ machine:vps     ssh    vps: never synced: ssh failed: timed out',
       '',

@@ -2,12 +2,18 @@ import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
 import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
-import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
+import type {
+  OptimizeBaselineRow,
+  OptimizeCandidateRow,
+  OptimizeRow,
+} from '../optimize/optimize-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
+import { formatApproxUsd, formatUsd } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
+import { styleDeltaCell } from './terminal-style-policy.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 
@@ -16,6 +22,8 @@ export type OptimizeReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderOptimizeReportOptions = {
   granularity: ReportGranularity;
   useColor?: boolean;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 const optimizeTableHeadersWithNotes = [
@@ -37,13 +45,6 @@ const optimizeTableHeadersWithoutNotes = [
   'Savings %',
 ] as const;
 
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 function getReportTitle(granularity: ReportGranularity): string {
   switch (granularity) {
     case 'daily':
@@ -53,15 +54,6 @@ function getReportTitle(granularity: ReportGranularity): string {
     case 'monthly':
       return 'Monthly Optimize Report';
   }
-}
-
-function formatUsd(value: number | undefined, options: { approximate?: boolean } = {}): string {
-  if (value === undefined) {
-    return '-';
-  }
-
-  const formatted = usdFormatter.format(value);
-  return options.approximate ? `~${formatted}` : formatted;
 }
 
 function formatPercent(value: number | undefined): string {
@@ -96,26 +88,6 @@ function styleCandidateCell(
   return pc.bold(candidateValue);
 }
 
-function styleDeltaCell(
-  value: number | undefined,
-  formattedValue: string,
-  useColor: boolean,
-): string {
-  if (!useColor || value === undefined) {
-    return formattedValue;
-  }
-
-  if (value > 0) {
-    return pc.green(formattedValue);
-  }
-
-  if (value < 0) {
-    return pc.red(formattedValue);
-  }
-
-  return pc.dim(formattedValue);
-}
-
 function styleNotesCell(
   notes: string[] | undefined,
   formattedNotes: string,
@@ -129,7 +101,12 @@ function styleNotesCell(
 }
 
 function formatAbsoluteUsd(value: number): string {
-  return usdFormatter.format(Math.abs(value));
+  return formatUsd(Math.abs(value));
+}
+
+function renderProviderLine(optimizeData: OptimizeDataResult, useColor: boolean): string {
+  const providerLine = `Provider scope: ${optimizeData.diagnostics.provider}`;
+  return useColor ? pc.cyan(providerLine) : providerLine;
 }
 
 function resolveTerminalContextLines(
@@ -144,12 +121,11 @@ function resolveTerminalContextLines(
   );
   const lines: string[] = [];
 
-  const providerLine = `Provider scope: ${optimizeData.diagnostics.provider}`;
-  lines.push(options.useColor ? pc.cyan(providerLine) : providerLine);
+  lines.push(renderProviderLine(optimizeData, options.useColor));
 
   if (allBaselineRow) {
     lines.push(
-      `ALL baseline cost: ${formatUsd(allBaselineRow.baselineCostUsd, { approximate: allBaselineRow.baselineCostIncomplete })}`,
+      `ALL baseline cost: ${formatApproxUsd(allBaselineRow.baselineCostUsd, allBaselineRow.baselineCostIncomplete)}`,
     );
   }
 
@@ -211,7 +187,7 @@ function toTableCells(
         periodCell,
         styleCandidateCell('BASELINE', 'baseline', options.useColor),
         '-',
-        formatUsd(row.baselineCostUsd, { approximate: row.baselineCostIncomplete }),
+        formatApproxUsd(row.baselineCostUsd, row.baselineCostIncomplete),
         '-',
         '-',
       ];
@@ -226,10 +202,8 @@ function toTableCells(
     const candidateCells = [
       periodCell,
       styleCandidateCell(row.candidateModel, 'candidate', options.useColor),
-      formatUsd(row.hypotheticalCostUsd, { approximate: row.hypotheticalCostIncomplete }),
-      formatUsd(baselineRow?.baselineCostUsd, {
-        approximate: baselineRow?.baselineCostIncomplete === true,
-      }),
+      formatApproxUsd(row.hypotheticalCostUsd, row.hypotheticalCostIncomplete),
+      formatApproxUsd(baselineRow?.baselineCostUsd, baselineRow?.baselineCostIncomplete === true),
       styleDeltaCell(row.savingsUsd, savingsCell, options.useColor),
       styleDeltaCell(row.savingsRatio, savingsRatioCell, options.useColor),
     ];
@@ -261,11 +235,32 @@ function resolveIncludeNotesColumn(optimizeData: OptimizeDataResult): boolean {
   );
 }
 
+/** As the optimize builder decides which periods have usage. */
+function hasBaselineUsage(row: OptimizeRow): boolean {
+  return (
+    row.rowType === 'baseline' &&
+    (row.totalTokens > 0 || row.baselineCostIncomplete || (row.baselineCostUsd ?? 0) > 0)
+  );
+}
+
 function renderTerminalOptimizeReport(
   optimizeData: OptimizeDataResult,
   options: RenderOptimizeReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
+  const header = renderReportHeader({ title: getReportTitle(options.granularity), useColor });
+
+  // No baseline tokens, logged cost or unpriced usage: the provider has nothing to compare.
+  if (!optimizeData.rows.some(hasBaselineUsage)) {
+    return [
+      header,
+      '',
+      renderProviderLine(optimizeData, useColor),
+      '',
+      formatNoUsageMessage(options.filtered ?? false),
+    ].join('\n');
+  }
+
   const includeNotesColumn = resolveIncludeNotesColumn(optimizeData);
   const tableCells = toTableCells(optimizeData, { useColor, includeNotesColumn });
   const candidateColumnWidth = resolveCandidateColumnWidth(tableCells);
@@ -275,12 +270,7 @@ function renderTerminalOptimizeReport(
     : [...optimizeTableHeadersWithoutNotes];
   const outputLines: string[] = [];
 
-  outputLines.push(
-    renderReportHeader({
-      title: getReportTitle(options.granularity),
-      useColor,
-    }),
-  );
+  outputLines.push(header);
   outputLines.push('');
   outputLines.push(...contextLines);
   outputLines.push('');
@@ -292,6 +282,9 @@ function renderTerminalOptimizeReport(
       measureBodyRows: tableCells,
       rowMetas: optimizeData.rows.map((row) => toTableRowMeta(row)),
       layout: 'compact',
+      columnKinds: headerCells.map((header, index) =>
+        index <= 1 || header === 'Notes' ? 'text' : 'measure',
+      ),
       multilineColumnIndex: 1,
       multilineColumnWidth: candidateColumnWidth,
       terminalWidth: resolveTtyColumns(process.stdout),

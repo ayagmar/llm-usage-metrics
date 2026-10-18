@@ -1,11 +1,11 @@
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
-import { aggregateWrapped } from '../wrapped/aggregate-wrapped.js';
+import { aggregateWrapped, getYearDateRange } from '../wrapped/aggregate-wrapped.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { validateTimezone } from './build-usage-data-inputs.js';
+import { resolveReportTimezone } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -31,13 +31,6 @@ export function parseWrappedYearOption(year: string | undefined): number | undef
   return parsed;
 }
 
-function getWrappedYearRange(year: number): { from: string; to: string } {
-  return {
-    from: `${year}-01-01`,
-    to: `${year}-12-31`,
-  };
-}
-
 function resolveWrappedYear(year: string | undefined, timezone: string, now: Date): number {
   const parsedYear = parseWrappedYearOption(year);
 
@@ -55,11 +48,9 @@ export async function buildWrappedData(
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options as WrappedCommandOptions;
   const now = deps.now?.() ?? new Date();
-  const timezone =
-    configuredOptions.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  validateTimezone(timezone);
+  const timezone = resolveReportTimezone(configuredOptions.timezone);
   const year = resolveWrappedYear(configuredOptions.year, timezone, now);
-  const range = getWrappedYearRange(year);
+  const range = getYearDateRange(year);
   const datasetOptions = {
     ...configuredOptions,
     timezone,
@@ -78,8 +69,8 @@ export async function buildWrappedData(
         },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
   const recap = measureRuntimeProfileStageSync(deps.runtimeProfile, 'wrapped.aggregate', () =>
     aggregateWrapped(pricedEvents, {
       year,
@@ -90,7 +81,7 @@ export async function buildWrappedData(
   // The dataset is already year-filtered via since/until above, so the same
   // events the aggregator consumed feed the counterfactual.
   recap.estimatedCacheSavingsUsd = pricingSource
-    ? estimateCacheSavingsUsd(pricedEvents, pricingSource)
+    ? estimateCacheSavingsUsd(pricedEvents, pricingSource, pricingResult.pricingPolicy)
     : undefined;
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
@@ -99,7 +90,7 @@ export async function buildWrappedData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, pricedEvents),
+    notes: withPricingNotes(dataset.notes, pricedEvents, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

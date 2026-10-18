@@ -1,10 +1,11 @@
+import { getYearDateRange } from '../wrapped/aggregate-wrapped.js';
 import { renderWrappedReport, wrappedReportFormats } from '../render/render-wrapped-report.js';
-import { renderWrappedShareSvg } from '../render/render-wrapped-share-svg.js';
 import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.js';
 import { prepareReport, runStandardPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildWrappedDataDeps, WrappedCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
+import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
 
 async function prepareWrappedReport(
   options: WrappedCommandOptions,
@@ -19,14 +20,25 @@ async function prepareWrappedReport(
     buildData: () => buildWrappedData(options, deps),
     getDiagnostics: (wrappedData) => wrappedData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (wrappedData) => ({
-          fileName: `llm-usage-wrapped-${wrappedData.recap.year}.svg`,
+    buildShare: async (wrappedData, { runtimeProfile }) => {
+      const { year } = wrappedData.recap;
+      // The file holds the year and opens on all of it.
+      const { from: since, to: until } = getYearDateRange(year);
+      const window = { since, until };
+
+      return buildShareReportArtifact(
+        {
+          command: 'wrapped',
+          options,
+          window,
+          initialView: { ...window, granularity: 'week' },
+          envelope: parseReportJsonEnvelope(renderWrappedReport(wrappedData.recap, 'json')),
+          fileBaseName: `llm-usage-wrapped-${year}`,
           logLabel: 'wrapped',
-          title: `${wrappedData.recap.year} Wrapped share card`,
-          render: (theme) => renderWrappedShareSvg(wrappedData.recap, theme),
-        })
-      : undefined,
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (wrappedData, format) =>
       renderWrappedReport(wrappedData.recap, format, { filtered: hasCliFilters(options) }),
   });

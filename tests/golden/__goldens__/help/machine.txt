@@ -1,0 +1,21 @@
+Usage: llm-usage machine [options] [command]
+
+Combine usage from your other machines over ssh
+
+Options:
+  -h, --help                         display help for command
+
+Commands:
+  add [options] <name> [ssh-target]  Sync a machine over ssh and add it to config.toml; it needs
+                                     llm-usage-metrics installed and ssh login without a prompt
+  list [options]                     Show each machine, when it last synced, and how much usage is
+                                     cached
+  remove [options] <name>            Remove a machine from config.toml and delete its cached usage
+  export [options]                   Print the usage this machine's reports count, as a versioned
+                                     NDJSON bundle that sync reads
+  help [command]                     display help for command
+
+Examples:
+  $ llm-usage machine add laptop
+  $ llm-usage machine list
+  $ llm-usage machine remove laptop

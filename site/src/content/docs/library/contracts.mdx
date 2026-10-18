@@ -1,0 +1,94 @@
+---
+title: 'Versioning and cursors'
+description: 'Stability, versioning, and incremental cursor contracts of the library.'
+---
+
+This page covers what you can rely on across versions of `@ayagmar/agent-sessions`, how to tell when events you stored are stale, and how to resume a read where the last one stopped.
+
+## What semver covers
+
+The package follows semver over its public entry points: `@ayagmar/agent-sessions`, `@ayagmar/agent-sessions/registry` and `@ayagmar/agent-sessions/sources/<id>`. While it is at 0.x, a minor version may break them; a patch may not. Releases are versioned with changesets, separately from the CLI.
+
+Outside that promise:
+
+- `@ayagmar/agent-sessions/internal` holds helpers for the CLI and changes whenever the CLI needs it to.
+- `@ayagmar/agent-sessions/otel` is experimental. Its attribute names follow the OpenTelemetry GenAI conventions at the commit pinned in `SEMCONV_GENAI_REF`, and can change in any version when that pin moves.
+- Names tagged `@internal` on a public entry point: `canParseSourceOnWorker`, `createWorkerParseAdapter`, `getParseWorkerRoots` and `sourceSupportsDirectories` on `./registry`, `LEGACY_CODEX_MODEL_FALLBACK` on `./sources/codex`, and the test seams in the adapter options types (`defaultRootDirs`, `resolveDefaultDbPaths`, `pathExists`, `pathReadable`, `pathIsDirectory`, `pathIsFile`, `loadSqliteModule`, `sleep`).
+
+The package's own test suite pins the exact list of names each entry point exports, so a name is added or removed only on purpose.
+
+## When stored events go stale
+
+If you store events, key them so that a new parser or a changed file invalidates them. Two numbers tell you a parser changed:
+
+- `CORE_EVENT_VERSION` goes up when shared normalization (`createUsageEvent` and the other event constructors) would turn an unchanged file into different events.
+- An adapter's `parserVersion` goes up when that adapter would parse an unchanged file differently: token mapping, dedup, model resolution.
+
+`getParserVersion(adapter)` combines both into one string, `n<CORE_EVENT_VERSION>.p<parserVersion>`, for example `n2.p4`. Events stored under one string are stale under any other.
+
+An adapter's events for a file depend only on:
+
+- the file itself,
+- the files `adapter.getParseDependencies(filePath)` returns, such as a sidecar, a fork's parent transcript or a SQLite database's `-wal` and `-journal` files,
+- and `getParserVersion(adapter)`.
+
+So a cache key needs all three. The CLI's event store records the size and `mtimeMs` of the file and of each dependency (a dependency that does not exist is recorded as missing, so its appearance invalidates the entry), plus the parser version string, and re-parses the file when any of them differs.
+
+## Resuming a read
+
+An adapter whose `capabilities.incremental` is `true` can resume a JSONL file where an earlier read stopped: claude, pi and qwen. Any other adapter ignores `resume` and calls neither callback, so check the flag first.
+
+```ts
+import type { ReadCursor } from '@ayagmar/agent-sessions';
+
+let cursor: ReadCursor | undefined; // persisted between runs, per file
+
+for await (const event of qwen.read(filePath, {
+  resume: {
+    from: cursor,
+    onStart: ({ restarted, replaced }) => {
+      if (restarted) dropStoredEventsFor(filePath);
+      else dropLastStoredEventsFor(filePath, replaced ?? {});
+    },
+    onCursor: (update) => {
+      cursor = update.cursor;
+    },
+  },
+})) {
+  store(event);
+}
+```
+
+- `onStart` fires once, before any event, even for an empty file. `restarted: true` means the read starts from byte 0, so its events replace what you stored for the file. Append only when it is `false`.
+- `replaced` counts, per event kind, how many of the last events the previous read of the file yielded this read yields again, changed or not: a claude usage event a later row of the same message can still replace, a tool call still waiting for its result. Drop them before appending. Unset kinds replace none, and qwen never sets it.
+- `onCursor` fires once, when the read completes. A read you break out of, or that throws, does not call it: keep the cursor you had. `partialLine: true` says the file ends in a line without a line feed, which the read left out.
+- Per kind, the events you kept followed by the resumed read's equal a full read of the file. The interleaving across kinds can differ, so do not rely on it.
+- `readEvents` forwards `resume` too, and honours it only when the read includes usage.
+
+A cursor is plain JSON, so it can be stored as it is:
+
+```json
+{
+  "format": "jsonl",
+  "version": 2,
+  "parser": "qwen@n2.p4",
+  "offset": 1029,
+  "prefixHash": "7cee8942…"
+}
+```
+
+A cursor is valid when all of these hold; otherwise the read restarts from byte 0:
+
+- `parser` is `<source>@<getParserVersion(adapter)>` of the adapter reading it,
+- the file is at least `offset` bytes long,
+- `prefixHash` is the sha256 of the first `offset` bytes.
+
+`offset` is the end of the last line-feed-terminated line. A final line without a line feed is not parsed, yielded or counted under `resume`; the next read sees it once its line feed is written.
+
+Any change to the bytes before `offset` restarts the read. The check reads those bytes once without parsing them, and the resumed read extends the same hash for the next cursor. claude and pi keep what their parse needs for the lines after `offset` in `state`; treat it as opaque. After a read with `raw: true`, it holds the raw lines of the events and tool calls still open at `offset`, message text included. It holds earlier ids as 32-bit hashes, and a read that meets an id whose hash it has seen restarts from byte 0, so a hash collision costs a full read, not a wrong event.
+
+## Per-request usage
+
+A usage event with `singleRequest: true` records exactly one model request. Prices that depend on one request's prompt size, such as [long-context tiers](/llm-usage-metrics/pricing/#long-context-tiers), apply only to those events. claude, gemini, pi, opencode (one event per step) and antigravity set it on every event. codex sets it on a per-response `token_usage_record` (Codex 0.153 and later) and on a `token_count` delta equal to that row's `last_token_usage`; a delta that spans several responses has no flag. droid and goose report session totals and never set it.
+
+If you write an adapter, pass `singleRequest: true` to `createUsageEvent` only for a record you know covers one request.

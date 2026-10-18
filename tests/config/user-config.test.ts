@@ -9,7 +9,7 @@ import {
   resolveUserConfigPath,
   USER_CONFIG_KNOWN_KEY_PATHS,
 } from '../../src/config/user-config.js';
-import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
+import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
 
 function missingFileRead(): Promise<string> {
   return Promise.reject(Object.assign(new Error('missing'), { code: 'ENOENT' }));

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json",
   "title": "llm-usage-metrics session report output (v1)",
-  "description": "Envelope and payload for session report --json output (session rows, or repo rows with --by-repo).",
+  "description": "Envelope and payload for session report --json output (session rows, repo rows with --by-repo, or one session's timeline with --timeline).",
   "type": "object",
   "allOf": [
     {
@@ -14,18 +14,25 @@
       "const": "session"
     },
     "data": {
-      "description": "Session or repo rows in render order.",
-      "type": "array",
-      "items": {
-        "oneOf": [
-          {
-            "$ref": "#/$defs/sessionRow"
-          },
-          {
-            "$ref": "#/$defs/repoRow"
+      "oneOf": [
+        {
+          "description": "Session or repo rows in render order.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sessionRow"
+              },
+              {
+                "$ref": "#/$defs/repoRow"
+              }
+            ]
           }
-        ]
-      }
+        },
+        {
+          "$ref": "#/$defs/timeline"
+        }
+      ]
     }
   },
   "$defs": {
@@ -51,7 +58,7 @@
           "type": "string"
         },
         "repoRoot": {
-          "description": "Repository root attributed to the session; omitted when unknown.",
+          "description": "Working directory the tool recorded for the session; omitted when unknown.",
           "type": "string"
         },
         "firstActivity": {
@@ -112,7 +119,7 @@
           "const": "repo"
         },
         "repoRoot": {
-          "description": "Repository root; omitted for the unattributed bucket.",
+          "description": "Recorded working directory; omitted for the unattributed bucket.",
           "type": "string"
         },
         "sessionCount": {
@@ -138,6 +145,113 @@
       },
       "required": ["rowType", "sessionCount", "firstActivity", "lastActivity", "sources"],
       "unevaluatedProperties": false
+    },
+    "timeline": {
+      "type": "object",
+      "description": "--timeline: the one session --id matched and its rows in time order.",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/sessionRow"
+        },
+        "rows": {
+          "description": "Usage, tool_call and message rows in time order; at one timestamp, usage first, then messages, then tool calls.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/timelineUsageRow"
+              },
+              {
+                "$ref": "#/$defs/timelineToolCallRow"
+              },
+              {
+                "$ref": "#/$defs/timelineMessageRow"
+              }
+            ]
+          }
+        }
+      },
+      "required": ["session", "rows"],
+      "additionalProperties": false
+    },
+    "timelineUsageRow": {
+      "type": "object",
+      "description": "One usage record of the session, with the running cost.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets"
+        }
+      ],
+      "properties": {
+        "kind": {
+          "const": "usage"
+        },
+        "timestamp": {
+          "description": "ISO timestamp of the request.",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model identifier; omitted when the source does not log one.",
+          "type": "string"
+        },
+        "costUsd": {
+          "description": "Resolved cost in USD; omitted when no pricing resolved.",
+          "type": "number",
+          "minimum": 0
+        },
+        "runningCostUsd": {
+          "description": "Summed cost of this and every earlier priced request; omitted while none is priced.",
+          "type": "number",
+          "minimum": 0
+        },
+        "runningCostIncomplete": {
+          "description": "True when this or an earlier request has no resolved price.",
+          "type": "boolean"
+        }
+      },
+      "required": ["kind", "timestamp"],
+      "unevaluatedProperties": false
+    },
+    "timelineToolCallRow": {
+      "type": "object",
+      "description": "One tool call, read live from the session file.",
+      "properties": {
+        "kind": {
+          "const": "tool_call"
+        },
+        "timestamp": {
+          "description": "ISO timestamp of the call.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Tool name as the source logs it.",
+          "type": "string"
+        },
+        "status": {
+          "description": "How the call ended; unknown when the file has no result for it.",
+          "enum": ["ok", "error", "unknown"]
+        }
+      },
+      "required": ["kind", "timestamp", "name", "status"],
+      "additionalProperties": false
+    },
+    "timelineMessageRow": {
+      "type": "object",
+      "description": "One message, read live from the session file; its text is never included.",
+      "properties": {
+        "kind": {
+          "const": "message"
+        },
+        "timestamp": {
+          "description": "ISO timestamp of the message.",
+          "type": "string"
+        },
+        "role": {
+          "enum": ["user", "assistant", "system"]
+        }
+      },
+      "required": ["kind", "timestamp", "role"],
+      "additionalProperties": false
     }
   }
 }

@@ -1,0 +1,23 @@
+Usage: llm-usage pricing [options] <model...>
+
+Explain how model names resolve to prices: the matched pricing key and rule, overrides, where the
+prices came from, rates per 1M tokens and tiers (never reads usage)
+
+Arguments:
+  model                       Model names, as they appear in usage logs
+
+Options:
+  --json                      Render output as JSON
+  --quiet                     Suppress informational stderr output (warnings still print)
+  --pricing-url <url>         Override LiteLLM pricing source URL
+  --pricing-overrides <path>  Path to a JSON file of per-model pricing overrides (takes precedence
+                              over LiteLLM)
+  --pricing-offline           Never fetch pricing: use the cached LiteLLM pricing, or the bundled
+                              snapshot when there is no cache
+  --markdown                  Render output as markdown table
+  -h, --help                  display help for command
+
+Examples:
+  $ llm-usage pricing claude-sonnet-4-5
+  $ llm-usage pricing gpt-5 gpt-5-codex --json
+  $ llm-usage pricing my-model --pricing-overrides ./overrides.json

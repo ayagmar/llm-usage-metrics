@@ -15,14 +15,21 @@ export const sidebar = [
     label: 'Reports',
     items: [
       { label: 'Usage totals', slug: 'usage' },
+      { label: 'Projects', slug: 'projects' },
       { label: 'Compare periods', slug: 'compare' },
       { label: 'Session usage', slug: 'session' },
+      { label: 'Tool calls', slug: 'tools' },
+      { label: 'Context pressure', slug: 'context' },
       { label: 'Trends', slug: 'trends' },
+      { label: '5-hour blocks', slug: 'blocks' },
+      { label: 'Plan value', slug: 'value' },
       { label: 'Efficiency', slug: 'efficiency' },
       { label: 'Optimize', slug: 'optimize' },
       { label: 'Wrapped recap', slug: 'wrapped' },
+      { label: 'Interactive report', slug: 'share' },
       { label: 'Status line', slug: 'statusline' },
       { label: 'Events export', slug: 'events' },
+      { label: 'OpenTelemetry export', slug: 'otel' },
       { label: 'Output formats', slug: 'output-formats' },
     ],
   },
@@ -39,6 +46,14 @@ export const sidebar = [
     ],
   },
   {
+    label: 'Library',
+    items: [
+      { label: 'Overview', slug: 'library' },
+      { label: 'Reading and composing', slug: 'library/guide' },
+      { label: 'Versioning and cursors', slug: 'library/contracts' },
+    ],
+  },
+  {
     label: 'Source details',
     collapsed: true,
     items: [
@@ -52,8 +67,14 @@ export const sidebar = [
     label: 'Reference',
     items: [
       { label: 'CLI reference', slug: 'cli-reference' },
-      { label: 'Migrating to 0.8', slug: 'migrating-to-0-8' },
       { label: 'Benchmarks', slug: 'benchmarks' },
+    ],
+  },
+  {
+    label: 'Upgrading',
+    items: [
+      { label: 'Overview', slug: 'upgrading' },
+      { label: 'Upgrading to 0.8', slug: 'upgrading/0-8' },
     ],
   },
   {
@@ -64,6 +85,10 @@ export const sidebar = [
       { label: 'Event Store', slug: 'architecture/event-store' },
       { label: 'Parse Pipeline', slug: 'architecture/parse-pipeline' },
       { label: 'Pricing Pipeline', slug: 'architecture/pricing-pipeline' },
+      { label: 'Event Model', slug: 'architecture/event-model' },
+      { label: 'Dedup & Cursors', slug: 'architecture/dedup-and-cursors' },
+      { label: 'Machine Merge', slug: 'architecture/machine-merge' },
+      { label: 'Share Report', slug: 'architecture/share-report' },
       { label: 'Config & Logging', slug: 'architecture/config-and-logging' },
     ],
   },

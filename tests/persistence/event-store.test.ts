@@ -3,10 +3,10 @@ import { chmod, mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { computeEventContentHash } from '@ayagmar/agent-sessions';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  computeEventContentHash,
   closeEventStore,
   countEvents,
   deleteStoredFiles,
@@ -14,6 +14,7 @@ import {
   EventStoreSchemaVersionError,
   getDefaultEventStorePath,
   getFileEntry,
+  getFileReadCursor,
   MIGRATION_BATCH_SIZE,
   migrateSchemaV1ToV2,
   migrateSchemaV2ToV3,
@@ -32,7 +33,9 @@ import {
   vacuumEventStore,
 } from '../../src/persistence/event-store.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { loadNodeSqliteModule } from '../../src/sources/opencode/node-sqlite-loader.js';
+import { STORED_EVENT_COLUMNS } from '../../src/persistence/event-store-codec.js';
+import { loadNodeSqliteModule } from '@ayagmar/agent-sessions/internal';
+import { mulberry32, pick } from '../helpers/seeded-random.js';
 
 const tempDirs: string[] = [];
 const originalXdgDataHome = process.env.XDG_DATA_HOME;
@@ -129,6 +132,7 @@ function createStoredEventRow(overrides: Record<string, unknown> = {}): Record<s
     reasoning_tokens: 0,
     cache_read_tokens: 3,
     cache_write_tokens: 4,
+    cache_write_1h_tokens: 0,
     total_tokens: 99,
     cost_usd: null,
     cost_mode: 'estimated',
@@ -232,7 +236,7 @@ async function writeV1Database(
         ].join('\n'),
       )
       .run(
-        'codex',
+        options.events?.[0]?.source ?? 'codex',
         options.filePath ?? '/tmp/session.jsonl',
         serializeEventStoreFingerprint(createFingerprint()),
         0,
@@ -343,7 +347,8 @@ function createFakeSqliteModule(
         fakeSqlite.prepareCalls.push(sql);
         return {
           all: () => [],
-          get: () => rowsBySql[sql],
+          // The file upsert returns the file's id.
+          get: () => rowsBySql[sql] ?? (sql.endsWith('RETURNING id') ? { id: 1 } : undefined),
           run: () => undefined,
           setReturnArrays: (enabled: boolean) => {
             fakeSqlite.setReturnArraysCalls.push({ sql, enabled });
@@ -364,6 +369,14 @@ function createFakeSqliteModule(
 
   return fakeSqlite;
 }
+
+const readCursor = {
+  format: 'jsonl' as const,
+  version: 2 as const,
+  parser: 'codex@1',
+  offset: 10,
+  prefixHash: 'a'.repeat(64),
+};
 
 async function createTempStore(name: string): Promise<EventStore> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), name));
@@ -472,6 +485,133 @@ describe('event-store', () => {
     }
   });
 
+  it('appends a resumed read after the rows it replaces, unless the file changed since', async () => {
+    const store = await createTempStore('event-store-append-');
+    const events = [0, 1, 2].map((index) => createEvent({ inputTokens: index }));
+    const first = createFingerprint([
+      { path: '/tmp/session.jsonl', exists: true, size: 10, mtimeMs: 20 },
+    ]);
+    const grown = createFingerprint([
+      { path: '/tmp/session.jsonl', exists: true, size: 30, mtimeMs: 40 },
+    ]);
+    const writeGrown = (fingerprint: EventStoreFileFingerprint, inputTokens = 9): void => {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: grown,
+          events: [createEvent({ inputTokens })],
+          skippedRows: 0,
+          now: 2_000,
+          readCursor: { ...readCursor, offset: 30 },
+          append: {
+            expectedFingerprint: serializeEventStoreFingerprint(fingerprint),
+            expectedCursor: readCursor,
+            replaced: { usage: 1 },
+          },
+        },
+      ]);
+    };
+
+    try {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: first,
+          events,
+          skippedRows: 0,
+          now: 1_000,
+          readCursor,
+        },
+      ]);
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toEqual(readCursor);
+
+      writeGrown(first);
+      const appended = [events[0], events[1], createEvent({ inputTokens: 9 })];
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toMatchObject({ offset: 30 });
+
+      // A second run resuming from the same stored version finds it gone and writes nothing.
+      writeGrown(first);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
+
+      // Nor does one resuming from an older cursor of a version stored with that fingerprint.
+      writeGrown(grown, 7);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
+
+      // A write without a cursor leaves the next read nothing to resume from.
+      replaceCodexFile(store);
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('forgets a stored cursor with its file or once another build rewrites the file', async () => {
+    const store = await createTempStore('event-store-cursor-lifecycle-');
+    const writeWithCursor = (): void => {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: createFingerprint(),
+          events: [createEvent()],
+          skippedRows: 0,
+          now: 1_000,
+          readCursor,
+        },
+      ]);
+    };
+
+    try {
+      writeWithCursor();
+      // An older build rewrites the file's row without knowing about cursors.
+      store.database
+        .prepare("UPDATE files SET fingerprint = '{}' WHERE file_path = '/tmp/session.jsonl'")
+        .run();
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+
+      writeWithCursor();
+      deleteStoredFiles(store, [{ source: 'codex', filePath: '/tmp/session.jsonl' }]);
+      expect(
+        store.database.prepare('SELECT COUNT(*) AS count FROM file_read_cursors').get(),
+      ).toEqual({
+        count: 0,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('adds the read cursor table to a current store written by an older build', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-cursor-table-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const olderStore = await openEventStore(dbPath);
+    olderStore.database.exec('DROP TABLE file_read_cursors');
+    closeEventStore(olderStore);
+    const store = await openEventStore(dbPath);
+
+    try {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: createFingerprint(),
+          events: [createEvent()],
+          skippedRows: 0,
+          now: 1_000,
+          readCursor,
+        },
+      ]);
+
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toEqual(readCursor);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
   it('migrates a real v1 database through v2 to v3 without losing rows', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-migrate-'));
     tempDirs.push(tempDir);
@@ -535,7 +675,7 @@ describe('event-store', () => {
       ]);
 
       const contentHashes = store.database
-        .prepare('SELECT content_hash FROM events ORDER BY id ASC')
+        .prepare('SELECT content_hash FROM events ORDER BY file_id ASC, event_index ASC')
         .all()
         .map((row) => row.content_hash);
 
@@ -605,7 +745,11 @@ describe('event-store', () => {
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
       ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
       expect(
-        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+        store.database
+          .prepare(
+            'SELECT session_id, content_hash FROM events ORDER BY file_id ASC, event_index ASC',
+          )
+          .all(),
       ).toEqual([
         { session_id: 'good-first', content_hash: computeEventContentHash(firstGoodEvent) },
         { session_id: 'poisoned', content_hash: null },
@@ -752,10 +896,10 @@ describe('event-store', () => {
     try {
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '4' });
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
 
       const contentHashes = store.database
-        .prepare('SELECT content_hash FROM events ORDER BY id ASC')
+        .prepare('SELECT content_hash FROM events ORDER BY file_id ASC, event_index ASC')
         .all()
         .map((row) => row.content_hash);
 
@@ -785,7 +929,7 @@ describe('event-store', () => {
 
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '4' });
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
       expect(store.database.prepare('SELECT content_hash FROM events').get()).toEqual({
         content_hash: computeEventContentHash(event),
       });
@@ -817,7 +961,11 @@ describe('event-store', () => {
 
     try {
       expect(
-        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+        store.database
+          .prepare(
+            'SELECT session_id, content_hash FROM events ORDER BY file_id ASC, event_index ASC',
+          )
+          .all(),
       ).toEqual([
         { session_id: 'good', content_hash: computeEventContentHash(goodEvent) },
         { session_id: 'poisoned', content_hash: null },
@@ -886,9 +1034,13 @@ describe('event-store', () => {
     try {
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '4' });
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
       expect(
-        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+        store.database
+          .prepare(
+            'SELECT session_id, content_hash FROM events ORDER BY file_id ASC, event_index ASC',
+          )
+          .all(),
       ).toEqual([
         { session_id: 'poisoned', content_hash: null },
         ...extraEvents.map((event) => ({
@@ -990,6 +1142,8 @@ describe('event-store', () => {
       createStoredEventRow({ cost_mode: 'explicit', cost_usd: null }),
       createStoredEventRow({ timestamp: '2026-02-30T10:00:00.000Z' }),
       createStoredEventRow({ timestamp: '2026-02-01T00:00:00Z' }),
+      createStoredEventRow({ timestamp: '2026-02-01T24:00:00.000Z' }),
+      createStoredEventRow({ timestamp: '0050-02-01T00:00:00.000Z' }),
       createStoredEventRow({ input_tokens: -1 }),
       createStoredEventRow({ output_tokens: 2.8 }),
       createStoredEventRow({ cost_mode: 'estimated', cost_usd: -0.5 }),
@@ -997,6 +1151,66 @@ describe('event-store', () => {
 
     for (const row of rows) {
       expect(normalizeStoredEvent(row)).toEqual(slowNormalizeStoredEventFromRow(row));
+    }
+  });
+
+  it('matches the slow oracle for any sequence of repeated and changing text columns', () => {
+    // Rows of one file repeat their text columns. Each pool mixes accepted values,
+    // values only the slow path normalizes, invalid ones, and values shared across
+    // columns ('codex', 'OpenAI'), so a row is checked right after rows that differ
+    // from it in one column only.
+    const pools: Record<string, readonly unknown[]> = {
+      source: ['codex', 'pi', ' codex', '', 'OpenAI'],
+      session_id: [
+        'session-1',
+        'session-1 ',
+        '',
+        'bad\u0000session',
+        'safe\u202Espoof',
+        'codex',
+        'OpenAI',
+      ],
+      provider: ['openai', 'anthropic', 'OpenAI', 'openai ', '', null, 'codex'],
+      model: ['gpt-5', 'GPT-5', 'gpt-5\u2066', '', null, 'codex', 'OpenAI'],
+      repo_root: ['/workspace/repo', '/workspace/repo ', '', null, 'codex'],
+    };
+
+    for (const seed of [7, 0xc0dec]) {
+      const random = mulberry32(seed);
+      // With every column present, accepted rows take the fast path.
+      let row = createStoredEventRow({ cache_write_1h_tokens: 0, total_tokens: 10 });
+
+      for (let index = 0; index < 2_000; index += 1) {
+        const column = pick(random, Object.keys(pools));
+        row = { ...row, [column]: pick(random, pools[column]) };
+
+        expect(normalizeStoredEvent(row), `seed ${seed} row ${index}`).toEqual(
+          slowNormalizeStoredEventFromRow(row),
+        );
+      }
+    }
+  });
+
+  it('reads a file whose rows repeat a session after one is invalid or unnormalized', async () => {
+    const store = await createTempStore('event-store-repeated-text-columns-');
+    const events = [0, 1, 2].map((index) =>
+      createEvent({ provider: 'openai', inputTokens: index + 1, totalTokens: index + 3 }),
+    );
+
+    try {
+      replaceCodexFile(store, { events });
+      // An older build stored the provider unnormalized; a later row lost its session.
+      store.database.prepare("UPDATE events SET provider = 'OpenAI' WHERE event_index = 1").run();
+      store.database.prepare("UPDATE events SET session_id = '' WHERE event_index = 2").run();
+
+      expect(readDepartedFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([
+        events[0],
+        events[1],
+      ]);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+      expect(getFileEntry(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+    } finally {
+      closeEventStore(store);
     }
   });
 
@@ -1187,11 +1401,9 @@ describe('event-store', () => {
       const objectRow = store.database
         .prepare(
           [
-            'SELECT source, session_id, timestamp, model, provider, repo_root,',
-            '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-            '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
-            'FROM events',
-            'WHERE source = ? AND file_path = ?',
+            `SELECT ${STORED_EVENT_COLUMNS}`,
+            'FROM files JOIN events ON events.file_id = files.id',
+            'WHERE files.source = ? AND files.file_path = ?',
             'ORDER BY event_index ASC',
           ].join('\n'),
         )
@@ -1266,7 +1478,9 @@ describe('event-store', () => {
         events: [createEvent({ sessionId: 'good' })],
       });
       store.database
-        .prepare("UPDATE events SET cost_mode = 'broken' WHERE file_path = ?")
+        .prepare(
+          "UPDATE events SET cost_mode = 'broken' WHERE file_id = (SELECT id FROM files WHERE file_path = ?)",
+        )
         .run('/tmp/bad.jsonl');
 
       expect(readFileEvents(store, 'codex', '/tmp/bad.jsonl')).toBeUndefined();
@@ -1328,6 +1542,8 @@ describe('event-store', () => {
     await expect(openEventStore(dbPath)).rejects.toBeInstanceOf(EventStoreSchemaVersionError);
     await expect(readEventStoreSummary(dbPath)).resolves.toEqual({
       eventCount: 1,
+      toolCallCount: 0,
+      messageCount: 0,
       schemaVersion: '999',
     });
   });
@@ -1548,12 +1764,11 @@ describe('event-store', () => {
       'WHERE source = ? AND file_path = ?',
     ].join('\n');
     const selectFileEventsSql = [
-      'SELECT source, session_id, timestamp, model, provider, repo_root,',
-      '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-      '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
-      'FROM events',
-      'WHERE source = ? AND file_path = ?',
-      'ORDER BY event_index ASC',
+      `SELECT ${STORED_EVENT_COLUMNS}`,
+      'FROM files',
+      'CROSS JOIN events',
+      'WHERE files.source = ? AND files.file_path = ? AND events.file_id = files.id',
+      'ORDER BY events.event_index ASC',
     ].join('\n');
 
     getFileEntry(store, 'codex', '/tmp/session.jsonl');
@@ -1579,9 +1794,67 @@ describe('event-store', () => {
     replaceCodexFile(store, { filePath: '/tmp/b.jsonl' });
     replaceCodexFile(store, { filePath: '/tmp/c.jsonl' });
 
-    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(4);
+    // events, files and override-only statements, the four of tool calls and messages, and
+    // the three of read cursors.
+    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(11);
     closeEventStore(store);
   });
+
+  it('checkpoints a run’s writes when it closes the store while another connection has it open', async () => {
+    const store = await createTempStore('event-store-close-checkpoint-');
+    const reader = await openTestDatabase(store.filePath);
+
+    try {
+      // An open connection keeps the closing one from checkpointing as the last connection.
+      reader.prepare('SELECT COUNT(*) AS count FROM files').get();
+      replaceFilesEvents(
+        store,
+        Array.from({ length: 50 }, (_, index) => ({
+          source: 'codex',
+          filePath: `/tmp/${String(index)}.jsonl`,
+          fingerprint: createFingerprint(),
+          events: Array.from({ length: 20 }, () => createEvent()),
+          skippedRows: 0,
+          now: 1_000,
+        })),
+      );
+      const sizeBeforeClose = (await stat(store.filePath)).size;
+      closeEventStore(store);
+
+      // The rows reached the database file, not only the WAL.
+      expect((await stat(store.filePath)).size).toBeGreaterThan(sizeBeforeClose + 50_000);
+    } finally {
+      reader.close();
+    }
+  });
+
+  it('keeps a long run’s WAL bounded while it writes', async () => {
+    const store = await createTempStore('event-store-wal-bound-');
+    let largestWal = 0;
+
+    try {
+      // A cold run over a large corpus commits batch after batch before it closes the store.
+      for (let batch = 0; batch < 80; batch += 1) {
+        replaceFilesEvents(
+          store,
+          Array.from({ length: 50 }, (_, index) => ({
+            source: 'codex',
+            filePath: `/tmp/${String(batch)}-${String(index)}.jsonl`,
+            fingerprint: createFingerprint(),
+            events: Array.from({ length: 100 }, () => createEvent()),
+            skippedRows: 0,
+            now: 1_000,
+          })),
+        );
+        largestWal = Math.max(largestWal, (await stat(`${store.filePath}-wal`)).size);
+      }
+    } finally {
+      closeEventStore(store);
+    }
+
+    // The cap, about 40 MB, plus the batch that crossed it.
+    expect(largestWal).toBeLessThan(48_000_000);
+  }, 20_000);
 
   it('writes several files in one transaction', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-batch-transaction-'));
@@ -1655,10 +1928,14 @@ END;
     const fakeSqlite = createFakeSqliteModule({
       "SELECT value FROM meta WHERE key = 'schemaVersion'": { value: EVENT_STORE_SCHEMA_VERSION },
       'SELECT COUNT(*) AS count FROM events': { count: 5 },
+      'SELECT COUNT(*) AS count FROM tool_calls': { count: 3 },
+      'SELECT COUNT(*) AS count FROM messages': { count: 2 },
     });
 
     await expect(readEventStoreSummary('/tmp/events.db', async () => fakeSqlite)).resolves.toEqual({
       eventCount: 5,
+      toolCallCount: 3,
+      messageCount: 2,
       schemaVersion: EVENT_STORE_SCHEMA_VERSION,
     });
     expect(fakeSqlite.constructorCalls).toEqual([
@@ -1682,6 +1959,8 @@ END;
 
     await expect(readEventStoreSummary(dbPath)).resolves.toEqual({
       eventCount: 1,
+      toolCallCount: 0,
+      messageCount: 0,
       schemaVersion: EVENT_STORE_SCHEMA_VERSION,
     });
   });
@@ -1692,6 +1971,7 @@ END;
       repoRoot: '/workspace/repo',
       provider: 'OpenAI-Codex',
       model: ' GPT-4.1 ',
+      singleRequest: true,
       costUsd: 0.12,
       costMode: 'explicit',
     });
@@ -1704,6 +1984,7 @@ END;
           repoRoot: '/workspace/repo',
           provider: 'openai',
           model: 'gpt-4.1',
+          singleRequest: true,
           costUsd: 0.12,
           costMode: 'explicit',
         }),
@@ -1721,7 +2002,9 @@ END;
         events: [createEvent({ model: 'gpt-4.1' })],
       });
       store.database
-        .prepare('UPDATE events SET model = ? WHERE file_path = ?')
+        .prepare(
+          'UPDATE events SET model = ? WHERE file_id = (SELECT id FROM files WHERE file_path = ?)',
+        )
         .run('GPT-4.1', '/tmp/session.jsonl');
 
       expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([

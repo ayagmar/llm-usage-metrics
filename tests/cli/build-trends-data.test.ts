@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { shiftDateKey } from '../../src/utils/date-key.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -15,7 +17,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
@@ -232,7 +234,7 @@ describe('buildTrendsData', () => {
   it('names --days in errors when the alias was passed', async () => {
     await expect(
       buildTrendsData({ days: '7', since: '2026-03-01' }, runtimeDeps()),
-    ).rejects.toThrow('--days cannot be combined with --since or --until');
+    ).rejects.toThrow('--days cannot be combined with --since, --until, or --all');
     await expect(buildTrendsData({ days: '0' }, runtimeDeps())).rejects.toThrow(
       '--days must be a whole number from 1 to 10000',
     );
@@ -253,7 +255,7 @@ describe('buildTrendsData', () => {
         },
         runtimeDeps(),
       ),
-    ).rejects.toThrow('--last cannot be combined with --since or --until');
+    ).rejects.toThrow('--last cannot be combined with --since, --until, or --all');
   });
 
   it('rejects invalid days, metric, and date ordering inputs', async () => {
@@ -311,6 +313,39 @@ describe('buildTrendsData', () => {
       '2026-03-05',
       '2026-03-06',
     ]);
+  });
+
+  it('charts from the earliest observed day to today with --all', async () => {
+    const result = await buildTrendsData(
+      { all: true, metric: 'tokens' },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              createBaseEvent({ timestamp: '2025-12-30T10:00:00.000Z' }),
+              createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2025-12-30', to: '2026-03-06' });
+    expect(result.totalSeries.buckets).toHaveLength(67);
+    expect(result.totalSeries.buckets.reduce((sum, bucket) => sum + bucket.value, 0)).toBe(30);
+  });
+
+  it('rejects --all with --last or date flags', async () => {
+    for (const options of [
+      { all: true, last: '7' },
+      { all: true, since: '2026-03-01' },
+      { all: true, until: '2026-03-01' },
+    ]) {
+      await expect(buildTrendsData(options, runtimeDeps())).rejects.toThrow(
+        /cannot be combined with/u,
+      );
+    }
   });
 
   it('uses the current day as the upper bound for past --since-only ranges', async () => {
@@ -420,5 +455,106 @@ describe('buildTrendsData', () => {
     expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'codex']);
     expect(result.sourceSeries?.[0]?.buckets.map((bucket) => bucket.value)).toEqual([0, 15]);
     expect(result.sourceSeries?.[1]?.buckets.map((bucket) => bucket.value)).toEqual([15, 0]);
+  });
+
+  it('marks cost spikes against the 28 days before the chart, which it does not show', async () => {
+    // $2 a day from Feb 6 (28 days before the chart) to Mar 5. In the chart, $5 is under 3x
+    // that median, $6 is not.
+    const costOn = (date: string, costUsd: number, repoRoot?: string) =>
+      createBaseEvent({
+        timestamp: `${date}T10:00:00.000Z`,
+        costMode: 'explicit',
+        costUsd,
+        repoRoot,
+      });
+    const result = await buildTrendsData(
+      { last: '2', byRepo: true },
+      runtimeDeps({
+        now: () => new Date('2026-03-07T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              ...Array.from({ length: 28 }, (_, index) =>
+                costOn(shiftDateKey('2026-02-06', index), 2),
+              ),
+              // A project with the same folder name, before the chart only.
+              costOn('2026-02-10', 1, '/old/app'),
+              costOn('2026-03-06', 5, '/work/app'),
+              costOn('2026-03-07', 6, '/work/app'),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.totalSeries.buckets.map((bucket) => [bucket.date, bucket.spike])).toEqual([
+      ['2026-03-06', undefined],
+      ['2026-03-07', true],
+    ]);
+    expect(result.totalSeries.summary.total).toBe(11);
+    expect(result.projectSeries?.map((series) => series.project)).toEqual(['app']);
+  });
+
+  it('picks the --model rule from the chart, not from the spike lookback days', async () => {
+    // The exact name appears only before the chart; inside it, only a dated variant does.
+    const adapters = [
+      createAdapter('pi', {
+        '/tmp/a.jsonl': [
+          createBaseEvent({
+            timestamp: '2026-10-01T10:00:00.000Z',
+            model: 'claude-opus-4-1',
+            costMode: 'explicit',
+            costUsd: 1,
+          }),
+          createBaseEvent({
+            timestamp: '2026-10-16T10:00:00.000Z',
+            model: 'claude-opus-4-1-20250805',
+            costMode: 'explicit',
+            costUsd: 2,
+          }),
+        ],
+      }),
+    ];
+    const now = () => new Date('2026-10-17T12:00:00.000Z');
+    const chart = async (metric: string) =>
+      (
+        await buildTrendsData(
+          { metric, last: '3', model: ['claude-opus-4-1'] },
+          runtimeDeps({ now, adapters }),
+        )
+      ).totalSeries.buckets.map((bucket) => [bucket.date, bucket.value]);
+
+    expect(await chart('cost')).toEqual([
+      ['2026-10-15', 0],
+      ['2026-10-16', 2],
+      ['2026-10-17', 0],
+    ]);
+    expect(await chart('tokens')).toEqual([
+      ['2026-10-15', 0],
+      ['2026-10-16', 15],
+      ['2026-10-17', 0],
+    ]);
+  });
+
+  it('marks no spikes on token trends', async () => {
+    const result = await buildTrendsData(
+      { metric: 'tokens', last: '1' },
+      runtimeDeps({
+        now: () => new Date('2026-03-07T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              createBaseEvent({
+                timestamp: '2026-03-07T10:00:00.000Z',
+                costMode: 'explicit',
+                costUsd: 50,
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.totalSeries.buckets[0]?.spike).toBeUndefined();
   });
 });

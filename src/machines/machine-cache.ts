@@ -1,8 +1,9 @@
-import { toTerminalLine } from '../domain/normalization.js';
+import { pluralize, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  countFileEvents,
   deleteStoredFiles,
   getDefaultEventStorePath,
   listStoredFileFingerprints,
@@ -12,14 +13,20 @@ import {
   readEventStoreMetaValues,
   readEventStoreStoredFiles,
   readEventStoreSummary,
+  readStoredSessionEvents,
   replaceFilesEvents,
   runTransaction,
   writeEventStoreMeta,
+  EventStoreSchemaVersionError,
+  isSupportedSchemaVersion,
   type EventStore,
   type EventStoreFileFingerprint,
+  type StoredSessionEvent,
+  type StoredSessionEventKind,
 } from '../persistence/event-store.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { pathExists } from '../utils/fs-helpers.js';
+import { formatInteger } from '../render/format-number.js';
 import {
   toFileKey,
   type MachineExportFileKey,
@@ -32,9 +39,18 @@ import {
  */
 const REVISION_PREFIX = 'machine-export:';
 
+/**
+ * Set by every sync of a version that stores tool calls and messages. A cache without it
+ * may hold revisions whose tool calls an older version dropped, so it is not trusted.
+ * Change its value ('1') when the reader starts keeping more (a new status, role or kind).
+ */
+const SESSION_EVENTS_KEPT_KEY = 'sessionEventsKept';
+
 export type MachineSyncState = {
   hostname?: string;
   cliVersion?: string;
+  /** Source id → parser version the last sync's export recorded; undefined if it did not. */
+  parserVersions?: Record<string, string>;
   /** Epoch ms of the last successful sync. */
   syncedAt?: number;
   /** Epoch ms of the last sync attempt, successful or not. */
@@ -50,7 +66,7 @@ export type MachineSyncResult = {
   eventCount: number;
 };
 
-export function getMachineCacheDirectory(): string {
+function getMachineCacheDirectory(): string {
   return path.join(path.dirname(getDefaultEventStorePath()), 'machines');
 }
 
@@ -96,8 +112,8 @@ function readRevision(fingerprint: string): string | undefined {
   }
 }
 
-/** The files the cache holds, to send as `machine export --known`. */
-export function readCachedFiles(cache: EventStore): MachineExportFileKey[] {
+/** The files the cache holds and their revisions. */
+function readCachedFiles(cache: EventStore): MachineExportFileKey[] {
   const files: MachineExportFileKey[] = [];
 
   for (const file of listStoredFileFingerprints(cache)) {
@@ -111,11 +127,12 @@ export function readCachedFiles(cache: EventStore): MachineExportFileKey[] {
   return files;
 }
 
-function countCachedEvents(cache: EventStore, source: string, filePath: string): number {
-  const row = cache.database
-    .prepare('SELECT COUNT(*) AS count FROM events WHERE source = ? AND file_path = ?')
-    .get(source, filePath);
-  return typeof row?.count === 'number' ? row.count : 0;
+/**
+ * The files to send as `machine export --known`: none when an older version last synced
+ * the cache, so the next sync sends every file once with its tool calls and messages.
+ */
+export function readKnownFiles(cache: EventStore): MachineExportFileKey[] {
+  return readEventStoreMeta(cache, SESSION_EVENTS_KEPT_KEY) === '1' ? readCachedFiles(cache) : [];
 }
 
 /**
@@ -147,6 +164,7 @@ export function applyMachineExport(
         filePath: file.filePath,
         fingerprint: toRevisionFingerprint(file.filePath, file.revision),
         events: file.events,
+        sessionEvents: file.sessionEvents,
         skippedRows: 0,
         now,
       })),
@@ -165,21 +183,25 @@ export function applyMachineExport(
         throw new Error(`the export skipped ${filePath}, which the cache does not hold`);
       }
 
-      eventCount += countCachedEvents(cache, source, filePath);
+      eventCount += countFileEvents(cache, source, filePath);
     }
 
     if (cachedRevisions.size !== bundle.files.length || eventCount !== bundle.eventCount) {
       throw new Error(
-        `the cache holds ${eventCount} event(s) after the sync, but the export counts ${bundle.eventCount}`,
+        `the cache holds ${pluralize(eventCount, 'event')} after the sync, but the export counts ${formatInteger(bundle.eventCount)}`,
       );
     }
 
     writeEventStoreMeta(cache, {
       hostname: bundle.header.hostname || undefined,
       cliVersion: bundle.header.cliVersion || undefined,
+      parserVersions: bundle.header.parserVersions
+        ? JSON.stringify(bundle.header.parserVersions)
+        : undefined,
       syncedAt: String(now),
       attemptedAt: String(now),
       lastError: undefined,
+      [SESSION_EVENTS_KEPT_KEY]: '1',
     });
 
     return {
@@ -205,10 +227,33 @@ function toEpochMs(value: string | undefined): number | undefined {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+function toParserVersions(value: string | undefined): Record<string, string> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return undefined;
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 function toSyncState(readMeta: (key: string) => string | undefined): MachineSyncState {
   return {
     hostname: readMeta('hostname'),
     cliVersion: readMeta('cliVersion'),
+    parserVersions: toParserVersions(readMeta('parserVersions')),
     syncedAt: toEpochMs(readMeta('syncedAt')),
     attemptedAt: toEpochMs(readMeta('attemptedAt')),
     lastError: toStoredError(readMeta('lastError')),
@@ -240,6 +285,39 @@ export async function readMachineCacheUsage(
 
   const { meta, events } = await readEventStoreEvents(cachePath, window);
   return { state: toSyncState((key) => meta.get(key)), events };
+}
+
+/**
+ * A machine's cached tool calls and messages of `kinds`, file by file in key order, read
+ * without locking the cache. None when the machine was never synced, or its cache was last
+ * synced by a version that kept none.
+ */
+export async function readMachineCacheSessionEvents(
+  name: string,
+  kinds: ReadonlySet<StoredSessionEventKind>,
+): Promise<StoredSessionEvent[]> {
+  const cachePath = getMachineCachePath(name);
+
+  if (!(await pathExists(cachePath))) {
+    return [];
+  }
+
+  try {
+    const files = await readEventStoreStoredFiles(cachePath);
+    return (await readStoredSessionEvents(cachePath, files, kinds)).flat();
+  } catch (error) {
+    // A cache synced before v5 is migrated by its next sync, which resends every file
+    // (readKnownFiles); until then it has none.
+    if (
+      error instanceof EventStoreSchemaVersionError &&
+      error.schemaVersion !== undefined &&
+      isSupportedSchemaVersion(error.schemaVersion)
+    ) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 export type MachineCacheStatus = {

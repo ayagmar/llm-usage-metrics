@@ -1,4 +1,4 @@
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { logger } from '../utils/logger.js';
 
 const RUNTIME_PROFILE_ENV_VAR = 'LLM_USAGE_PROFILE_RUNTIME';
@@ -18,7 +18,7 @@ export type RuntimeProfileSourceStats = {
   eventStoreHits: number;
   eventStoreMisses: number;
   parseWorkers?: 'engaged' | 'fallback' | 'off';
-  parseWorkerCount?: number;
+  parseWorkerLimit?: number;
   parseWorkerMissedBytes?: number;
 };
 
@@ -133,13 +133,13 @@ export class RuntimeProfileCollector {
     source: string,
     result: {
       status: 'engaged' | 'fallback' | 'off';
-      workerCount: number;
+      workerLimit: number;
       missedBytes: number;
     },
   ): void {
     const sourceStats = this.getOrCreateSourceStats(source);
     sourceStats.parseWorkers = result.status;
-    sourceStats.parseWorkerCount = Math.max(0, Math.trunc(result.workerCount));
+    sourceStats.parseWorkerLimit = Math.max(0, Math.trunc(result.workerLimit));
     sourceStats.parseWorkerMissedBytes = Math.max(0, Math.trunc(result.missedBytes));
   }
 
@@ -317,7 +317,7 @@ export function emitRuntimeProfile(
 
   for (const source of runtimeProfile.sourceStats) {
     const parseWorkerDetails = source.parseWorkers
-      ? `; parseWorkers=${source.parseWorkers}; parseWorkerCount=${source.parseWorkerCount ?? 0}; parseWorkerMissedBytes=${source.parseWorkerMissedBytes ?? 0}`
+      ? `; parseWorkers=${source.parseWorkers}; parseWorkerLimit=${source.parseWorkerLimit ?? 0}; parseWorkerMissedBytes=${source.parseWorkerMissedBytes ?? 0}`
       : '';
 
     diagnosticsLogger.dim(

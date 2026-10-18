@@ -46,10 +46,6 @@
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.125
     },
-    "azure/gpt-3.5-turbo-0125": {
-      "inputPer1MUsd": 0.5,
-      "outputPer1MUsd": 1.5
-    },
     "azure/gpt-35-turbo-0125": {
       "inputPer1MUsd": 0.5,
       "outputPer1MUsd": 1.5
@@ -57,11 +53,6 @@
     "azure/gpt-35-turbo-1106": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 2
-    },
-    "azure/gpt-5-chat-latest": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
     },
     "azure/gpt-5.1-chat-2025-11-13": {
       "inputPer1MUsd": 1.25,
@@ -398,13 +389,6 @@
       "reasoningPer1MUsd": 0.39999999999999997,
       "reasoningBilling": "separate"
     },
-    "gemini/gemini-2.5-flash-lite-preview-09-2025": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.39999999999999997,
-      "cacheReadPer1MUsd": 0.01,
-      "reasoningPer1MUsd": 0.39999999999999997,
-      "reasoningBilling": "separate"
-    },
     "gemini/gemini-2.5-flash-preview-09-2025": {
       "inputPer1MUsd": 0.3,
       "outputPer1MUsd": 2.5,
@@ -417,16 +401,25 @@
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.19999999999999998
     },
-    "gemini/gemini-robotics-er-1.5-preview": {
-      "inputPer1MUsd": 0.3,
-      "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0,
-      "reasoningPer1MUsd": 2.5,
-      "reasoningBilling": "separate"
-    },
     "gigachat/gigachat-2-lite": {
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
+    },
+    "github_copilot/claude-sonnet-4": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "github_copilot/mai-code-1-flash": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 4.5,
+      "cacheReadPer1MUsd": 0.075
+    },
+    "github_copilot/mai-code-1-flash-internal": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 4.5,
+      "cacheReadPer1MUsd": 0.075
     },
     "gmi/google/gemini-3-pro-preview": {
       "inputPer1MUsd": 2,
@@ -435,10 +428,6 @@
     "gpt-4-0125-preview": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 30
-    },
-    "gpt-4-0314": {
-      "inputPer1MUsd": 30,
-      "outputPer1MUsd": 60
     },
     "gpt-4-turbo-preview": {
       "inputPer1MUsd": 10,
@@ -457,11 +446,6 @@
       "outputPer1MUsd": 2.4,
       "cacheReadPer1MUsd": 0.3
     },
-    "gpt-4o-mini-search-preview-2025-03-11": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.6,
-      "cacheReadPer1MUsd": 0.075
-    },
     "gpt-4o-realtime-preview": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 20,
@@ -477,15 +461,6 @@
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 2.5
     },
-    "gpt-4o-search-preview-2025-03-11": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 1.25
-    },
-    "gpt-audio-mini-2025-10-06": {
-      "inputPer1MUsd": 0.6,
-      "outputPer1MUsd": 2.4
-    },
     "gpt-image-2": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 10,
@@ -495,11 +470,6 @@
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 1.25
-    },
-    "gpt-realtime-mini-2025-10-06": {
-      "inputPer1MUsd": 0.6,
-      "outputPer1MUsd": 2.4,
-      "cacheReadPer1MUsd": 0.06
     },
     "groq/gemma-7b-it": {
       "inputPer1MUsd": 0.049999999999999996,
@@ -700,15 +670,121 @@
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 2
     },
-    "o3-deep-research-2025-06-26": {
-      "inputPer1MUsd": 10,
-      "outputPer1MUsd": 40,
-      "cacheReadPer1MUsd": 2.5
-    },
-    "o4-mini-deep-research-2025-06-26": {
+    "openai.gpt-6.1-sol": {
       "inputPer1MUsd": 2,
-      "outputPer1MUsd": 8,
-      "cacheReadPer1MUsd": 0.5
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/aion-labs/aion-2.0": {
+      "inputPer1MUsd": 0.7999999999999999,
+      "outputPer1MUsd": 1.5999999999999999,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/aion-labs/aion-3.0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.75
+    },
+    "openrouter/aion-labs/aion-3.0-mini": {
+      "inputPer1MUsd": 0.7,
+      "outputPer1MUsd": 1.4,
+      "cacheReadPer1MUsd": 0.18
+    },
+    "openrouter/aion-labs/aion-3.5": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.75
+    },
+    "openrouter/aion-labs/aion-3.5-mini": {
+      "inputPer1MUsd": 0.7,
+      "outputPer1MUsd": 1.4,
+      "cacheReadPer1MUsd": 0.18
+    },
+    "openrouter/aion-labs/aion-rp-llama-3.1-8b": {
+      "inputPer1MUsd": 0.7999999999999999,
+      "outputPer1MUsd": 1.5999999999999999
+    },
+    "openrouter/amazon/nova-2-lite-v1": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2.5
+    },
+    "openrouter/amazon/nova-lite-v1": {
+      "inputPer1MUsd": 0.06,
+      "outputPer1MUsd": 0.24
+    },
+    "openrouter/amazon/nova-micro-v1": {
+      "inputPer1MUsd": 0.035,
+      "outputPer1MUsd": 0.14
+    },
+    "openrouter/amazon/nova-premier-v1": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 12.5,
+      "cacheReadPer1MUsd": 0.625
+    },
+    "openrouter/amazon/nova-pro-v1": {
+      "inputPer1MUsd": 0.7999999999999999,
+      "outputPer1MUsd": 3.1999999999999997
+    },
+    "openrouter/anthracite-org/magnum-v4-72b": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 5
+    },
+    "openrouter/anthropic/claude-3-haiku": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0.3
+    },
+    "openrouter/anthropic/claude-3.5-sonnet": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "openrouter/anthropic/claude-3.7-sonnet": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "openrouter/anthropic/claude-fable-5": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 50,
+      "cacheReadPer1MUsd": 1,
+      "cacheWritePer1MUsd": 12.5
+    },
+    "openrouter/anthropic/claude-fable-5.1": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 50,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 12.5
+    },
+    "openrouter/anthropic/claude-fable-5.1:batch": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.125,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/anthropic/claude-fable-5:batch": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/anthropic/claude-haiku-4.5": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/anthropic/claude-haiku-4.5:batch": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.049999999999999996,
+      "cacheWritePer1MUsd": 0.625
+    },
+    "openrouter/anthropic/claude-haiku-5.5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
     },
     "openrouter/anthropic/claude-opus-4": {
       "inputPer1MUsd": 15,
@@ -716,9 +792,2101 @@
       "cacheReadPer1MUsd": 1.5,
       "cacheWritePer1MUsd": 18.75
     },
+    "openrouter/anthropic/claude-opus-4.1": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "openrouter/anthropic/claude-opus-4.1:batch": {
+      "inputPer1MUsd": 7.5,
+      "outputPer1MUsd": 37.5,
+      "cacheReadPer1MUsd": 0.75,
+      "cacheWritePer1MUsd": 9.375
+    },
+    "openrouter/anthropic/claude-opus-4.5": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/anthropic/claude-opus-4.5:batch": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 12.5,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 3.125
+    },
+    "openrouter/anthropic/claude-opus-4.6": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/anthropic/claude-opus-4.6:batch": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 12.5,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 3.125
+    },
+    "openrouter/anthropic/claude-opus-4.7": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/anthropic/claude-opus-4.7:batch": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 12.5,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 3.125
+    },
+    "openrouter/anthropic/claude-opus-4.8": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/anthropic/claude-opus-4.8:batch": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 12.5,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 3.125
+    },
+    "openrouter/anthropic/claude-opus-5": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/anthropic/claude-opus-5.5": {
+      "inputPer1MUsd": 4,
+      "outputPer1MUsd": 20,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 5
+    },
+    "openrouter/anthropic/claude-opus-5.5:batch": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/anthropic/claude-opus-5:batch": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 12.5,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 3.125
+    },
+    "openrouter/anthropic/claude-sonnet-4": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "openrouter/anthropic/claude-sonnet-4.5": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "openrouter/anthropic/claude-sonnet-4.5:batch": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5,
+      "cacheReadPer1MUsd": 0.15,
+      "cacheWritePer1MUsd": 1.875
+    },
+    "openrouter/anthropic/claude-sonnet-4.6": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "openrouter/anthropic/claude-sonnet-4.6:batch": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5,
+      "cacheReadPer1MUsd": 0.15,
+      "cacheWritePer1MUsd": 1.875
+    },
+    "openrouter/anthropic/claude-sonnet-5": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/anthropic/claude-sonnet-5.5": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/anthropic/claude-sonnet-5.5:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/anthropic/claude-sonnet-5:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/apodex/apodex-1.1-mini:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/arcee-ai/trinity-large-thinking": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.7999999999999999,
+      "cacheReadPer1MUsd": 0.06
+    },
+    "openrouter/baidu/ernie-4.5-vl-424b-a47b": {
+      "inputPer1MUsd": 0.42,
+      "outputPer1MUsd": 1.25
+    },
+    "openrouter/bytedance-seed/seed-1.6": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 2
+    },
+    "openrouter/bytedance-seed/seed-1.6-flash": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3
+    },
+    "openrouter/bytedance-seed/seed-2-1-turbo": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 2.5
+    },
+    "openrouter/bytedance-seed/seed-2.0-code": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 3
+    },
+    "openrouter/bytedance-seed/seed-2.0-lite": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 2
+    },
+    "openrouter/bytedance-seed/seed-2.0-mini": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997
+    },
+    "openrouter/bytedance/ui-tars-1.5-7b": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/cognitivecomputations/dolphin-mistral-24b-venice-edition": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.8999999999999999
+    },
+    "openrouter/cohere/command-a": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 10
+    },
+    "openrouter/cohere/command-a-plus": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/cohere/north-mini-code:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/deepseek/deepseek-chat": {
+      "inputPer1MUsd": 0.2574,
+      "outputPer1MUsd": 1.0287
+    },
+    "openrouter/deepseek/deepseek-chat-v3-0324": {
+      "inputPer1MUsd": 0.29,
+      "outputPer1MUsd": 1.1400000000000001,
+      "cacheReadPer1MUsd": 0.11
+    },
+    "openrouter/deepseek/deepseek-chat-v3.1": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.95,
+      "cacheReadPer1MUsd": 0.13
+    },
+    "openrouter/deepseek/deepseek-r1": {
+      "inputPer1MUsd": 0.7,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.14
+    },
+    "openrouter/deepseek/deepseek-r1-0528": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 2.1500000000000004,
+      "cacheReadPer1MUsd": 0.35
+    },
+    "openrouter/deepseek/deepseek-r1-distill-llama-70b": {
+      "inputPer1MUsd": 0.7999999999999999,
+      "outputPer1MUsd": 0.7999999999999999
+    },
+    "openrouter/deepseek/deepseek-v3.1-terminus": {
+      "inputPer1MUsd": 0.27,
+      "outputPer1MUsd": 1,
+      "cacheReadPer1MUsd": 0.135
+    },
+    "openrouter/deepseek/deepseek-v3.2": {
+      "inputPer1MUsd": 0.28,
+      "outputPer1MUsd": 0.42,
+      "cacheReadPer1MUsd": 0.028
+    },
+    "openrouter/deepseek/deepseek-v3.2-exp": {
+      "inputPer1MUsd": 0.27,
+      "outputPer1MUsd": 0.41,
+      "cacheReadPer1MUsd": 0.02
+    },
+    "openrouter/deepseek/deepseek-v4-flash": {
+      "inputPer1MUsd": 0.03,
+      "outputPer1MUsd": 1.28,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/deepseek/deepseek-v4-flash-0731": {
+      "inputPer1MUsd": 0.016300000000000002,
+      "outputPer1MUsd": 1.28,
+      "cacheReadPer1MUsd": 0.016300000000000002
+    },
+    "openrouter/deepseek/deepseek-v4-flash-vision-exp": {
+      "inputPer1MUsd": 0.21559999999999999,
+      "outputPer1MUsd": 0.6468,
+      "cacheReadPer1MUsd": 0.00686
+    },
+    "openrouter/deepseek/deepseek-v4-pro": {
+      "inputPer1MUsd": 0.20879999999999999,
+      "outputPer1MUsd": 0.41759999999999997,
+      "cacheReadPer1MUsd": 0.0174
+    },
+    "openrouter/deepseek/deepseek-v4-pro-0813": {
+      "inputPer1MUsd": 1.32,
+      "outputPer1MUsd": 3.9600000000000004,
+      "cacheReadPer1MUsd": 0.044
+    },
+    "openrouter/deepseek/deepseek-v4.1-flash": {
+      "inputPer1MUsd": 0.044,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/deepseek/deepseek-v4.1-flash:batch": {
+      "inputPer1MUsd": 0.112,
+      "outputPer1MUsd": 0.33599999999999997,
+      "cacheReadPer1MUsd": 0.00336
+    },
+    "openrouter/dots-studio/dots-3-note-preview:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/fireworks/ember-1": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3
+    },
     "openrouter/google/gemini-2.0-flash-001": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.39999999999999997
+    },
+    "openrouter/google/gemini-2.5-flash": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0.0833333333333333
+    },
+    "openrouter/google/gemini-2.5-flash-image": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0.0833333333333333
+    },
+    "openrouter/google/gemini-2.5-flash-lite": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.0833333333333333
+    },
+    "openrouter/google/gemini-2.5-flash-lite:batch": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.01
+    },
+    "openrouter/google/gemini-2.5-flash:batch": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/google/gemini-2.5-pro": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.125,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/google/gemini-2.5-pro-preview": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.125,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/google/gemini-2.5-pro-preview-05-06": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.125,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/google/gemini-2.5-pro:batch": {
+      "inputPer1MUsd": 0.625,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.125
+    },
+    "openrouter/google/gemini-3-flash-preview": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 3,
+      "cacheReadPer1MUsd": 0.049999999999999996,
+      "cacheWritePer1MUsd": 0.0833333333333333,
+      "reasoningPer1MUsd": 3,
+      "reasoningBilling": "separate"
+    },
+    "openrouter/google/gemini-3-flash-preview:batch": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.5
+    },
+    "openrouter/google/gemini-3-pro-image": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/google/gemini-3-pro-image-preview": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/google/gemini-3-pro-preview": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/google/gemini-3.1-flash-image": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 3
+    },
+    "openrouter/google/gemini-3.1-flash-image-preview": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 3
+    },
+    "openrouter/google/gemini-3.1-flash-lite": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.5,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "cacheWritePer1MUsd": 0.0833333333333333,
+      "reasoningPer1MUsd": 1.5,
+      "reasoningBilling": "separate"
+    },
+    "openrouter/google/gemini-3.1-flash-lite-image": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.5
+    },
+    "openrouter/google/gemini-3.1-flash-lite-preview": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.5,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "cacheWritePer1MUsd": 0.0833333333333333,
+      "reasoningPer1MUsd": 1.5,
+      "reasoningBilling": "separate"
+    },
+    "openrouter/google/gemini-3.1-flash-lite:batch": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 0.75,
+      "cacheReadPer1MUsd": 0.012499999999999999
+    },
+    "openrouter/google/gemini-3.1-pro-preview": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/google/gemini-3.1-pro-preview-customtools": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/google/gemini-3.1-pro-preview:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 6
+    },
+    "openrouter/google/gemini-3.5-flash": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 9,
+      "cacheReadPer1MUsd": 0.15,
+      "cacheWritePer1MUsd": 0.0833333333333333
+    },
+    "openrouter/google/gemini-3.5-flash-lite": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0.0833333333333333
+    },
+    "openrouter/google/gemini-3.5-flash-lite:batch": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/google/gemini-3.5-flash:batch": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 4.5,
+      "cacheReadPer1MUsd": 0.075
+    },
+    "openrouter/google/gemini-3.6-flash": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 3.75,
+      "cacheReadPer1MUsd": 0.075,
+      "cacheWritePer1MUsd": 0.0416666666666667
+    },
+    "openrouter/google/gemini-3.6-flash:batch": {
+      "inputPer1MUsd": 0.375,
+      "outputPer1MUsd": 1.875,
+      "cacheReadPer1MUsd": 0.0375,
+      "cacheWritePer1MUsd": 0.0416666666666667
+    },
+    "openrouter/google/gemini-3.7-flash": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 3.75,
+      "cacheReadPer1MUsd": 0.075,
+      "cacheWritePer1MUsd": 0.0416666666666667
+    },
+    "openrouter/google/gemini-3.7-flash:batch": {
+      "inputPer1MUsd": 0.375,
+      "outputPer1MUsd": 1.875,
+      "cacheReadPer1MUsd": 0.0375,
+      "cacheWritePer1MUsd": 0.0416666666666667
+    },
+    "openrouter/google/gemini-3.8-flash": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 3.75,
+      "cacheReadPer1MUsd": 0.075,
+      "cacheWritePer1MUsd": 0.0416666666666667
+    },
+    "openrouter/google/gemini-3.8-flash:batch": {
+      "inputPer1MUsd": 0.375,
+      "outputPer1MUsd": 1.875,
+      "cacheReadPer1MUsd": 0.0375,
+      "cacheWritePer1MUsd": 0.0416666666666667
+    },
+    "openrouter/google/gemini-nano-banana-2.1": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5
+    },
+    "openrouter/google/gemma-2-27b-it": {
+      "inputPer1MUsd": 0.65,
+      "outputPer1MUsd": 0.65
+    },
+    "openrouter/google/gemma-3-12b-it": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.15
+    },
+    "openrouter/google/gemma-3-27b-it": {
+      "inputPer1MUsd": 0.08,
+      "outputPer1MUsd": 0.44999999999999996,
+      "cacheReadPer1MUsd": 0.04
+    },
+    "openrouter/google/gemma-3-4b-it": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/google/gemma-4-26b-a4b-it": {
+      "inputPer1MUsd": 0.0765,
+      "outputPer1MUsd": 0.255,
+      "cacheReadPer1MUsd": 0.042499999999999996
+    },
+    "openrouter/google/gemma-4-26b-a4b-it:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/google/gemma-4-31b-it": {
+      "inputPer1MUsd": 0.09,
+      "outputPer1MUsd": 0.33999999999999997,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/google/gemma-4-31b-it:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/gryphe/mythomax-l2-13b": {
+      "inputPer1MUsd": 0.08,
+      "outputPer1MUsd": 0.11
+    },
+    "openrouter/ibm-granite/granite-4.0-h-micro": {
+      "inputPer1MUsd": 0.017,
+      "outputPer1MUsd": 0.112
+    },
+    "openrouter/ibm-granite/granite-4.2-8b": {
+      "inputPer1MUsd": 0.06,
+      "outputPer1MUsd": 0.25,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/inception/mercury-2": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.75,
+      "cacheReadPer1MUsd": 0.024999999999999998
+    },
+    "openrouter/inception/mercury-2.5": {
+      "inputPer1MUsd": 0.04,
+      "outputPer1MUsd": 0.15,
+      "cacheReadPer1MUsd": 0.004
+    },
+    "openrouter/inclusionai/ling-3.0-flash": {
+      "inputPer1MUsd": 0.020999999999999998,
+      "outputPer1MUsd": 0.063,
+      "cacheReadPer1MUsd": 0.004200000000000001
+    },
+    "openrouter/inclusionai/ling-3.0-flash-fin": {
+      "inputPer1MUsd": 0.041999999999999996,
+      "outputPer1MUsd": 0.12319999999999999,
+      "cacheReadPer1MUsd": 0.008400000000000001
+    },
+    "openrouter/inclusionai/ling-3.0-flash-fin:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/inclusionai/ling-3.0-flash-sante:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/inclusionai/ling-3.0-flash-vl": {
+      "inputPer1MUsd": 0.020999999999999998,
+      "outputPer1MUsd": 0.061599999999999995,
+      "cacheReadPer1MUsd": 0.004200000000000001
+    },
+    "openrouter/inclusionai/ling-3.0-flash-vl:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/inclusionai/ling-3.1-flash": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/inference-net/schematron-v2-small": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.22999999999999998,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/inference-net/schematron-v2-turbo": {
+      "inputPer1MUsd": 0.03,
+      "outputPer1MUsd": 0.15,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/kwaipilot/kat-coder-pro-v2.5": {
+      "inputPer1MUsd": 0.74,
+      "outputPer1MUsd": 2.96,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/liquid/lfm-2.5-2.6b:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/mancer/weaver": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 0.75
+    },
+    "openrouter/meituan/longcat-2.0": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.006
+    },
+    "openrouter/meta-llama/llama-3-70b-instruct": {
+      "inputPer1MUsd": 0.59,
+      "outputPer1MUsd": 0.7899999999999999
+    },
+    "openrouter/meta-llama/llama-3.1-70b-instruct": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 0.39999999999999997
+    },
+    "openrouter/meta-llama/llama-3.1-8b-instruct": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.08,
+      "cacheReadPer1MUsd": 0.024999999999999998
+    },
+    "openrouter/meta-llama/llama-3.2-1b-instruct": {
+      "inputPer1MUsd": 0.027,
+      "outputPer1MUsd": 0.201
+    },
+    "openrouter/meta-llama/llama-3.2-3b-instruct": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.33
+    },
+    "openrouter/meta-llama/llama-3.3-70b-instruct": {
+      "inputPer1MUsd": 0.22,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.11
+    },
+    "openrouter/meta-llama/llama-4-maverick": {
+      "inputPer1MUsd": 0.1875,
+      "outputPer1MUsd": 0.6525,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/meta-llama/llama-4-scout": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.3
+    },
+    "openrouter/meta-llama/llama-guard-4-12b": {
+      "inputPer1MUsd": 0.18,
+      "outputPer1MUsd": 0.18
+    },
+    "openrouter/meta/muse-glimmer-30b": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.04
+    },
+    "openrouter/meta/muse-spark-1.1": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 4.25,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/meta/muse-spark-1.2": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 4.25,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/meta/muse-spark-1.2-contributor": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.002
+    },
+    "openrouter/meta/muse-spark-1.3": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 4.25,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/meta/muse-spark-1.3-contributor": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.002
+    },
+    "openrouter/microsoft/phi-4": {
+      "inputPer1MUsd": 0.07,
+      "outputPer1MUsd": 0.14
+    },
+    "openrouter/microsoft/wizardlm-2-8x22b": {
+      "inputPer1MUsd": 0.62,
+      "outputPer1MUsd": 0.62
+    },
+    "openrouter/minimax/minimax-01": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 1.1
+    },
+    "openrouter/minimax/minimax-m1": {
+      "inputPer1MUsd": 0.55,
+      "outputPer1MUsd": 2.2
+    },
+    "openrouter/minimax/minimax-m2": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2
+    },
+    "openrouter/minimax/minimax-m2-her": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/minimax/minimax-m2.1": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0
+    },
+    "openrouter/minimax/minimax-m2.5": {
+      "inputPer1MUsd": 0.27,
+      "outputPer1MUsd": 1.08,
+      "cacheReadPer1MUsd": 0.027
+    },
+    "openrouter/minimax/minimax-m2.7": {
+      "inputPer1MUsd": 0.21,
+      "outputPer1MUsd": 0.84,
+      "cacheReadPer1MUsd": 0.041999999999999996
+    },
+    "openrouter/minimax/minimax-m2.7:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/minimax/minimax-m3": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.06
+    },
+    "openrouter/minimax/minimax-m3:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/mistralai/codestral-2508": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.8999999999999999,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/mistralai/codestral-2508:batch": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.44999999999999996,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/mistralai/devstral-2512": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.04
+    },
+    "openrouter/mistralai/ministral-14b-2512": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.02
+    },
+    "openrouter/mistralai/ministral-3b-2512": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.09999999999999999,
+      "cacheReadPer1MUsd": 0.01
+    },
+    "openrouter/mistralai/ministral-8b-2512": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.15,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/mistralai/ministral-8b-2512:batch": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.075,
+      "cacheReadPer1MUsd": 0.0075
+    },
+    "openrouter/mistralai/mistral-7b-instruct": {
+      "inputPer1MUsd": 0.13,
+      "outputPer1MUsd": 0.13
+    },
+    "openrouter/mistralai/mistral-large": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/mistralai/mistral-large-2407": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/mistralai/mistral-large-2512": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 1.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/mistralai/mistral-large-2512:batch": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.75,
+      "cacheReadPer1MUsd": 0.024999999999999998
+    },
+    "openrouter/mistralai/mistral-large-4-0": {
+      "inputPer1MUsd": 0.6799999999999999,
+      "outputPer1MUsd": 2.09,
+      "cacheReadPer1MUsd": 0.07
+    },
+    "openrouter/mistralai/mistral-medium-3": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.04
+    },
+    "openrouter/mistralai/mistral-medium-3-5": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5
+    },
+    "openrouter/mistralai/mistral-medium-3-5:batch": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 3.75
+    },
+    "openrouter/mistralai/mistral-medium-3.1": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.04
+    },
+    "openrouter/mistralai/mistral-medium-3.1:batch": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 1,
+      "cacheReadPer1MUsd": 0.02
+    },
+    "openrouter/mistralai/mistral-nemo": {
+      "inputPer1MUsd": 0.019000000000000003,
+      "outputPer1MUsd": 0.03
+    },
+    "openrouter/mistralai/mistral-saba": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.02
+    },
+    "openrouter/mistralai/mistral-small-24b-instruct-2501": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.08
+    },
+    "openrouter/mistralai/mistral-small-2603": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/mistralai/mistral-small-2603:batch": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.0075
+    },
+    "openrouter/mistralai/mistral-small-3.1-24b-instruct": {
+      "inputPer1MUsd": 0.351,
+      "outputPer1MUsd": 0.5549999999999999
+    },
+    "openrouter/mistralai/mistral-small-3.2-24b-instruct": {
+      "inputPer1MUsd": 0.09375,
+      "outputPer1MUsd": 0.25
+    },
+    "openrouter/mistralai/mixtral-8x22b-instruct": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/mistralai/voxtral-small-24b-2507": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.01
+    },
+    "openrouter/moonshotai/kimi-k2": {
+      "inputPer1MUsd": 0.5700000000000001,
+      "outputPer1MUsd": 2.3
+    },
+    "openrouter/moonshotai/kimi-k2-0905": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.5
+    },
+    "openrouter/moonshotai/kimi-k2-thinking": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/moonshotai/kimi-k2.5": {
+      "inputPer1MUsd": 0.44999999999999996,
+      "outputPer1MUsd": 2.25,
+      "cacheReadPer1MUsd": 0.07
+    },
+    "openrouter/moonshotai/kimi-k2.6": {
+      "inputPer1MUsd": 0.95,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.16
+    },
+    "openrouter/moonshotai/kimi-k2.7-code": {
+      "inputPer1MUsd": 0.6712,
+      "outputPer1MUsd": 3.35,
+      "cacheReadPer1MUsd": 0.18
+    },
+    "openrouter/moonshotai/kimi-k3": {
+      "inputPer1MUsd": 0.7899999999999999,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.26
+    },
+    "openrouter/moonshotai/kimi-k3:batch": {
+      "inputPer1MUsd": 2.2800000000000002,
+      "outputPer1MUsd": 11.399999999999999,
+      "cacheReadPer1MUsd": 0.228
+    },
+    "openrouter/morph/morph-v3-fast": {
+      "inputPer1MUsd": 0.7999999999999999,
+      "outputPer1MUsd": 1.2
+    },
+    "openrouter/morph/morph-v3-large": {
+      "inputPer1MUsd": 0.8999999999999999,
+      "outputPer1MUsd": 1.9
+    },
+    "openrouter/nex-agi/nex-n2.5-mini": {
+      "inputPer1MUsd": 0.024999999999999998,
+      "outputPer1MUsd": 0.09999999999999999,
+      "cacheReadPer1MUsd": 0.0025
+    },
+    "openrouter/nex-agi/nex-n2.5-mini:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/nex-agi/nex-n2.5-pro": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.25,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/nex-agi/nex-n2.5-pro:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/nousresearch/hermes-3-llama-3.1-405b": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 1
+    },
+    "openrouter/nousresearch/hermes-3-llama-3.1-70b": {
+      "inputPer1MUsd": 0.7,
+      "outputPer1MUsd": 0.7
+    },
+    "openrouter/nousresearch/hermes-4-405b": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 3
+    },
+    "openrouter/nvidia/nemotron-3-nano-30b-a3b": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/nvidia/nemotron-3-super-120b-a12b": {
+      "inputPer1MUsd": 0.08,
+      "outputPer1MUsd": 0.44999999999999996
+    },
+    "openrouter/nvidia/nemotron-3-super-120b-a12b:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/nvidia/nemotron-3-ultra-550b-a55b": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 2.2,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/nvidia/nemotron-3.5-content-safety": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/nvidia/nemotron-3.5-content-safety:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/nvidia/nemotron-3.5-lightning": {
+      "inputPer1MUsd": 0.06,
+      "outputPer1MUsd": 0.16,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/nvidia/nemotron-3.5-lightning:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/openai/gpt-3.5-turbo-0613": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 2
+    },
+    "openrouter/openai/gpt-3.5-turbo:batch": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.75
+    },
+    "openrouter/openai/gpt-4-turbo-preview": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 30
+    },
+    "openrouter/openai/gpt-4-turbo:batch": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 15
+    },
+    "openrouter/openai/gpt-4.1-mini:batch": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.7999999999999999,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/openai/gpt-4.1-nano:batch": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.012499999999999999
+    },
+    "openrouter/openai/gpt-4.1:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/openai/gpt-4o-mini:batch": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.0375
+    },
+    "openrouter/openai/gpt-4o:batch": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.625
+    },
+    "openrouter/openai/gpt-5-image": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "openrouter/openai/gpt-5-image-mini": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/openai/gpt-5-mini:batch": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 1,
+      "cacheReadPer1MUsd": 0.012499999999999999
+    },
+    "openrouter/openai/gpt-5-nano:batch": {
+      "inputPer1MUsd": 0.024999999999999998,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.0025
+    },
+    "openrouter/openai/gpt-5-pro:batch": {
+      "inputPer1MUsd": 7.5,
+      "outputPer1MUsd": 60
+    },
+    "openrouter/openai/gpt-5.1-codex": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.13
+    },
+    "openrouter/openai/gpt-5.1-codex-mini": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/openai/gpt-5.1:batch": {
+      "inputPer1MUsd": 0.625,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.0625
+    },
+    "openrouter/openai/gpt-5.2-chat": {
+      "inputPer1MUsd": 1.75,
+      "outputPer1MUsd": 14,
+      "cacheReadPer1MUsd": 0.175
+    },
+    "openrouter/openai/gpt-5.2-pro:batch": {
+      "inputPer1MUsd": 10.5,
+      "outputPer1MUsd": 84
+    },
+    "openrouter/openai/gpt-5.2:batch": {
+      "inputPer1MUsd": 0.875,
+      "outputPer1MUsd": 7,
+      "cacheReadPer1MUsd": 0.0875
+    },
+    "openrouter/openai/gpt-5.4": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/openai/gpt-5.4-image-2": {
+      "inputPer1MUsd": 8,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 2
+    },
+    "openrouter/openai/gpt-5.4-mini:batch": {
+      "inputPer1MUsd": 0.375,
+      "outputPer1MUsd": 2.25,
+      "cacheReadPer1MUsd": 0.0375
+    },
+    "openrouter/openai/gpt-5.4-nano:batch": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.625,
+      "cacheReadPer1MUsd": 0.01
+    },
+    "openrouter/openai/gpt-5.4-pro": {
+      "inputPer1MUsd": 30,
+      "outputPer1MUsd": 180
+    },
+    "openrouter/openai/gpt-5.4-pro:batch": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 90
+    },
+    "openrouter/openai/gpt-5.4:batch": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 7.5,
+      "cacheReadPer1MUsd": 0.125
+    },
+    "openrouter/openai/gpt-5.5": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 30,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/openai/gpt-5.5-pro": {
+      "inputPer1MUsd": 30,
+      "outputPer1MUsd": 180
+    },
+    "openrouter/openai/gpt-5.5-pro:batch": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 90
+    },
+    "openrouter/openai/gpt-5.5:batch": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/openai/gpt-5.6-luna": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.02,
+      "cacheWritePer1MUsd": 0.25
+    },
+    "openrouter/openai/gpt-5.6-luna-pro": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.02,
+      "cacheWritePer1MUsd": 0.25
+    },
+    "openrouter/openai/gpt-5.6-luna-pro:batch": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.01
+    },
+    "openrouter/openai/gpt-5.6-luna:batch": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.01
+    },
+    "openrouter/openai/gpt-5.6-sol": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-5.6-sol-pro": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-5.6-sol-pro:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/openai/gpt-5.6-sol:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/openai/gpt-5.6-terra": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-5.6-terra-pro": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-5.6-terra-pro:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/openai/gpt-5.6-terra:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/openai/gpt-5:batch": {
+      "inputPer1MUsd": 0.625,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.0625
+    },
+    "openrouter/openai/gpt-6-astra": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 50,
+      "cacheReadPer1MUsd": 1,
+      "cacheWritePer1MUsd": 12.5
+    },
+    "openrouter/openai/gpt-6-astra-pro": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 50,
+      "cacheReadPer1MUsd": 1,
+      "cacheWritePer1MUsd": 12.5
+    },
+    "openrouter/openai/gpt-6-astra-pro:batch": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/openai/gpt-6-astra:batch": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 0.5,
+      "cacheWritePer1MUsd": 6.25
+    },
+    "openrouter/openai/gpt-6-luna": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
+    "openrouter/openai/gpt-6-luna-pro": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
+    "openrouter/openai/gpt-6-luna-pro:batch": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.25,
+      "cacheReadPer1MUsd": 0.005,
+      "cacheWritePer1MUsd": 0.0625
+    },
+    "openrouter/openai/gpt-6-luna:batch": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.25,
+      "cacheReadPer1MUsd": 0.005,
+      "cacheWritePer1MUsd": 0.0625
+    },
+    "openrouter/openai/gpt-6-sol": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-6-sol-pro": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-6-sol-pro:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/openai/gpt-6-sol:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/openai/gpt-6.1-sol": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-6.1-sol-pro": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/openai/gpt-6.1-sol-pro:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.049999999999999996,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/openai/gpt-6.1-sol:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.049999999999999996,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/openai/gpt-chat-latest": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 30,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/openai/gpt-oss-120b": {
+      "inputPer1MUsd": 0.037,
+      "outputPer1MUsd": 0.16999999999999998
+    },
+    "openrouter/openai/gpt-oss-120b:batch": {
+      "inputPer1MUsd": 0.0296,
+      "outputPer1MUsd": 0.136
+    },
+    "openrouter/openai/gpt-oss-20b": {
+      "inputPer1MUsd": 0.018,
+      "outputPer1MUsd": 0.09,
+      "cacheReadPer1MUsd": 0.009
+    },
+    "openrouter/openai/gpt-oss-20b:batch": {
+      "inputPer1MUsd": 0.024,
+      "outputPer1MUsd": 0.112
+    },
+    "openrouter/openai/gpt-oss-safeguard-20b": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.0375
+    },
+    "openrouter/openai/o3-mini:batch": {
+      "inputPer1MUsd": 0.55,
+      "outputPer1MUsd": 2.2,
+      "cacheReadPer1MUsd": 0.275
+    },
+    "openrouter/openai/o3:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/openai/o4-mini:batch": {
+      "inputPer1MUsd": 0.55,
+      "outputPer1MUsd": 2.2,
+      "cacheReadPer1MUsd": 0.1375
+    },
+    "openrouter/openrouter/auto": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/openrouter/bodybuilder": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/openrouter/free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/perceptron/perceptron-mk1": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 1.5
+    },
+    "openrouter/perceptron/perceptron-mk1.5": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 1.5
+    },
+    "openrouter/perplexity/sonar": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 1
+    },
+    "openrouter/perplexity/sonar-deep-research": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 8
+    },
+    "openrouter/perplexity/sonar-pro": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "openrouter/perplexity/sonar-pro-search": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "openrouter/perplexity/sonar-reasoning-pro": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 8
+    },
+    "openrouter/poolside/laguna-s-2.1": {
+      "inputPer1MUsd": 0.09,
+      "outputPer1MUsd": 0.18,
+      "cacheReadPer1MUsd": 0.009
+    },
+    "openrouter/poolside/laguna-s-2.1:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/poolside/laguna-xs-2.1": {
+      "inputPer1MUsd": 0.06,
+      "outputPer1MUsd": 0.12,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/poolside/laguna-xs-2.1:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/prism-ml/ternary-bonsai-2-27b": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.0375
+    },
+    "openrouter/qwen/qwen-2.5-72b-instruct": {
+      "inputPer1MUsd": 0.36,
+      "outputPer1MUsd": 0.39999999999999997
+    },
+    "openrouter/qwen/qwen-2.5-7b-instruct": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/qwen/qwen-2.5-coder-32b-instruct": {
+      "inputPer1MUsd": 0.66,
+      "outputPer1MUsd": 1
+    },
+    "openrouter/qwen/qwen-plus": {
+      "inputPer1MUsd": 0.26,
+      "outputPer1MUsd": 0.78,
+      "cacheReadPer1MUsd": 0.052000000000000005,
+      "cacheWritePer1MUsd": 0.325
+    },
+    "openrouter/qwen/qwen-plus-2025-07-28": {
+      "inputPer1MUsd": 0.26,
+      "outputPer1MUsd": 0.78,
+      "cacheReadPer1MUsd": 0.052000000000000005,
+      "cacheWritePer1MUsd": 0.325
+    },
+    "openrouter/qwen/qwen-vl-plus": {
+      "inputPer1MUsd": 0.21,
+      "outputPer1MUsd": 0.63
+    },
+    "openrouter/qwen/qwen2.5-vl-72b-instruct": {
+      "inputPer1MUsd": 0.7999999999999999,
+      "outputPer1MUsd": 1,
+      "cacheReadPer1MUsd": 0.39999999999999997
+    },
+    "openrouter/qwen/qwen3-14b": {
+      "inputPer1MUsd": 0.12,
+      "outputPer1MUsd": 0.24
+    },
+    "openrouter/qwen/qwen3-235b-a22b": {
+      "inputPer1MUsd": 0.45499999999999996,
+      "outputPer1MUsd": 1.8199999999999998
+    },
+    "openrouter/qwen/qwen3-235b-a22b-2507": {
+      "inputPer1MUsd": 0.09,
+      "outputPer1MUsd": 0.55
+    },
+    "openrouter/qwen/qwen3-235b-a22b-thinking-2507": {
+      "inputPer1MUsd": 0.22999999999999998,
+      "outputPer1MUsd": 2.3
+    },
+    "openrouter/qwen/qwen3-30b-a3b": {
+      "inputPer1MUsd": 0.12,
+      "outputPer1MUsd": 0.5
+    },
+    "openrouter/qwen/qwen3-30b-a3b-instruct-2507": {
+      "inputPer1MUsd": 0.04815,
+      "outputPer1MUsd": 0.19305
+    },
+    "openrouter/qwen/qwen3-30b-a3b-thinking-2507": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 2.4
+    },
+    "openrouter/qwen/qwen3-32b": {
+      "inputPer1MUsd": 0.08,
+      "outputPer1MUsd": 0.28
+    },
+    "openrouter/qwen/qwen3-8b": {
+      "inputPer1MUsd": 0.117,
+      "outputPer1MUsd": 0.45499999999999996
+    },
+    "openrouter/qwen/qwen3-coder": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/qwen/qwen3-coder-30b-a3b-instruct": {
+      "inputPer1MUsd": 0.07,
+      "outputPer1MUsd": 0.28
+    },
+    "openrouter/qwen/qwen3-coder-flash": {
+      "inputPer1MUsd": 0.195,
+      "outputPer1MUsd": 0.975,
+      "cacheReadPer1MUsd": 0.039,
+      "cacheWritePer1MUsd": 0.24375
+    },
+    "openrouter/qwen/qwen3-coder-next": {
+      "inputPer1MUsd": 0.12,
+      "outputPer1MUsd": 0.7999999999999999,
+      "cacheReadPer1MUsd": 0.07
+    },
+    "openrouter/qwen/qwen3-coder-plus": {
+      "inputPer1MUsd": 0.65,
+      "outputPer1MUsd": 3.25,
+      "cacheReadPer1MUsd": 0.13,
+      "cacheWritePer1MUsd": 0.8125
+    },
+    "openrouter/qwen/qwen3-max": {
+      "inputPer1MUsd": 0.78,
+      "outputPer1MUsd": 3.9,
+      "cacheReadPer1MUsd": 0.156,
+      "cacheWritePer1MUsd": 0.975
+    },
+    "openrouter/qwen/qwen3-max-thinking": {
+      "inputPer1MUsd": 0.78,
+      "outputPer1MUsd": 3.9
+    },
+    "openrouter/qwen/qwen3-next-80b-a3b-instruct": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 1.1,
+      "cacheReadPer1MUsd": 0.07
+    },
+    "openrouter/qwen/qwen3-next-80b-a3b-thinking": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 1.2
+    },
+    "openrouter/qwen/qwen3-vl-235b-a22b-instruct": {
+      "inputPer1MUsd": 0.21,
+      "outputPer1MUsd": 1.9,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/qwen/qwen3-vl-235b-a22b-thinking": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 4
+    },
+    "openrouter/qwen/qwen3-vl-30b-a3b-instruct": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6
+    },
+    "openrouter/qwen/qwen3-vl-30b-a3b-thinking": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 2.4
+    },
+    "openrouter/qwen/qwen3-vl-32b-instruct": {
+      "inputPer1MUsd": 0.10400000000000001,
+      "outputPer1MUsd": 0.41600000000000004
+    },
+    "openrouter/qwen/qwen3-vl-8b-instruct": {
+      "inputPer1MUsd": 0.117,
+      "outputPer1MUsd": 0.45499999999999996
+    },
+    "openrouter/qwen/qwen3-vl-8b-thinking": {
+      "inputPer1MUsd": 0.18,
+      "outputPer1MUsd": 2.0999999999999996
+    },
+    "openrouter/qwen/qwen3.5-122b-a10b": {
+      "inputPer1MUsd": 0.26,
+      "outputPer1MUsd": 2.08
+    },
+    "openrouter/qwen/qwen3.5-27b": {
+      "inputPer1MUsd": 0.195,
+      "outputPer1MUsd": 1.56
+    },
+    "openrouter/qwen/qwen3.5-35b-a3b": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 1,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/qwen/qwen3.5-397b-a17b": {
+      "inputPer1MUsd": 0.44999999999999996,
+      "outputPer1MUsd": 3,
+      "cacheReadPer1MUsd": 0.22
+    },
+    "openrouter/qwen/qwen3.5-9b": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.15
+    },
+    "openrouter/qwen/qwen3.5-flash-02-23": {
+      "inputPer1MUsd": 0.065,
+      "outputPer1MUsd": 0.26
+    },
+    "openrouter/qwen/qwen3.5-plus-02-15": {
+      "inputPer1MUsd": 0.26,
+      "outputPer1MUsd": 1.56
+    },
+    "openrouter/qwen/qwen3.5-plus-20260420": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.7999999999999998,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/qwen/qwen3.6-27b": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/qwen/qwen3.6-35b-a3b": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 1,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/qwen/qwen3.6-flash": {
+      "inputPer1MUsd": 0.1875,
+      "outputPer1MUsd": 1.125,
+      "cacheWritePer1MUsd": 0.234375
+    },
+    "openrouter/qwen/qwen3.6-max-preview": {
+      "inputPer1MUsd": 1.0270000000000001,
+      "outputPer1MUsd": 6.162,
+      "cacheWritePer1MUsd": 1.28375
+    },
+    "openrouter/qwen/qwen3.6-plus": {
+      "inputPer1MUsd": 0.325,
+      "outputPer1MUsd": 1.95,
+      "cacheWritePer1MUsd": 0.40625
+    },
+    "openrouter/qwen/qwen3.7-flash": {
+      "inputPer1MUsd": 0.03,
+      "outputPer1MUsd": 0.13,
+      "cacheReadPer1MUsd": 0.006,
+      "cacheWritePer1MUsd": 0.038000000000000006
+    },
+    "openrouter/qwen/qwen3.7-max": {
+      "inputPer1MUsd": 1.475,
+      "outputPer1MUsd": 4.425,
+      "cacheReadPer1MUsd": 0.295,
+      "cacheWritePer1MUsd": 1.84375
+    },
+    "openrouter/qwen/qwen3.7-plus": {
+      "inputPer1MUsd": 0.32,
+      "outputPer1MUsd": 1.28,
+      "cacheReadPer1MUsd": 0.064,
+      "cacheWritePer1MUsd": 0.39999999999999997
+    },
+    "openrouter/qwen/qwen3.8-2.4t-a95b": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/qwen/qwen3.8-27b": {
+      "inputPer1MUsd": 0.425,
+      "outputPer1MUsd": 2.5500000000000003,
+      "cacheReadPer1MUsd": 0.08499999999999999,
+      "cacheWritePer1MUsd": 0.53125
+    },
+    "openrouter/qwen/qwen3.8-27b:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/qwen/qwen3.8-flash": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.47,
+      "cacheReadPer1MUsd": 0.016,
+      "cacheWritePer1MUsd": 0.19999999999999998
+    },
+    "openrouter/qwen/qwen3.8-max": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/qwen/qwen3.8-max-0902": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/qwen/qwen3.8-max-prime": {
+      "inputPer1MUsd": 4,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/qwen/qwen3.8-omni-flash": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.47,
+      "cacheReadPer1MUsd": 0.016
+    },
+    "openrouter/rekaai/reka-edge": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/rekaai/reka-flash-3": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/relace/relace-apply-3": {
+      "inputPer1MUsd": 0.85,
+      "outputPer1MUsd": 1.25
+    },
+    "openrouter/relace/relace-search": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 3
+    },
+    "openrouter/sakana/fugu-max": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/sakana/fugu-ultra": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 30,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/sakana/fugu-ultra-v2": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 30,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/sakana/sakana-namazu": {
+      "inputPer1MUsd": 0.95,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/sao10k/l3-lunaris-8b": {
+      "inputPer1MUsd": 0.04,
+      "outputPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/sao10k/l3.1-euryale-70b": {
+      "inputPer1MUsd": 0.85,
+      "outputPer1MUsd": 0.85
+    },
+    "openrouter/sao10k/l3.3-euryale-70b": {
+      "inputPer1MUsd": 0.65,
+      "outputPer1MUsd": 0.75
+    },
+    "openrouter/stealth/space-bunny-alpha": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/stepfun/step-3.5-flash": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.3
+    },
+    "openrouter/stepfun/step-3.7-flash": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 1.15,
+      "cacheReadPer1MUsd": 0.04
+    },
+    "openrouter/switchpoint/router": {
+      "inputPer1MUsd": 0.85,
+      "outputPer1MUsd": 3.4
+    },
+    "openrouter/tencent/hunyuan-a13b-instruct": {
+      "inputPer1MUsd": 0.14,
+      "outputPer1MUsd": 0.5700000000000001
+    },
+    "openrouter/tencent/hy-mt2-1.8b": {
+      "inputPer1MUsd": 0.044,
+      "outputPer1MUsd": 0.17700000000000002
+    },
+    "openrouter/tencent/hy-mt2-30b-a3b": {
+      "inputPer1MUsd": 0.074,
+      "outputPer1MUsd": 0.295
+    },
+    "openrouter/tencent/hy-mt2-7b": {
+      "inputPer1MUsd": 0.074,
+      "outputPer1MUsd": 0.295
+    },
+    "openrouter/tencent/hy3": {
+      "inputPer1MUsd": 0.13199999999999998,
+      "outputPer1MUsd": 0.5279999999999999,
+      "cacheReadPer1MUsd": 0.032999999999999995
+    },
+    "openrouter/tencent/hy3-preview": {
+      "inputPer1MUsd": 0.18,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.06
+    },
+    "openrouter/tencent/hy4-preview": {
+      "inputPer1MUsd": 0.834,
+      "outputPer1MUsd": 2.501,
+      "cacheReadPer1MUsd": 0.041999999999999996
+    },
+    "openrouter/thedrummer/cydonia-24b-v4.1": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/thedrummer/skyfall-36b-v2": {
+      "inputPer1MUsd": 0.55,
+      "outputPer1MUsd": 0.7999999999999999,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/thedrummer/unslopnemo-12b": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 0.39999999999999997
+    },
+    "openrouter/thinkingmachines/inkling": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 4.05,
+      "cacheReadPer1MUsd": 0.16999999999999998
+    },
+    "openrouter/thinkingmachines/inkling-small": {
+      "inputPer1MUsd": 0.44999999999999996,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/thinkingmachines/inkling-small:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/thinkingmachines/inkling:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/typesafe/jev-1.13": {
+      "inputPer1MUsd": 0.041999999999999996,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/typesafe/jev-router": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/unbiased/pareto": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 7.5,
+      "cacheReadPer1MUsd": 0.25
+    },
+    "openrouter/unbiased/pareto-26.10-preview": {
+      "inputPer1MUsd": 0.7999999999999999,
+      "outputPer1MUsd": 3.1999999999999997,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/undi95/remm-slerp-l2-13b": {
+      "inputPer1MUsd": 0.35,
+      "outputPer1MUsd": 0.65
+    },
+    "openrouter/upstage/solar-mini4": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.005
+    },
+    "openrouter/upstage/solar-pro-3": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.015
+    },
+    "openrouter/upstage/solar-pro4": {
+      "inputPer1MUsd": 0.09,
+      "outputPer1MUsd": 0.36,
+      "cacheReadPer1MUsd": 0.018
+    },
+    "openrouter/writer/palmyra-x5": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 6
+    },
+    "openrouter/x-ai/grok-4": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "openrouter/x-ai/grok-4.20": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/x-ai/grok-4.20-multi-agent": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/x-ai/grok-4.3": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/x-ai/grok-4.3:batch": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.16
+    },
+    "openrouter/x-ai/grok-4.5": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.3
+    },
+    "openrouter/x-ai/grok-4.6": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/x-ai/grok-4.7": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/x-ai/grok-build-0.1": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "openrouter/xiaomi/mimo-v2-flash": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0
+    },
+    "openrouter/xiaomi/mimo-v2.5": {
+      "inputPer1MUsd": 0.14,
+      "outputPer1MUsd": 0.28,
+      "cacheReadPer1MUsd": 0.0028,
+      "cacheWritePer1MUsd": 0
+    },
+    "openrouter/xiaomi/mimo-v2.5-pro": {
+      "inputPer1MUsd": 0.435,
+      "outputPer1MUsd": 0.87,
+      "cacheReadPer1MUsd": 0.0036,
+      "cacheWritePer1MUsd": 0
+    },
+    "openrouter/xiaomi/mimo-v2.6-flash": {
+      "inputPer1MUsd": 0.14,
+      "outputPer1MUsd": 0.28,
+      "cacheReadPer1MUsd": 0.0028
+    },
+    "openrouter/xiaomi/mimo-v2.6-pro": {
+      "inputPer1MUsd": 0.435,
+      "outputPer1MUsd": 0.87,
+      "cacheReadPer1MUsd": 0.0036
+    },
+    "openrouter/xiaomi/mimo-v2.6-pro-ultraspeed": {
+      "inputPer1MUsd": 4.35,
+      "outputPer1MUsd": 8.7,
+      "cacheReadPer1MUsd": 0.036
+    },
+    "openrouter/z-ai/glm-4.5": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.2,
+      "cacheReadPer1MUsd": 0.11
+    },
+    "openrouter/z-ai/glm-4.5-air": {
+      "inputPer1MUsd": 0.13,
+      "outputPer1MUsd": 0.85,
+      "cacheReadPer1MUsd": 0.024999999999999998
+    },
+    "openrouter/z-ai/glm-4.5v": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 1.7999999999999998,
+      "cacheReadPer1MUsd": 0.11
+    },
+    "openrouter/z-ai/glm-4.6": {
+      "inputPer1MUsd": 0.43,
+      "outputPer1MUsd": 1.75,
+      "cacheReadPer1MUsd": 0.08
+    },
+    "openrouter/z-ai/glm-4.6:exacto": {
+      "inputPer1MUsd": 0.44999999999999996,
+      "outputPer1MUsd": 1.9
+    },
+    "openrouter/z-ai/glm-4.6v": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.8999999999999999,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/z-ai/glm-4.7": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.2,
+      "cacheReadPer1MUsd": 0.11,
+      "cacheWritePer1MUsd": 0
+    },
+    "openrouter/z-ai/glm-4.7-flash": {
+      "inputPer1MUsd": 0.060500000000000005,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0
+    },
+    "openrouter/z-ai/glm-5": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 1.92,
+      "cacheReadPer1MUsd": 0.12
+    },
+    "openrouter/z-ai/glm-5-turbo": {
+      "inputPer1MUsd": 1.2,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.24
+    },
+    "openrouter/z-ai/glm-5.1": {
+      "inputPer1MUsd": 0.966,
+      "outputPer1MUsd": 3.036,
+      "cacheReadPer1MUsd": 0.1794,
+      "cacheWritePer1MUsd": 0
+    },
+    "openrouter/z-ai/glm-5.2": {
+      "inputPer1MUsd": 0.15200000000000002,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "openrouter/z-ai/glm-5.2:free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "openrouter/z-ai/glm-5.3": {
+      "inputPer1MUsd": 0.07,
+      "outputPer1MUsd": 7,
+      "cacheReadPer1MUsd": 0.065
+    },
+    "openrouter/z-ai/glm-5.3-flash": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.03
+    },
+    "openrouter/z-ai/glm-5.3-flash:batch": {
+      "inputPer1MUsd": 0.06,
+      "outputPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.012
+    },
+    "openrouter/z-ai/glm-5.3-flashx": {
+      "inputPer1MUsd": 0.37,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.09
+    },
+    "openrouter/z-ai/glm-5.3-prime": {
+      "inputPer1MUsd": 2.8,
+      "outputPer1MUsd": 8.8,
+      "cacheReadPer1MUsd": 0.56
+    },
+    "openrouter/z-ai/glm-5.3:batch": {
+      "inputPer1MUsd": 0.44999999999999996,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "openrouter/z-ai/glm-5v-turbo": {
+      "inputPer1MUsd": 1.2,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.24
+    },
+    "openrouter/~anthropic/claude-fable-latest": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 50,
+      "cacheReadPer1MUsd": 0.25,
+      "cacheWritePer1MUsd": 12.5
+    },
+    "openrouter/~anthropic/claude-haiku-latest": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "cacheWritePer1MUsd": 1.25
+    },
+    "openrouter/~anthropic/claude-opus-latest": {
+      "inputPer1MUsd": 4,
+      "outputPer1MUsd": 20,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 5
+    },
+    "openrouter/~anthropic/claude-sonnet-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/~deepseek/deepseek-flash-latest": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.006
+    },
+    "openrouter/~deepseek/deepseek-pro-latest": {
+      "inputPer1MUsd": 1.32,
+      "outputPer1MUsd": 3.9600000000000004,
+      "cacheReadPer1MUsd": 0.044
+    },
+    "openrouter/~deepseek/deepseek-v4-flash-latest": {
+      "inputPer1MUsd": 0.04,
+      "outputPer1MUsd": 0.64,
+      "cacheReadPer1MUsd": 0.016
+    },
+    "openrouter/~google/gemini-flash-latest": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 3.75,
+      "cacheReadPer1MUsd": 0.075,
+      "cacheWritePer1MUsd": 0.0416666666666667
+    },
+    "openrouter/~google/gemini-pro-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "openrouter/~moonshotai/kimi-latest": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3
+    },
+    "openrouter/~openai/gpt-astra-latest": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 50,
+      "cacheReadPer1MUsd": 1,
+      "cacheWritePer1MUsd": 12.5
+    },
+    "openrouter/~openai/gpt-luna-latest": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
+    "openrouter/~openai/gpt-mini-latest": {
+      "inputPer1MUsd": 0.75,
+      "outputPer1MUsd": 4.5,
+      "cacheReadPer1MUsd": 0.075
+    },
+    "openrouter/~openai/gpt-sol-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/~openai/gpt-terra-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
+    },
+    "openrouter/~x-ai/grok-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/~z-ai/glm-flash-latest": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "openrouter/~z-ai/glm-latest": {
+      "inputPer1MUsd": 0.6537999999999999,
+      "outputPer1MUsd": 2.0547999999999997,
+      "cacheReadPer1MUsd": 0.12142000000000001
     },
     "palm/chat-bison": {
       "inputPer1MUsd": 0.125,
@@ -981,6 +3149,11 @@
     "wandb/zai-org/glm-4.5": {
       "inputPer1MUsd": 55000,
       "outputPer1MUsd": 200000
+    },
+    "xai.grok-4.7": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.5
     },
     "xai/grok-2": {
       "inputPer1MUsd": 2,

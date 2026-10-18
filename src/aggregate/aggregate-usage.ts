@@ -3,24 +3,46 @@ import type {
   GrandTotalRow,
   ModelUsageBreakdown,
   PeriodCombinedRow,
+  PeriodProjectRow,
   PeriodSourceRow,
+  ProjectUsageReportRow,
   UsageReportRow,
   UsageTotals,
 } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { getPeriodKey, type UsageGranularity } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
+import { toProjectKey } from './project-key.js';
 
 export type AggregateUsageOptions = {
-  granularity: ReportGranularity;
+  granularity: UsageGranularity;
   timezone: string;
   sourceOrder?: string[];
   includeModelBreakdown?: boolean;
-  /** One row per source and machine instead of per source. */
-  byMachine?: boolean;
+  /** Splits each source row per machine (`--by-machine`), per project (`--by-repo`), or both. */
+  split?: { machine?: boolean; repo?: boolean };
+  /**
+   * `repo`: one `period_project` row per project instead of one row per source; `split`
+   * does not apply.
+   */
+  primary?: 'source' | 'repo';
+  /**
+   * Labels from one `buildProjectLabels` call over the report's filtered events; required
+   * with `split.repo` or `primary: 'repo'`.
+   */
+  projectLabels?: ReadonlyMap<string | undefined, string>;
+};
+
+/** What a row groups by, taken from its first event. */
+type RowGroup = {
+  source: string;
+  machine?: string;
+  /** Present when the row is per project; `key` is undefined for unattributed usage. */
+  project?: { key: string | undefined; label: string };
 };
 
 type RowAccumulator = {
+  group: RowGroup;
   totals: UsageTotals;
   modelTotals?: Map<string, UsageTotals>;
 };
@@ -30,7 +52,7 @@ type RankedModelUsage = {
   modelBreakdown: ModelUsageBreakdown[];
 };
 
-function createEmptyTotals(): UsageTotals {
+export function createEmptyTotals(): UsageTotals {
   return {
     inputTokens: 0,
     outputTokens: 0,
@@ -41,14 +63,15 @@ function createEmptyTotals(): UsageTotals {
   };
 }
 
-function createRowAccumulator(includeModelBreakdown: boolean): RowAccumulator {
+function createRowAccumulator(group: RowGroup, includeModelBreakdown: boolean): RowAccumulator {
   return {
+    group,
     totals: createEmptyTotals(),
     modelTotals: includeModelBreakdown ? new Map<string, UsageTotals>() : undefined,
   };
 }
 
-function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
+export function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
   target.inputTokens += event.inputTokens;
   target.outputTokens += event.outputTokens;
   target.reasoningTokens += event.reasoningTokens;
@@ -64,7 +87,7 @@ function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
   target.costUsd = addUsd(target.costUsd ?? 0, event.costUsd);
 }
 
-function normalizeModelKey(model: string | undefined): string | undefined {
+export function normalizeModelKey(model: string | undefined): string | undefined {
   if (!model) {
     return undefined;
   }
@@ -94,12 +117,17 @@ function addEventToAccumulator(
     return;
   }
 
-  const existingTotals = accumulator.modelTotals.get(normalizedModel) ?? createEmptyTotals();
-  addEventToTotals(existingTotals, event);
-  accumulator.modelTotals.set(normalizedModel, existingTotals);
+  let modelTotals = accumulator.modelTotals.get(normalizedModel);
+
+  if (!modelTotals) {
+    modelTotals = createEmptyTotals();
+    accumulator.modelTotals.set(normalizedModel, modelTotals);
+  }
+
+  addEventToTotals(modelTotals, event);
 }
 
-function addTotals(target: UsageTotals, source: UsageTotals): void {
+export function addTotals(target: UsageTotals, source: UsageTotals): void {
   target.inputTokens += source.inputTokens;
   target.outputTokens += source.outputTokens;
   target.reasoningTokens += source.reasoningTokens;
@@ -146,7 +174,9 @@ function compareModelUsageBreakdown(left: ModelUsageBreakdown, right: ModelUsage
   return compareByCodePoint(left.model, right.model);
 }
 
-function toRankedModelUsage(modelTotals: ReadonlyMap<string, UsageTotals>): RankedModelUsage {
+export function toRankedModelUsage(
+  modelTotals: ReadonlyMap<string, UsageTotals>,
+): RankedModelUsage {
   const modelBreakdown = [...modelTotals.entries()]
     .map(([model, totals]) => ({
       model,
@@ -160,81 +190,180 @@ function toRankedModelUsage(modelTotals: ReadonlyMap<string, UsageTotals>): Rank
   };
 }
 
-function sourceSortComparator(
-  left: string,
-  right: string,
-  sourceWeightMap: ReadonlyMap<string, number>,
-): number {
-  const leftWeight = sourceWeightMap.get(left) ?? Number.MAX_SAFE_INTEGER;
-  const rightWeight = sourceWeightMap.get(right) ?? Number.MAX_SAFE_INTEGER;
+/** Orders source ids as `sourceOrder` lists them, then unlisted ones by code point. */
+export function createSourceComparator(
+  sourceOrder: readonly string[],
+): (left: string, right: string) => number {
+  const sourceWeightMap = new Map(sourceOrder.map((source, index) => [source, index]));
 
-  if (leftWeight !== rightWeight) {
-    return leftWeight - rightWeight;
+  return (left, right) => {
+    const leftWeight = sourceWeightMap.get(left) ?? Number.MAX_SAFE_INTEGER;
+    const rightWeight = sourceWeightMap.get(right) ?? Number.MAX_SAFE_INTEGER;
+
+    if (leftWeight !== rightWeight) {
+      return leftWeight - rightWeight;
+    }
+
+    return compareByCodePoint(left, right);
+  };
+}
+
+type RowSplit = { machine: boolean; repo: boolean; primaryRepo: boolean };
+
+/** A row key that is unique per row group; `\0` cannot occur in ids or paths. */
+function toSplitRowKey(event: UsageEvent, split: RowSplit): string {
+  const projectToken = split.repo ? (toProjectKey(event.repoRoot) ?? '\0') : '';
+
+  if (split.primaryRepo) {
+    return projectToken;
   }
 
-  return compareByCodePoint(left, right);
+  const machineToken = split.machine ? (event.machine ?? LOCAL_MACHINE_NAME) : '';
+  return `${event.source}\0${machineToken}\0${projectToken}`;
 }
 
-function toMachineRowKey(source: string, machine: string): string {
-  return `${source}\0${machine}`;
+function toRowGroup(
+  event: UsageEvent,
+  split: RowSplit,
+  projectLabels: ReadonlyMap<string | undefined, string> | undefined,
+): RowGroup {
+  const group: RowGroup = { source: event.source };
+
+  if (split.machine) {
+    group.machine = event.machine ?? LOCAL_MACHINE_NAME;
+  }
+
+  if (split.repo) {
+    const key = toProjectKey(event.repoRoot);
+    const label = projectLabels?.get(key);
+
+    if (label === undefined) {
+      throw new Error(`No project label for ${key ?? 'unattributed usage'}`);
+    }
+
+    group.project = { key, label };
+  }
+
+  return group;
 }
 
-function fromMachineRowKey(rowKey: string): { source: string; machine: string } {
-  const separator = rowKey.indexOf('\0');
-  return { source: rowKey.slice(0, separator), machine: rowKey.slice(separator + 1) };
+/** Projects by label, unattributed usage last. */
+function compareProjects(left: RowGroup['project'], right: RowGroup['project']): number {
+  if (!left || !right) {
+    return 0;
+  }
+
+  return (
+    Number(left.key === undefined) - Number(right.key === undefined) ||
+    compareByCodePoint(left.label, right.label)
+  );
 }
 
 /** Sources in their usual order; with --by-machine, this machine before the others. */
-function compareRowKeys(
-  left: string,
-  right: string,
-  sourceWeightMap: ReadonlyMap<string, number>,
-  byMachine: boolean,
+function compareRowGroups(
+  left: RowGroup,
+  right: RowGroup,
+  compareSources: (left: string, right: string) => number,
+  split: RowSplit,
 ): number {
-  if (!byMachine) {
-    return sourceSortComparator(left, right, sourceWeightMap);
+  if (split.primaryRepo) {
+    return compareProjects(left.project, right.project);
   }
 
-  const leftKey = fromMachineRowKey(left);
-  const rightKey = fromMachineRowKey(right);
-
   return (
-    sourceSortComparator(leftKey.source, rightKey.source, sourceWeightMap) ||
-    Number(leftKey.machine !== LOCAL_MACHINE_NAME) -
-      Number(rightKey.machine !== LOCAL_MACHINE_NAME) ||
-    compareByCodePoint(leftKey.machine, rightKey.machine)
+    compareSources(left.source, right.source) ||
+    Number(left.machine !== undefined && left.machine !== LOCAL_MACHINE_NAME) -
+      Number(right.machine !== undefined && right.machine !== LOCAL_MACHINE_NAME) ||
+    compareByCodePoint(left.machine ?? '', right.machine ?? '') ||
+    compareProjects(left.project, right.project)
   );
+}
+
+function toGroupRow(
+  periodKey: string,
+  group: RowGroup,
+  rankedModelUsage: RankedModelUsage,
+  totals: UsageTotals,
+  primaryRepo: boolean,
+): PeriodSourceRow | PeriodProjectRow {
+  const project = group.project && {
+    repoRoot: group.project.key ?? null,
+    project: group.project.label,
+  };
+
+  if (primaryRepo && project) {
+    return {
+      rowType: 'period_project',
+      periodKey,
+      ...project,
+      models: rankedModelUsage.models,
+      modelBreakdown: rankedModelUsage.modelBreakdown,
+      ...totals,
+    };
+  }
+
+  return {
+    rowType: 'period_source',
+    periodKey,
+    source: group.source,
+    ...(group.machine === undefined ? {} : { machine: group.machine }),
+    ...project,
+    models: rankedModelUsage.models,
+    modelBreakdown: rankedModelUsage.modelBreakdown,
+    ...totals,
+  };
 }
 
 export function aggregateUsage(
   events: UsageEvent[],
+  options: AggregateUsageOptions & { primary: 'repo' },
+): ProjectUsageReportRow[];
+export function aggregateUsage(
+  events: UsageEvent[],
+  options: AggregateUsageOptions & { primary?: 'source' },
+): UsageReportRow[];
+export function aggregateUsage(
+  events: UsageEvent[],
   options: AggregateUsageOptions,
-): UsageReportRow[] {
+): (UsageReportRow | ProjectUsageReportRow)[] {
+  const primaryRepo = options.primary === 'repo';
+  const split: RowSplit = {
+    machine: !primaryRepo && options.split?.machine === true,
+    repo: primaryRepo || options.split?.repo === true,
+    primaryRepo,
+  };
+  // Without a split the row key is the source itself, so the common path builds no key.
+  const isSplit = split.machine || split.repo;
   const includeModelBreakdown = options.includeModelBreakdown ?? true;
-  const sourceWeightMap = new Map<string, number>();
-
-  for (const [index, source] of (options.sourceOrder ?? []).entries()) {
-    sourceWeightMap.set(source, index);
-  }
+  const compareSources = createSourceComparator(options.sourceOrder ?? []);
 
   const periodMap = new Map<string, Map<string, RowAccumulator>>();
 
   for (const event of events) {
     const periodKey = getPeriodKey(event.timestamp, options.granularity, options.timezone);
-    const periodSources = periodMap.get(periodKey) ?? new Map<string, RowAccumulator>();
-    periodMap.set(periodKey, periodSources);
+    let periodSources = periodMap.get(periodKey);
 
-    const rowKey = options.byMachine
-      ? toMachineRowKey(event.source, event.machine ?? LOCAL_MACHINE_NAME)
-      : event.source;
-    const rowAccumulator = periodSources.get(rowKey) ?? createRowAccumulator(includeModelBreakdown);
-    periodSources.set(rowKey, rowAccumulator);
+    if (!periodSources) {
+      periodSources = new Map<string, RowAccumulator>();
+      periodMap.set(periodKey, periodSources);
+    }
+
+    const rowKey = isSplit ? toSplitRowKey(event, split) : event.source;
+    let rowAccumulator = periodSources.get(rowKey);
+
+    if (!rowAccumulator) {
+      rowAccumulator = createRowAccumulator(
+        isSplit ? toRowGroup(event, split, options.projectLabels) : { source: event.source },
+        includeModelBreakdown,
+      );
+      periodSources.set(rowKey, rowAccumulator);
+    }
 
     addEventToAccumulator(rowAccumulator, event, includeModelBreakdown);
   }
 
   const sortedPeriodKeys = [...periodMap.keys()].sort(compareByCodePoint);
-  const rows: UsageReportRow[] = [];
+  const rows: (UsageReportRow | ProjectUsageReportRow)[] = [];
   const grandTotals = createEmptyTotals();
   const grandModelTotals = new Map<string, UsageTotals>();
 
@@ -248,36 +377,19 @@ export function aggregateUsage(
     const periodCombinedTotals = createEmptyTotals();
     const periodCombinedModelTotals = new Map<string, UsageTotals>();
 
-    const sortedRowKeys = [...sourceMap.keys()].sort((left, right) =>
-      compareRowKeys(left, right, sourceWeightMap, options.byMachine === true),
+    const sortedAccumulators = [...sourceMap.values()].sort((left, right) =>
+      compareRowGroups(left.group, right.group, compareSources, split),
     );
 
-    for (const rowKey of sortedRowKeys) {
-      const accumulator = sourceMap.get(rowKey);
-      const { source, machine } = options.byMachine
-        ? fromMachineRowKey(rowKey)
-        : { source: rowKey, machine: undefined };
-
-      if (!accumulator) {
-        continue;
-      }
-
+    for (const accumulator of sortedAccumulators) {
       const rankedModelUsage =
         includeModelBreakdown && accumulator.modelTotals
           ? toRankedModelUsage(accumulator.modelTotals)
           : { models: [], modelBreakdown: [] };
 
-      const sourceRow: PeriodSourceRow = {
-        rowType: 'period_source',
-        periodKey,
-        source,
-        ...(machine === undefined ? {} : { machine }),
-        models: rankedModelUsage.models,
-        modelBreakdown: rankedModelUsage.modelBreakdown,
-        ...accumulator.totals,
-      };
-
-      rows.push(sourceRow);
+      rows.push(
+        toGroupRow(periodKey, accumulator.group, rankedModelUsage, accumulator.totals, primaryRepo),
+      );
 
       addTotals(periodCombinedTotals, accumulator.totals);
       addTotals(grandTotals, accumulator.totals);
@@ -287,7 +399,7 @@ export function aggregateUsage(
       }
     }
 
-    if (sortedRowKeys.length > 1) {
+    if (sortedAccumulators.length > 1) {
       const rankedCombinedModels = includeModelBreakdown
         ? toRankedModelUsage(periodCombinedModelTotals)
         : { models: [], modelBreakdown: [] };

@@ -1,0 +1,1 @@
+{"source":"qwen","sessionId":"qwen-e2e-session","timestamp":"2026-06-15T12:20:00.000Z","model":"qwen3-coder-e2e","inputTokens":55,"outputTokens":25,"reasoningTokens":5,"cacheReadTokens":5,"cacheWriteTokens":0,"cacheWrite1hTokens":0,"totalTokens":90,"costMode":"estimated"}

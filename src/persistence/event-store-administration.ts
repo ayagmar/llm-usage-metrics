@@ -3,16 +3,29 @@ import { chmod, link, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
-import { createUsageEvent, normalizeSourceId, type UsageEvent } from '../domain/usage-event.js';
-import { loadNodeSqliteModule } from '../sources/opencode/node-sqlite-loader.js';
-import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
+import { createUsageEvent, type UsageEvent } from '../domain/usage-event.js';
+import {
+  loadNodeSqliteModule,
+  type FileDependencyFingerprint as EventStoreDependencyFingerprint,
+  type FileFingerprint,
+  compareByCodePoint,
+  hasErrorCode,
+  isJsonlReadCursor,
+  takeUncountedEvents,
+} from '@ayagmar/agent-sessions/internal';
+import {
+  computeEventContentHash,
+  normalizeSourceId,
+  type ReadCursor,
+  type SourceSkippedRowReasonStat,
+} from '@ayagmar/agent-sessions';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';
 import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
 import {
-  computeEventContentHash,
   normalizeStoredEventTuple,
+  selectSingleRequestBeforeFlagSql,
+  STORED_EVENT_COLUMNS,
   type StoredEventTuple,
 } from './event-store-codec.js';
 import {
@@ -26,30 +39,49 @@ import {
   toNonNegativeNumber,
   toText,
 } from './event-store-database.js';
-import { takeUncountedEvents } from './event-store-history.js';
 import {
   assertSupportedSchemaVersion,
-  EVENT_STORE_SCHEMA_VERSION,
+  EventStoreSchemaVersionError,
+  hasSchemaVersion,
   initializeSchema,
 } from './event-store-schema.js';
-import { hasErrorCode } from '../utils/error-code.js';
+import {
+  prepareAppendStatements,
+  prepareFileAppend,
+  prepareReadCursorStatements,
+  writeFileReadCursor,
+  type EventStoreAppend,
+} from './event-store-append.js';
+import {
+  deleteFileSessionEvents,
+  insertFileSessionEvents,
+  prepareSelectFileSessionEvents,
+  prepareSessionEventStatements,
+  selectFileSessionEvents,
+  sessionEventCountSql,
+  type StoredSessionEvent,
+  type StoredSessionEventKind,
+} from './event-store-session-events.js';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
+
+// The WAL size, about 40 MB of 4 KiB pages, at which a commit checkpoints. It is a
+// threshold, not a cap: a reader's open snapshot keeps the WAL from being reused, and one
+// large transaction writes past it. On synthetic Claude corpora a cold run is as fast as
+// with 100,000 pages, whose WAL reached 76 MB on 2 GiB and 345 MB on 5.9 GiB, and 10-20%
+// faster than with the default 1,000.
+const RUN_WAL_AUTOCHECKPOINT_PAGES = 10_000;
 
 const loadEventStoreSqliteModule: LoadEventStoreSqliteModule = () =>
   loadNodeSqliteModule('Event store');
 
-export type EventStoreDependencyFingerprint = {
-  path: string;
-  exists: boolean;
-  size?: number;
-  mtimeMs?: number;
-};
-
-export type EventStoreFileFingerprint = {
-  /** Identifies the parser that produced the stored events; a change forces a re-parse. */
-  parserVersion?: string;
-  dependencies: EventStoreDependencyFingerprint[];
+/** A file's fingerprint as the store keys it. */
+export type EventStoreFileFingerprint = FileFingerprint & {
+  /**
+   * The kinds besides usage the store keeps for the file's source, sorted; unset for a
+   * usage-only source. Part of the key, so a file stored before they were kept re-ingests.
+   */
+  storedKinds?: readonly StoredSessionEventKind[];
 };
 
 export type EventStoreFileEntry = {
@@ -63,6 +95,8 @@ export type ReplaceFileEventsInput = {
   filePath: string;
   fingerprint: EventStoreFileFingerprint;
   events: UsageEvent[];
+  /** The file's tool calls and messages, in the order the adapter yielded them. */
+  sessionEvents?: readonly StoredSessionEvent[];
   skippedRows: number;
   skippedRowReasons?: SourceSkippedRowReasonStat[];
   now: number;
@@ -72,6 +106,13 @@ export type ReplaceFileEventsInput = {
    * override-only, until a run with the usual directories discovers it too.
    */
   overrideOnly?: boolean;
+  /** Where the next read of the file resumes; stored with this version of the file. */
+  readCursor?: ReadCursor;
+  /**
+   * Set when the events are only those of the lines appended after the stored cursor: they
+   * are added to the stored ones instead of replacing them. `skippedRows` is the total.
+   */
+  append?: EventStoreAppend;
 };
 
 export type DeleteStoredFilesInput = {
@@ -81,11 +122,15 @@ export type DeleteStoredFilesInput = {
 
 export type DeleteStoredFilesResult = {
   deletedFileCount: number;
+  /** Usage events, tool calls and messages. */
   deletedEventCount: number;
 };
 
 export type EventStoreSummary = {
+  /** Usage events. */
   eventCount: number;
+  toolCallCount: number;
+  messageCount: number;
   schemaVersion?: string;
 };
 
@@ -95,9 +140,11 @@ export type EventStoreStoredFile = {
 };
 
 export type EventStoreFileSnapshot = EventStoreStoredFile & {
-  /** A digest of `events`: it changes exactly when they do. */
+  /** A digest of `events` and `sessionEvents`: it changes exactly when they do. */
   revision: string;
   events: UsageEvent[];
+  /** The file's tool calls and messages; empty for a file without usage events. */
+  sessionEvents: StoredSessionEvent[];
 };
 
 function normalizeStoreSource(source: string): string {
@@ -192,8 +239,13 @@ function normalizeEventStoreFingerprint(
   dependencies.sort(compareDependencyFingerprint);
 
   const parserVersion = toText(fingerprint.parserVersion);
+  const storedKinds = [...new Set(fingerprint.storedKinds)].sort(compareByCodePoint);
 
-  return parserVersion ? { parserVersion, dependencies } : { dependencies };
+  return {
+    ...(parserVersion && { parserVersion }),
+    ...(storedKinds.length > 0 && { storedKinds }),
+    dependencies,
+  };
 }
 
 export function serializeEventStoreFingerprint(fingerprint: EventStoreFileFingerprint): string {
@@ -381,8 +433,12 @@ export async function openEventStore(
     // In WAL mode NORMAL skips the fsync on every commit but keeps the database
     // consistent; a power loss can only drop the latest commits, which the next run
     // re-parses from the source files. A rollback journal keeps the safer default.
+    // A run's commits stay in the WAL until it reaches RUN_WAL_AUTOCHECKPOINT_PAGES or
+    // closeEventStore checkpoints them: checkpointing every 1,000 pages rewrote the
+    // same index pages many times over.
     if (toText(database.prepare('PRAGMA journal_mode').get()?.journal_mode) === 'wal') {
       database.exec('PRAGMA synchronous=NORMAL');
+      database.exec(`PRAGMA wal_autocheckpoint=${String(RUN_WAL_AUTOCHECKPOINT_PAGES)}`);
     }
     initializeSchema(database);
     await restrictEventStoreFiles(filePath);
@@ -417,11 +473,18 @@ export async function readEventStoreSummary(
     const schemaVersionRow = database
       .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
       .get();
-    const countRow = database.prepare('SELECT COUNT(*) AS count FROM events').get();
+    const schemaVersion = toText(schemaVersionRow?.value);
+    const countRows = (tableName: 'events' | 'tool_calls' | 'messages'): number =>
+      toNonNegativeInteger(
+        database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get()?.count,
+      ) ?? 0;
+    const hasSessionEvents = hasSchemaVersion(schemaVersion, 5);
 
     return {
-      eventCount: toNonNegativeInteger(countRow?.count) ?? 0,
-      schemaVersion: toText(schemaVersionRow?.value),
+      eventCount: countRows('events'),
+      toolCallCount: hasSessionEvents ? countRows('tool_calls') : 0,
+      messageCount: hasSessionEvents ? countRows('messages') : 0,
+      schemaVersion,
     };
   } finally {
     database.close();
@@ -581,6 +644,40 @@ function isWideWindow(
   return (toNonNegativeInteger(row?.count) ?? 0) >= threshold;
 }
 
+function selectWindowEventsSql(wideWindow: boolean): string {
+  return [
+    `SELECT ${STORED_EVENT_COLUMNS}`,
+    // A wide window walks the files in key order and each file's rows in event order.
+    wideWindow
+      ? 'FROM files CROSS JOIN events ON events.file_id = files.id'
+      : 'FROM events JOIN files ON files.id = events.file_id',
+    'WHERE events.timestamp >= ? AND events.timestamp < ?',
+    'ORDER BY files.source, files.file_path, events.event_index',
+  ].join('\n');
+}
+
+// A machine cache that no sync has migrated yet keys its events by source and path.
+function selectPreV5WindowEventsSql(
+  schemaVersion: string | undefined,
+  wideWindow: boolean,
+): string {
+  // A read-only open cannot migrate. Stores older than v4 lack the one-hour column, and
+  // stores older than v5 the single-request flag.
+  const cacheWrite1hColumn = hasSchemaVersion(schemaVersion, 4)
+    ? 'cache_write_1h_tokens'
+    : '0 AS cache_write_1h_tokens';
+
+  return [
+    'SELECT source, session_id, timestamp, model, provider, repo_root,',
+    '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+    `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode,`,
+    `  ${selectSingleRequestBeforeFlagSql('source')} AS single_request`,
+    wideWindow ? 'FROM events INDEXED BY events_file' : 'FROM events',
+    'WHERE timestamp >= ? AND timestamp < ?',
+    'ORDER BY source, file_path, event_index',
+  ].join('\n');
+}
+
 /**
  * Reads the meta table and every stored event, optionally only those with
  * `fromTimestamp <= timestamp < toTimestamp` (ISO strings), from a store opened
@@ -602,27 +699,20 @@ export async function readEventStoreEvents(
     timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
   });
 
+  // One read transaction from the schema check to the last row: a migration another
+  // process commits meanwhile cannot change the tables the chosen query reads.
+  database.exec('BEGIN');
+
   try {
     assertSupportedSchemaVersion(database);
     const meta = readMetaValues(database);
-    // A read-only open cannot migrate, and stores older than v4 lack the one-hour column.
-    const cacheWrite1hColumn =
-      meta.get('schemaVersion') === EVENT_STORE_SCHEMA_VERSION
-        ? 'cache_write_1h_tokens'
-        : '0 AS cache_write_1h_tokens';
     const fromTimestamp = window.fromTimestamp ?? '';
     const toTimestamp = window.toTimestamp ?? '\uFFFF';
+    const wideWindow = isWideWindow(database, fromTimestamp, toTimestamp);
     const statement = database.prepare(
-      [
-        'SELECT source, session_id, timestamp, model, provider, repo_root,',
-        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode`,
-        isWideWindow(database, fromTimestamp, toTimestamp)
-          ? 'FROM events INDEXED BY events_file'
-          : 'FROM events',
-        'WHERE timestamp >= ? AND timestamp < ?',
-        'ORDER BY source, file_path, event_index',
-      ].join('\n'),
+      hasSchemaVersion(meta.get('schemaVersion'), 5)
+        ? selectWindowEventsSql(wideWindow)
+        : selectPreV5WindowEventsSql(meta.get('schemaVersion'), wideWindow),
     );
     statement.setReturnArrays(true);
     // StatementSync's return type does not narrow after setReturnArrays(true).
@@ -639,6 +729,60 @@ export async function readEventStoreEvents(
     }
 
     return { meta, events };
+  } finally {
+    database.exec('COMMIT');
+    database.close();
+  }
+}
+
+/**
+ * Reads the stored tool calls and messages of `files`, each file's in the order its adapter
+ * yielded them, from a store opened read-only in one read transaction. A row the event
+ * constructors reject is skipped; a file the store does not hold has none.
+ */
+export async function readStoredSessionEvents(
+  filePath: string,
+  files: readonly EventStoreStoredFile[],
+  kinds: ReadonlySet<StoredSessionEventKind>,
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<StoredSessionEvent[][]> {
+  const sqliteModule = await loadSqliteModule();
+
+  if (!isEventStoreSqliteModule(sqliteModule)) {
+    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
+  }
+
+  const database = new sqliteModule.DatabaseSync(filePath, {
+    readOnly: true,
+    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+  });
+
+  try {
+    const schemaVersion = readMetaValues(database).get('schemaVersion');
+
+    if (!hasSchemaVersion(schemaVersion, 5)) {
+      throw new EventStoreSchemaVersionError(schemaVersion);
+    }
+
+    const select = prepareSelectFileSessionEvents(database, kinds);
+
+    if (!select) {
+      return files.map(() => []);
+    }
+
+    database.exec('BEGIN');
+
+    try {
+      return files.map((file) =>
+        selectFileSessionEvents(
+          select,
+          normalizeStoreSource(file.source),
+          normalizeStoreFilePath(file.filePath),
+        ),
+      );
+    } finally {
+      database.exec('COMMIT');
+    }
   } finally {
     database.close();
   }
@@ -693,12 +837,11 @@ function selectFileEventRows(
   if (!statement) {
     statement = store.database.prepare(
       [
-        'SELECT source, session_id, timestamp, model, provider, repo_root,',
-        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
-        'FROM events',
-        'WHERE source = ? AND file_path = ?',
-        'ORDER BY event_index ASC',
+        `SELECT ${STORED_EVENT_COLUMNS}`,
+        'FROM files',
+        'CROSS JOIN events',
+        'WHERE files.source = ? AND files.file_path = ? AND events.file_id = files.id',
+        'ORDER BY events.event_index ASC',
       ].join('\n'),
     );
     statement.setReturnArrays(true);
@@ -708,6 +851,30 @@ function selectFileEventRows(
   // StatementSync's return type does not narrow after setReturnArrays(true).
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return statement.all(source, filePath) as unknown as StoredEventTuple[];
+}
+
+/** The cursor stored with the file's stored version, or undefined when there is none. */
+export function getFileReadCursor(
+  store: EventStore,
+  source: string,
+  filePath: string,
+): ReadCursor | undefined {
+  const statements = (store.statements.readCursors ??= prepareReadCursorStatements(store.database));
+  const text = toText(
+    statements.select.get(normalizeStoreSource(source), normalizeStoreFilePath(filePath))?.cursor,
+  );
+
+  if (!text) {
+    return undefined;
+  }
+
+  try {
+    // The read validates the rest; a cursor that fails it restarts the read.
+    const cursor: unknown = JSON.parse(text);
+    return isJsonlReadCursor(cursor) ? cursor : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function readFileEvents(
@@ -762,9 +929,9 @@ export function readDepartedFileEvents(
  * transaction, so a concurrent run that rewrites a file cannot be seen half-written. As
  * reports do, a history file, or a file of a source in `repeatingSources` (see
  * `eventsRepeatAcrossFiles`), is read without the events the files before it already
- * hold, decided on this same snapshot. A file's revision is a digest of the events read,
- * so it changes exactly when they do. Invalid rows are skipped, as for history; a file
- * the store does not hold has no events.
+ * hold, decided on this same snapshot. A file's revision is a digest of the events read
+ * and of its tool calls and messages, so it changes exactly when they do. Invalid rows are
+ * skipped, as for history; a file the store does not hold has no events.
  */
 export function readStoredFileSnapshots(
   store: EventStore,
@@ -778,6 +945,10 @@ export function readStoredFileSnapshots(
   const repeatingSources = options.repeatingSources ?? new Set<string>();
   const snapshots: EventStoreFileSnapshot[] = [];
   const countedHashes = new Map<string, number>();
+  const selectSessionEvents = prepareSelectFileSessionEvents(
+    store.database,
+    new Set(['tool_call', 'message']),
+  );
   const readSnapshot = (
     file: EventStoreStoredFile,
     selectEvents: (events: UsageEvent[]) => UsageEvent[],
@@ -785,12 +956,24 @@ export function readStoredFileSnapshots(
     const source = normalizeStoreSource(file.source);
     const filePath = normalizeStoreFilePath(file.filePath);
     const events = selectEvents(readDepartedFileEvents(store, source, filePath));
+    // A file without usage is not exported, so neither are its tool calls and messages.
+    const sessionEvents =
+      selectSessionEvents && events.length > 0
+        ? selectFileSessionEvents(selectSessionEvents, source, filePath)
+        : [];
+    const revision = createHash('sha256').update(JSON.stringify(events));
+
+    // Only when present: a file without them keeps the revision older versions gave it.
+    if (sessionEvents.length > 0) {
+      revision.update(JSON.stringify(sessionEvents));
+    }
 
     snapshots.push({
       source,
       filePath,
-      revision: createHash('sha256').update(JSON.stringify(events)).digest('hex').slice(0, 16),
+      revision: revision.digest('hex').slice(0, 16),
       events,
+      sessionEvents,
     });
   };
 
@@ -825,15 +1008,17 @@ export function readStoredFileSnapshots(
   return snapshots;
 }
 
-function countMatchingRows(
-  store: EventStore,
-  tableName: 'events' | 'files',
-  source: string,
-  filePath: string,
-): number {
+/** How many usage events the store holds for the file. */
+export function countFileEvents(store: EventStore, source: string, filePath: string): number {
   const row = store.database
-    .prepare(`SELECT COUNT(*) AS count FROM ${tableName} WHERE source = ? AND file_path = ?`)
-    .get(source, filePath);
+    .prepare(
+      [
+        'SELECT COUNT(*) AS count',
+        'FROM events',
+        'WHERE file_id = (SELECT id FROM files WHERE source = ? AND file_path = ?)',
+      ].join('\n'),
+    )
+    .get(normalizeStoreSource(source), normalizeStoreFilePath(filePath));
   return toNonNegativeInteger(row?.count) ?? 0;
 }
 
@@ -851,22 +1036,43 @@ export function deleteStoredFiles(
   };
 
   runTransaction(store.database, () => {
-    const deleteEvents = store.database.prepare(
-      'DELETE FROM events WHERE source = ? AND file_path = ?',
+    const selectFile = store.database.prepare(
+      [
+        'SELECT file.id AS id,',
+        `  (SELECT COUNT(*) FROM events WHERE file_id = file.id) + ${sessionEventCountSql('file')}`,
+        '    AS row_count',
+        'FROM files AS file',
+        'WHERE file.source = ? AND file.file_path = ?',
+      ].join('\n'),
     );
-    const deleteFile = store.database.prepare(
-      'DELETE FROM files WHERE source = ? AND file_path = ?',
-    );
+    const deleteEvents = (store.statements.deleteFileEvents ??= store.database.prepare(
+      'DELETE FROM events WHERE file_id = ?',
+    ));
+    const deleteFile = store.database.prepare('DELETE FROM files WHERE id = ?');
     const deleteOverrideOnlyFile = store.database.prepare(
       'DELETE FROM override_only_files WHERE source = ? AND file_path = ?',
     );
+    const sessionEventStatements = (store.statements.sessionEvents ??=
+      prepareSessionEventStatements(store.database));
+    const readCursorStatements = (store.statements.readCursors ??= prepareReadCursorStatements(
+      store.database,
+    ));
 
     for (const file of normalizedFiles) {
-      result.deletedEventCount += countMatchingRows(store, 'events', file.source, file.filePath);
-      result.deletedFileCount += countMatchingRows(store, 'files', file.source, file.filePath);
-      deleteEvents.run(file.source, file.filePath);
-      deleteFile.run(file.source, file.filePath);
       deleteOverrideOnlyFile.run(file.source, file.filePath);
+      const row = selectFile.get(file.source, file.filePath);
+      const fileId = toNonNegativeInteger(row?.id);
+
+      if (fileId === undefined) {
+        continue;
+      }
+
+      result.deletedFileCount += 1;
+      result.deletedEventCount += toNonNegativeInteger(row?.row_count) ?? 0;
+      deleteEvents.run(fileId);
+      deleteFileSessionEvents(sessionEventStatements, fileId);
+      readCursorStatements.delete.run(fileId);
+      deleteFile.run(fileId);
     }
   });
 
@@ -902,19 +1108,22 @@ export function replaceFilesEvents(
     skippedRowReasons: stringifySkippedRowReasons(input.skippedRowReasons),
     ingestedAt: Math.max(0, Math.trunc(input.now)),
     events: input.events.map((event) => createUsageEvent(event)),
+    sessionEvents: input.sessionEvents ?? [],
     overrideOnly: input.overrideOnly === true,
+    readCursor: input.readCursor,
+    append: input.append,
   }));
 
   const deleteFileEvents = (store.statements.deleteFileEvents ??= store.database.prepare(
-    'DELETE FROM events WHERE source = ? AND file_path = ?',
+    'DELETE FROM events WHERE file_id = ?',
   ));
   const insertEvent = (store.statements.insertEvent ??= store.database.prepare(
     [
       'INSERT INTO events (',
-      '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
+      '  file_id, event_index, session_id, timestamp, model, provider, repo_root,',
       '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
       '  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd,',
-      '  cost_mode',
+      '  cost_mode, single_request',
       ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ].join('\n'),
   ));
@@ -928,6 +1137,7 @@ export function replaceFilesEvents(
       '  skipped_rows = excluded.skipped_rows,',
       '  skipped_row_reasons = excluded.skipped_row_reasons,',
       '  ingested_at = excluded.ingested_at',
+      'RETURNING id',
     ].join('\n'),
   ));
 
@@ -937,22 +1147,62 @@ export function replaceFilesEvents(
       'SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM files WHERE source = ? AND file_path = ?)',
     ].join('\n'),
   ));
+  const sessionEventStatements = (store.statements.sessionEvents ??= prepareSessionEventStatements(
+    store.database,
+  ));
+  const readCursorStatements = (store.statements.readCursors ??= prepareReadCursorStatements(
+    store.database,
+  ));
 
   runTransaction(store.database, () => {
     for (const write of writes) {
       const { source, filePath } = write;
-      deleteFileEvents.run(source, filePath);
+      let firstEventIndex = 0;
+      let firstSessionEventIndex = 0;
 
-      // Before the upsert, which would make every file look already stored.
-      if (write.overrideOnly) {
+      if (write.append) {
+        // Checked under the write lock: another run may have stored the file since.
+        const append = prepareFileAppend(
+          (store.statements.append ??= prepareAppendStatements(store.database)),
+          write,
+          write.append,
+        );
+
+        if (!append) {
+          continue;
+        }
+
+        firstEventIndex = append.nextEventIndex;
+        firstSessionEventIndex = append.nextSessionEventIndex;
+      } else if (write.overrideOnly) {
+        // Before the upsert, which would make every file look already stored.
         markOverrideOnlyFile.run(source, filePath, source, filePath);
       }
 
-      write.events.forEach((event, eventIndex) => {
-        insertEvent.run(
+      const fileId = toNonNegativeInteger(
+        upsertFile.get(
           source,
           filePath,
-          eventIndex,
+          write.fingerprint,
+          write.skippedRows,
+          write.skippedRowReasons,
+          write.ingestedAt,
+        )?.id,
+      );
+
+      if (fileId === undefined) {
+        throw new Error(`Event store did not return a file id for ${filePath}`);
+      }
+
+      if (!write.append) {
+        deleteFileEvents.run(fileId);
+        deleteFileSessionEvents(sessionEventStatements, fileId);
+      }
+
+      write.events.forEach((event, position) => {
+        insertEvent.run(
+          fileId,
+          firstEventIndex + position,
           event.sessionId,
           event.timestamp,
           event.model ?? null,
@@ -968,17 +1218,16 @@ export function replaceFilesEvents(
           computeEventContentHash(event),
           event.costUsd ?? null,
           event.costMode,
+          event.singleRequest === true ? 1 : 0,
         );
       });
-
-      upsertFile.run(
-        source,
-        filePath,
-        write.fingerprint,
-        write.skippedRows,
-        write.skippedRowReasons,
-        write.ingestedAt,
+      insertFileSessionEvents(
+        sessionEventStatements,
+        fileId,
+        write.sessionEvents,
+        firstSessionEventIndex,
       );
+      writeFileReadCursor(readCursorStatements, fileId, write.fingerprint, write.readCursor);
     }
   });
 }
@@ -1046,5 +1295,11 @@ export function countEvents(store: EventStore): number {
 }
 
 export function closeEventStore(store: EventStore): void {
-  store.database.close();
+  try {
+    // Closing the last connection checkpoints too; with a reader still open, PASSIVE copies
+    // what it can without waiting for it.
+    store.database.exec('PRAGMA wal_checkpoint(PASSIVE)');
+  } finally {
+    store.database.close();
+  }
 }

@@ -23,7 +23,7 @@
       "type": "string"
     },
     "repoRoot": {
-      "description": "Repository root attributed to the event; omitted when unknown.",
+      "description": "Working directory the tool recorded for the event; omitted when unknown.",
       "type": "string"
     },
     "provider": {
@@ -52,6 +52,10 @@
       "description": "Whether the cost came from the source (explicit) or from pricing (estimated).",
       "type": "string",
       "enum": ["explicit", "estimated"]
+    },
+    "singleRequest": {
+      "description": "Present when the event records exactly one model request, so long-context tier rates can apply to it. Absent when it can sum several requests, and from events written by versions before 0.12.",
+      "const": true
     }
   },
   "required": ["source", "sessionId", "timestamp", "costMode"],

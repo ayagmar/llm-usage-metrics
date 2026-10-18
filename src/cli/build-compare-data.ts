@@ -1,11 +1,14 @@
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
+import { addEventToTotals } from '../aggregate/aggregate-usage.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs, validateDateInput } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -16,10 +19,13 @@ import type {
   CompareMetricDeltaRatio,
   CompareMetricKey,
   CompareMetricRow,
+  CompareSourceRow,
   CompareWindowRange,
   CompareWindowTotals,
 } from './usage-data-contracts.js';
 import { addUsd } from '../utils/usd-math.js';
+import { countDateKeyDays, getMonthEndDateKey, shiftDateKey } from '../utils/date-key.js';
+import { computeDeltaRatio } from '../utils/delta-ratio.js';
 import {
   createEmptyWindowTotals,
   isEventWithinWindow,
@@ -27,10 +33,16 @@ import {
   type UsageWindowSummary,
 } from './usage-window-summary.js';
 
-type DateParts = {
-  year: number;
-  month: number;
-  day: number;
+/** One project's totals in both windows (`--by-repo`). */
+export type CompareProjectRow = Omit<CompareSourceRow, 'source'> & {
+  /** The project key, `null` for usage without a repository root. */
+  repoRoot: string | null;
+  project: string;
+};
+
+/** Compare data, with one row per project under `--by-repo`. */
+export type CompareReportData = CompareDataResult & {
+  projects?: CompareProjectRow[];
 };
 
 type ResolvedCompareWindows = {
@@ -58,45 +70,20 @@ const metricDefinitions: Array<{
   { key: 'activeDays', label: 'Active days', valueType: 'integer' },
 ];
 
-function parseDateKey(value: string): DateParts {
-  const [year, month, day] = value.split('-').map((part) => Number.parseInt(part, 10));
-
-  return { year, month, day };
-}
-
-function formatDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function getMonthStart(dateKey: string): string {
-  const { year, month } = parseDateKey(dateKey);
-  return `${year}-${String(month).padStart(2, '0')}-01`;
-}
-
-function getMonthEnd(dateKey: string): string {
-  const { year, month } = parseDateKey(dateKey);
-  return formatDateKey(new Date(Date.UTC(year, month, 0)));
+  return `${dateKey.slice(0, 8)}01`;
 }
 
 function getPreviousMonthRange(dateKey: string): CompareWindowRange {
-  const { year, month } = parseDateKey(dateKey);
-  const previousMonthDay = formatDateKey(new Date(Date.UTC(year, month - 2, 1)));
+  const until = shiftDateKey(getMonthStart(dateKey), -1);
 
-  return {
-    since: getMonthStart(previousMonthDay),
-    until: getMonthEnd(previousMonthDay),
-    label: previousMonthDay.slice(0, 7),
-  };
-}
-
-function countInclusiveDays(since: string, until: string): number {
-  const sinceMs = new Date(`${since}T00:00:00.000Z`).getTime();
-  const untilMs = new Date(`${until}T00:00:00.000Z`).getTime();
-  return Math.floor((untilMs - sinceMs) / (24 * 60 * 60 * 1000)) + 1;
+  return { since: getMonthStart(until), until, label: until.slice(0, 7) };
 }
 
 function isFullCalendarMonth(range: { since: string; until: string }): boolean {
-  return range.since === getMonthStart(range.since) && range.until === getMonthEnd(range.since);
+  return (
+    range.since === getMonthStart(range.since) && range.until === getMonthEndDateKey(range.since)
+  );
 }
 
 function createRange(since: string, until: string): CompareWindowRange {
@@ -117,20 +104,22 @@ function createDefaultCurrentWindow(timezone: string, now: Date): CompareWindowR
  * current window (clamped to that month's last day), so a partial month is never
  * compared against a full one.
  */
-function createPreviousMonthToDateWindow(current: CompareWindowRange): CompareWindowRange {
+export function createPreviousMonthToDateWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
   const previousMonth = getPreviousMonthRange(current.since);
-  const { day } = parseDateKey(current.until);
-  const { year, month } = parseDateKey(previousMonth.since);
-  const sameDayKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const sameDayKey = `${previousMonth.since.slice(0, 8)}${current.until.slice(8, 10)}`;
   const until = sameDayKey < previousMonth.until ? sameDayKey : previousMonth.until;
 
   return createRange(previousMonth.since, until);
 }
 
-function createPreviousSameLengthWindow(current: CompareWindowRange): CompareWindowRange {
-  const dayCount = countInclusiveDays(current.since, current.until);
-  const until = shiftLocalDateKey(current.since, -1);
-  const since = shiftLocalDateKey(current.since, -dayCount);
+export function createPreviousSameLengthWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
+  const dayCount = countDateKeyDays(current.since, current.until);
+  const until = shiftDateKey(current.since, -1);
+  const since = shiftDateKey(current.since, -dayCount);
 
   return createRange(since, until);
 }
@@ -218,21 +207,6 @@ function subtractValues(
   return current - baseline;
 }
 
-function computeDeltaRatio(
-  current: number | undefined,
-  baseline: number | undefined,
-): number | undefined {
-  if (current === undefined || baseline === undefined) {
-    return undefined;
-  }
-
-  if (baseline === 0) {
-    return current === 0 ? 0 : undefined;
-  }
-
-  return (current - baseline) / baseline;
-}
-
 function buildMetricRows(
   current: CompareWindowTotals,
   baseline: CompareWindowTotals,
@@ -298,19 +272,32 @@ function sourceSortValue(row: { delta: CompareWindowTotals }): number {
   return Math.abs(row.delta.costUsd ?? 0);
 }
 
+function createEmptySideTotals(): CompareWindowTotals {
+  return { ...createEmptyWindowTotals(), costUsd: 0 };
+}
+
+function compareRowsByCostDelta<Row extends { delta: CompareWindowTotals }>(
+  left: Row,
+  right: Row,
+  toName: (row: Row) => string,
+): number {
+  const leftSortValue = sourceSortValue(left);
+  const rightSortValue = sourceSortValue(right);
+
+  if (leftSortValue !== rightSortValue) {
+    return rightSortValue - leftSortValue;
+  }
+
+  return compareByCodePoint(toName(left), toName(right));
+}
+
 function buildSourceRows(current: UsageWindowSummary, baseline: UsageWindowSummary) {
   const sources = new Set([...current.sources.keys(), ...baseline.sources.keys()]);
 
   return [...sources]
     .map((source) => {
-      const currentTotals = current.sources.get(source) ?? {
-        ...createEmptyWindowTotals(),
-        costUsd: 0,
-      };
-      const baselineTotals = baseline.sources.get(source) ?? {
-        ...createEmptyWindowTotals(),
-        costUsd: 0,
-      };
+      const currentTotals = current.sources.get(source) ?? createEmptySideTotals();
+      const baselineTotals = baseline.sources.get(source) ?? createEmptySideTotals();
 
       return {
         source,
@@ -320,22 +307,69 @@ function buildSourceRows(current: UsageWindowSummary, baseline: UsageWindowSumma
         deltaRatio: buildDeltaRatioMap(currentTotals, baselineTotals),
       };
     })
-    .sort((left, right) => {
-      const leftSortValue = sourceSortValue(left);
-      const rightSortValue = sourceSortValue(right);
+    .sort((left, right) => compareRowsByCostDelta(left, right, (row) => row.source));
+}
 
-      if (leftSortValue !== rightSortValue) {
-        return rightSortValue - leftSortValue;
-      }
+/** Window totals per project key, in one pass over a window's events. */
+function summarizeProjects(
+  events: readonly UsageEvent[],
+  timezone: string,
+): Map<string | undefined, CompareWindowTotals> {
+  const projects = new Map<
+    string | undefined,
+    { totals: CompareWindowTotals; days: Set<string> }
+  >();
 
-      return compareByCodePoint(left.source, right.source);
-    });
+  for (const event of events) {
+    const key = toProjectKey(event.repoRoot);
+    const entry = projects.get(key) ?? { totals: createEmptyWindowTotals(), days: new Set() };
+    const { totals } = entry;
+    addEventToTotals(totals, event);
+    totals.events += 1;
+
+    entry.days.add(getPeriodKey(event.timestamp, 'daily', timezone));
+    projects.set(key, entry);
+  }
+
+  return new Map(
+    [...projects].map(([key, { totals, days }]) => [key, { ...totals, activeDays: days.size }]),
+  );
+}
+
+/**
+ * Per-project rows over both windows. Labels come from one call over both windows' events,
+ * so a project has the same label on both sides.
+ */
+function buildProjectRows(
+  currentEvents: readonly UsageEvent[],
+  baselineEvents: readonly UsageEvent[],
+  timezone: string,
+): CompareProjectRow[] {
+  const projectLabels = buildEventProjectLabels([...currentEvents, ...baselineEvents]);
+  const current = summarizeProjects(currentEvents, timezone);
+  const baseline = summarizeProjects(baselineEvents, timezone);
+
+  return [...projectLabels]
+    .map(([key, project]) => {
+      const currentTotals = current.get(key) ?? createEmptySideTotals();
+      const baselineTotals = baseline.get(key) ?? createEmptySideTotals();
+
+      return {
+        repoRoot: key ?? null,
+        project,
+        current: currentTotals,
+        baseline: baselineTotals,
+        delta: diffTotals(currentTotals, baselineTotals),
+        deltaRatio: buildDeltaRatioMap(currentTotals, baselineTotals),
+      };
+    })
+    .sort((left, right) => compareRowsByCostDelta(left, right, (row) => row.project));
 }
 
 export async function buildCompareData(
   options: CompareCommandOptions,
   deps: BuildCompareDataDeps = {},
-): Promise<CompareDataResult> {
+): Promise<CompareReportData> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
   const normalizedInputs = normalizeBuildUsageInputs(
@@ -365,11 +399,8 @@ export async function buildCompareData(
         },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   const currentEvents = pricedEvents.filter((event) =>
     isEventWithinWindow(event, windows.current, dataset.normalizedInputs.timezone),
   );
@@ -394,7 +425,7 @@ export async function buildCompareData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, [...currentEvents, ...baselineEvents]),
+    notes: withPricingNotes(dataset.notes, [...currentEvents, ...baselineEvents], pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
@@ -412,6 +443,11 @@ export async function buildCompareData(
     },
     totals: buildMetricRows(current.totals, baseline.totals),
     sources: buildSourceRows(current, baseline),
+    projects: options.byRepo
+      ? measureRuntimeProfileStageSync(deps.runtimeProfile, 'compare.aggregate.projects', () =>
+          buildProjectRows(currentEvents, baselineEvents, dataset.normalizedInputs.timezone),
+        )
+      : undefined,
     diagnostics,
   };
 }

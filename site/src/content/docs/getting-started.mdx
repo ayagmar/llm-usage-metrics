@@ -80,11 +80,11 @@ llm-usage session --top 10
 # Chart the last 14 local days
 llm-usage trends --metric tokens --last 14
 
-# Group usage by repository
-llm-usage session --by-repo
+# Rank projects (recorded working directories) by cost
+llm-usage projects
 ```
 
-The [report chooser](/llm-usage-metrics/reports/) covers every command by question. Use [Compare](/llm-usage-metrics/compare/) for period changes, [Session](/llm-usage-metrics/session/) for conversation-level detail, and [Trends](/llm-usage-metrics/trends/) for a daily series.
+The [report chooser](/llm-usage-metrics/reports/) covers every command by question. Use [Compare](/llm-usage-metrics/compare/) for period changes, [Session](/llm-usage-metrics/session/) for conversation-level detail, [Trends](/llm-usage-metrics/trends/) for a daily series, and [Projects](/llm-usage-metrics/projects/) for cost per project.
 
 ## 5. Save your defaults when you need them
 
@@ -152,4 +152,6 @@ llm-usage daily --markdown
 llm-usage monthly --share
 ```
 
-Report data goes to `stdout`; diagnostics stay on `stderr`. This separation keeps JSON and Markdown safe to redirect into a file or pipeline. Share support varies by report, so check [Output Formats](/llm-usage-metrics/output-formats/) before adding `--share` to a specialized command.
+Report data goes to `stdout`; diagnostics stay on `stderr`. This separation keeps JSON and Markdown safe to redirect into a file or pipeline.
+
+`--share` writes an interactive HTML report to the current directory and opens it in your browser; `--no-open` only writes it. The page loads nothing from the network and can filter the report by source, model, project and machine. It works on `summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `wrapped`, `efficiency` and `optimize`. See [Interactive report](/llm-usage-metrics/share/).

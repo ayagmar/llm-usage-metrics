@@ -7,7 +7,7 @@ description: Check where each source is searched, whether usage is readable, and
 
 ## Command structure
 
-```bash
+```text
 llm-usage doctor [options]
 ```
 
@@ -25,12 +25,13 @@ llm-usage doctor --json
 - `--source <name>`: probe only the named sources (repeatable or comma-separated)
 - source-path overrides (`--pi-dir`, `--codex-dir`, `--opencode-db`, `--source-dir`, …): probe a custom location
 - `--json`: emit the result as JSON
+- `--quiet` and `--verbose`: less or more on `stderr`
 
 `doctor` reads the same user config as the reports, so configured `sourceDirs` and `eventStore` paths are probed and its resolved config is printed on `stderr`.
 
 ## Output
 
-Doctor prints one line per source — a state glyph, the source id, its storage format (`jsonl`, `json`, or `sqlite`), and what was found — followed by the paths it searched, then a summary. Each source is in one of four states:
+Doctor prints one line per source (a state glyph, the source id, its storage format `jsonl`, `json`, or `sqlite`, and what was found), followed by the paths it searched, then a summary. Each source is in one of four states:
 
 | Glyph | State           | Meaning                                                                                                                                                   |
 | ----- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,19 +45,19 @@ To decide between `found` and `unparseable`, doctor parses the newest files firs
 Illustrative output for `llm-usage doctor --source pi,codex,opencode` (counts depend on your local data):
 
 ```text
-✔ pi           jsonl   519 file(s)
+✔ pi           jsonl   519 files
     ~/.pi/agent/sessions
     ~/.omp/agent/sessions
 ○ codex        jsonl   not installed (no files found)
     ~/.codex/sessions
 ✖ opencode     sqlite  OpenCode DB path is missing or unreadable: /path/to/opencode.db
     /path/to/opencode.db
-✔ event-store  sqlite  159266 event(s), 3 departed file(s), schema v3, 78.4 MiB
+✔ event-store  sqlite  159,266 events, 3 departed files, schema v5, 78.4 MiB
 
 Sources: 1 found · 1 failed · 1 not installed
 ```
 
-Searched paths reflect overrides, config `sourceDirs`, and tool environment variables such as `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME`. The summary counts only source rows; the `event-store` row reports the ledger's event count, departed-file count, schema version, and on-disk size.
+Searched paths reflect overrides, config `sourceDirs`, and tool environment variables such as `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME`. The summary counts only source rows; the `event-store` row reports the ledger's event count (usage events, tool calls and messages), departed-file count, schema version, and on-disk size.
 
 Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `machine:<name>` row (format `ssh`) from its cached usage: when it last synced, how many files and events are cached, and the last error. Doctor never connects to it; a row whose last sync failed is marked `✖`. Without any machine, doctor ends with a tip on adding one.
 
@@ -74,8 +75,8 @@ Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `ma
         "id": "pi",
         "format": "jsonl",
         "status": "ok",
-        "state": "found",
         "itemsFound": 519,
+        "state": "found",
         "searchedPaths": ["/home/me/.pi/agent/sessions", "/home/me/.omp/agent/sessions"]
       },
       {
@@ -91,7 +92,7 @@ Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `ma
         "format": "sqlite",
         "status": "ok",
         "itemsFound": 159266,
-        "detail": "159266 event(s), 3 departed file(s), schema v3, 78.4 MiB"
+        "detail": "159,266 events, 3 departed files, schema v5, 78.4 MiB"
       }
     ]
   }

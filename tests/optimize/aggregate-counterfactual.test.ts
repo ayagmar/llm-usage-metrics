@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCounterfactualRows,
   normalizeCandidateModels,
-  parseTopOption,
 } from '../../src/optimize/aggregate-counterfactual.js';
 import {
   createDefaultOpenAiPricingSource,
@@ -68,13 +67,6 @@ describe('aggregate-counterfactual', () => {
     );
   });
 
-  it('parses --top and rejects invalid values', () => {
-    expect(parseTopOption(undefined)).toBeUndefined();
-    expect(parseTopOption('2')).toBe(2);
-    expect(() => parseTopOption('0')).toThrow('--top must be a positive integer');
-    expect(() => parseTopOption('abc')).toThrow('--top must be a positive integer');
-  });
-
   it('matches cost-engine semantics for counterfactual costs', () => {
     const result = buildCounterfactualRows({
       usageRows: createUsageRows(),
@@ -99,6 +91,31 @@ describe('aggregate-counterfactual', () => {
       savingsUsd: 0,
       savingsRatio: 0,
     });
+  });
+
+  // Candidates price whole-period totals, which are no single request, so long-context
+  // tiers never apply here: a 1M-token period stays at the base rates.
+  it('prices candidates flat even when a period total is above a tier threshold', () => {
+    const result = buildCounterfactualRows({
+      usageRows: createUsageRows(),
+      oneHourCacheWritesByPeriod: new Map(),
+      provider: 'openai',
+      candidateModels: ['gpt-tiered'],
+      pricingSource: new StaticPricingSource({
+        pricingByModel: {
+          'gpt-tiered': {
+            inputPer1MUsd: 2,
+            outputPer1MUsd: 8,
+            tiers: [{ aboveTokens: 272_000, inputPer1MUsd: 4, outputPer1MUsd: 16 }],
+          },
+        },
+      }),
+    });
+
+    // 1M input * $2 + 100k output * $8, per 1M.
+    expect(
+      result.rows.find((row) => row.rowType === 'candidate' && row.periodKey === 'ALL'),
+    ).toMatchObject({ candidateModel: 'gpt-tiered', hypotheticalCostUsd: 2.8 });
   });
 
   it('prefers period_combined rows over source rows when both are present', () => {

@@ -6,12 +6,13 @@ import {
   resolveRepoRootFromPathHint,
   type RepoRootResolver,
 } from '../efficiency/repo-attribution.js';
-import { hasBillableTokenBuckets, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { hasBillableTokenBuckets } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -149,7 +150,7 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
   return `Usage filters (${activeFilters.join(', ')}) affect commit attribution too: only commit days with matching repo-attributed usage events are counted.`;
 }
 
-function hasMeaningfulEfficiencyUsageSignal(event: UsageEvent): boolean {
+export function hasMeaningfulEfficiencyUsageSignal(event: UsageEvent): boolean {
   return event.totalTokens > 0 || hasBillableTokenBuckets(event) || event.costUsd !== undefined;
 }
 
@@ -173,7 +174,8 @@ export async function buildEfficiencyData(
     'efficiency.dataset.total',
     () => buildDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricing(dataset, deps, 'auto');
+  const pricingResult = await applyPricing(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   const attribution = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.attribute_repo',
@@ -227,7 +229,12 @@ export async function buildEfficiencyData(
     pricingOrigin,
     pricingWarning,
     warnings: gitOutcomes.warning ? [...dataset.warnings, gitOutcomes.warning] : dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, matchedEventsWithSignal),
+    // The pricing stats are keyed by the priced events, not attribution's copies.
+    notes: withPricingNotes(
+      dataset.notes,
+      attribution.matchedSourceEvents.filter((event) => hasMeaningfulEfficiencyUsageSignal(event)),
+      pricingResult,
+    ),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

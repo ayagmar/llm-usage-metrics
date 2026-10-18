@@ -1,11 +1,38 @@
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
-import { access, writeFile } from 'node:fs/promises';
+import { access, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { hasErrorCode } from '@ayagmar/agent-sessions/internal';
+
+/** What a `--share` run writes: one self-contained HTML report in the current directory. */
+export type ShareArtifact = {
+  /** The `.html` file name. */
+  fileName: string;
+  /** Names the report in the stderr lines, e.g. `usage`. */
+  logLabel: string;
+  render: () => string;
+  /** With --redact: a stderr line with what the file hides (paths, names) hidden too. */
+  scrubLog?: (message: string) => string;
+};
+
+/**
+ * Writes the report to `fileName` in the current directory, replacing an earlier one. The old
+ * entry is unlinked and the file created anew, readable by its owner only, so a symlink placed
+ * at that name (in a shared directory, say) is replaced rather than followed.
+ */
 export async function writeShareFile(fileName: string, content: string): Promise<string> {
   const outputPath = path.resolve(process.cwd(), fileName);
-  await writeFile(outputPath, content, 'utf8');
+
+  try {
+    await unlink(outputPath);
+  } catch (error) {
+    if (!hasErrorCode(error, 'ENOENT')) {
+      throw error;
+    }
+  }
+
+  await writeFile(outputPath, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
   return outputPath;
 }
 

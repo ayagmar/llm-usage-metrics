@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { DoctorSourceResult, DoctorSourceState } from '../cli/run-doctor-report.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
 
 const doctorStatusGlyphs = { ok: '✔', error: '✖' } as const;
 
@@ -20,7 +21,7 @@ const summaryStates: readonly { state: DoctorSourceState; label: string }[] = [
   { state: 'not_installed', label: 'not installed' },
 ];
 
-function abbreviateHome(searchPath: string, homeDir: string): string {
+export function abbreviateHome(searchPath: string, homeDir: string): string {
   if (
     homeDir.length === 0 ||
     (searchPath !== homeDir && !searchPath.startsWith(homeDir + path.sep))
@@ -29,6 +30,13 @@ function abbreviateHome(searchPath: string, homeDir: string): string {
   }
 
   return `~${searchPath.slice(homeDir.length)}`;
+}
+
+/** The event store line when its file does not exist yet. */
+export function describeMissingEventStore(legacyPath: string | undefined): string {
+  return legacyPath === undefined
+    ? 'not yet created'
+    : `still at ${legacyPath}; the next report copies it here`;
 }
 
 function getGlyph(result: DoctorSourceResult): string {
@@ -44,7 +52,7 @@ function getDetail(result: DoctorSourceResult): string {
     return result.detail ?? 'not installed (no files found)';
   }
 
-  return result.detail ?? `${result.itemsFound ?? 0} file(s)`;
+  return result.detail ?? pluralize(result.itemsFound ?? 0, 'file');
 }
 
 function formatSummary(sourceResults: readonly DoctorSourceResult[]): string {

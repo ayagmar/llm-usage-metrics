@@ -1,0 +1,16 @@
+Usage: llm-usage schema [options] [name]
+
+Print a bundled report JSON Schema
+
+Arguments:
+  name        Schema name: blocks, compare, config, config-show, context, doctor, efficiency,
+              events-line, machine-export, optimize, pricing, projects, prune, session, share,
+              summary, tools, trends, usage, value, wrapped
+
+Options:
+  --list      List available schema names
+  -h, --help  display help for command
+
+Examples:
+  $ llm-usage schema --list
+  $ llm-usage schema summary > summary.schema.json

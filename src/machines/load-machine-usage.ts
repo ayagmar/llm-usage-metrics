@@ -1,8 +1,16 @@
 import { LOCAL_MACHINE_NAME, type MachineConfig } from '../config/user-config.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+
+import { pluralize, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
+import { getUtcMidnightIso } from '../utils/date-key.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { readMachineCacheUsage, type MachineSyncState } from './machine-cache.js';
-import { mergeMachineEvents } from './merge-machine-events.js';
+import {
+  getParserVersions,
+  mergeMachineEvents,
+  type MergedMachineEvents,
+} from './merge-machine-events.js';
 
 export type MachineSelection = {
   includeLocal: boolean;
@@ -48,22 +56,34 @@ export type MachineUsageSummary = {
   /** Undefined when the machine was never synced. */
   state?: MachineSyncState;
   duplicateCount: number;
+  /** Events left out because a differently parsed copy of them is already counted. */
+  skewDroppedCount: number;
 };
 
 export type LoadedMachineUsage = {
   events: UsageEvent[];
   machines: MachineUsageSummary[];
   warnings: string[];
+  notes: string[];
 };
 
 function toTimestampBound(date: string | undefined, offsetDays: number): string | undefined {
-  if (date === undefined) {
+  return date === undefined ? undefined : getUtcMidnightIso(date, offsetDays);
+}
+
+function formatParserSkew(machine: MergedMachineEvents): string | undefined {
+  if (machine.skews.length === 0) {
     return undefined;
   }
 
-  const bound = new Date(`${date}T00:00:00.000Z`);
-  bound.setUTCDate(bound.getUTCDate() + offsetDays);
-  return bound.toISOString();
+  // The versions come from the machine's export.
+  const skews = machine.skews.map(({ source, version, servedBy, servedVersion }) =>
+    toTerminalLine(
+      `${source} ${version ?? 'unrecorded'} there, ${servedVersion ?? 'unrecorded'} on ${servedBy === LOCAL_MACHINE_NAME ? 'this machine' : servedBy}`,
+    ),
+  );
+
+  return `${machine.name} parses with other parser versions (${skews.join('; ')}): left out ${pluralize(machine.skewDroppedCount, 'event')} of sessions already counted, matched by timestamp and model; update llm-usage on both machines`;
 }
 
 /**
@@ -77,7 +97,8 @@ export async function loadMachineUsage(params: {
   /** Selected machines with enabled = false. */
   disabledNames?: ReadonlySet<string>;
   servedEvents: readonly UsageEvent[];
-  sources: ReadonlySet<string>;
+  /** The sources this run counts, with the parser versions the served events come from. */
+  adapters: readonly Pick<SourceAdapter, 'id' | 'parserVersion'>[];
   since?: string;
   until?: string;
 }): Promise<LoadedMachineUsage> {
@@ -99,24 +120,44 @@ export async function loadMachineUsage(params: {
     }),
   );
   const readable = caches.filter((cache) => cache !== undefined);
+  const sources = new Set(params.adapters.map((adapter) => adapter.id));
   const merged = mergeMachineEvents(
     params.servedEvents,
     readable.map(({ name, usage }) => ({
       name,
-      events: (usage?.events ?? []).filter((event) => params.sources.has(event.source)),
+      events: (usage?.events ?? []).filter((event) => sources.has(event.source)),
+      parserVersions: usage?.state.parserVersions,
     })),
+    getParserVersions(params.adapters),
   );
+  const notes: string[] = [];
+
+  readable.forEach(({ name, usage }, index) => {
+    // A machine never synced has its own note.
+    if (usage?.state.syncedAt !== undefined && usage.state.parserVersions === undefined) {
+      notes.push(`sync ${name} after updating llm-usage on it to record its parser versions`);
+    }
+
+    const skewWarning = formatParserSkew(merged[index]);
+
+    if (skewWarning) {
+      (params.disabledNames?.has(name) ? notes : warnings).push(skewWarning);
+    }
+  });
 
   return {
+    // The events were read for this call alone, so each takes its machine name in place.
     events: merged.flatMap((machine) =>
-      machine.events.map((event) => ({ ...event, machine: machine.name })),
+      machine.events.map((event) => Object.assign(event, { machine: machine.name })),
     ),
     machines: readable.map(({ name, usage }, index) => ({
       name,
       enabled: !params.disabledNames?.has(name),
       state: usage?.state,
       duplicateCount: merged[index].duplicateCount,
+      skewDroppedCount: merged[index].skewDroppedCount,
     })),
     warnings,
+    notes,
   };
 }

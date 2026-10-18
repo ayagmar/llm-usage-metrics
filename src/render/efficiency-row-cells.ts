@@ -1,5 +1,6 @@
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
-import { formatAbbreviatedTokenCount, type UsageTokenFormat } from './row-cells.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
+import type { UsageTokenFormat } from './row-cells.js';
 
 export const efficiencyTableHeaders = [
   'Period',
@@ -20,14 +21,7 @@ export const efficiencyTableHeaders = [
   'Commits/$',
 ] as const;
 
-const integerFormatter = new Intl.NumberFormat('en-US');
 const decimalFormatter = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -38,17 +32,8 @@ const usdRateFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 4,
 });
 
-function formatInteger(value: number | undefined): string {
-  return value === undefined ? '-' : integerFormatter.format(value);
-}
-
-function formatUsd(value: number | undefined, options: { approximate?: boolean } = {}): string {
-  if (value === undefined) {
-    return '-';
-  }
-
-  const formatted = usdFormatter.format(value);
-  return options.approximate ? `~${formatted}` : formatted;
+function formatOptionalInteger(value: number | undefined): string {
+  return value === undefined ? '-' : formatInteger(value);
 }
 
 function formatUsdRate(value: number | undefined, options: { approximate?: boolean } = {}): string {
@@ -74,7 +59,8 @@ export function toEfficiencyTableCells(
   rows: EfficiencyRow[],
   tokenFormat: UsageTokenFormat = 'full',
 ): string[][] {
-  const formatTokens = tokenFormat === 'abbreviated' ? formatAbbreviatedTokenCount : formatInteger;
+  const formatTokens =
+    tokenFormat === 'abbreviated' ? formatAbbreviatedTokenCount : formatOptionalInteger;
   const formatTokenRate = (value: number | undefined) =>
     value !== undefined && tokenFormat === 'abbreviated'
       ? formatAbbreviatedTokenCount(value)
@@ -82,17 +68,17 @@ export function toEfficiencyTableCells(
 
   return rows.map((row) => [
     row.rowType === 'period_source' ? `  ${row.source}` : row.periodKey,
-    formatInteger(row.rowType === 'period_source' ? undefined : row.commitCount),
-    formatInteger(row.rowType === 'period_source' ? undefined : row.linesAdded),
-    formatInteger(row.rowType === 'period_source' ? undefined : row.linesDeleted),
-    formatInteger(row.rowType === 'period_source' ? undefined : row.linesChanged),
+    formatOptionalInteger(row.rowType === 'period_source' ? undefined : row.commitCount),
+    formatOptionalInteger(row.rowType === 'period_source' ? undefined : row.linesAdded),
+    formatOptionalInteger(row.rowType === 'period_source' ? undefined : row.linesDeleted),
+    formatOptionalInteger(row.rowType === 'period_source' ? undefined : row.linesChanged),
     formatTokens(row.inputTokens),
     formatTokens(row.outputTokens),
     formatTokens(row.reasoningTokens),
     formatTokens(row.cacheReadTokens),
     formatTokens(row.cacheWriteTokens),
     formatTokens(row.totalTokens),
-    formatUsd(row.costUsd, { approximate: row.costIncomplete }),
+    formatApproxUsd(row.costUsd, row.costIncomplete),
     formatUsdRate(row.rowType === 'period_source' ? undefined : row.usdPerCommit, {
       approximate: row.costIncomplete,
     }),

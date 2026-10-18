@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"pi-none","timestamp":"not a time","cwd":"/work/none"}
+{"type":"message","id":"n01","parentId":null,"message":{"role":"assistant","content":[{"type":"text","text":"Hi."},{"type":"toolCall","id":"call-n1","name":"read","arguments":{}}],"usage":{"input":3,"output":1,"totalTokens":4}}}
+{"type":"message","id":"n02","parentId":"n01","message":{"role":"toolResult","toolCallId":"call-n1","toolName":"read","content":[],"isError":false}}
+{"type":"session_info","id":"n03","parentId":"n02","name":"Untimed title"}

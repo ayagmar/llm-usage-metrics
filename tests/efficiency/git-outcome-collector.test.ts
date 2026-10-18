@@ -576,7 +576,7 @@ describe('collectGitOutcomes', () => {
         },
         { runGitCommand },
       ),
-    ).rejects.toThrow('Invalid date value: not-a-date');
+    ).rejects.toThrow('Invalid local date key: not-a-date');
     expect(runGitCommand).toHaveBeenCalledTimes(1);
   });
 

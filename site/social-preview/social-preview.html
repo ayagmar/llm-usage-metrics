@@ -1,11 +1,12 @@
 <!doctype html>
-<!-- Source of site/public/og.png (1280x640, also the GitHub social preview). Render with any headless Chromium:
-     chrome --headless --window-size=1280,640 --screenshot=../public/og.png social-preview.html -->
+<!-- Source of site/public/og.png (1200x630, also the GitHub social preview). Render it with
+     `pnpm run build && node site/scripts/social-preview.mjs`, which fills in the source count
+     from the CLI. The numbers on the card come from the docs demo data, not from real usage. -->
 <html>
   <head>
     <meta charset="utf-8" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -16,74 +17,61 @@
       }
       html,
       body {
-        width: 1280px;
-        height: 640px;
+        width: 1200px;
+        height: 630px;
       }
       body {
         background: #11130f;
         color: #f1f0e9;
         font-family: Geist, sans-serif;
         display: grid;
-        grid-template-columns: 1fr 470px;
-        gap: 48px;
-        padding: 64px 72px;
-        position: relative;
+        grid-template-columns: 1fr 500px;
+        gap: 44px;
+        padding: 60px 64px;
         overflow: hidden;
-      }
-      body::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background-image:
-          linear-gradient(rgba(241, 240, 233, 0.035) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(241, 240, 233, 0.035) 1px, transparent 1px);
-        background-size: 32px 32px;
-        mask-image: radial-gradient(circle at 78% 50%, black, transparent 70%);
       }
       .copy {
         display: flex;
         flex-direction: column;
-        position: relative;
       }
       .brand {
         display: flex;
         align-items: center;
         gap: 14px;
-        font-family: 'Geist Mono';
-        font-size: 24px;
+        font-family: 'Geist Mono', monospace;
+        font-size: 22px;
         font-weight: 500;
       }
       .brand img {
-        width: 44px;
-        height: 44px;
+        width: 40px;
+        height: 40px;
       }
       .brand span {
         color: #a1a49a;
       }
       h1 {
-        margin-top: 64px;
-        font-size: 70px;
-        line-height: 0.98;
-        white-space: nowrap;
-        letter-spacing: -0.045em;
-        font-weight: 600;
+        margin-top: 60px;
+        font-size: 64px;
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+        font-weight: 500;
       }
       h1 em {
         font-style: normal;
         color: #df7b52;
         display: block;
       }
-      p.sub {
-        margin-top: 28px;
-        font-size: 27px;
-        line-height: 1.35;
+      .sub {
+        margin-top: 26px;
+        font-size: 25px;
+        line-height: 1.38;
         color: #d8d8d0;
-        max-width: 560px;
+        max-width: 540px;
       }
       .install {
         margin-top: auto;
-        font-family: 'Geist Mono';
-        font-size: 22px;
+        font-family: 'Geist Mono', monospace;
+        font-size: 20px;
         color: #a1a49a;
       }
       .install b {
@@ -91,65 +79,47 @@
         font-weight: 500;
       }
       .card {
-        position: relative;
         align-self: center;
         background: #191c17;
         border: 1px solid rgba(241, 240, 233, 0.12);
-        border-radius: 18px;
-        padding: 28px 30px 30px;
-        font-family: 'Geist Mono';
-        box-shadow: 0 30px 80px rgba(5, 7, 4, 0.7);
+        border-radius: 16px;
+        padding: 28px 30px 26px;
+        font-family: 'Geist Mono', monospace;
+        box-shadow: 0 28px 70px rgba(5, 7, 4, 0.7);
       }
       .cmd {
-        font-size: 19px;
+        font-size: 18px;
         color: #a1a49a;
       }
       .cmd span {
         color: #df7b52;
       }
-      .total {
-        margin-top: 22px;
-        display: flex;
-        align-items: baseline;
-        gap: 14px;
-      }
-      .total strong {
-        font-family: Geist;
-        font-size: 50px;
-        font-weight: 600;
-        letter-spacing: -0.03em;
-      }
-      .total small {
-        white-space: nowrap;
-        font-size: 17px;
-        color: #a1a49a;
-      }
       .rows {
-        margin-top: 22px;
+        margin-top: 24px;
         display: grid;
-        gap: 14px;
+        gap: 16px;
       }
       .row {
         display: grid;
-        grid-template-columns: 80px 1fr 92px;
+        grid-template-columns: 150px 1fr 86px;
         align-items: center;
         gap: 14px;
-        font-size: 19px;
+        font-size: 17px;
       }
-      .row .name {
+      .name {
         color: #d8d8d0;
       }
       .bar {
-        height: 12px;
-        border-radius: 6px;
+        height: 10px;
+        border-radius: 5px;
         background: rgba(241, 240, 233, 0.07);
         overflow: hidden;
       }
       .bar i {
         display: block;
         height: 100%;
+        border-radius: 5px;
         background: #df7b52;
-        border-radius: 6px;
       }
       .row:nth-child(2) .bar i {
         background: #65aeb8;
@@ -160,32 +130,41 @@
       .row:nth-child(4) .bar i {
         background: #a1a49a;
       }
-      .row .cost {
+      .cost {
         text-align: right;
-        color: #f1f0e9;
       }
-      .machines {
-        margin-top: 24px;
-        padding-top: 18px;
+      .total {
+        margin-top: 22px;
+        padding-top: 16px;
         border-top: 1px solid rgba(241, 240, 233, 0.09);
+        display: flex;
+        justify-content: space-between;
         font-size: 17px;
         color: #a1a49a;
-        display: flex;
-        gap: 18px;
-        white-space: nowrap;
       }
-      .machines b {
+      .total b {
         color: #f1f0e9;
         font-weight: 500;
       }
-      .dot {
-        display: inline-block;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: #7fb069;
-        margin-right: 8px;
-        vertical-align: 1px;
+      .share {
+        margin-top: 22px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: #11130f;
+        border: 1px solid rgba(241, 240, 233, 0.09);
+        font-size: 16px;
+        color: #a1a49a;
+      }
+      .share span {
+        color: #df7b52;
+      }
+      .share b {
+        display: block;
+        margin-top: 4px;
+        font-family: Geist, sans-serif;
+        font-size: 17px;
+        font-weight: 500;
+        color: #f1f0e9;
       }
     </style>
   </head>
@@ -197,38 +176,37 @@
         >
       </div>
       <h1>Follow the work.<em>Count the tokens.</em></h1>
-      <p class="sub">Tokens and cost for 17 AI coding tools, from the logs on all your machines.</p>
+      <p class="sub">
+        Tokens and cost for <span data-source-count>17</span> AI coding agents, per project and
+        session, from the logs on all your machines.
+      </p>
       <p class="install">$ <b>npm i -g llm-usage-metrics</b></p>
     </div>
     <div class="card">
-      <p class="cmd"><span>❯</span> llm-usage monthly</p>
-      <div class="total">
-        <strong>$412.80</strong><small>this month<br />61.4M tokens</small>
-      </div>
+      <p class="cmd"><span>❯</span> llm-usage projects</p>
       <div class="rows">
         <div class="row">
-          <span class="name">claude</span><span class="bar"><i style="width: 100%"></i></span
-          ><span class="cost">$231.40</span>
+          <span class="name">atlas-api</span><span class="bar"><i style="width: 100%"></i></span
+          ><span class="cost">$109.82</span>
         </div>
         <div class="row">
-          <span class="name">codex</span><span class="bar"><i style="width: 52%"></i></span
-          ><span class="cost">$118.95</span>
+          <span class="name">web-console</span><span class="bar"><i style="width: 86%"></i></span
+          ><span class="cost">$94.28</span>
         </div>
         <div class="row">
-          <span class="name">gemini</span><span class="bar"><i style="width: 18%"></i></span
-          ><span class="cost">$41.20</span>
+          <span class="name">ingest-worker</span><span class="bar"><i style="width: 70%"></i></span
+          ><span class="cost">$76.92</span>
         </div>
         <div class="row">
-          <span class="name">pi</span><span class="bar"><i style="width: 9%"></i></span
-          ><span class="cost">$21.25</span>
+          <span class="name">docs-site</span><span class="bar"><i style="width: 41%"></i></span
+          ><span class="cost">$44.94</span>
         </div>
       </div>
-      <div class="machines">
-        <span><i class="dot"></i><b>local</b></span
-        ><span><i class="dot"></i><b>laptop</b></span
-        ><span><i class="dot"></i><b>devbox</b></span
-        ><span style="margin-left: auto">over ssh</span>
-      </div>
+      <p class="total"><span>4 projects · 503.6M tokens</span><b>$325.96</b></p>
+      <p class="share">
+        <span>❯</span> llm-usage daily --share
+        <b>An interactive report in one HTML file</b>
+      </p>
     </div>
   </body>
 </html>

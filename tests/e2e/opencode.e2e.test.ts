@@ -6,7 +6,13 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import {
+  createOpenCodeFixtureDb as createSharedOpenCodeFixtureDb,
+  createOpenCodeV2FixtureDb,
+  E2E_OPENCODE_V2_MESSAGES,
+  E2E_OPENCODE_V2_SESSIONS,
+} from '../helpers/opencode-fixtures.js';
+import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 
 type OpenCodeMessageFixture = {
   id: string;
@@ -149,6 +155,107 @@ describe('opencode e2e', () => {
     });
   });
 
+  type GrandTotal = {
+    inputTokens: number;
+    outputTokens: number;
+    reasoningTokens: number;
+    cacheReadTokens: number;
+    totalTokens: number;
+    costUsd: number;
+  };
+
+  async function readGrandTotal(opencodeDbPath: string): Promise<GrandTotal> {
+    const report = await buildUsageReport('daily', {
+      all: true,
+      source: 'opencode',
+      opencodeDb: opencodeDbPath,
+      timezone: 'UTC',
+      json: true,
+    });
+    const rows = (JSON.parse(report) as { data: (GrandTotal & { rowType: string })[] }).data;
+    const grandTotal = rows.find((row) => row.rowType === 'grand_total');
+
+    if (!grandTotal) {
+      throw new Error('usage report has no grand_total row');
+    }
+
+    return grandTotal;
+  }
+
+  // The two assistant steps of E2E_OPENCODE_V2_MESSAGES; V2 stores output without reasoning.
+  const V2_STEPS_TOTAL = {
+    inputTokens: 1500,
+    outputTokens: 270,
+    reasoningTokens: 90,
+    cacheReadTokens: 9200,
+    totalTokens: 10_970,
+  };
+
+  it('reads an OpenCode V2 database, one event per assistant step', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-opencode-v2-e2e-'));
+    tempDirs.push(tempDir);
+    const opencodeDbPath = path.join(tempDir, 'opencode.db');
+    createOpenCodeV2FixtureDb(opencodeDbPath, E2E_OPENCODE_V2_SESSIONS, E2E_OPENCODE_V2_MESSAGES);
+
+    const grandTotal = await readGrandTotal(opencodeDbPath);
+
+    expect(grandTotal).toMatchObject(V2_STEPS_TOTAL);
+    expect(grandTotal.costUsd).toBeCloseTo(0.011, 10);
+  });
+
+  it('counts a message once in a database migrated in place, which keeps the V1 tables', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-opencode-v2-migrated-'));
+    tempDirs.push(tempDir);
+    const opencodeDbPath = path.join(tempDir, 'opencode.db');
+    const [, migratedStep] = E2E_OPENCODE_V2_MESSAGES;
+    createOpenCodeV2FixtureDb(opencodeDbPath, E2E_OPENCODE_V2_SESSIONS, E2E_OPENCODE_V2_MESSAGES);
+    createSharedOpenCodeFixtureDb(opencodeDbPath, [
+      {
+        // The V1 original of a migrated step: same id, V1 payload.
+        id: migratedStep.id,
+        sessionId: 'opencode-v2-e2e-session',
+        timeCreated: migratedStep.timeCreated,
+        data: JSON.stringify({
+          role: 'assistant',
+          providerID: 'anthropic',
+          modelID: 'claude-sonnet-4-5',
+          tokens: {
+            input: 1200,
+            output: 30,
+            reasoning: 90,
+            cache: { read: 4000, write: 0 },
+            total: 5320,
+          },
+          cost: 0.0063,
+        }),
+      },
+      {
+        // Written by a V1 build after the migration: only in `message`.
+        id: 'opencode-v1-after-migration',
+        sessionId: 'opencode-v1-session',
+        timeCreated: Date.parse('2026-06-17T09:00:00.000Z'),
+        data: JSON.stringify({
+          role: 'assistant',
+          providerID: 'anthropic',
+          modelID: 'claude-sonnet-4-5',
+          tokens: { input: 10, output: 5, reasoning: 0, cache: { read: 0, write: 0 }, total: 15 },
+          cost: 0.001,
+        }),
+      },
+    ]);
+
+    const grandTotal = await readGrandTotal(opencodeDbPath);
+
+    expect(grandTotal).toMatchObject({
+      inputTokens: V2_STEPS_TOTAL.inputTokens + 10,
+      outputTokens: V2_STEPS_TOTAL.outputTokens + 5,
+      reasoningTokens: V2_STEPS_TOTAL.reasoningTokens,
+      cacheReadTokens: V2_STEPS_TOTAL.cacheReadTokens,
+      totalTokens: V2_STEPS_TOTAL.totalTokens + 15,
+    });
+    expect(grandTotal.costUsd).toBeCloseTo(0.012, 10);
+  });
+
   it('treats unavailable default OpenCode DB as source-unavailable without hard failure', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-opencode-unavailable-'));
     tempDirs.push(tempDir);
@@ -204,7 +311,9 @@ describe('opencode e2e', () => {
         opencodeDb: opencodeDbPath,
         timezone: 'UTC',
       }),
-    ).rejects.toThrow('OpenCode schema drift: required "message" table not found.');
+    ).rejects.toThrow(
+      'OpenCode schema drift: no "message" table (V1) or "session_message" and "session_v2" tables (V2) found.',
+    );
   });
 
   it('emits skipped-row diagnostics in terminal mode for malformed/incomplete rows', async () => {

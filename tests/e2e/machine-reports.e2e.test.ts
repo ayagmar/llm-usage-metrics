@@ -1,4 +1,4 @@
-import { hasControlCharacters } from '../../src/domain/normalization.js';
+import { hasControlCharacters } from '@ayagmar/agent-sessions/internal';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -226,7 +226,7 @@ describe('reports refreshing other machines', () => {
     expect(sourcesOf(dataset.filteredEvents)).toEqual(['codex', 'codex', 'pi', 'pi']);
     expect(dataset.notes).toEqual([
       'Could not sync laptop (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 11 min ago.',
-      'Machines: laptop (synced 11 min ago); left out 2 event(s) already counted.',
+      'Machines: laptop (synced 11 min ago); left out 2 events already counted.',
     ]);
     expect(dataset.warnings).toEqual([]);
   });
@@ -242,7 +242,7 @@ describe('reports refreshing other machines', () => {
 
     expect(dataset.notes).toEqual([
       'laptop: last sync failed (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 11 min ago. Run llm-usage sync laptop to retry.',
-      'Machines: laptop (synced 11 min ago); left out 2 event(s) already counted.',
+      'Machines: laptop (synced 11 min ago); left out 2 events already counted.',
     ]);
   });
 
@@ -293,7 +293,7 @@ describe('reports with other machines', () => {
     // pi twice from here (the laptop's copy is left out) and codex twice from the laptop.
     expect(sourcesOf(dataset.filteredEvents)).toEqual(['codex', 'codex', 'pi', 'pi']);
     expect(dataset.notes).toEqual([
-      'Machines: laptop (synced just now); left out 2 event(s) already counted.',
+      'Machines: laptop (synced just now); left out 2 events already counted.',
     ]);
   });
 
@@ -356,7 +356,7 @@ describe('reports with other machines', () => {
     const dataset = await buildDataset({ timezone: 'UTC' }, { spawnSsh: unreachable.spawnSsh });
 
     expect(dataset.notes).toEqual([
-      'Machines: laptop (synced just now), vps (never synced); left out 2 event(s) already counted.',
+      'Machines: laptop (synced just now), vps (never synced); left out 2 events already counted.',
     ]);
     expect(dataset.warnings).toEqual([
       'Could not sync vps (ssh failed: ssh: connect to host vps port 22: No route to host); it has no usage cached yet.',
@@ -412,7 +412,7 @@ describe('reports with other machines', () => {
       { id: 'machine:laptop', format: 'ssh', status: 'error', itemsFound: 4 },
     ]);
     expect(machineRows[0].error).toMatch(
-      /^me@laptop: synced just now, 2 file\(s\), 4 event\(s\); last attempt failed just now: ssh failed/,
+      /^me@laptop: synced just now, 2 files, 4 events; last attempt failed just now: ssh failed/,
     );
   });
 

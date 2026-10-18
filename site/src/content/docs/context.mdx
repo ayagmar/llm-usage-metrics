@@ -1,0 +1,82 @@
+---
+title: Context Pressure
+description: Peak prompt sizes per model or session, long-context requests and their tier cost, and requests near the context limit.
+---
+
+`llm-usage context` shows how large your prompts get. For each model, or each session with `--by-session`, it lists the peak prompt, how many requests went above 200k tokens, what the long-context tier rates added to the estimated cost, and how many requests came within 20% of the model's context limit. Use it to find the sessions worth splitting or compacting.
+
+## Command structure
+
+```text
+llm-usage context [options]
+```
+
+Examples:
+
+```bash
+llm-usage context
+llm-usage context --by-session --top 5
+llm-usage context --last 30 --json
+llm-usage context --source claude --markdown
+```
+
+## Options
+
+- `--by-session`: one row per session instead of per model, largest peak prompt first
+- `--top <n>`: with `--by-session`, how many sessions to show (default 20; `--top 0` shows all)
+- `--last <n>`: the last N days, counting today
+- `--all`: full history instead of the last 7 days
+- `--repo <project>`: count only some projects, as described on [Projects](/llm-usage-metrics/projects/#narrow-the-scope)
+- shared filters apply: `--source`, `--provider`, `--model`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--no-history`
+
+Without date flags, `context` covers the last 7 days and says so on `stderr`. It supports terminal, `--json`, and `--markdown` output, but not `--share`.
+
+## What counts
+
+A prompt is a request's input, cache read and cache write tokens. Prompt sizes only mean something for usage records that cover one model request: every record from claude, gemini, pi, opencode and antigravity, and codex records written per response (Codex 0.153 and later) or equal to the row's `last_token_usage`. Records that can sum several requests get no rows. The report lists their sources on one line under the table with their record counts:
+
+```text
+Aggregated, not per request: codex (1,204 records). Their records sum several requests, so they have no peak or tier counts.
+```
+
+The columns:
+
+- `Requests`: usage records, one per request
+- `Peak`: the largest prompt
+- `>200k`: requests whose prompt is above 200,000 tokens
+- `Tier extra`: what the model's long-context rates added, as the cost at the tier rates minus the cost at the base rates, summed over the requests that crossed a tier. It uses the same tiers and thresholds as the cost engine (see [Pricing](/llm-usage-metrics/pricing/)), so a model whose tier starts at 272k adds nothing for a 250k prompt. A `~` means some requests had no pricing; `-` means none did, or `--cost-mode explicit` turned estimates off.
+- `Limit` (model rows): LiteLLM's `max_input_tokens` for the model, blank when LiteLLM lists none
+- `>80% limit`: requests whose prompt is above 80% of their model's limit, blank when no request's limit is known
+
+The tier extra is an estimate from token counts, also for sources that log their own cost.
+
+Context limits come with the prices: a live or cached LiteLLM fetch reads `max_input_tokens` along with the rates, and the package carries a bundled copy (`src/pricing/litellm-context-limits.json`) for the bundled snapshot and for caches written before the limits were kept. A custom `--pricing-url` uses only the limits its own file lists. `--pricing-overrides` changes prices, not limits.
+
+## JSON shape
+
+```json
+{
+  "schemaVersion": 1,
+  "report": "context",
+  "data": {
+    "grouping": "model",
+    "longContextPromptTokens": 200000,
+    "nearLimitShare": 0.8,
+    "rows": [
+      {
+        "model": "gemini-2.5-pro",
+        "contextLimit": 1048576,
+        "requests": 2,
+        "peakPromptTokens": 250000,
+        "longContextRequests": 1,
+        "longContextExtraUsd": 0.31,
+        "longContextExtraIncomplete": false,
+        "nearLimitRequests": 0
+      }
+    ],
+    "aggregatedSources": [{ "source": "codex", "records": 1 }]
+  }
+}
+```
+
+Unknown values are `null`: `contextLimit` and `nearLimitRequests` when LiteLLM lists no limit, `longContextExtraUsd` when no request was priced. With `--by-session`, `grouping` is `"session"` and each row has `source`, `sessionId`, `repoRoot` (omitted without a project) and `models` in place of `model` and `contextLimit`. The full contract is [report-context.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-context.v1.schema.json).

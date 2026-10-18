@@ -25,17 +25,24 @@ llm-usage config init
 
 Use the [report chooser](/llm-usage-metrics/reports/) for commands, defaults, and links to each guide.
 
-| Question                                                  | Command                      |
-| --------------------------------------------------------- | ---------------------------- |
-| How many tokens and dollars did I use?                    | `daily`, `weekly`, `monthly` |
-| How did this period change from the last one?             | `compare`                    |
-| Which conversations or repositories used the most?        | `session`                    |
-| How is usage moving day by day?                           | `trends`                     |
-| How does repo-attributed usage line up with Git activity? | `efficiency`                 |
-| What would the same token mix cost on another model?      | `optimize`                   |
-| Which sources can the CLI see?                            | `doctor`                     |
-| Which departed files can I remove from the event ledger?  | `prune`                      |
-| How did the year add up?                                  | `wrapped`                    |
+| Question                                                  | Command                                |
+| --------------------------------------------------------- | -------------------------------------- |
+| How many tokens and dollars did I use?                    | `daily`, `weekly`, `monthly`, `hourly` |
+| Which projects cost the most?                             | `projects`                             |
+| How did this period change from the last one?             | `compare`                              |
+| Which conversations used the most?                        | `session`                              |
+| How is usage moving day by day?                           | `trends`                               |
+| How is usage spread over 5-hour subscription windows?     | `blocks`                               |
+| Is my subscription worth its price at API rates?          | `value`                                |
+| How does repo-attributed usage line up with Git activity? | `efficiency`                           |
+| What would the same token mix cost on another model?      | `optimize`                             |
+| How did the year add up?                                  | `wrapped`                              |
+| How does a model name get its price?                      | `pricing <model...>`                   |
+| What goes in my status bar?                               | `statusline`                           |
+| Which sources can the CLI see?                            | `doctor`                               |
+| Which departed files can I remove from the event ledger?  | `prune`                                |
+
+Add `--share` to `summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `wrapped`, `efficiency` or `optimize` to write an [interactive HTML report](/llm-usage-metrics/share/) you can filter by source, model, project and machine.
 
 ## How the CLI handles your numbers
 
@@ -95,7 +102,7 @@ If you add [other machines](/llm-usage-metrics/machines/), the CLI also uses you
   />
   <LinkCard
     title="Output formats"
-    description="Choose terminal, JSON, Markdown, or a share card."
+    description="Choose terminal, JSON, Markdown, or an interactive share report."
     href="/llm-usage-metrics/output-formats/"
   />
   <LinkCard
@@ -107,6 +114,16 @@ If you add [other machines](/llm-usage-metrics/machines/), the CLI also uses you
     title="Privacy"
     description="What the CLI reads, stores, and sends over the network."
     href="/llm-usage-metrics/privacy/"
+  />
+  <LinkCard
+    title="Library"
+    description="Read the same session logs from your own Node.js code with @ayagmar/agent-sessions."
+    href="/llm-usage-metrics/library/"
+  />
+  <LinkCard
+    title="Upgrading"
+    description="Breaking and behaviour changes by version, and how to update scripts."
+    href="/llm-usage-metrics/upgrading/"
   />
   <LinkCard
     title="Architecture"

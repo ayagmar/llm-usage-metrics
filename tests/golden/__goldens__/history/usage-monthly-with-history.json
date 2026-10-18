@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "report": "usage",
+  "data": [
+    {
+      "rowType": "period_source",
+      "periodKey": "2025-01",
+      "source": "codex",
+      "models": [
+        "gpt-4.1"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-4.1",
+          "inputTokens": 100,
+          "outputTokens": 40,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 140,
+          "costUsd": 0.00052
+        }
+      ],
+      "inputTokens": 100,
+      "outputTokens": 40,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 140,
+      "costUsd": 0.00052
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-01",
+      "source": "pi",
+      "models": [
+        "gpt-4.1"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-4.1",
+          "inputTokens": 100,
+          "outputTokens": 50,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 150,
+          "costUsd": 0.5
+        }
+      ],
+      "inputTokens": 100,
+      "outputTokens": 50,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 150,
+      "costUsd": 0.5
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-01",
+      "source": "codex",
+      "models": [
+        "gpt-5.2-codex"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5.2-codex",
+          "inputTokens": 150,
+          "outputTokens": 100,
+          "reasoningTokens": 20,
+          "cacheReadTokens": 50,
+          "cacheWriteTokens": 0,
+          "totalTokens": 300,
+          "costUsd": 0.00167125
+        }
+      ],
+      "inputTokens": 150,
+      "outputTokens": 100,
+      "reasoningTokens": 20,
+      "cacheReadTokens": 50,
+      "cacheWriteTokens": 0,
+      "totalTokens": 300,
+      "costUsd": 0.00167125
+    },
+    {
+      "rowType": "period_combined",
+      "periodKey": "2026-01",
+      "source": "combined",
+      "models": [
+        "gpt-5.2-codex",
+        "gpt-4.1"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5.2-codex",
+          "inputTokens": 150,
+          "outputTokens": 100,
+          "reasoningTokens": 20,
+          "cacheReadTokens": 50,
+          "cacheWriteTokens": 0,
+          "totalTokens": 300,
+          "costUsd": 0.00167125
+        },
+        {
+          "model": "gpt-4.1",
+          "inputTokens": 100,
+          "outputTokens": 50,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 150,
+          "costUsd": 0.5
+        }
+      ],
+      "inputTokens": 250,
+      "outputTokens": 150,
+      "reasoningTokens": 20,
+      "cacheReadTokens": 50,
+      "cacheWriteTokens": 0,
+      "totalTokens": 450,
+      "costUsd": 0.50167125
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-02",
+      "source": "pi",
+      "models": [
+        "gpt-4.1"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-4.1",
+          "inputTokens": 20,
+          "outputTokens": 10,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 30,
+          "costUsd": 0.1
+        }
+      ],
+      "inputTokens": 20,
+      "outputTokens": 10,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 30,
+      "costUsd": 0.1
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-02",
+      "source": "codex",
+      "models": [
+        "gpt-5.2-codex"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5.2-codex",
+          "inputTokens": 40,
+          "outputTokens": 30,
+          "reasoningTokens": 10,
+          "cacheReadTokens": 20,
+          "cacheWriteTokens": 0,
+          "totalTokens": 90,
+          "costUsd": 0.0004935
+        }
+      ],
+      "inputTokens": 40,
+      "outputTokens": 30,
+      "reasoningTokens": 10,
+      "cacheReadTokens": 20,
+      "cacheWriteTokens": 0,
+      "totalTokens": 90,
+      "costUsd": 0.0004935
+    },
+    {
+      "rowType": "period_combined",
+      "periodKey": "2026-02",
+      "source": "combined",
+      "models": [
+        "gpt-5.2-codex",
+        "gpt-4.1"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5.2-codex",
+          "inputTokens": 40,
+          "outputTokens": 30,
+          "reasoningTokens": 10,
+          "cacheReadTokens": 20,
+          "cacheWriteTokens": 0,
+          "totalTokens": 90,
+          "costUsd": 0.0004935
+        },
+        {
+          "model": "gpt-4.1",
+          "inputTokens": 20,
+          "outputTokens": 10,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 30,
+          "costUsd": 0.1
+        }
+      ],
+      "inputTokens": 60,
+      "outputTokens": 40,
+      "reasoningTokens": 10,
+      "cacheReadTokens": 20,
+      "cacheWriteTokens": 0,
+      "totalTokens": 120,
+      "costUsd": 0.1004935
+    },
+    {
+      "rowType": "grand_total",
+      "periodKey": "ALL",
+      "source": "combined",
+      "models": [
+        "gpt-5.2-codex",
+        "gpt-4.1"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5.2-codex",
+          "inputTokens": 190,
+          "outputTokens": 130,
+          "reasoningTokens": 30,
+          "cacheReadTokens": 70,
+          "cacheWriteTokens": 0,
+          "totalTokens": 390,
+          "costUsd": 0.00216475
+        },
+        {
+          "model": "gpt-4.1",
+          "inputTokens": 220,
+          "outputTokens": 100,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 320,
+          "costUsd": 0.60052
+        }
+      ],
+      "inputTokens": 410,
+      "outputTokens": 230,
+      "reasoningTokens": 30,
+      "cacheReadTokens": 70,
+      "cacheWriteTokens": 0,
+      "totalTokens": 710,
+      "costUsd": 0.60268475
+    }
+  ]
+}

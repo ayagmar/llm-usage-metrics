@@ -1,9 +1,13 @@
-import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
+import { buildProjectLabels, toProjectKey } from '../aggregate/project-key.js';
+import {
+  normalizeProviderToBillingEntity,
+  compareByCodePoint,
+} from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
 import type { AdapterParseResult } from './build-usage-data-parsing.js';
 import { filterUsageEvents } from './parse/usage-event-filters.js';
+import { findUnmatchedRepoValues, type RepoFilter } from './repo-filter.js';
 
 export type FilterMatchInput = {
   parseResults: readonly AdapterParseResult[];
@@ -13,6 +17,8 @@ export type FilterMatchInput = {
   provider?: string;
   /** Normalized --model values. */
   modelFilter?: readonly string[];
+  /** Normalized --repo values. */
+  repoFilter?: RepoFilter;
   timezone: string;
   since?: string;
   until?: string;
@@ -85,6 +91,33 @@ function findUnmatchedProviderWarning(
   ];
 }
 
+function findUnmatchedRepoWarnings(
+  events: readonly UsageEvent[],
+  repoFilter: RepoFilter | undefined,
+  scope: string,
+): string[] {
+  if (!repoFilter) {
+    return [];
+  }
+
+  const unmatched = findUnmatchedRepoValues(
+    repoFilter,
+    events.map((event) => event.repoRoot),
+  );
+
+  if (unmatched.length === 0) {
+    return [];
+  }
+
+  const labels = [
+    ...buildProjectLabels(new Set(events.map((event) => toProjectKey(event.repoRoot)))).values(),
+  ].sort(compareByCodePoint);
+
+  return unmatched.map(
+    (value) => `--repo ${value} matched no usage${scope}${formatSuggestion(value, labels)}`,
+  );
+}
+
 function findSourcesWithoutFiles(
   parseResults: readonly AdapterParseResult[],
   cliSourceFilter: ReadonlySet<string> | undefined,
@@ -102,7 +135,7 @@ function findSourcesWithoutFiles(
 }
 
 /**
- * Warnings for filters that cannot match: a --model or --provider value absent from every
+ * Warnings for filters that cannot match: a --model, --provider or --repo value absent from every
  * parsed event in the report's date range, and a --source with no files. When no source
  * has files at all, the "No session files found" warning already says so.
  */
@@ -114,8 +147,8 @@ export function findUnmatchedFilterWarnings(input: FilterMatchInput): string[] {
   const sourceWarnings = findSourcesWithoutFiles(input.parseResults, input.cliSourceFilter);
   const hasModelFilter = input.modelFilter !== undefined && input.modelFilter.length > 0;
 
-  // Only model and provider filters need the events; skip the scan on unfiltered runs.
-  if (!hasModelFilter && input.provider === undefined) {
+  // Only model, provider and repo filters need the events; skip the scan on unfiltered runs.
+  if (!hasModelFilter && input.provider === undefined && input.repoFilter === undefined) {
     return sourceWarnings;
   }
 
@@ -131,6 +164,7 @@ export function findUnmatchedFilterWarnings(input: FilterMatchInput): string[] {
     ...sourceWarnings,
     ...findUnmatchedProviderWarning(eventsInRange, input.provider, scope),
     ...findUnmatchedModelWarnings(eventsInRange, input.modelFilter, scope),
+    ...findUnmatchedRepoWarnings(eventsInRange, input.repoFilter, scope),
   ];
 }
 
@@ -139,6 +173,7 @@ type CliFilterOptions = {
   provider?: string;
   model?: string | string[];
   machine?: string | string[];
+  repo?: string | string[];
   since?: string;
   until?: string;
   last?: string;
@@ -162,6 +197,7 @@ export function hasCliFilters(options: CliFilterOptions): boolean {
     options.provider,
     options.model,
     options.machine,
+    options.repo,
     options.since,
     options.until,
     options.last,

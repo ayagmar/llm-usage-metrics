@@ -1,24 +1,48 @@
-import { Argument, Command, Option } from 'commander';
+import {
+  type AddHelpTextContext,
+  Argument,
+  Command,
+  InvalidArgumentError,
+  Option,
+} from 'commander';
 
 import type {
+  BlocksCommandOptions,
+  ContextCommandOptions,
   EventsCommandOptions,
   CompareCommandOptions,
   DoctorCommandOptions,
   EfficiencyCommandOptions,
+  HourlyCommandOptions,
   OptimizeCommandOptions,
+  PricingCommandOptions,
+  ProjectsCommandOptions,
   PruneCommandOptions,
   ReportCommandOptions,
   SessionCommandOptions,
   StatuslineCommandOptions,
   SummaryCommandOptions,
   TrendsCommandOptions,
+  ValueCommandOptions,
   WrappedCommandOptions,
+  ToolsCommandOptions,
 } from '../usage-data-contracts.js';
-import { DEFAULT_REPORT_WINDOWS, getReportPeriodName } from '../build-usage-data.js';
+import {
+  DEFAULT_RECENT_DAYS,
+  DEFAULT_REPORT_WINDOWS,
+  getReportPeriodName,
+  HOURLY_MAX_LAST_DAYS,
+} from '../build-usage-data.js';
+import { runBlocksReport } from '../run-blocks-report.js';
 import { runCompareReport } from '../run-compare-report.js';
+import { runContextReport } from '../run-context-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
+import { runHourlyReport } from '../run-hourly-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
+import { runPricingReport } from '../run-pricing-report.js';
+import { runProjectsReport } from '../run-projects-report.js';
 import { runSessionReport } from '../run-session-report.js';
+import { runToolsReport } from '../run-tools-report.js';
 import { runSummaryReport } from '../run-summary-report.js';
 import { runStatusline } from '../run-statusline.js';
 import { runTrendsReport } from '../run-trends-report.js';
@@ -26,7 +50,9 @@ import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
 import { runPruneReport } from '../run-prune-report.js';
 import { runEventsReport } from '../run-events-report.js';
+import { runValueReport } from '../run-value-report.js';
 import { runWrappedReport } from '../run-wrapped-report.js';
+import { DEFAULT_PLAN_ID, FALLBACK_PLAN_ID, PLAN_IDS } from '../../value/plans.js';
 import type { ReportGranularity } from '../../utils/time-buckets.js';
 import {
   collectRepeatedOption,
@@ -85,13 +111,168 @@ function addGranularityArgument(command: Command): Command {
   );
 }
 
+/** What a project is: the CLI never looks for a `.git` folder (efficiency does). */
+const PROJECT_DESCRIPTION = 'project (the working directory the tool recorded)';
+
+const REPO_FILTER_MATCHING =
+  'Count only these projects (repeatable or comma-separated, so a value cannot contain a comma). A path (absolute, or ./, ../, ~/ on this machine) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; (unattributed) matches usage without a recorded directory';
+const REPO_FILTER_DESCRIPTION = `${REPO_FILTER_MATCHING}. Applied after --model picks exact or substring matching`;
+
+function addRepoFilterOption(command: Command, note?: string): Command {
+  return command.option(
+    '--repo <project>',
+    note === undefined ? REPO_FILTER_DESCRIPTION : `${REPO_FILTER_DESCRIPTION}. ${note}`,
+    collectRepeatedOption,
+  );
+}
+
+const FULL_HISTORY_DESCRIPTION = 'Report the full history (the default without date flags)';
+
+/**
+ * `--all` on a report that already covers the full history without date flags, so the
+ * flag works on every report.
+ */
+function addFullHistoryOption(command: Command): Command {
+  return command.addOption(
+    new Option('--all', FULL_HISTORY_DESCRIPTION).conflicts(['since', 'until']),
+  );
+}
+
+/** `--last N` periods and `--all`. */
+function addPeriodWindowOptions(command: Command, granularity: ReportGranularity): Command {
+  const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
+
+  if (defaultWindow) {
+    const { period, periods } = defaultWindow;
+    command.option(
+      '--all',
+      `Report every ${period} instead of the last ${String(periods)} ${period}s`,
+    );
+  } else {
+    addFullHistoryOption(command);
+  }
+
+  const period = getReportPeriodName(granularity);
+
+  return command.option(
+    '--last <n>',
+    `Report the last N ${period}s, counting the current ${period}`,
+  );
+}
+
+const USAGE_COMPACT_DESCRIPTION =
+  'Abbreviate token counts and hide the Reasoning and Cache Write columns (terminal/markdown)';
+const ROLLUP_COMPACT_DESCRIPTION =
+  'Abbreviate token counts and leave out minor columns (terminal/markdown)';
+
+/** `--compact` and `--no-cost`; the usage reports' wording unless told otherwise. */
+function addTableDisplayOptions(
+  command: Command,
+  costTarget: string,
+  compactDescription = USAGE_COMPACT_DESCRIPTION,
+): Command {
+  return command
+    .option('--compact', compactDescription)
+    .addOption(
+      new Option('--no-cost', `Leave cost out of ${costTarget}, e.g. for screenshots`).conflicts(
+        'costMode',
+      ),
+    );
+}
+
+const BY_MACHINE_DESCRIPTION = 'Split each source row by the machine its usage came from';
+const BY_REPO_ROW_DESCRIPTION = `Split each source row by ${PROJECT_DESCRIPTION}`;
+
 const MAX_COMMAND_HELP_EXAMPLES = 4;
 
-/** An `Examples:` block for `--help`, or nothing when there are no examples. */
-export function formatHelpExamples(commands: readonly string[]): string {
-  return commands.length === 0
-    ? ''
-    : ['', 'Examples:', ...commands.map((command) => `  $ ${command}`)].join('\n');
+const DEFAULT_HELP_WIDTH = 80;
+const EXAMPLE_PREFIX = '  $ ';
+const EXAMPLE_CONTINUATION_INDENT = '      ';
+const LINE_CONTINUATION = ' \\';
+
+/**
+ * The example's words, with each `--flag value` and `> file` pair kept as one, and a
+ * trailing `# comment` kept on the last word's line.
+ */
+function splitHelpExampleWords(command: string): string[] {
+  const commentStart = command.indexOf(' #');
+  const code = commentStart === -1 ? command : command.slice(0, commentStart);
+  const words: string[] = [];
+
+  for (const word of code.split(' ')) {
+    const previous = words.at(-1);
+    const takesValue =
+      previous !== undefined &&
+      (/^-\S*$/.test(previous) || previous === '>') &&
+      !word.startsWith('-') &&
+      word !== '>';
+
+    if (takesValue) {
+      words[words.length - 1] = `${previous} ${word}`;
+    } else {
+      words.push(word);
+    }
+  }
+
+  if (commentStart !== -1) {
+    words[words.length - 1] += command.slice(commentStart);
+  }
+
+  return words;
+}
+
+/**
+ * One example on lines no wider than `width`, split before a flag with shell line
+ * continuations, so a long command still pastes as one. A word longer than a line
+ * overflows instead of breaking.
+ */
+function wrapHelpExample(command: string, width: number): string[] {
+  const words = splitHelpExampleWords(command);
+  const lines: string[] = [];
+  let line = `${EXAMPLE_PREFIX}${words[0]}`;
+
+  for (const [index, word] of words.slice(1).entries()) {
+    const isLastWord = index === words.length - 2;
+    const candidate = `${line} ${word}`;
+    const limit = isLastWord ? width : width - LINE_CONTINUATION.length;
+
+    if (candidate.length <= limit) {
+      line = candidate;
+    } else {
+      lines.push(`${line}${LINE_CONTINUATION}`);
+      line = `${EXAMPLE_CONTINUATION_INDENT}${word}`;
+    }
+  }
+
+  return [...lines, line];
+}
+
+/** The width commander wraps this help to: the terminal's, else 80 columns. */
+function getHelpWidth({ command, error }: AddHelpTextContext): number {
+  const output = command.configureOutput();
+  const width = error ? output.getErrHelpWidth?.() : output.getOutHelpWidth?.();
+  return width ?? DEFAULT_HELP_WIDTH;
+}
+
+/**
+ * An `Examples:` block for `addHelpText`, or nothing when there are no examples. Built at
+ * print time so long commands wrap to the terminal width.
+ */
+export function formatHelpExamples(
+  commands: readonly string[],
+): (context: AddHelpTextContext) => string {
+  return (context) => {
+    if (commands.length === 0) {
+      return '';
+    }
+
+    const width = getHelpWidth(context);
+    return [
+      '',
+      'Examples:',
+      ...commands.flatMap((command) => wrapHelpExample(command, width)),
+    ].join('\n');
+  };
 }
 
 function createCommand(definition: ReportRuntimeDefinition): Command {
@@ -206,7 +387,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
   };
 
   const descriptionByGranularity: Record<ReportGranularity, string> = {
-    daily: 'Show daily usage report (last 7 days unless --last, --since, --until, or --all)',
+    daily: `Show daily usage report (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
     weekly:
       'Show weekly usage report (week starts Monday; last 8 weeks unless --last, --since, --until, or --all)',
     monthly: 'Show monthly usage report',
@@ -222,26 +403,11 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       helpExamples: helpExamplesByGranularity[granularity],
     },
     register(command) {
-      const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
-
-      if (defaultWindow) {
-        const { period, periods } = defaultWindow;
-        command.option(
-          '--all',
-          `Report every ${period} instead of the last ${String(periods)} ${period}s`,
-        );
-      }
-
-      const period = getReportPeriodName(granularity);
-
-      command
-        .option('--last <n>', `Report the last N ${period}s, counting the current ${period}`)
-        .option(
-          '--compact',
-          'Abbreviate token counts and hide the Reasoning and Cache Write columns (terminal/markdown)',
-        )
-        .option('--no-cost', 'Leave cost out of the table and share card, e.g. for screenshots')
-        .option('--by-machine', 'Split each source row by the machine its usage came from');
+      addPeriodWindowOptions(command, granularity);
+      addTableDisplayOptions(command, 'the table and share report')
+        .option('--by-machine', BY_MACHINE_DESCRIPTION)
+        .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
+      addRepoFilterOption(command);
 
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));
 
@@ -273,7 +439,13 @@ const summaryReportDefinition: ReportRuntimeDefinition = {
     ],
   },
   register(command) {
-    command.action((options: SummaryCommandOptions) => runSummaryReport(options));
+    command.option(
+      '--all',
+      'No effect: the summary always covers today, the last 7 days and month to date',
+    );
+    addRepoFilterOption(command).action((options: SummaryCommandOptions) =>
+      runSummaryReport(options),
+    );
 
     return command;
   },
@@ -302,10 +474,14 @@ const efficiencyReportDefinition: ReportRuntimeDefinition = {
     addGranularityArgument(command)
       .option('--repo-dir <path>', 'Path to repository for Git outcome metrics')
       .option('--include-merge-commits', 'Include merge commits in Git outcome metrics')
-      .option('--by-source', 'Include per-source usage rows under each period')
-      .action((granularity: ReportGranularity, options: EfficiencyCommandOptions) =>
-        runEfficiencyReport(granularity, options),
-      );
+      .option('--by-source', 'Include per-source usage rows under each period');
+    addFullHistoryOption(command);
+    addRepoFilterOption(
+      command,
+      'It filters usage events; --repo-dir picks the Git repository for outcomes',
+    ).action((granularity: ReportGranularity, options: EfficiencyCommandOptions) =>
+      runEfficiencyReport(granularity, options),
+    );
 
     return command;
   },
@@ -335,7 +511,11 @@ const compareReportDefinition: ReportRuntimeDefinition = {
     command
       .option('--vs-since <date>', 'Inclusive start date for the baseline comparison window')
       .option('--vs-until <date>', 'Inclusive end date for the baseline comparison window')
-      .action((options: CompareCommandOptions) => runCompareReport(options));
+      .option('--by-repo', `Also compare each ${PROJECT_DESCRIPTION}`)
+      .option('--all', 'No effect: compare reads its two windows from the date flags');
+    addRepoFilterOption(command).action((options: CompareCommandOptions) =>
+      runCompareReport(options),
+    );
 
     return command;
   },
@@ -369,10 +549,12 @@ const optimizeReportDefinition: ReportRuntimeDefinition = {
         'Candidate model for counterfactual pricing (repeatable or comma-separated)',
         collectRepeatedOption,
       )
-      .option('--top <n>', 'Show only the top N cheapest candidates (positive integer)')
-      .action((granularity: ReportGranularity, options: OptimizeCommandOptions) =>
+      .option('--top <n>', 'Show only the top N cheapest candidates (positive integer)');
+    addFullHistoryOption(command);
+    addRepoFilterOption(command).action(
+      (granularity: ReportGranularity, options: OptimizeCommandOptions) =>
         runOptimizeReport(granularity, options),
-      );
+    );
 
     return command;
   },
@@ -408,12 +590,19 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
         'Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided',
       )
       .addOption(new Option('--days <n>', 'Alias of --last').hideHelp())
+      .option('--all', 'Chart every day since the first usage instead of the last 30 days')
       .option('--metric <name>', 'Trend metric: cost | tokens | active-hours', 'cost')
       .option(
         '--by-source',
         'Render one sparkline row per source instead of a single combined chart',
       )
-      .action((options: TrendsCommandOptions) => runTrendsReport(options));
+      .option(
+        '--by-repo',
+        `Render one sparkline row per ${PROJECT_DESCRIPTION}; not with --by-source`,
+      );
+    addRepoFilterOption(command).action((options: TrendsCommandOptions) =>
+      runTrendsReport(options),
+    );
 
     return command;
   },
@@ -441,6 +630,10 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         includeInCliReference: true,
       },
       {
+        command: 'llm-usage session --id 486c --timeline',
+        includeInCliReference: true,
+      },
+      {
         command: 'llm-usage session --by-repo --top 5',
         includeInCliReference: true,
       },
@@ -458,8 +651,56 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         'Show only sessions whose id contains the value (case-insensitive; repeatable or comma-separated)',
         collectRepeatedOption,
       )
-      .option('--by-repo', 'Group usage by repository root instead of by session')
-      .action((options: SessionCommandOptions) => runSessionReport(options));
+      .option('--by-repo', `Group usage by ${PROJECT_DESCRIPTION} instead of by session`)
+      .option(
+        '--timeline',
+        'With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns',
+      );
+    addFullHistoryOption(command);
+    addRepoFilterOption(command).action((options: SessionCommandOptions) =>
+      runSessionReport(options),
+    );
+
+    return command;
+  },
+};
+
+const contextReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'context',
+    docsLabel: 'context',
+    kind: 'specialized',
+    description: `Show peak prompt sizes per model or session, long-context requests and what their tier rates added (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
+    sharedOptionProfile: 'session',
+    helpExamples: [
+      {
+        command: 'llm-usage context',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --by-session --top 5',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --last 30 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --source claude --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    addPeriodWindowOptions(command, 'daily')
+      .option('--by-session', 'One row per session instead of per model, largest peak prompt first')
+      .option(
+        '--top <n>',
+        'With --by-session, show only the top N sessions (default 20; 0 shows all)',
+      );
+    addRepoFilterOption(command).action((options: ContextCommandOptions) =>
+      runContextReport(options),
+    );
 
     return command;
   },
@@ -470,7 +711,7 @@ const wrappedReportDefinition: ReportRuntimeDefinition = {
     commandName: 'wrapped',
     docsLabel: 'wrapped',
     kind: 'specialized',
-    description: 'Show a yearly usage recap with an optional share card',
+    description: 'Show a yearly usage recap with an optional share report',
     sharedOptionProfile: 'wrapped',
     helpExamples: [
       {
@@ -491,6 +732,7 @@ const wrappedReportDefinition: ReportRuntimeDefinition = {
   register(command) {
     command
       .option('--year <YYYY>', 'Year to recap (2020-2100; defaults to current local year)')
+      .option('--all', 'No effect: wrapped always recaps one year, chosen with --year')
       .action((options: WrappedCommandOptions) => runWrappedReport(options));
 
     return command;
@@ -562,7 +804,7 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
     commandName: 'events',
     docsLabel: 'events',
     kind: 'specialized',
-    description: 'Export normalized usage events as JSONL or CSV',
+    description: 'Export usage events as JSONL, CSV, or OTLP traces or metrics',
     sharedOptionProfile: 'events',
     helpExamples: [
       {
@@ -574,12 +816,35 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
         command: 'llm-usage events --format csv --since 2026-01-01',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage events --format otlp-metrics --since 2026-06-01 > metrics.jsonl',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage events --format otlp-traces --otlp-endpoint http://127.0.0.1:4318',
+        includeInCliReference: true,
+      },
     ],
   },
   register(command) {
     command
-      .option('--format <name>', 'Export format: jsonl | csv', 'jsonl')
-      .action((options: EventsCommandOptions) => runEventsReport(options));
+      .option('--format <name>', 'Export format: jsonl | csv | otlp-traces | otlp-metrics', 'jsonl')
+      .option(
+        '--otel-include-paths',
+        'With otlp-traces: add repository paths and path-shaped session ids to spans (left out or hashed by default)',
+      )
+      .option(
+        '--otlp-endpoint <url>',
+        'With an OTLP format: POST to <url>/v1/traces or /v1/metrics (unless <url> already ends with it) instead of printing; headers from OTEL_EXPORTER_OTLP_HEADERS',
+      );
+    addFullHistoryOption(command);
+    addRepoFilterOption(command).action((options: EventsCommandOptions) =>
+      runEventsReport(options),
+    );
 
     return command;
   },
@@ -611,18 +876,299 @@ const statuslineDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const hourlyReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'hourly',
+    docsLabel: 'hourly',
+    kind: 'usage-granularity',
+    description: 'Show hourly usage report (today unless --last, --since, --until, or --all)',
+    sharedOptionProfile: 'hourly',
+    helpExamples: [
+      {
+        command: 'llm-usage hourly',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage hourly --last 3 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage hourly --since 2026-06-15 --until 2026-06-15 --by-repo',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option(
+        '--last <n>',
+        `Report the last N days hour by hour (1-${String(HOURLY_MAX_LAST_DAYS)}), counting today`,
+      )
+      .option('--all', 'Report every hour instead of today');
+    addTableDisplayOptions(command, 'the table')
+      .option('--by-machine', BY_MACHINE_DESCRIPTION)
+      .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
+    addRepoFilterOption(command).action((options: HourlyCommandOptions) =>
+      runHourlyReport(options),
+    );
+
+    return command;
+  },
+};
+
+const toolsReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'tools',
+    docsLabel: 'tools',
+    kind: 'specialized',
+    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, from claude, codex and pi sessions (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
+    sharedOptionProfile: 'tools',
+    helpExamples: [
+      {
+        command: 'llm-usage tools',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --by-source --top 10',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --last 30 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --by-repo --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--top <n>', 'Show only the top N tools by calls (default 20; 0 shows all)')
+      .option('--by-source', 'Split each tool row by source')
+      .option('--by-repo', `Split each tool row by ${PROJECT_DESCRIPTION}`)
+      .option(
+        '--last <n>',
+        `Report the last N days, counting today (default ${String(DEFAULT_RECENT_DAYS)})`,
+      )
+      .option(
+        '--all',
+        `Report every tool call on disk instead of the last ${String(DEFAULT_RECENT_DAYS)} days`,
+      );
+    command
+      .option(
+        '--repo <project>',
+        `${REPO_FILTER_MATCHING}. Keeps the tool calls of sessions whose usage is in these projects`,
+        collectRepeatedOption,
+      )
+      .action((options: ToolsCommandOptions) => runToolsReport(options));
+
+    return command;
+  },
+};
+
+const projectsReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'projects',
+    docsLabel: 'projects',
+    kind: 'specialized',
+    description: `Show cost, tokens, events, active days and top models per ${PROJECT_DESCRIPTION}, costliest first (full history unless --last, --since, or --until)`,
+    sharedOptionProfile: 'rollup',
+    helpExamples: [
+      {
+        command: 'llm-usage projects',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage projects --last 3 --top 10',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage projects --granularity monthly --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .addOption(
+        new Option('--granularity <period>', 'Add rows per period and project').choices(
+          GRANULARITY_ARGUMENT_VALUES,
+        ),
+      )
+      .option('--top <n>', 'Show only the top N projects by cost (positive integer)')
+      .option('--last <n>', 'Report the last N months, counting the current month');
+    addFullHistoryOption(command);
+    addTableDisplayOptions(command, 'the table', ROLLUP_COMPACT_DESCRIPTION);
+    addRepoFilterOption(command).action((options: ProjectsCommandOptions) =>
+      runProjectsReport(options),
+    );
+
+    return command;
+  },
+};
+
+const blocksReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'blocks',
+    docsLabel: 'blocks',
+    kind: 'specialized',
+    description: `Show estimated 5-hour usage blocks per source, across machines, with the active block (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all; only meaningful for subscription plans)`,
+    sharedOptionProfile: 'rollup',
+    helpExamples: [
+      {
+        command: 'llm-usage blocks',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage blocks --source claude --last 1',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage blocks --all --top 5 --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option(
+        '--top <n>',
+        'Show only the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost (positive integer)',
+      )
+      .option(
+        '--last <n>',
+        `Report the last N days, counting today (default ${String(DEFAULT_RECENT_DAYS)})`,
+      )
+      .option(
+        '--all',
+        `Report every block instead of the last ${String(DEFAULT_RECENT_DAYS)} days`,
+      );
+    addTableDisplayOptions(command, 'the table', ROLLUP_COMPACT_DESCRIPTION);
+    addRepoFilterOption(command).action((options: BlocksCommandOptions) =>
+      runBlocksReport(options),
+    );
+
+    return command;
+  },
+};
+
+function collectPlanOption(value: string, previous?: string[]): string[] {
+  const plan = value.trim();
+
+  if (!PLAN_IDS.some((id) => id === plan)) {
+    throw new InvalidArgumentError(`Allowed choices are ${PLAN_IDS.join(', ')}.`);
+  }
+
+  return [...(previous ?? []), plan];
+}
+
+const valueReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'value',
+    docsLabel: 'value',
+    kind: 'specialized',
+    description:
+      'Compare the API-priced cost of each month with subscription plan prices, per plan and project (full history unless --last, --since, or --until)',
+    sharedOptionProfile: 'rollup',
+    helpExamples: [
+      {
+        command: 'llm-usage value',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage value --plan claude-max-5x --plan chatgpt-plus',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage value --plan claude-pro --plan-price 18 --last 6 --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .addOption(
+        new Option(
+          '--plan <id>',
+          `Plan to compare with, over the sources it covers (repeatable; default ${DEFAULT_PLAN_ID}, or ${FALLBACK_PLAN_ID} when the source filter leaves out claude). Two plans that cover the same source each count its full cost`,
+        )
+          .choices(PLAN_IDS)
+          // Must stay after .choices(), which installs a parser that keeps only the last value.
+          .argParser(collectPlanOption),
+      )
+      .option(
+        '--plan-price <usd>',
+        "Monthly plan price in USD to use instead of the plan's list price (one plan only)",
+      )
+      .option('--last <n>', 'Report the last N months, counting the current month')
+      .option('--all', 'Report every month since the first usage (the default without date flags)');
+    addTableDisplayOptions(command, 'the table', ROLLUP_COMPACT_DESCRIPTION);
+    addRepoFilterOption(command).action((options: ValueCommandOptions) => runValueReport(options));
+
+    return command;
+  },
+};
+
+const pricingReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'pricing',
+    docsLabel: 'pricing <model...>',
+    kind: 'specialized',
+    description:
+      'Explain how model names resolve to prices: the matched pricing key and rule, overrides, where the prices came from, rates per 1M tokens and tiers (never reads usage)',
+    sharedOptionProfile: 'pricing',
+    helpExamples: [
+      {
+        command: 'llm-usage pricing claude-sonnet-4-5',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage pricing gpt-5 gpt-5-codex --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage pricing my-model --pricing-overrides ./overrides.json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .argument('<model...>', 'Model names, as they appear in usage logs')
+      .action((models: string[], options: PricingCommandOptions) =>
+        runPricingReport(models, options),
+      );
+
+    return command;
+  },
+};
+
 const reportDefinitions = [
   summaryReportDefinition,
+  hourlyReportDefinition,
   createUsageReportDefinition('daily'),
   createUsageReportDefinition('weekly'),
   createUsageReportDefinition('monthly'),
+  projectsReportDefinition,
   compareReportDefinition,
   efficiencyReportDefinition,
   optimizeReportDefinition,
   trendsReportDefinition,
   sessionReportDefinition,
+  toolsReportDefinition,
+  contextReportDefinition,
+  blocksReportDefinition,
+  valueReportDefinition,
   wrappedReportDefinition,
   eventsReportDefinition,
+  pricingReportDefinition,
   statuslineDefinition,
   doctorReportDefinition,
   pruneReportDefinition,
@@ -648,7 +1194,7 @@ function collectHelpExamples(
     .map((example) => example.command);
 }
 
-function getRootHelpExamples(): string[] {
+export function getRootHelpExamples(): string[] {
   return collectHelpExamples(
     (example) => example.includeInRootHelp === true,
     reportReferenceExamples,
@@ -672,8 +1218,5 @@ export function createRootDescription(): string {
     `Supported sources (${supportedSourceIds.length}): ${allowedSourcesLabel}`,
     '',
     'Run `llm-usage <command> --help` to see command options (e.g. --json, --source).',
-    '',
-    'Examples:',
-    ...getRootHelpExamples().map((example) => `  $ ${example}`),
   ].join('\n');
 }

@@ -1,7 +1,7 @@
 import type { ActiveConfig, ActiveConfigEntry } from '../config/active-config-display.js';
 import type { LoadedUserConfig, UserConfig } from '../config/user-config.js';
 import { loadUserConfig } from '../config/user-config.js';
-import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
+import { parseSourceDirectoryOverrides } from './source-cli-options.js';
 import type { ReportCommandOptions } from './usage-data-contracts.js';
 
 const sourceDirOptionByConfigKey = {
@@ -129,7 +129,7 @@ function buildActiveConfig(
   };
 }
 
-function hasEnvOverride(env: NodeJS.ProcessEnv, name: string): boolean {
+export function hasEnvOverride(env: NodeJS.ProcessEnv, name: string): boolean {
   return env[name] !== undefined && env[name] !== '';
 }
 

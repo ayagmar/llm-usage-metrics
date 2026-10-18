@@ -50,9 +50,35 @@ describe('renderMachineList', () => {
       'laptop  me@laptop  never synced',
       'laptop  me@laptop  never synced: ssh failed: timed out',
       'laptop  me@laptop  disabled (cached usage stays in reports)',
-      'laptop  me@laptop  synced 1 h ago, 2 file(s), 1,200 event(s); last attempt failed 1 min ago: ssh failed',
-      'laptop  me@laptop  synced 2 min ago, 2 file(s), 1,200 event(s)',
+      'laptop  me@laptop  synced 1 h ago, 2 files, 1,200 events; last attempt failed 1 min ago: ssh failed',
+      'laptop  me@laptop  synced 2 min ago, 2 files, 1,200 events',
     ]);
+  });
+});
+
+describe('renderMachineList widths', () => {
+  it('lines up the ssh column by display width when a name has wide characters', () => {
+    const lines = renderMachineList(
+      [
+        {
+          name: 'ノート',
+          machine: { ssh: 'me@laptop' },
+          state: undefined,
+          fileCount: 0,
+          eventCount: 0,
+        },
+        {
+          name: 'vps',
+          machine: { ssh: 'root@vps' },
+          state: undefined,
+          fileCount: 0,
+          eventCount: 0,
+        },
+      ],
+      NOW,
+    );
+
+    expect(lines).toEqual(['ノート  me@laptop  never synced', 'vps     root@vps   never synced']);
   });
 });
 
@@ -76,42 +102,53 @@ describe('renderSyncOutcome', () => {
         NOW,
       ),
     ).toEqual([
-      '✓ vps: 3,072 file(s) updated, 1 removed; 3,072 file(s), 10 event(s) cached (llm-usage-metrics 1.0.0)',
+      '✓ vps: 3,072 files updated, 1 removed; 3,072 files, 10 events cached (llm-usage-metrics 1.0.0)',
       '  vps warned: ⚠ machine export left out 2 event(s)',
     ]);
   });
 });
 
 describe('formatMachinesNote', () => {
-  it('warns about a machine running another version', () => {
+  it.each([
+    [
+      'records no parser versions',
+      undefined,
+      'shared sessions are matched by timestamp until it is synced after updating llm-usage',
+    ],
+    [
+      'records its parser versions',
+      { codex: 'n2.p1' },
+      'sessions it parses with other parser versions are matched by timestamp',
+    ],
+  ])('says how a machine running another version that %s is merged', (_, parserVersions, text) => {
     expect(
       formatMachinesNote(
         [
           {
             name: 'laptop',
             enabled: true,
-            state: { syncedAt: NOW - 2 * MINUTE, cliVersion: '0.9.0' },
+            state: { syncedAt: NOW - 2 * MINUTE, cliVersion: '0.9.0', parserVersions },
             duplicateCount: 0,
+            skewDroppedCount: 0,
           },
         ],
         NOW,
         '0.10.0',
       ),
-    ).toBe(
-      'Machines: laptop (synced 2 min ago, llm-usage-metrics 0.9.0 there; shared sessions may count twice until both run the same version).',
-    );
+    ).toBe(`Machines: laptop (synced 2 min ago, llm-usage-metrics 0.9.0 there; ${text}).`);
   });
 
   it('says a disabled machine is not synced, instead of suggesting a sync', () => {
     expect(
       formatMachinesNote(
         [
-          { name: 'old', enabled: false, duplicateCount: 0 },
+          { name: 'old', enabled: false, duplicateCount: 0, skewDroppedCount: 0 },
           {
             name: 'vps',
             enabled: false,
             state: { syncedAt: NOW - 3 * 60 * MINUTE },
             duplicateCount: 0,
+            skewDroppedCount: 0,
           },
         ],
         NOW,

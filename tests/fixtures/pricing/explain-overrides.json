@@ -1,0 +1,11 @@
+{
+  "models": {
+    "acme-internal-model": { "inputPer1MUsd": 1, "outputPer1MUsd": 2, "cacheReadPer1MUsd": 0.1 },
+    "claude-opus-4-8": {
+      "inputPer1MUsd": 12,
+      "outputPer1MUsd": 60,
+      "reasoningPer1MUsd": 70,
+      "reasoningBilling": "separate"
+    }
+  }
+}

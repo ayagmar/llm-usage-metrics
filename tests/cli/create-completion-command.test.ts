@@ -69,14 +69,35 @@ describe('renderCompletionScript', () => {
     );
   });
 
+  it('completes the plan ids after --plan and the periods after --granularity', () => {
+    const bash = render('bash');
+
+    expect(bash).toContain(
+      '--plan) COMPREPLY=($(compgen -W "claude-pro claude-max-5x claude-max-20x chatgpt-go chatgpt-plus chatgpt-pro-100 chatgpt-pro-200 chatgpt-pro-500" -- "$cur")); return ;;',
+    );
+    expect(bash).toContain(
+      '--granularity) COMPREPLY=($(compgen -W "daily weekly monthly" -- "$cur")); return ;;',
+    );
+  });
+
+  it('completes declared choices after a value flag such as --cost-mode', () => {
+    expect(render('bash')).toContain(
+      '--cost-mode) COMPREPLY=($(compgen -W "explicit estimated both" -- "$cur")); return ;;',
+    );
+    expect(render('zsh')).toContain('--cost-mode) compadd -- explicit estimated both; return ;;');
+    expect(render('fish')).toMatch(
+      /__fish_seen_subcommand_from daily' -l cost-mode -d '[^']*' -r -a 'explicit estimated both'/u,
+    );
+  });
+
   it('offers argument values, subcommands, and subcommand options', () => {
     const bash = render('bash');
 
     expect(bash).toMatch(/"efficiency"\|"efficiency "\*\) words="daily weekly monthly /u);
     expect(bash).toMatch(/"schema"\|"schema "\*\) words="summary usage /u);
     // A subcommand's options belong to it, matched before its parent.
-    expect(bash).toMatch(/"config init"\|"config init "\*\) words="--force --help"/u);
-    expect(bash).toMatch(/"config"\|"config "\*\) words="init show path --help"/u);
+    expect(bash).toMatch(/"config init"\|"config init "\*\) words="--force --help-all --help"/u);
+    expect(bash).toMatch(/"config"\|"config "\*\) words="init show path --help-all --help"/u);
     expect(bash.indexOf('"config init"')).toBeLessThan(bash.indexOf('"config"|'));
     expect(render('fish')).toMatch(/__fish_seen_subcommand_from init' -l force/u);
   });

@@ -1,34 +1,31 @@
+import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
+import type { SessionRow } from '../session/session-row.js';
+import { buildSessionTimeline } from '../session/session-timeline.js';
+import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
+import { getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
 } from './build-usage-event-dataset.js';
+import {
+  formatFailedLiveReads,
+  formatLiveEventsNote,
+  readLiveSessionEvents,
+} from './read-live-session-events.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildSessionDataDeps,
   SessionCommandOptions,
   SessionDataResult,
 } from './usage-data-contracts.js';
+import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 
-const DEFAULT_SESSION_TOP = 20;
-
-function parseSessionTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-  const parsed = Number.parseInt(normalized, 10);
-
-  if (!/^\d+$/u.test(normalized) || Number.isNaN(parsed)) {
-    throw new Error('--top must be a non-negative integer (0 shows all rows)');
-  }
-
-  return parsed;
-}
+const MAX_LISTED_TIMELINE_MATCHES = 10;
+const LIVE_TIMELINE_SUBJECT = 'Tool calls and turns';
 
 function normalizeSessionIdFilters(id: string[] | undefined): string[] | undefined {
   if (!id || id.length === 0) {
@@ -47,30 +44,60 @@ function normalizeSessionIdFilters(id: string[] | undefined): string[] | undefin
   return [...new Set(normalizedIds)];
 }
 
-function resolveSessionRowLimit(
-  top: number | undefined,
-  hasIdFilters: boolean,
-): number | undefined {
-  if (top !== undefined) {
-    return top === 0 ? undefined : top;
+function validateTimelineOptions(options: SessionCommandOptions, hasIdFilters: boolean): void {
+  if (!options.timeline) {
+    return;
   }
 
-  return hasIdFilters ? undefined : DEFAULT_SESSION_TOP;
+  if (!hasIdFilters) {
+    throw new Error('--timeline needs --id <session-id> naming one session');
+  }
+
+  if (options.top !== undefined) {
+    throw new Error('--timeline shows every request; it cannot be combined with --top');
+  }
 }
 
-function limitRows<Row>(
-  rows: Row[],
-  limit: number | undefined,
-  rowNoun: 'sessions' | 'repos',
-): { rows: Row[]; limitNote?: string } {
-  if (limit === undefined || rows.length <= limit) {
-    return { rows };
+/**
+ * The one session `--id` names: the only match, or the only row whose id equals a filter
+ * when several match. Otherwise an error listing what it matched.
+ */
+function requireOneTimelineSession(
+  sessionRows: readonly SessionRow[],
+  idFilters: readonly string[],
+  timezone: string,
+): SessionRow {
+  const idText = idFilters.join(',');
+
+  if (sessionRows.length === 0) {
+    throw new Error(
+      `--timeline found no session matching --id ${idText}. Run \`llm-usage session\` to list session ids, or widen --since/--until.`,
+    );
   }
 
-  return {
-    rows: rows.slice(0, limit),
-    limitNote: `Showing top ${limit} of ${rows.length} ${rowNoun} by cost. Use --top 0 for all.`,
-  };
+  const exactRows = sessionRows.filter((row) => idFilters.includes(row.sessionId.toLowerCase()));
+
+  if (sessionRows.length > 1 && exactRows.length !== 1) {
+    const listedRows = sessionRows.slice(0, MAX_LISTED_TIMELINE_MATCHES);
+    const sourceWidth = Math.max(...listedRows.map((row) => row.source.length));
+    const idWidth = Math.max(...listedRows.map((row) => row.sessionId.length));
+    const listed = listedRows.map(
+      (row) =>
+        `  ${row.source.padEnd(sourceWidth)}  ${row.sessionId.padEnd(idWidth)}  ${getPeriodKey(row.lastActivity, 'daily', timezone)}`,
+    );
+    const unlisted = sessionRows.length - listed.length;
+
+    throw new Error(
+      [
+        `--timeline needs exactly one session, but --id ${idText} matches ${sessionRows.length}:`,
+        ...listed,
+        ...(unlisted > 0 ? [`  and ${unlisted} more`] : []),
+        'Pass more of the session id to --id, or narrow with --source.',
+      ].join('\n'),
+    );
+  }
+
+  return sessionRows.length === 1 ? sessionRows[0] : exactRows[0];
 }
 
 export async function buildSessionData(
@@ -83,33 +110,32 @@ export async function buildSessionData(
     throw new Error('--id cannot be combined with --by-repo');
   }
 
-  const top = parseSessionTopOption(options.top);
-  const limit = resolveSessionRowLimit(top, idFilters !== undefined);
+  validateTimelineOptions(options, idFilters !== undefined);
+
+  const top = parseTopRowsOption(options.top);
+  const limit = resolveTopRowLimit(top, idFilters !== undefined);
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'session.dataset.total',
     () => buildUsageEventDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
-  const aggregateOptions = {
-    timezone: dataset.normalizedInputs.timezone,
-    since: options.since,
-    until: options.until,
-  };
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  // From every event, as `projects` labels them, so a label does not depend on --top or --id.
+  const projectLabels = buildEventProjectLabels(pricedEvents);
   // Only the shown rows carry `~`, so only their events explain it.
-  const buildDiagnostics = (shownEvents: UsageEvent[]) =>
+  const buildDiagnostics = (
+    shownEvents: UsageEvent[],
+    live: { warnings: string[]; notes: string[] } = { warnings: [], notes: [] },
+  ) =>
     buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,
       successfulParseResults: dataset.successfulParseResults,
       sourceFailures: dataset.sourceFailures,
       pricingOrigin,
       pricingWarning,
-      warnings: dataset.warnings,
-      notes: withUnpricedEventsNote(dataset.notes, shownEvents),
+      warnings: [...dataset.warnings, ...live.warnings],
+      notes: [...withPricingNotes(dataset.notes, shownEvents, pricingResult), ...live.notes],
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone: dataset.normalizedInputs.timezone,
@@ -118,30 +144,74 @@ export async function buildSessionData(
 
   if (options.byRepo) {
     const repoRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
-      aggregateSessionsByRepo(pricedEvents, aggregateOptions),
+      aggregateSessionsByRepo(pricedEvents),
     );
     const limited = limitRows(repoRows, limit, 'repos');
-    const shownRepos = new Set(limited.rows.map((row) => row.repoRoot ?? ''));
+    const shownRepos = new Set(limited.rows.map((row) => row.repoRoot));
 
     return {
       grouping: 'repo',
       rows: limited.rows,
+      projectLabels,
       limitNote: limited.limitNote,
       diagnostics: buildDiagnostics(
-        pricedEvents.filter((event) => shownRepos.has(event.repoRoot ?? '')),
+        pricedEvents.filter((event) => shownRepos.has(toProjectKey(event.repoRoot))),
       ),
     };
   }
 
   const sessionRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
-    aggregateSessions(pricedEvents, { ...aggregateOptions, ids: idFilters }),
+    aggregateSessions(pricedEvents, { ids: idFilters }),
   );
+
+  if (options.timeline && idFilters) {
+    const session = requireOneTimelineSession(
+      sessionRows,
+      idFilters,
+      dataset.normalizedInputs.timezone,
+    );
+    const sessionKey = getEventSessionKey(session);
+    const sessionEvents = pricedEvents.filter((event) => getEventSessionKey(event) === sessionKey);
+    // Tool calls come from every file of the session's source, as `tools` reads them, so a
+    // call a resumed or forked transcript copied from its parent stays its parent's.
+    const live = await measureRuntimeProfileStage(deps.runtimeProfile, 'session.read_live', () =>
+      readLiveSessionEvents(dataset, {
+        kinds: ['tool_call', 'message'],
+        filePaths: new Set(
+          [...dataset.parsedFiles, ...(dataset.ledger?.historyFiles ?? [])]
+            .filter((file) => file.source === session.source)
+            .map((file) => file.filePath),
+        ),
+      }),
+    );
+    const toolCalls = dedupeToolCalls(
+      live.events.filter((event) => event.kind === 'tool_call'),
+    ).filter((event) => getEventSessionKey(event) === sessionKey);
+    // Messages carry no id that holds across copies (user turns have none), so they are the
+    // session's messages, copied ones included.
+    const messages = live.events.filter(
+      (event) => event.kind === 'message' && getEventSessionKey(event) === sessionKey,
+    );
+
+    return {
+      grouping: 'timeline',
+      session,
+      rows: buildSessionTimeline(sessionEvents, [...toolCalls, ...messages]),
+      projectLabels,
+      diagnostics: buildDiagnostics(sessionEvents, {
+        warnings: formatFailedLiveReads(LIVE_TIMELINE_SUBJECT, live.failedFilePaths),
+        notes: [formatLiveEventsNote(LIVE_TIMELINE_SUBJECT, dataset)],
+      }),
+    };
+  }
+
   const limited = limitRows(sessionRows, limit, 'sessions');
   const shownSessions = new Set(limited.rows.map((row) => getEventSessionKey(row)));
 
   return {
     grouping: 'session',
     rows: limited.rows,
+    projectLabels,
     limitNote: limited.limitNote,
     diagnostics: buildDiagnostics(
       pricedEvents.filter((event) => shownSessions.has(getEventSessionKey(event))),

@@ -1,0 +1,62 @@
+Usage: llm-usage blocks [options]
+
+Show estimated 5-hour usage blocks per source, across machines, with the active block (last 7 days
+unless --last, --since, --until, or --all; only meaningful for subscription plans)
+
+Options:
+  --help-all                     Display help including the per-source path flags
+  --source-dir <source-id=path>  Override source directory for directory-backed sources (repeatable)
+  --source <name>                Filter by source id (repeatable or comma-separated, supported
+                                 sources (17): pi, codex, gemini, droid, opencode, openclaw, claude,
+                                 copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                 antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings still print)
+  --verbose                      Print detailed diagnostics on stderr (per-source counts, routine
+                                 skips, config, env)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system timezone)
+  --provider <name>              Billing-provider filter (normalized to billing entity; e.g. openai,
+                                 anthropic, google, moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated; exact when exact match
+                                 exists after source/provider/date filters, otherwise substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
+                                 precedence over LiteLLM)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM pricing, or the bundled
+                                 snapshot when there is no cache
+  --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
+                                 LiteLLM), or both (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
+  --history                      Include usage from files that no longer exist on disk (on by
+                                 default; when passed, fails if the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist on disk
+  --machine <name>               Count only these machines (repeatable or comma-separated; local is
+                                 this one; default: all)
+  --no-sync                      Use other machines' cached usage without refreshing it over ssh
+  --markdown                     Render output as markdown table
+  --top <n>                      Show only the top N blocks across sources by cost, or by tokens
+                                 when a cost is incomplete or with --no-cost (positive integer)
+  --last <n>                     Report the last N days, counting today (default 7)
+  --all                          Report every block instead of the last 7 days
+  --compact                      Abbreviate token counts and leave out minor columns
+                                 (terminal/markdown)
+  --no-cost                      Leave cost out of the table, e.g. for screenshots
+  --repo <project>               Count only these projects (repeatable or comma-separated, so a
+                                 value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
+                                 this machine) matches that project directory and the projects under
+                                 it; a name or path tail such as work/api matches the end of a
+                                 project directory, not the projects under it; (unattributed)
+                                 matches usage without a recorded directory. Applied after --model
+                                 picks exact or substring matching
+  -h, --help                     display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage blocks
+  $ llm-usage blocks --source claude --last 1
+  $ llm-usage blocks --all --top 5 --json

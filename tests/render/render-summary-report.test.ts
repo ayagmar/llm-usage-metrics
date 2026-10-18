@@ -127,7 +127,7 @@ describe('renderSummaryReport', () => {
     );
 
     expect(output).toContain(
-      'No usage found in the last 7 days or this month. Run `llm-usage doctor`',
+      'No usage data found in the last 7 days or this month. Run `llm-usage doctor`',
     );
     // An empty year draws no activity section.
     expect(output).not.toContain('Activity');
@@ -147,7 +147,7 @@ describe('renderSummaryReport', () => {
     const output = renderSummaryReport(data, 'terminal', { useColor: false });
 
     expect(output).toContain(
-      'No usage in the last 7 days or this month. Latest usage: 2026-01-17. Try `llm-usage monthly --all`.',
+      'No usage data found in the last 7 days or this month. Latest usage: 2026-01-17. Try `llm-usage monthly --all`.',
     );
     expect(output).not.toContain('llm-usage doctor');
   });
@@ -181,7 +181,9 @@ describe('renderSummaryReport', () => {
 
     const output = renderSummaryReport(data, 'terminal', { useColor: false, filtered: true });
 
-    expect(output).toContain('No usage in the last 7 days or this month for the selected filters.');
+    expect(output).toContain(
+      'No usage data found in the last 7 days or this month for the selected filters.',
+    );
     expect(output).not.toContain('monthly --all');
     expect(output).not.toContain('llm-usage doctor');
   });
@@ -446,5 +448,31 @@ describe('renderSummaryReport', () => {
     expect(Object.keys(parsed.data)).toEqual(['timezone', 'periods', 'monthEnd', 'activity']);
     expect(parsed.data.activity).toMatchObject({ currentStreak: 2, longestStreak: 2 });
     expect(parsed.data.activity.days).toHaveLength(366);
+  });
+
+  it('puts the spend spike note first under the table, escaping names in markdown', () => {
+    const data = {
+      ...createSummaryData(),
+      monthEnd: { daysElapsed: 10, daysInMonth: 31, projectedCostUsd: 40 },
+      spike: {
+        date: '2026-03-09',
+        costUsd: 12,
+        costIncomplete: true,
+        medianActiveDayUsd: 4,
+        project: 'my_app',
+        model: 'gpt-*',
+      },
+    };
+    const terminalLines = renderSummaryReport(data, 'terminal', { useColor: false }).split('\n');
+    const spikeIndex = terminalLines.findIndex((line) => line.startsWith('Spend spike'));
+
+    expect(terminalLines[spikeIndex]).toBe(
+      'Spend spike on 2026-03-09: ~$12.00, 3.0× the median active day ($4.00) of the 28 days before; top project my_app, top model gpt-*',
+    );
+    expect(terminalLines[spikeIndex - 1]).toBe('');
+    expect(terminalLines[spikeIndex + 1]).toMatch(/^On pace for/u);
+    expect(renderSummaryReport(data, 'markdown')).toContain(
+      'top project my\\_app, top model gpt-\\*',
+    );
   });
 });

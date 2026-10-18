@@ -23,7 +23,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 import { getEventStoreRuntimeConfig } from '../src/config/runtime-overrides.ts';
-import { normalizeProviderToBillingEntity } from '../src/domain/provider-normalization.ts';
+import { normalizeProviderToBillingEntity } from '@ayagmar/agent-sessions/internal';
 import { filterUsageEvents } from '../src/cli/parse/usage-event-filters.ts';
 import { buildUsageEventDataset } from '../src/cli/build-usage-event-dataset.ts';
 import { RuntimeProfileCollector } from '../src/cli/runtime-profile.ts';
@@ -70,6 +70,20 @@ const EVENT_COLUMNS = [
 const EVENT_COLUMNS_E = EVENT_COLUMNS.split(', ')
   .map((column) => `e.${column}`)
   .join(', ');
+
+// The candidates read events by source and path, as the store keyed them when they were
+// written; the store keys them by file id now.
+async function openBenchmarkStore() {
+  const store = await openEventStore(process.env.LLM_USAGE_EVENT_STORE_PATH);
+  store.database.exec(
+    [
+      'CREATE TEMP VIEW path_events AS',
+      'SELECT files.source AS source, files.file_path AS file_path, events.*',
+      'FROM files JOIN events ON events.file_id = files.id',
+    ].join('\n'),
+  );
+  return store;
+}
 
 // ---------------------------------------------------------------------------
 // Isolation
@@ -212,7 +226,7 @@ function runCandidate1(store, ctx) {
 // provider/widened-date candidate matches, then residual JS filter.
 function runCandidate5(store, ctx) {
   const selectAll = store.database.prepare(
-    `SELECT ${EVENT_COLUMNS} FROM events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
+    `SELECT ${EVENT_COLUMNS} FROM path_events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
   );
   const collected = [];
   let validated = 0;
@@ -254,11 +268,11 @@ function runCandidate5(store, ctx) {
 // (no SQL validity predicate exists) PLUS a filtered SELECT for output.
 function runCandidate3(store, ctx) {
   const selectAll = store.database.prepare(
-    `SELECT ${EVENT_COLUMNS} FROM events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
+    `SELECT ${EVENT_COLUMNS} FROM path_events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
   );
   const where = buildWhereClause(ctx.providerBilling, ctx.widened);
   const selectFiltered = store.database.prepare(
-    `SELECT ${EVENT_COLUMNS} FROM events WHERE source = ? AND file_path = ? AND ${where.sql} ORDER BY event_index ASC`,
+    `SELECT ${EVENT_COLUMNS} FROM path_events WHERE source = ? AND file_path = ? AND ${where.sql} ORDER BY event_index ASC`,
   );
   const collected = [];
   let validated = 0;
@@ -301,7 +315,7 @@ function runCandidate3(store, ctx) {
 function runCandidate2(store, ctx) {
   const database = store.database;
   const selectAll = database.prepare(
-    `SELECT ${EVENT_COLUMNS} FROM events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
+    `SELECT ${EVENT_COLUMNS} FROM path_events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
   );
   const where = buildWhereClause(ctx.providerBilling, ctx.widened);
 
@@ -316,7 +330,7 @@ function runCandidate2(store, ctx) {
   const matchedFiles = database
     .prepare(
       `SELECT DISTINCT e.source AS source, e.file_path AS file_path, u.ordinal AS ordinal
-       FROM events e JOIN tmp_universe u ON e.source = u.source AND e.file_path = u.file_path
+       FROM path_events e JOIN tmp_universe u ON e.source = u.source AND e.file_path = u.file_path
        WHERE ${where.sql} ORDER BY u.ordinal ASC`,
     )
     .all(...where.params);
@@ -350,7 +364,7 @@ function runCandidate2(store, ctx) {
   const outputRows = database
     .prepare(
       `SELECT ${EVENT_COLUMNS_E}, e.file_path AS file_path
-       FROM events e JOIN tmp_universe u ON e.source = u.source AND e.file_path = u.file_path
+       FROM path_events e JOIN tmp_universe u ON e.source = u.source AND e.file_path = u.file_path
        WHERE ${where.sql} ORDER BY u.ordinal ASC, e.event_index ASC`,
     )
     .all(...where.params);
@@ -427,7 +441,7 @@ async function runChildCell(args) {
 
   const scenario = JSON.parse(Buffer.from(args['scenario-b64'], 'base64').toString('utf8'));
   const [candidate, scenarioName, run] = args.cell.split(':');
-  const store = await openEventStore(process.env.LLM_USAGE_EVENT_STORE_PATH);
+  const store = await openBenchmarkStore();
 
   try {
     const ctx = buildContext(store, scenario);
@@ -533,7 +547,7 @@ async function coldIngest(piDir) {
 
 function componentAttribution(store, files) {
   const selectAll = store.database.prepare(
-    `SELECT ${EVENT_COLUMNS} FROM events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
+    `SELECT ${EVENT_COLUMNS} FROM path_events WHERE source = ? AND file_path = ? ORDER BY event_index ASC`,
   );
 
   const discoveryStart = performance.now();
@@ -583,7 +597,7 @@ async function measureSize(sizeKey, scenarios) {
   const fixtures = generateFixtures(tmpDir, sizeKey);
   const ingest = await coldIngest(fixtures.piDir);
 
-  const store = await openEventStore(process.env.LLM_USAGE_EVENT_STORE_PATH);
+  const store = await openBenchmarkStore();
   const attribution = componentAttribution(store, loadStoredFiles(store));
   closeEventStore(store);
 
@@ -868,7 +882,7 @@ async function runSmoke() {
     ...special,
   ];
 
-  const store = await openEventStore(process.env.LLM_USAGE_EVENT_STORE_PATH);
+  const store = await openBenchmarkStore();
   let failures = 0;
 
   try {

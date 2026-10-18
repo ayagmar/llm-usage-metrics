@@ -1,15 +1,48 @@
-import { createHash } from 'node:crypto';
-
-import { hasControlCharacters } from '../domain/normalization.js';
-import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
-import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
+import {
+  hasControlCharacters,
+  normalizeProviderToBillingEntity,
+} from '@ayagmar/agent-sessions/internal';
+import { parseCanonicalTimestampMs } from '../utils/time-buckets.js';
+import {
+  createUsageEvent,
+  SINGLE_REQUEST_SOURCES_BEFORE_FLAG,
+  type UsageEvent,
+  type UsageEventInput,
+} from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
 
-const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
-const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 const FAST_PATH_REJECT = Symbol('fast path reject');
 
 type OptionalStoredText = string | undefined | typeof FAST_PATH_REJECT;
+type AcceptedTextSlot = { value: string | undefined };
+
+// The rows of a file mostly repeat one session, model, provider and repo root. Each
+// text column keeps the last value that passed its checks, which are pure functions of
+// the value, and accepts an equal string without running them again.
+const acceptedText: Record<
+  'source' | 'sessionId' | 'repoRoot' | 'provider' | 'model',
+  AcceptedTextSlot
+> = {
+  source: { value: undefined },
+  sessionId: { value: undefined },
+  repoRoot: { value: undefined },
+  provider: { value: undefined },
+  model: { value: undefined },
+};
+
+/** The columns of a `StoredEventTuple`, from `files` joined with `events`. */
+export const STORED_EVENT_COLUMNS = [
+  'files.source, events.session_id, events.timestamp, events.model, events.provider,',
+  '  events.repo_root, events.input_tokens, events.output_tokens, events.reasoning_tokens,',
+  '  events.cache_read_tokens, events.cache_write_tokens, events.cache_write_1h_tokens,',
+  '  events.total_tokens, events.cost_usd, events.cost_mode, events.single_request',
+].join('\n');
+
+/** The `single_request` value of a row stored before the flag, from its source column. */
+export function selectSingleRequestBeforeFlagSql(sourceColumn: string): string {
+  const sources = SINGLE_REQUEST_SOURCES_BEFORE_FLAG.map((source) => `'${source}'`).join(', ');
+  return `CASE WHEN ${sourceColumn} IN (${sources}) THEN 1 ELSE 0 END`;
+}
 
 export type StoredEventTuple = [
   source: unknown,
@@ -27,6 +60,7 @@ export type StoredEventTuple = [
   total_tokens: unknown,
   cost_usd: unknown,
   cost_mode: unknown,
+  single_request: unknown,
 ];
 
 export function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
@@ -56,6 +90,7 @@ function slowNormalizeStoredEvent(row: Record<string, unknown>): UsageEvent | un
     cacheWrite1hTokens: toNonNegativeInteger(row.cache_write_1h_tokens),
     totalTokens: toNonNegativeInteger(row.total_tokens),
     costUsd: toNonNegativeNumber(row.cost_usd),
+    singleRequest: row.single_request === 1,
     costMode,
   };
 
@@ -83,6 +118,7 @@ function fastMaterializeStoredEvent(row: Record<string, unknown>): UsageEvent | 
     row.total_tokens,
     row.cost_usd,
     row.cost_mode,
+    row.single_request,
   );
 }
 
@@ -109,6 +145,7 @@ export function normalizeStoredEventTuple(row: StoredEventTuple): UsageEvent | u
     total_tokens: row[12],
     cost_usd: row[13],
     cost_mode: row[14],
+    single_request: row[15],
   });
 }
 
@@ -128,6 +165,7 @@ function materializeStoredEvent(
   totalTokensValue: unknown,
   costUsdValue: unknown,
   costModeValue: unknown,
+  singleRequestValue: unknown,
 ): UsageEvent | undefined {
   const costMode =
     costModeValue === 'explicit' || costModeValue === 'estimated' ? costModeValue : undefined;
@@ -136,12 +174,12 @@ function materializeStoredEvent(
     return undefined;
   }
 
-  const source = toStoredRequiredText(sourceValue);
-  const sessionId = toStoredRequiredText(sessionIdValue);
+  const source = toStoredRequiredText(sourceValue, acceptedText.source);
+  const sessionId = toStoredRequiredText(sessionIdValue, acceptedText.sessionId);
   const timestamp = toStoredTimestamp(timestampValue);
-  const repoRoot = toStoredOptionalText(repoRootValue);
-  const provider = toStoredOptionalText(providerValue);
-  const model = toStoredOptionalText(modelValue);
+  const repoRoot = toStoredOptionalText(repoRootValue, acceptedText.repoRoot);
+  const provider = toStoredOptionalText(providerValue, acceptedText.provider, isBillingEntity);
+  const model = toStoredOptionalText(modelValue, acceptedText.model, isLowerCase);
   const inputTokens = toStoredNonNegativeInteger(inputTokensValue);
   const outputTokens = toStoredNonNegativeInteger(outputTokensValue);
   const reasoningTokens = toStoredNonNegativeInteger(reasoningTokensValue);
@@ -166,16 +204,9 @@ function materializeStoredEvent(
     cacheWrite1hTokens === undefined ||
     cacheWrite1hTokens > cacheWriteTokens ||
     totalTokens === undefined ||
-    costUsd === FAST_PATH_REJECT
+    costUsd === FAST_PATH_REJECT ||
+    (singleRequestValue !== 0 && singleRequestValue !== 1)
   ) {
-    return undefined;
-  }
-
-  if (provider && normalizeProviderToBillingEntity(provider) !== provider) {
-    return undefined;
-  }
-
-  if (model && model !== model.toLowerCase()) {
     return undefined;
   }
 
@@ -193,12 +224,30 @@ function materializeStoredEvent(
     cacheWriteTokens,
     cacheWrite1hTokens,
     totalTokens,
+    singleRequest: singleRequestValue === 1 ? true : undefined,
     costUsd,
     costMode,
   };
 }
 
-function toStoredRequiredText(value: unknown): string | undefined {
+function isBillingEntity(provider: string): boolean {
+  return normalizeProviderToBillingEntity(provider) === provider;
+}
+
+function isLowerCase(model: string): boolean {
+  return model === model.toLowerCase();
+}
+
+function toStoredRequiredText(
+  value: unknown,
+  slot: AcceptedTextSlot,
+  isCanonical?: (value: string) => boolean,
+): string | undefined {
+  // Only an accepted string is ever stored, so a match is a string that passes.
+  if (value === slot.value) {
+    return slot.value;
+  }
+
   if (typeof value !== 'string' || value.length === 0) {
     return undefined;
   }
@@ -207,47 +256,31 @@ function toStoredRequiredText(value: unknown): string | undefined {
     return undefined;
   }
 
+  if (isCanonical && !isCanonical(value)) {
+    return undefined;
+  }
+
+  slot.value = value;
   return value;
 }
 
-function toStoredOptionalText(value: unknown): OptionalStoredText {
+function toStoredOptionalText(
+  value: unknown,
+  slot: AcceptedTextSlot,
+  isCanonical?: (value: string) => boolean,
+): OptionalStoredText {
   if (value === null) {
     return undefined;
   }
 
-  return toStoredRequiredText(value) ?? FAST_PATH_REJECT;
+  return toStoredRequiredText(value, slot, isCanonical) ?? FAST_PATH_REJECT;
 }
 
+// A year below 100 fails the canonical reader and takes the slow path, which keeps it.
 function toStoredTimestamp(value: unknown): string | undefined {
-  if (typeof value !== 'string' || !NORMALIZED_TIMESTAMP_PATTERN.test(value)) {
-    return undefined;
-  }
-
-  if (!isValidNormalizedTimestamp(value)) {
-    return undefined;
-  }
-
-  return value;
-}
-
-function isValidNormalizedTimestamp(value: string): boolean {
-  const year = Number(value.slice(0, 4));
-  const month = Number(value.slice(5, 7));
-  const day = Number(value.slice(8, 10));
-  const hour = Number(value.slice(11, 13));
-  const minute = Number(value.slice(14, 16));
-  const second = Number(value.slice(17, 19));
-
-  if (month < 1 || month > 12 || day < 1 || hour > 23 || minute > 59 || second > 59) {
-    return false;
-  }
-
-  const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1];
-  return day <= maxDay;
-}
-
-function isLeapYear(year: number): boolean {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return typeof value === 'string' && parseCanonicalTimestampMs(value) !== undefined
+    ? value
+    : undefined;
 }
 
 function toStoredNonNegativeInteger(value: unknown): number | undefined {
@@ -276,27 +309,4 @@ function toStoredCostUsd(
   }
 
   return value;
-}
-
-export function computeEventContentHash(event: UsageEvent): string {
-  const fields = [
-    event.source.toLowerCase(),
-    event.sessionId,
-    event.timestamp,
-    event.model ?? '',
-    event.provider ?? '',
-    event.repoRoot ?? '',
-    event.inputTokens,
-    event.outputTokens,
-    event.reasoningTokens,
-    event.cacheReadTokens,
-    event.cacheWriteTokens,
-    // cacheWrite1hTokens is left out: it only splits cacheWriteTokens, and leaving it out
-    // keeps events stored before it existed matching their reparsed copies.
-    event.totalTokens,
-    event.costMode,
-    event.costUsd ?? '',
-  ];
-
-  return createHash('sha256').update(fields.map(String).join('\x1f')).digest('hex').slice(0, 16);
 }

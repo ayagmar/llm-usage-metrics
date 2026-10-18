@@ -4,11 +4,12 @@ import type {
   PruneSummary,
   StoreSizeSnapshot,
 } from '../cli/run-prune-report.js';
-import { stripControlCharacters } from '../domain/normalization.js';
+import { pluralize, stripControlCharacters } from '@ayagmar/agent-sessions/internal';
 import { formatByteSize } from './format-byte-size.js';
+import { formatInteger } from './format-number.js';
 import { renderReportHeader } from './report-header.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
-import { wrapTableColumn } from './table-text-layout.js';
+import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 
 function formatStoreSize(size: StoreSizeSnapshot): string {
   return [
@@ -30,7 +31,7 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
   const bodyRows = candidates.map((candidate) => [
     candidate.source,
     stripControlCharacters(candidate.filePath),
-    String(candidate.eventCount),
+    formatInteger(candidate.eventCount),
     candidate.newestTimestamp ?? '-',
     candidate.reasons.join(', '),
   ]);
@@ -43,14 +44,16 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
     measureBodyRows: wrappedRows,
     rowMetas: createRowMetas(candidates),
     layout: 'top_aligned',
+    columnKinds: ['text', 'text', 'measure', 'text', 'text'],
     multilineColumnIndex: 1,
     multilineColumnWidth: 56,
+    terminalWidth: resolveTtyColumns(process.stdout),
   });
 }
 
 function renderSummary(summary: PruneSummary): string {
   if (!summary.applied) {
-    return `Would delete ${summary.candidateFileCount} file(s) / ${summary.candidateEventCount} event(s). Re-run with --apply.`;
+    return `Would delete ${pluralize(summary.candidateFileCount, 'file')} / ${pluralize(summary.candidateEventCount, 'event')}. Re-run with --apply.`;
   }
 
   const sizeSuffix =
@@ -58,7 +61,7 @@ function renderSummary(summary: PruneSummary): string {
       ? ` Reclaimed ${formatByteSize(summary.reclaimedBytes)} (${formatStoreSize(summary.sizeBefore)} before; ${formatStoreSize(summary.sizeAfter)} after).`
       : '';
 
-  return `Deleted ${summary.deletedFileCount ?? 0} file(s) / ${summary.deletedEventCount ?? 0} event(s).${sizeSuffix}`;
+  return `Deleted ${pluralize(summary.deletedFileCount ?? 0, 'file')} / ${pluralize(summary.deletedEventCount ?? 0, 'event')}.${sizeSuffix}`;
 }
 
 export function renderPruneReport(result: PruneReportResult): string {

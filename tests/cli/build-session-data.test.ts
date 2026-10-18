@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildSessionData } from '../../src/cli/build-session-data.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -15,7 +16,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
@@ -130,7 +131,7 @@ describe('buildSessionData', () => {
             {
               id: 'pi',
               discoverFiles,
-              parseFile: async () => [],
+              read: readFrom(async () => []),
             },
           ],
         }),
@@ -221,7 +222,7 @@ describe('buildSessionData', () => {
       buildSessionData(
         { id: [' , '], timezone: 'UTC' },
         runtimeDeps({
-          adapters: [{ id: 'pi', discoverFiles, parseFile: async () => [] }],
+          adapters: [{ id: 'pi', discoverFiles, read: readFrom(async () => []) }],
         }),
       ),
     ).rejects.toThrow('--id must contain at least one non-empty session id filter');
@@ -236,7 +237,7 @@ describe('buildSessionData', () => {
       buildSessionData(
         { id: ['486c'], byRepo: true, timezone: 'UTC' },
         runtimeDeps({
-          adapters: [{ id: 'pi', discoverFiles, parseFile: async () => [] }],
+          adapters: [{ id: 'pi', discoverFiles, read: readFrom(async () => []) }],
         }),
       ),
     ).rejects.toThrow('--id cannot be combined with --by-repo');
@@ -275,6 +276,50 @@ describe('buildSessionData', () => {
       costUsd: 8,
     });
     expect(result.limitNote).toBe('Showing top 1 of 2 repos by cost. Use --top 0 for all.');
+  });
+
+  it('labels projects from every session, not only the ones --top shows', async () => {
+    const result = await buildSessionData(
+      { top: '1', timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({
+                sessionId: 'shown',
+                outputTokens: 1_000_000,
+                totalTokens: 1_000_010,
+                repoRoot: '/home/user/work/app',
+              }),
+              createBaseEvent({ sessionId: 'hidden', repoRoot: '/home/user/oss/app' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(sessionRowsOf(result).map((row) => row.sessionId)).toEqual(['shown']);
+    expect(result.projectLabels.get('/home/user/work/app')).toBe('work/app');
+  });
+
+  it('groups repo roots that differ only by a trailing separator into one row', async () => {
+    const result = await buildSessionData(
+      { byRepo: true, timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({ sessionId: 'a', repoRoot: '/home/user/app' }),
+              createBaseEvent({ sessionId: 'b', repoRoot: '/home/user/app/' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ repoRoot: '/home/user/app', sessionCount: 2 });
+    expect(result.projectLabels.get('/home/user/app')).toBe('app');
   });
 
   it('applies source, date, provider, and model filters before grouping', async () => {
@@ -356,5 +401,171 @@ describe('buildSessionData', () => {
     });
     expect(result.diagnostics.pricingOrigin).toBe('none');
     expect(result.diagnostics.pricingWarning).toContain('pricing unavailable');
+  });
+});
+
+describe('buildSessionData --timeline', () => {
+  it('lists up to 10 matching ids with source and date when --id names several sessions', async () => {
+    const events = Array.from({ length: 12 }, (_, index) =>
+      createBaseEvent({
+        sessionId: `shared-${String(index).padStart(2, '0')}`,
+        timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T10:00:00.000Z`,
+      }),
+    );
+
+    const error = await buildSessionData(
+      { id: ['shared'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({ adapters: [createAdapter('pi', { '/tmp/pi.jsonl': events })] }),
+    ).then(
+      () => undefined,
+      (rejection: unknown) => rejection,
+    );
+    const lines = error instanceof Error ? error.message.split('\n') : [];
+
+    expect(lines[0]).toBe('--timeline needs exactly one session, but --id shared matches 12:');
+    // Equal cost, so the newest session comes first.
+    expect(lines.slice(1, 3)).toEqual([
+      '  pi  shared-11  2026-03-12',
+      '  pi  shared-10  2026-03-11',
+    ]);
+    expect(lines.filter((line) => line.includes('shared-'))).toHaveLength(10);
+    expect(lines.slice(-2)).toEqual([
+      '  and 2 more',
+      'Pass more of the session id to --id, or narrow with --source.',
+    ]);
+  });
+
+  it('takes the session whose id equals --id when the id is also part of a longer one', async () => {
+    const result = await buildSessionData(
+      { id: ['abc'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({ sessionId: 'abc' }),
+              createBaseEvent({ sessionId: 'abc-resumed' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.grouping === 'timeline' && result.session.sessionId).toBe('abc');
+  });
+
+  it('refuses an id two sources share exactly, pointing at --source', async () => {
+    await expect(
+      buildSessionData(
+        { id: ['abc'], timeline: true, timezone: 'UTC' },
+        runtimeDeps({
+          adapters: [
+            createAdapter('pi', { '/tmp/pi.jsonl': [createBaseEvent({ sessionId: 'abc' })] }),
+            createAdapter('codex', {
+              '/tmp/codex.jsonl': [createBaseEvent({ source: 'codex', sessionId: 'abc' })],
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toThrow('Pass more of the session id to --id, or narrow with --source.');
+  });
+
+  it('names a way forward when --id matches no session', async () => {
+    await expect(
+      buildSessionData(
+        { id: ['missing'], timeline: true, timezone: 'UTC' },
+        runtimeDeps({
+          adapters: [createAdapter('pi', { '/tmp/pi.jsonl': [createBaseEvent()] })],
+        }),
+      ),
+    ).rejects.toThrow(
+      '--timeline found no session matching --id missing. Run `llm-usage session` to list session ids, or widen --since/--until.',
+    );
+  });
+
+  it.each([
+    [{}, '--timeline needs --id <session-id> naming one session'],
+    [
+      { id: ['session-1'], top: '5' },
+      '--timeline shows every request; it cannot be combined with --top',
+    ],
+  ])('rejects %o before parsing sources', async (options, message) => {
+    const discoverFiles = vi.fn(async () => ['/tmp/pi.jsonl']);
+
+    await expect(
+      buildSessionData(
+        { ...options, timeline: true, timezone: 'UTC' },
+        runtimeDeps({ adapters: [{ id: 'pi', discoverFiles, read: readFrom(async () => []) }] }),
+      ),
+    ).rejects.toThrow(message);
+    expect(discoverFiles).not.toHaveBeenCalled();
+  });
+
+  it("reads tool calls live from the session's source only, every file of it", async () => {
+    const liveReads: string[] = [];
+    const liveAdapter = (
+      id: SourceAdapter['id'],
+      usageByFile: Record<string, ReturnType<typeof createUsageEvent>[]>,
+    ): SourceAdapter => ({
+      ...createAdapter(id, usageByFile),
+      capabilities: { kinds: ['usage', 'tool_call', 'message'] },
+      async *readEvents(filePath) {
+        liveReads.push(filePath);
+        yield* [];
+      },
+    });
+
+    await buildSessionData(
+      { id: ['session-1'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          liveAdapter('pi', {
+            '/tmp/pi-session-1.jsonl': [createBaseEvent()],
+            '/tmp/pi-other.jsonl': [createBaseEvent({ sessionId: 'other' })],
+          }),
+          liveAdapter('codex', {
+            '/tmp/codex-other.jsonl': [createBaseEvent({ source: 'codex', sessionId: 'other' })],
+          }),
+        ],
+      }),
+    );
+
+    // The other pi files may hold the calls this session copied from its parent.
+    expect(liveReads.sort()).toEqual(['/tmp/pi-other.jsonl', '/tmp/pi-session-1.jsonl']);
+  });
+
+  it("returns only the matched session's priced requests, in time order", async () => {
+    const result = await buildSessionData(
+      { id: ['session-1'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({ timestamp: '2026-03-05T10:05:00.000Z' }),
+              createBaseEvent({ sessionId: 'other', timestamp: '2026-03-05T10:02:00.000Z' }),
+              createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    if (result.grouping !== 'timeline') {
+      throw new Error(`expected timeline grouping, got ${result.grouping}`);
+    }
+
+    expect(result.session.sessionId).toBe('session-1');
+    expect(result.diagnostics.notes).toContain(
+      'Tool calls and turns are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist are not counted.',
+    );
+    expect(result.rows.map((row) => row.timestamp)).toEqual([
+      '2026-03-05T10:00:00.000Z',
+      '2026-03-05T10:05:00.000Z',
+    ]);
+    const [first, second] = result.rows;
+    expect(first.kind === 'usage' && second.kind === 'usage').toBe(true);
+    if (first.kind === 'usage' && second.kind === 'usage') {
+      expect(first.costUsd).toBeGreaterThan(0);
+      expect(second.runningCostUsd).toBeCloseTo((first.costUsd ?? 0) + (second.costUsd ?? 0), 10);
+    }
   });
 });

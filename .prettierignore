@@ -6,3 +6,5 @@ docs/ai
 .claude
 CHANGELOG.md
 pnpm-lock.yaml
+tests/golden/__goldens__/
+src/share-report/client-bundle.generated.ts

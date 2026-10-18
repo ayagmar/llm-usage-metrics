@@ -1,0 +1,2277 @@
+{
+  "schemaVersion": 1,
+  "report": "summary",
+  "data": {
+    "timezone": "UTC",
+    "periods": [
+      {
+        "key": "today",
+        "label": "Today",
+        "since": "2026-06-21",
+        "until": "2026-06-21",
+        "totals": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "sources": [],
+        "previous": {
+          "since": "2026-06-20",
+          "until": "2026-06-20",
+          "totals": {
+            "inputTokens": 130,
+            "outputTokens": 65,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10,
+            "cacheWriteTokens": 15,
+            "totalTokens": 220,
+            "events": 2,
+            "activeDays": 1,
+            "costUsd": 0.00142425
+          }
+        }
+      },
+      {
+        "key": "last7Days",
+        "label": "Last 7 days",
+        "since": "2026-06-15",
+        "until": "2026-06-21",
+        "totals": {
+          "inputTokens": 710,
+          "outputTokens": 375,
+          "reasoningTokens": 40,
+          "cacheReadTokens": 65,
+          "cacheWriteTokens": 25,
+          "totalTokens": 1190,
+          "events": 13,
+          "activeDays": 2,
+          "costUsd": 0.06142425,
+          "costIncomplete": true
+        },
+        "sources": [
+          {
+            "source": "kilocode",
+            "inputTokens": 25,
+            "outputTokens": 20,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 45,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.03
+          },
+          {
+            "source": "roocode",
+            "inputTokens": 35,
+            "outputTokens": 15,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 5,
+            "totalTokens": 55,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.02
+          },
+          {
+            "source": "cline",
+            "inputTokens": 30,
+            "outputTokens": 10,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 0,
+            "totalTokens": 45,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.01
+          },
+          {
+            "source": "claude",
+            "inputTokens": 130,
+            "outputTokens": 65,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10,
+            "cacheWriteTokens": 15,
+            "totalTokens": 220,
+            "events": 2,
+            "activeDays": 1,
+            "costUsd": 0.00142425
+          },
+          {
+            "source": "opencode",
+            "inputTokens": 125,
+            "outputTokens": 60,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 15,
+            "cacheWriteTokens": 0,
+            "totalTokens": 200,
+            "events": 2,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "goose",
+            "inputTokens": 100,
+            "outputTokens": 80,
+            "reasoningTokens": 30,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 180,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "amp",
+            "inputTokens": 80,
+            "outputTokens": 30,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10,
+            "cacheWriteTokens": 0,
+            "totalTokens": 120,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "copilot",
+            "inputTokens": 50,
+            "outputTokens": 30,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10,
+            "cacheWriteTokens": 0,
+            "totalTokens": 100,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "qwen",
+            "inputTokens": 55,
+            "outputTokens": 25,
+            "reasoningTokens": 5,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 0,
+            "totalTokens": 90,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "kimi",
+            "inputTokens": 40,
+            "outputTokens": 20,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 5,
+            "totalTokens": 70,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "antigravity",
+            "inputTokens": 40,
+            "outputTokens": 20,
+            "reasoningTokens": 5,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 0,
+            "totalTokens": 65,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          }
+        ],
+        "previous": {
+          "since": "2026-06-08",
+          "until": "2026-06-14",
+          "totals": {
+            "inputTokens": 120,
+            "outputTokens": 55,
+            "reasoningTokens": 30,
+            "cacheReadTokens": 15,
+            "cacheWriteTokens": 10,
+            "totalTokens": 200,
+            "events": 2,
+            "activeDays": 2,
+            "costUsd": 0.001227
+          }
+        }
+      },
+      {
+        "key": "monthToDate",
+        "label": "Month to date",
+        "since": "2026-06-01",
+        "until": "2026-06-21",
+        "totals": {
+          "inputTokens": 920,
+          "outputTokens": 505,
+          "reasoningTokens": 95,
+          "cacheReadTokens": 95,
+          "cacheWriteTokens": 35,
+          "totalTokens": 1585,
+          "events": 17,
+          "activeDays": 5,
+          "costUsd": 0.063515625,
+          "costIncomplete": true
+        },
+        "sources": [
+          {
+            "source": "kilocode",
+            "inputTokens": 25,
+            "outputTokens": 20,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 45,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.03
+          },
+          {
+            "source": "roocode",
+            "inputTokens": 35,
+            "outputTokens": 15,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 5,
+            "totalTokens": 55,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.02
+          },
+          {
+            "source": "cline",
+            "inputTokens": 30,
+            "outputTokens": 10,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 0,
+            "totalTokens": 45,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.01
+          },
+          {
+            "source": "claude",
+            "inputTokens": 130,
+            "outputTokens": 65,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10,
+            "cacheWriteTokens": 15,
+            "totalTokens": 220,
+            "events": 2,
+            "activeDays": 1,
+            "costUsd": 0.00142425
+          },
+          {
+            "source": "droid",
+            "inputTokens": 120,
+            "outputTokens": 55,
+            "reasoningTokens": 30,
+            "cacheReadTokens": 15,
+            "cacheWriteTokens": 10,
+            "totalTokens": 200,
+            "events": 2,
+            "activeDays": 2,
+            "costUsd": 0.001227
+          },
+          {
+            "source": "gemini",
+            "inputTokens": 90,
+            "outputTokens": 75,
+            "reasoningTokens": 25,
+            "cacheReadTokens": 15,
+            "cacheWriteTokens": 0,
+            "totalTokens": 195,
+            "events": 2,
+            "activeDays": 1,
+            "costUsd": 0.000864375
+          },
+          {
+            "source": "opencode",
+            "inputTokens": 125,
+            "outputTokens": 60,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 15,
+            "cacheWriteTokens": 0,
+            "totalTokens": 200,
+            "events": 2,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "goose",
+            "inputTokens": 100,
+            "outputTokens": 80,
+            "reasoningTokens": 30,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 180,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "amp",
+            "inputTokens": 80,
+            "outputTokens": 30,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10,
+            "cacheWriteTokens": 0,
+            "totalTokens": 120,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "copilot",
+            "inputTokens": 50,
+            "outputTokens": 30,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10,
+            "cacheWriteTokens": 0,
+            "totalTokens": 100,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "qwen",
+            "inputTokens": 55,
+            "outputTokens": 25,
+            "reasoningTokens": 5,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 0,
+            "totalTokens": 90,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "kimi",
+            "inputTokens": 40,
+            "outputTokens": 20,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 5,
+            "totalTokens": 70,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          },
+          {
+            "source": "antigravity",
+            "inputTokens": 40,
+            "outputTokens": 20,
+            "reasoningTokens": 5,
+            "cacheReadTokens": 5,
+            "cacheWriteTokens": 0,
+            "totalTokens": 65,
+            "events": 1,
+            "activeDays": 1,
+            "costIncomplete": true
+          }
+        ],
+        "previous": {
+          "since": "2026-05-01",
+          "until": "2026-05-21",
+          "totals": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 15,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.001
+          }
+        }
+      }
+    ],
+    "monthEnd": {
+      "daysElapsed": 21,
+      "daysInMonth": 30,
+      "projectedCostUsd": 0.09073660714285715,
+      "costIncomplete": true
+    },
+    "monthToDateCacheSavingsUsd": 0.000088325,
+    "activity": {
+      "from": "2025-06-16",
+      "to": "2026-06-21",
+      "activeDays": 10,
+      "currentStreak": 1,
+      "longestStreak": 2,
+      "bestDay": {
+        "date": "2026-06-15",
+        "totalTokens": 970,
+        "costUsd": 0.06,
+        "costIncomplete": true
+      },
+      "days": [
+        {
+          "date": "2025-06-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-06-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-07-31",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-08-31",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-09-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-10-31",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-11-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2025-12-31",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-04",
+          "totalTokens": 150,
+          "level": 3
+        },
+        {
+          "date": "2026-01-05",
+          "totalTokens": 300,
+          "level": 4
+        },
+        {
+          "date": "2026-01-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-01-31",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-01",
+          "totalTokens": 30,
+          "level": 1
+        },
+        {
+          "date": "2026-02-02",
+          "totalTokens": 90,
+          "level": 2
+        },
+        {
+          "date": "2026-02-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-02-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-03-31",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-04-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-01",
+          "totalTokens": 15,
+          "level": 1
+        },
+        {
+          "date": "2026-05-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-03",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-10",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-11",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-15",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-20",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-21",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-22",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-23",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-24",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-25",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-26",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-27",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-28",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-29",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-30",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-05-31",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-01",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-02",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-03",
+          "totalTokens": 195,
+          "level": 3
+        },
+        {
+          "date": "2026-06-04",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-05",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-06",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-07",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-08",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-09",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-10",
+          "totalTokens": 115,
+          "level": 2
+        },
+        {
+          "date": "2026-06-11",
+          "totalTokens": 85,
+          "level": 1
+        },
+        {
+          "date": "2026-06-12",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-13",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-14",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-15",
+          "totalTokens": 970,
+          "level": 4
+        },
+        {
+          "date": "2026-06-16",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-17",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-18",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-19",
+          "totalTokens": 0,
+          "level": 0
+        },
+        {
+          "date": "2026-06-20",
+          "totalTokens": 220,
+          "level": 4
+        },
+        {
+          "date": "2026-06-21",
+          "totalTokens": 0,
+          "level": 0
+        }
+      ]
+    }
+  }
+}

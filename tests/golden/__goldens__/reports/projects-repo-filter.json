@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "report": "projects",
+  "data": {
+    "totals": {
+      "inputTokens": 14200,
+      "outputTokens": 3400,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 12000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 29600,
+      "costUsd": 0.078975,
+      "projects": 2,
+      "events": 6,
+      "activeDays": 2
+    },
+    "projects": [
+      {
+        "repoRoot": "/w/a/api",
+        "project": "a/api",
+        "inputTokens": 6200,
+        "outputTokens": 1700,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 10000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 17900,
+        "costUsd": 0.0471,
+        "costShare": 0.596391,
+        "events": 3,
+        "activeDays": 2,
+        "topModels": [
+          "claude-sonnet-4-5"
+        ]
+      },
+      {
+        "repoRoot": "/w/b/api",
+        "project": "b/api",
+        "inputTokens": 8000,
+        "outputTokens": 1700,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 2000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 11700,
+        "costUsd": 0.031875,
+        "costShare": 0.403609,
+        "events": 3,
+        "activeDays": 1,
+        "topModels": [
+          "gpt-5",
+          "claude-sonnet-4-5"
+        ]
+      }
+    ]
+  }
+}

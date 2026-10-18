@@ -1,4 +1,4 @@
-import { logger } from '../../utils/logger.js';
+import { logger, withLogScrubber } from '../../utils/logger.js';
 import type { ActiveConfig } from '../../config/active-config-display.js';
 import type { EnvVarOverride } from '../../config/env-var-display.js';
 import { emitActiveConfig } from '../emit-active-config.js';
@@ -13,9 +13,7 @@ import {
   type RuntimeProfileCollector,
   type RuntimeProfileSnapshot,
 } from '../runtime-profile.js';
-import { renderSharePage } from '../../render/render-share-page.js';
-import { shareThemes, type ShareTheme } from '../../render/share-svg-theme.js';
-import { openShareFile, writeShareFile } from '../share-artifact.js';
+import { openShareFile, writeShareFile, type ShareArtifact } from '../share-artifact.js';
 import { warnIfTerminalTableOverflows } from '../terminal-overflow-warning.js';
 
 type StandardReportFormat = 'terminal' | 'markdown' | 'json';
@@ -30,15 +28,12 @@ type OutputFlagOptions = {
   share?: boolean;
   /** Commander sets it to false for --no-open. */
   open?: boolean;
+  redact?: boolean;
 };
 
-type ShareArtifact = {
-  /** The SVG file name; the HTML page takes the same name with `.html`. */
-  fileName: string;
-  logLabel: string;
-  /** Page title of the HTML share page. */
-  title: string;
-  render: (theme: ShareTheme) => string;
+/** What a share builder gets besides the report data. */
+export type ShareBuildContext = {
+  runtimeProfile?: RuntimeProfileCollector;
 };
 
 type PreparedReport<Format extends string, Diagnostics> = {
@@ -46,7 +41,7 @@ type PreparedReport<Format extends string, Diagnostics> = {
   output: string;
   diagnostics: Diagnostics;
   shareArtifact?: ShareArtifact;
-  /** False with --no-open: the share files are written but not opened. */
+  /** False with --no-open: the share report is written but not opened. */
   openShareArtifact?: boolean;
   runtimeProfile?: RuntimeProfileCollector;
   /** Informational stderr lines printed after the report, so they read as its footer. */
@@ -63,7 +58,8 @@ type PrepareReportOptions<Data, Diagnostics, Format extends StandardReportFormat
   buildData: () => Promise<Data>;
   render: (data: Data, format: Format) => RenderedOutput;
   getDiagnostics: (data: Data) => Diagnostics;
-  createShareArtifact?: (data: Data) => ShareArtifact | undefined;
+  /** Runs only with --share, after buildData and in its own profiled stage. */
+  buildShare?: (data: Data, context: ShareBuildContext) => Promise<ShareArtifact>;
   getHintsAfterOutput?: (data: Data, format: Format) => readonly string[];
   runtimeProfile?: RuntimeProfileCollector;
 };
@@ -85,6 +81,10 @@ function validateOutputFormatOptions(options: OutputFlagOptions): void {
 
   if (options.open === false && !options.share) {
     throw new Error('--no-open only applies with --share');
+  }
+
+  if (options.redact && !options.share) {
+    throw new Error('--redact only applies with --share');
   }
 }
 
@@ -119,6 +119,12 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     'report.prepare.build_data',
     options.buildData,
   );
+  const buildShare = options.commandOptions.share ? options.buildShare : undefined;
+  const shareArtifact = buildShare
+    ? await measureRuntimeProfileStage(options.runtimeProfile, 'report.prepare.build_share', () =>
+        buildShare(data, { runtimeProfile: options.runtimeProfile }),
+      )
+    : undefined;
   const rendered = measureRuntimeProfileStageSync(
     options.runtimeProfile,
     'report.prepare.render',
@@ -133,40 +139,28 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     format,
     diagnostics: options.getDiagnostics(data),
     output,
-    shareArtifact: options.createShareArtifact?.(data),
+    shareArtifact,
     openShareArtifact: options.commandOptions.open !== false,
     runtimeProfile: options.runtimeProfile,
     hintsAfterOutput: hintsAfterOutput.length > 0 ? hintsAfterOutput : undefined,
   };
 }
 
-// Writes the dark SVG, plus an HTML page with both themes that exports PNGs in
-// the browser, and opens the page unless --no-open.
+// Writes the HTML report and opens it unless --no-open; an open failure only warns.
 async function writeShareArtifact(artifact: ShareArtifact, open: boolean): Promise<void> {
-  const svgs = {
-    dark: artifact.render(shareThemes.dark),
-    light: artifact.render(shareThemes.light),
-  };
-  const svgPath = await writeShareFile(artifact.fileName, svgs.dark);
-  logger.info(`Wrote ${artifact.logLabel} share SVG: ${svgPath}`);
-
-  const fileBaseName = artifact.fileName.replace(/\.svg$/u, '');
-  const pagePath = await writeShareFile(
-    `${fileBaseName}.html`,
-    renderSharePage({ title: artifact.title, fileBaseName, svgs }),
-  );
-  logger.info(`Wrote ${artifact.logLabel} share page: ${pagePath}`);
+  const reportPath = await writeShareFile(artifact.fileName, artifact.render());
+  logger.info(`Wrote ${artifact.logLabel} share report: ${reportPath}`);
 
   if (!open) {
     return;
   }
 
   try {
-    await openShareFile(pagePath);
-    logger.info(`Opened ${artifact.logLabel} share page: ${pagePath}`);
+    await openShareFile(reportPath);
+    logger.info(`Opened ${artifact.logLabel} share report: ${reportPath}`);
   } catch (error) {
     logger.warn(
-      `Could not open ${artifact.logLabel} share page: ${pagePath} (${error instanceof Error ? error.message : String(error)})`,
+      `Could not open ${artifact.logLabel} share report: ${reportPath} (${error instanceof Error ? error.message : String(error)})`,
     );
   }
 }
@@ -179,6 +173,33 @@ type EmitReportRunDiagnosticsOptions<Diagnostics> = {
   getRuntimeProfile?: (diagnostics: Diagnostics) => RuntimeProfileSnapshot | undefined;
   runtimeProfile?: RuntimeProfileCollector;
 };
+
+/**
+ * `--compact` and `--no-cost` change tables only, so `--json` rejects them. `costAppliesTo`
+ * says what `--no-cost` changes in this report.
+ */
+export function validateTableDisplayFlags(
+  options: { compact?: boolean; cost?: boolean; json?: boolean },
+  costAppliesTo: string,
+): void {
+  if (options.compact && options.json) {
+    throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
+  }
+
+  if (options.cost === false && options.json) {
+    throw new Error(`--no-cost applies to ${costAppliesTo}; drop it with --json`);
+  }
+}
+
+/** Diagnostics of a report whose --top can leave rows out. */
+export type LimitedReportDiagnostics = UsageDiagnostics & { limitNote?: string };
+
+/** Prints the note naming the rows --top left out, if any. */
+export function emitLimitNote(diagnostics: { limitNote?: string }): void {
+  if (diagnostics.limitNote) {
+    logger.info(diagnostics.limitNote);
+  }
+}
 
 // The one place that fixes the stderr diagnostics ordering shared by every
 // report command, including the streaming events export.
@@ -204,20 +225,25 @@ export function emitReportRunDiagnostics<Diagnostics>(
 export async function runPreparedReport<Diagnostics, Format extends string>(
   options: RunPreparedReportOptions<Diagnostics, Format>,
 ): Promise<void> {
-  emitReportRunDiagnostics(options.preparedReport.diagnostics, {
-    emitCommonDiagnostics: options.emitCommonDiagnostics,
-    getEnvVarOverrides: options.getEnvVarOverrides,
-    getActiveConfig: options.getActiveConfig,
-    emitReportDiagnostics: options.emitReportDiagnostics,
-    getRuntimeProfile: options.getRuntimeProfile,
-    runtimeProfile: options.preparedReport.runtimeProfile,
-  });
+  // With --redact, stderr hides what the file hides; only the path of the file written shows.
+  const scrubLog = options.preparedReport.shareArtifact?.scrubLog;
 
-  if (options.warnOnTerminalOverflow && options.preparedReport.format === 'terminal') {
-    warnIfTerminalTableOverflows(options.preparedReport.output, (message) => {
-      logger.warn(message);
+  withLogScrubber(scrubLog, () => {
+    emitReportRunDiagnostics(options.preparedReport.diagnostics, {
+      emitCommonDiagnostics: options.emitCommonDiagnostics,
+      getEnvVarOverrides: options.getEnvVarOverrides,
+      getActiveConfig: options.getActiveConfig,
+      emitReportDiagnostics: options.emitReportDiagnostics,
+      getRuntimeProfile: options.getRuntimeProfile,
+      runtimeProfile: options.preparedReport.runtimeProfile,
     });
-  }
+
+    if (options.warnOnTerminalOverflow && options.preparedReport.format === 'terminal') {
+      warnIfTerminalTableOverflows(options.preparedReport.output, (message) => {
+        logger.warn(message);
+      });
+    }
+  });
 
   if (options.preparedReport.shareArtifact) {
     await writeShareArtifact(
@@ -228,9 +254,11 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
 
   console.log(options.preparedReport.output);
 
-  for (const hint of options.preparedReport.hintsAfterOutput ?? []) {
-    logger.info(hint);
-  }
+  withLogScrubber(scrubLog, () => {
+    for (const hint of options.preparedReport.hintsAfterOutput ?? []) {
+      logger.info(hint);
+    }
+  });
 }
 
 type RunStandardPreparedReportOptions<Diagnostics, Format extends string> = {

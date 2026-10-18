@@ -1,5 +1,4 @@
 import { renderCompareReport, type CompareReportFormat } from '../render/render-compare-report.js';
-import { renderCompareShareSvg } from '../render/render-compare-share-svg.js';
 import { buildCompareData } from './build-compare-data.js';
 import {
   prepareReport,
@@ -9,6 +8,7 @@ import {
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildCompareDataDeps, CompareCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
+import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
 
 const compareReportFormats = STANDARD_REPORT_FORMATS satisfies readonly CompareReportFormat[];
 
@@ -22,21 +22,41 @@ async function prepareCompareReport(
     buildData: () => buildCompareData(options, deps),
     getDiagnostics: (compareData) => compareData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (compareData) => ({
-          fileName: 'compare-share.svg',
+    buildShare: async (compareData, { runtimeProfile }) => {
+      const { current, baseline } = compareData;
+      // The file spans both windows and opens on the current one.
+      const window = {
+        since: [current.window.since, baseline.window.since].sort()[0],
+        until: [current.window.until, baseline.window.until].sort()[1],
+      };
+
+      return buildShareReportArtifact(
+        {
+          command: 'compare',
+          options,
+          window,
+          initialView: {
+            since: current.window.since,
+            until: current.window.until,
+            granularity: 'day',
+          },
+          envelope: parseReportJsonEnvelope(renderCompareReport(compareData, 'json')),
+          fileBaseName: 'compare-share',
           logLabel: 'compare',
-          title: 'Compare share card',
-          render: (theme) => renderCompareShareSvg(compareData, theme),
-        })
-      : undefined,
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (compareData, format) =>
       renderCompareReport(compareData, format, { filtered: hasCliFilters(options) }),
   });
 }
 
-export async function buildCompareReport(options: CompareCommandOptions): Promise<string> {
-  const preparedReport = await prepareCompareReport(options);
+export async function buildCompareReport(
+  options: CompareCommandOptions,
+  deps: BuildCompareDataDeps = {},
+): Promise<string> {
+  const preparedReport = await prepareCompareReport(options, deps);
   return preparedReport.output;
 }
 

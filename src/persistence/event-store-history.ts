@@ -1,8 +1,14 @@
+import {
+  addHashCount,
+  takeUncountedEvents,
+  compareByCodePoint,
+} from '@ayagmar/agent-sessions/internal';
+
 import type { UsageEvent } from '../domain/usage-event.js';
-import { normalizeSourceId } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
+import { normalizeSourceId } from '@ayagmar/agent-sessions';
+import { normalizeStoredEvent, STORED_EVENT_COLUMNS } from './event-store-codec.js';
 import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
+import { sessionEventCountSql } from './event-store-session-events.js';
 
 export type EventStoreHistoryDiscoveredFile = {
   source: string;
@@ -45,6 +51,7 @@ type DepartedFile = {
 export type ClassifiedDepartedFile = {
   source: string;
   filePath: string;
+  /** Stored rows: usage events, tool calls and messages. */
   eventCount: number;
   newestTimestamp?: string;
   suppressed: boolean;
@@ -81,9 +88,7 @@ CREATE TEMP TABLE IF NOT EXISTS history_discovered_files (
   PRIMARY KEY (source, file_path)
 );
 CREATE TEMP TABLE IF NOT EXISTS history_departed_files (
-  source TEXT NOT NULL,
-  file_path TEXT NOT NULL,
-  PRIMARY KEY (source, file_path)
+  file_id INTEGER PRIMARY KEY
 );
 CREATE TEMP TABLE IF NOT EXISTS history_departed_hashes (
   content_hash TEXT PRIMARY KEY
@@ -207,14 +212,6 @@ export function readUndiscoveredStoredFiles(
   return undiscoveredFiles;
 }
 
-function addHashCount(target: Map<string, number>, hash: string, count: number): void {
-  if (count <= 0) {
-    return;
-  }
-
-  target.set(hash, (target.get(hash) ?? 0) + count);
-}
-
 // The live events reports count, per content hash, for the hashes departed files hold:
 // only those decide what history serves. For a source whose files repeat events, a hash
 // in several files counts as often as the file holding it most often; a content hash
@@ -227,8 +224,7 @@ function readLiveHashCounts(store: EventStore): Map<string, number> {
         'SELECT events.content_hash',
         'FROM history_departed_files AS departed',
         'CROSS JOIN events',
-        'WHERE events.source = departed.source',
-        '  AND events.file_path = departed.file_path',
+        'WHERE events.file_id = departed.file_id',
         '  AND events.content_hash IS NOT NULL',
       ].join('\n'),
     )
@@ -243,16 +239,17 @@ function readLiveHashCounts(store: EventStore): Map<string, number> {
         'INSERT OR IGNORE INTO history_departed_hashes (content_hash)',
         'SELECT events.content_hash',
         'FROM history_discovered_files AS discovered',
+        'CROSS JOIN files',
         'CROSS JOIN events',
-        'WHERE events.source = discovered.source',
-        '  AND events.file_path = discovered.file_path',
+        'WHERE files.source = discovered.source',
+        '  AND files.file_path = discovered.file_path',
+        '  AND events.file_id = files.id',
         '  AND discovered.counted = 1',
         '  AND events.content_hash IS NOT NULL',
         '  AND EXISTS (',
         '    SELECT 1 FROM history_departed_files AS departed',
         '    CROSS JOIN events AS departed_events',
-        '    WHERE departed_events.source = departed.source',
-        '      AND departed_events.file_path = departed.file_path',
+        '    WHERE departed_events.file_id = departed.file_id',
         '      AND departed_events.content_hash IS NULL',
         '  )',
       ].join('\n'),
@@ -272,14 +269,15 @@ function readLiveHashCounts(store: EventStore): Map<string, number> {
         '    selected.repeats_events AS repeats_events, COUNT(*) AS file_count',
         '  FROM history_departed_hashes AS departed',
         '  CROSS JOIN events',
+        '  JOIN files ON files.id = events.file_id',
         '  JOIN history_discovered_files AS discovered',
-        '    ON discovered.source = events.source',
-        '    AND discovered.file_path = events.file_path',
+        '    ON discovered.source = files.source',
+        '    AND discovered.file_path = files.file_path',
         '  JOIN history_selected_sources AS selected',
-        '    ON selected.source = events.source',
+        '    ON selected.source = files.source',
         '  WHERE events.content_hash = departed.content_hash',
         '    AND discovered.counted = 1',
-        '  GROUP BY events.source, events.file_path, events.content_hash',
+        '  GROUP BY events.file_id, events.content_hash',
         ')',
         'GROUP BY content_hash',
       ].join('\n'),
@@ -317,7 +315,8 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
     .prepare(
       [
         'SELECT files.source, files.file_path, files.ingested_at,',
-        '  COUNT(events.id) AS event_count, MAX(events.timestamp) AS newest_timestamp',
+        `  COUNT(events.file_id) + ${sessionEventCountSql('files')} AS event_count,`,
+        '  MAX(events.timestamp) AS newest_timestamp',
         'FROM files',
         'JOIN history_selected_sources AS selected',
         '  ON files.source = selected.source',
@@ -325,10 +324,9 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
         '  ON files.source = discovered.source',
         '  AND files.file_path = discovered.file_path',
         'LEFT JOIN events',
-        '  ON files.source = events.source',
-        '  AND files.file_path = events.file_path',
+        '  ON events.file_id = files.id',
         'WHERE discovered.file_path IS NULL',
-        'GROUP BY files.source, files.file_path, files.ingested_at',
+        'GROUP BY files.id',
       ].join('\n'),
     )
     .all();
@@ -358,15 +356,15 @@ function fileKey(source: string, filePath: string): string {
 // One grouped read of every departed file's content-hash multiset. Populates
 // history_departed_files with the same anti-join readDepartedFiles uses (files
 // present for a selected source but not discovered live), then groups events by
-// (source, file_path, content_hash). A NULL content_hash group marks that file
+// file and content_hash. A NULL content_hash group marks that file
 // unsuppressible; a departed file with zero event rows produces no row here and
 // is handed an empty multiset by the caller.
 function readDepartedHashMultisets(store: EventStore): Map<string, FileContentHashMultiset> {
   store.database
     .prepare(
       [
-        'INSERT INTO history_departed_files (source, file_path)',
-        'SELECT files.source, files.file_path',
+        'INSERT INTO history_departed_files (file_id)',
+        'SELECT files.id',
         'FROM files',
         'JOIN history_selected_sources AS selected',
         '  ON files.source = selected.source',
@@ -381,13 +379,14 @@ function readDepartedHashMultisets(store: EventStore): Map<string, FileContentHa
   const rows = store.database
     .prepare(
       [
-        'SELECT events.source AS source, events.file_path AS file_path,',
+        'SELECT files.source AS source, files.file_path AS file_path,',
         '  events.content_hash AS content_hash, COUNT(*) AS count',
         'FROM history_departed_files AS departed',
+        'CROSS JOIN files',
         'CROSS JOIN events',
-        'WHERE events.source = departed.source',
-        '  AND events.file_path = departed.file_path',
-        'GROUP BY events.source, events.file_path, events.content_hash',
+        'WHERE files.id = departed.file_id',
+        '  AND events.file_id = departed.file_id',
+        'GROUP BY events.file_id, events.content_hash',
       ].join('\n'),
     )
     .all();
@@ -449,38 +448,6 @@ function addServedFileHashCounts(
   }
 }
 
-/**
- * Leaves out a file's events that `countedHashes` already counts, per content hash, and
- * adds the rest to it; repeats within the file are kept. An identical content hash
- * covers the session id and timestamp, so it is the same event, not a lookalike: e.g. a
- * pi fork's copy of a parent session that is also counted from the parent or another fork.
- */
-export function takeUncountedEvents(
-  events: readonly UsageEvent[],
-  countedHashes: Map<string, number>,
-): UsageEvent[] {
-  const fileHashCounts = new Map<string, number>();
-  const keptHashes: string[] = [];
-  const keptEvents = events.filter((event) => {
-    const hash = computeEventContentHash(event);
-    const seen = (fileHashCounts.get(hash) ?? 0) + 1;
-    fileHashCounts.set(hash, seen);
-
-    if (seen <= (countedHashes.get(hash) ?? 0)) {
-      return false;
-    }
-
-    keptHashes.push(hash);
-    return true;
-  });
-
-  for (const hash of keptHashes) {
-    addHashCount(countedHashes, hash, 1);
-  }
-
-  return keptEvents;
-}
-
 // One joined read of every served file's events, ordered by the classification
 // order (encoded as ordinal) then event_index — identical to concatenating each
 // served file's rows in classified order, less the events already counted by live
@@ -520,15 +487,13 @@ function loadServedEvents(
   const rows = store.database
     .prepare(
       [
-        'SELECT events.source, events.session_id, events.timestamp, events.model,',
-        '  events.provider, events.repo_root, events.input_tokens, events.output_tokens,',
-        '  events.reasoning_tokens, events.cache_read_tokens, events.cache_write_tokens,',
-        '  events.cache_write_1h_tokens, events.total_tokens, events.cost_usd, events.cost_mode,',
-        '  served.ordinal',
+        `SELECT ${STORED_EVENT_COLUMNS}, served.ordinal`,
         'FROM history_served_files AS served',
+        'CROSS JOIN files',
         'CROSS JOIN events',
-        'WHERE events.source = served.source',
-        '  AND events.file_path = served.file_path',
+        'WHERE files.source = served.source',
+        '  AND files.file_path = served.file_path',
+        '  AND events.file_id = files.id',
         'ORDER BY served.ordinal ASC, events.event_index ASC',
       ].join('\n'),
     )

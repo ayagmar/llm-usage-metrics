@@ -15,7 +15,7 @@ description: What llm-usage-metrics reads, what it stores and where, and every n
 
 | What | Where (Linux default) | Contents |
 | --- | --- | --- |
-| Event ledger | `~/.local/share/llm-usage-metrics/events.db` | One row per usage event: source, log file path, session ID, timestamp, model, provider, repository root, token counts, and cost. |
+| Event ledger | `~/.local/share/llm-usage-metrics/events.db` | One row per usage event: source, log file path, session ID, timestamp, model, provider, recorded working directory, token counts, and cost. |
 | Pricing cache | `~/.cache/llm-usage-metrics/litellm-pricing-cache.json` | Model prices downloaded from LiteLLM. |
 | Update-check cache | `~/.cache/llm-usage-metrics/update-check.json` | The latest published version number. |
 | Config | `~/.config/llm-usage-metrics/config.toml` | Only what you write there. |
@@ -24,25 +24,30 @@ The ledger stores token counts and metadata, not session content. Your prompts, 
 
 ## Network requests
 
-The tool makes exactly two kinds of HTTP request. Neither sends any of your usage data.
+The tool makes two kinds of HTTP request on its own. Neither sends any of your usage data. A third, the OTLP push, happens only when you ask for it.
 
 ### Pricing refresh
 
 - **What:** a GET request for `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`.
-- **When:** when a report needs prices and the pricing cache is older than its TTL (24 hours by default, `pricing.cacheTtlMs`).
+- **When:** when a report or `llm-usage pricing` needs prices and the pricing cache is older than its TTL (24 hours by default, `pricing.cacheTtlMs`).
 - **Turn it off:** pass `--pricing-offline` or set `pricing.offline = true`. The tool then uses the cached prices, or the pricing snapshot bundled with the package if there is no cache.
 - **Change it:** `--pricing-url` points it at another URL. See [Pricing](/llm-usage-metrics/pricing/).
 
 ### Update check
 
 - **What:** a GET request for `https://registry.npmjs.org/llm-usage-metrics/latest`, which returns the newest version number.
-- **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. It is skipped for `statusline`, `machine export`, `--help`, `--version`, and when run through `npx`.
+- **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. It is skipped for `statusline`, `machine export`, `config`, `completion`, `help`, `-h`/`--help`, `--help-all`, `-V`/`--version`, and when run through `npx`.
 - **Turn it off:** set `LLM_USAGE_SKIP_UPDATE_CHECK=1`, or `update.skipCheck = true` in the config file.
+
+### OTLP push
+
+- **What:** POST requests carrying the `events --format otlp-traces` or `otlp-metrics` export: token counts, costs, models, tool names and session ids, without message text or, unless `--otel-include-paths` is given, paths.
+- **When:** only when you pass `--otlp-endpoint <url>`, and only to that URL. See [Push to a receiver](/llm-usage-metrics/otel/#push-to-a-receiver).
 
 ## Other processes it starts
 
-- **`--share`** writes an SVG and an HTML page to the current directory, then opens the HTML page in your browser. Nothing is uploaded. Pass `--no-open` to skip opening the browser.
-- **Multiple machines:** `machine add` and machine sync run your system `ssh` to reach machines you added yourself. The remote machine runs `llm-usage machine export` and sends back its usage events (the same fields as the ledger) plus its hostname. Nothing goes anywhere else. See [Multiple machines](/llm-usage-metrics/machines/).
+- **`--share`** writes an HTML report to the current directory, then opens it in your browser. Nothing is uploaded, and the page loads nothing from the network. It holds project folder names, machine names and model names, but never full paths, session IDs or message text; `--redact` replaces project and machine names with `project-N` and `machine-N`, and local or path-shaped model names with `model-N`; it keeps the time zone and session times. Pass `--no-open` to skip opening the browser.
+- **Multiple machines:** `machine add` and machine sync run your system `ssh` to reach machines you added yourself. The remote machine runs `llm-usage machine export` and sends back its usage events, tool calls and turns (the same fields as the ledger, so never message text or tool input and output) plus its hostname. Those fields include each log file's absolute path on that machine and each event's absolute repository root, which usually contain your user name there. Nothing goes anywhere else. See [Multiple machines](/llm-usage-metrics/machines/).
 - **`git log`** for `efficiency` reports, as described above.
 
 ## Run fully offline
@@ -50,5 +55,6 @@ The tool makes exactly two kinds of HTTP request. Neither sends any of your usag
 1. Pass `--pricing-offline` (or set `pricing.offline = true`).
 2. Set `LLM_USAGE_SKIP_UPDATE_CHECK=1` (or `update.skipCheck = true`).
 3. Do not configure remote machines.
+4. Do not pass `--otlp-endpoint`.
 
 With these set, the tool makes no network requests.

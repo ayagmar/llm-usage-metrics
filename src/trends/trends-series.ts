@@ -1,4 +1,4 @@
-import type { SourceId } from '../domain/usage-event.js';
+import type { SourceId } from '@ayagmar/agent-sessions';
 
 export type TrendsMetric = 'cost' | 'tokens' | 'active-hours';
 
@@ -6,7 +6,8 @@ export type TrendsMetric = 'cost' | 'tokens' | 'active-hours';
 // source-spanning total that wins over summing the per-source rows.
 export type TrendValueRow = {
   periodKey: string;
-  source: 'combined' | SourceId;
+  /** A source id, or 'combined'. */
+  source: SourceId;
   value: number;
   incomplete?: boolean;
 };
@@ -16,6 +17,8 @@ export type TrendBucket = {
   value: number;
   observed: boolean;
   incomplete?: boolean;
+  /** A spend spike (see `findSpendSpikes`); set on the combined cost series only. */
+  spike?: true;
 };
 
 export type TrendSummary = {
@@ -27,7 +30,27 @@ export type TrendSummary = {
 };
 
 export type TrendSeries = {
-  source: 'combined' | SourceId;
+  /** A source id, or 'combined'. */
+  source: SourceId;
+  buckets: TrendBucket[];
+  summary: TrendSummary;
+};
+
+/** One project's metric value on one day (`--by-repo`). */
+export type ProjectTrendValueRow = {
+  periodKey: string;
+  /** The project key, `null` for usage without a repository root. */
+  repoRoot: string | null;
+  project: string;
+  value: number;
+  incomplete?: boolean;
+};
+
+/** One project's daily series (`--by-repo`). */
+export type ProjectTrendSeries = {
+  /** The project key, `null` for usage without a repository root. */
+  repoRoot: string | null;
+  project: string;
   buckets: TrendBucket[];
   summary: TrendSummary;
 };

@@ -1,38 +1,32 @@
-import { renderEfficiencyMonthlyShareSvg } from '../render/render-efficiency-share-svg.js';
 import {
   renderEfficiencyReportWithNotes,
   type EfficiencyReportFormat,
 } from '../render/render-efficiency-report.js';
+import { attributeUsageEventsToRepo } from '../efficiency/repo-attribution.js';
 import { logger } from '../utils/logger.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
-import { buildEfficiencyData } from './build-efficiency-data.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
+import {
+  buildEfficiencyData,
+  hasMeaningfulEfficiencyUsageSignal,
+} from './build-efficiency-data.js';
 import {
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
+import {
+  buildShareReportArtifact,
+  parseReportJsonEnvelope,
+  toShareDateRange,
+  toShareGranularity,
+} from './share-report-artifact.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import type { BuildEfficiencyDataDeps } from './build-efficiency-data.js';
 
 const efficiencyReportFormats = STANDARD_REPORT_FORMATS satisfies readonly EfficiencyReportFormat[];
-
-function validateShareOption(
-  granularity: ReportGranularity,
-  options: EfficiencyCommandOptions,
-): void {
-  if (!options.share) {
-    return;
-  }
-
-  if (granularity !== 'monthly') {
-    throw new Error('--share is only supported for efficiency monthly');
-  }
-
-  if (options.bySource) {
-    throw new Error('--share cannot be combined with --by-source');
-  }
-}
 
 async function prepareEfficiencyReport(
   granularity: ReportGranularity,
@@ -42,23 +36,49 @@ async function prepareEfficiencyReport(
   return prepareReport({
     commandOptions: options,
     supportedFormats: efficiencyReportFormats,
-    validate: () => {
-      validateShareOption(granularity, options);
-    },
     buildData: () => buildEfficiencyData(granularity, options, deps),
     getDiagnostics: (efficiencyData) => efficiencyData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (efficiencyData) => ({
-          fileName: 'efficiency-monthly-share.svg',
+    buildShare: async (efficiencyData, { runtimeProfile }) => {
+      const window = toShareDateRange(options.since, options.until);
+
+      return buildShareReportArtifact(
+        {
+          command: 'efficiency',
+          options,
+          window,
+          initialView: { ...window, granularity: toShareGranularity(granularity) },
+          envelope: parseReportJsonEnvelope(
+            renderEfficiencyReportWithNotes(efficiencyData, 'json', { granularity }).output,
+          ),
+          fileBaseName: `efficiency-${granularity}-share`,
           logLabel: 'efficiency',
-          title: 'Efficiency share card',
-          render: (theme) => renderEfficiencyMonthlyShareSvg(efficiencyData, theme),
-        })
-      : undefined,
+          inputPaths: [options.repoDir?.trim() ?? process.cwd()],
+          // The report counts its repository's usage in periods with commits; so does the file.
+          scopeEvents: async (events, timezone) => {
+            const reportedPeriods = new Set(
+              efficiencyData.rows.flatMap((row) => (row.rowType === 'period' ? row.periodKey : [])),
+            );
+            const { matchedSourceEvents } = await attributeUsageEventsToRepo(
+              events,
+              options.repoDir?.trim() ?? process.cwd(),
+              deps.resolveRepoRoot,
+            );
+
+            return matchedSourceEvents.filter(
+              (event) =>
+                hasMeaningfulEfficiencyUsageSignal(event) &&
+                reportedPeriods.has(getPeriodKey(event.timestamp, granularity, timezone)),
+            );
+          },
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (efficiencyData, format) => {
       const { output, notes } = renderEfficiencyReportWithNotes(efficiencyData, format, {
         granularity,
+        filtered: hasCliFilters(options),
       });
 
       return { output, hintsAfterOutput: notes };
@@ -72,7 +92,7 @@ function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): vo
     : 'excluding merge commits';
 
   logger.info(
-    `Git outcomes (${mergeModeLabel}): ${diagnostics.gitCommitCount} commit(s), +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
+    `Git outcomes (${mergeModeLabel}): ${pluralize(diagnostics.gitCommitCount, 'commit')}, +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
   );
   logger.info(
     `Repo-attributed usage events: ${diagnostics.repoMatchedUsageEvents} matched, ${diagnostics.repoExcludedUsageEvents} excluded, ${diagnostics.repoUnattributedUsageEvents} unattributed`,

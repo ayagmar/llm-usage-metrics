@@ -5,6 +5,7 @@ import { text } from 'node:stream/consumers';
 
 import { LOCAL_MACHINE_NAME } from '../config/user-config.js';
 import { buildMachineExportLines, parseKnownFiles } from '../machines/machine-export-bundle.js';
+import { getParserVersions } from '../machines/merge-machine-events.js';
 import {
   closeEventStore,
   openEventStore,
@@ -16,7 +17,7 @@ import { emitDiagnostics } from './emit-diagnostics.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
-import { getRepeatingSourceIds } from '../sources/source-adapter.js';
+import { getRepeatingSourceIds, pluralize } from '@ayagmar/agent-sessions/internal';
 import type { BuildUsageDataDeps } from './usage-data-contracts.js';
 
 export type MachineExportCommandOptions = {
@@ -102,6 +103,7 @@ export async function runMachineExport(
       cliVersion: loadPackageMetadataFromRuntime().packageVersion,
       hostname: os.hostname(),
       exportedAt: (deps.now?.() ?? new Date()).toISOString(),
+      parserVersions: getParserVersions(dataset.adaptersToParse),
     },
     snapshots,
     knownFiles,
@@ -118,7 +120,7 @@ export async function runMachineExport(
   // counted by reports but never stored, so it cannot be exported.
   if (missingEventCount > 0) {
     logger.warn(
-      `machine export left out ${missingEventCount} event(s) that reports count but the event store does not hold`,
+      `machine export left out ${pluralize(missingEventCount, 'event')} that reports count but the event store does not hold`,
     );
   }
 

@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 
 export type PackageMetadata = {
   packageName: string;

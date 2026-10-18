@@ -1,12 +1,16 @@
 import { type Command, Option } from 'commander';
 
-import {
-  getDefaultSourceIds,
-  getSourceOverrideOptions,
-} from '../../sources/create-default-adapters.js';
+import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
+import { getSourceOverrideOptions } from '../source-cli-options.js';
+import type { PricingCostMode } from '../../pricing/cost-engine.js';
 import type { SharedOptionProfile } from './report-definition-types.js';
 
+const COST_MODES = ['explicit', 'estimated', 'both'] as const satisfies readonly PricingCostMode[];
+
 export type SharedOptionProfileConfig = {
+  /** --source, --source-dir, the per-source path flags and --help-all. */
+  includeSources: boolean;
+  includeVerbose: boolean;
   includeJson: boolean;
   /** Where to point `--json` on a command without it, instead of an unknown-option error. */
   jsonAlternative?: string;
@@ -15,6 +19,8 @@ export type SharedOptionProfileConfig = {
   includeMarkdown: boolean;
   includePerModelColumns: boolean;
   includePricing: boolean;
+  /** --ignore-pricing-failures and --cost-mode, for commands that price usage. */
+  includeCostOptions: boolean;
   /** --pricing-url and --pricing-offline, for commands that may fetch prices. */
   includePricingFetch: boolean;
   includeProviderModelFilters: boolean;
@@ -27,12 +33,15 @@ export type SharedOptionProfileConfig = {
 
 export const sharedOptionProfileConfig = {
   usage: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: true,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -40,13 +49,52 @@ export const sharedOptionProfileConfig = {
     includeShare: true,
     includeTimezone: true,
   },
+  // hourly: the usage profile without --share.
+  hourly: {
+    includeSources: true,
+    includeVerbose: true,
+    includeJson: true,
+    includeQuiet: true,
+    includeDateFilters: true,
+    includeMarkdown: true,
+    includePerModelColumns: true,
+    includePricing: true,
+    includeCostOptions: true,
+    includePricingFetch: true,
+    includeProviderModelFilters: true,
+    includeHistory: true,
+    includeSync: true,
+    includeShare: false,
+    includeTimezone: true,
+  },
+  // projects, blocks and value: the usage profile without --share and --per-model-columns.
+  rollup: {
+    includeSources: true,
+    includeVerbose: true,
+    includeJson: true,
+    includeQuiet: true,
+    includeDateFilters: true,
+    includeMarkdown: true,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeCostOptions: true,
+    includePricingFetch: true,
+    includeProviderModelFilters: true,
+    includeHistory: true,
+    includeSync: true,
+    includeShare: false,
+    includeTimezone: true,
+  },
   summary: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: false,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -55,12 +103,15 @@ export const sharedOptionProfileConfig = {
     includeTimezone: true,
   },
   specialized: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -69,12 +120,15 @@ export const sharedOptionProfileConfig = {
     includeTimezone: true,
   },
   compare: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -83,12 +137,15 @@ export const sharedOptionProfileConfig = {
     includeTimezone: true,
   },
   trends: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -97,12 +154,15 @@ export const sharedOptionProfileConfig = {
     includeTimezone: true,
   },
   session: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -110,13 +170,34 @@ export const sharedOptionProfileConfig = {
     includeShare: false,
     includeTimezone: true,
   },
+  // tools: no prices.
+  tools: {
+    includeSources: true,
+    includeVerbose: true,
+    includeJson: true,
+    includeQuiet: true,
+    includeDateFilters: true,
+    includeMarkdown: true,
+    includePerModelColumns: false,
+    includePricing: false,
+    includeCostOptions: false,
+    includePricingFetch: false,
+    includeProviderModelFilters: false,
+    includeHistory: true,
+    includeSync: true,
+    includeShare: false,
+    includeTimezone: true,
+  },
   wrapped: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: false,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -125,6 +206,8 @@ export const sharedOptionProfileConfig = {
     includeTimezone: true,
   },
   events: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: false,
     jsonAlternative: 'use --format jsonl',
     includeQuiet: true,
@@ -132,6 +215,7 @@ export const sharedOptionProfileConfig = {
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -140,6 +224,8 @@ export const sharedOptionProfileConfig = {
     includeTimezone: true,
   },
   statusline: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: false,
     jsonAlternative: 'use llm-usage summary --json',
     includeQuiet: false,
@@ -147,6 +233,7 @@ export const sharedOptionProfileConfig = {
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: true,
+    includeCostOptions: true,
     includePricingFetch: false,
     includeProviderModelFilters: true,
     includeHistory: true,
@@ -155,13 +242,52 @@ export const sharedOptionProfileConfig = {
     includeTimezone: true,
   },
   doctor: {
+    includeSources: true,
+    includeVerbose: true,
     includeJson: true,
     includeQuiet: true,
     includeDateFilters: false,
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: false,
+    includeCostOptions: false,
     includePricingFetch: false,
+    includeProviderModelFilters: false,
+    includeHistory: false,
+    includeSync: false,
+    includeShare: false,
+    includeTimezone: false,
+  },
+  // config show: every flag that changes a setting it reports, and --json.
+  config: {
+    includeSources: true,
+    includeVerbose: false,
+    includeJson: true,
+    includeQuiet: false,
+    includeDateFilters: false,
+    includeMarkdown: false,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeCostOptions: false,
+    includePricingFetch: true,
+    includeProviderModelFilters: false,
+    includeHistory: false,
+    includeSync: false,
+    includeShare: false,
+    includeTimezone: true,
+  },
+  // pricing <model...>: only what decides which prices load, the output format and --quiet.
+  pricing: {
+    includeSources: false,
+    includeVerbose: false,
+    includeJson: true,
+    includeQuiet: true,
+    includeDateFilters: false,
+    includeMarkdown: true,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeCostOptions: false,
+    includePricingFetch: true,
     includeProviderModelFilters: false,
     includeHistory: false,
     includeSync: false,
@@ -265,11 +391,8 @@ function registerSourcePathOptions(command: Command): void {
   }
 
   command
+    // createCli prints the help for it, with these flags revealed.
     .option('--help-all', 'Display help including the per-source path flags')
-    .on('option:help-all', () => {
-      revealHiddenOptions(command);
-      command.help();
-    })
     .addHelpText('after', () =>
       hasHiddenOptions(command)
         ? '\nPer-source path flags (--claude-dir, ...)\nare listed by --help-all.'
@@ -298,19 +421,21 @@ export function registerSharedReportOptions(
 
   const configuredCommand = command;
 
-  registerSourcePathOptions(configuredCommand);
+  if (profileConfig.includeSources) {
+    registerSourcePathOptions(configuredCommand);
 
-  configuredCommand
-    .option(
-      '--source-dir <source-id=path>',
-      'Override source directory for directory-backed sources (repeatable)',
-      collectRepeatedOption,
-    )
-    .option(
-      '--source <name>',
-      `Filter by source id (repeatable or comma-separated, supported sources ${supportedSourcesSummary})`,
-      collectRepeatedOption,
-    );
+    configuredCommand
+      .option(
+        '--source-dir <source-id=path>',
+        'Override source directory for directory-backed sources (repeatable)',
+        collectRepeatedOption,
+      )
+      .option(
+        '--source <name>',
+        `Filter by source id (repeatable or comma-separated, supported sources ${supportedSourcesSummary})`,
+        collectRepeatedOption,
+      );
+  }
 
   if (profileConfig.includeJson) {
     configuredCommand.option('--json', 'Render output as JSON');
@@ -325,10 +450,12 @@ export function registerSharedReportOptions(
     );
   }
 
-  configuredCommand.option(
-    '--verbose',
-    'Print detailed diagnostics on stderr (per-source counts, routine skips, config, env)',
-  );
+  if (profileConfig.includeVerbose) {
+    configuredCommand.option(
+      '--verbose',
+      'Print detailed diagnostics on stderr (per-source counts, routine skips, config, env)',
+    );
+  }
 
   if (profileConfig.includeDateFilters) {
     configuredCommand
@@ -369,14 +496,24 @@ export function registerSharedReportOptions(
     if (profileConfig.includePricingFetch) {
       configuredCommand.option(
         '--pricing-offline',
-        'Use cached LiteLLM pricing only (no network fetch)',
+        'Never fetch pricing: use the cached LiteLLM pricing, or the bundled snapshot when there is no cache',
       );
     }
 
-    configuredCommand.option(
-      '--ignore-pricing-failures',
-      'Continue without estimated costs when pricing cannot be loaded',
-    );
+    if (profileConfig.includeCostOptions) {
+      configuredCommand.option(
+        '--ignore-pricing-failures',
+        'Continue without estimated costs when pricing cannot be loaded',
+      );
+
+      // No default here: `both` applies downstream, so --no-cost conflicts only with a passed mode.
+      configuredCommand.addOption(
+        new Option(
+          '--cost-mode <mode>',
+          'Costs to report: explicit (logged by the source), estimated (from LiteLLM), or both (logged, else estimated; default)',
+        ).choices(COST_MODES),
+      );
+    }
   }
 
   if (profileConfig.includeHistory) {
@@ -413,11 +550,12 @@ export function registerSharedReportOptions(
 
   if (profileConfig.includeShare) {
     configuredCommand
+      .option('--share', 'Write an interactive HTML report to the current directory')
+      .option('--no-open', 'With --share, write the report without opening it')
       .option(
-        '--share',
-        'Write a share card (SVG and an HTML page with PNG export) to the current directory',
-      )
-      .option('--no-open', 'With --share, write the files without opening the page');
+        '--redact',
+        'With --share, label projects project-N, machines machine-N and local or path-shaped models model-N',
+      );
   }
 
   return configuredCommand;

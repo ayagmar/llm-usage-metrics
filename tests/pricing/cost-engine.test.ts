@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { applyPricingToEvents, calculateEstimatedCostUsd } from '../../src/pricing/cost-engine.js';
-import type { PricingSource } from '../../src/pricing/types.js';
+import {
+  applyPricingToEvents,
+  calculateEstimatedCostUsd,
+  createPricingRunStats,
+  DEFAULT_PRICING_POLICY,
+  resolveRatesForEvent,
+} from '../../src/pricing/cost-engine.js';
+import type { ModelPricing, PricingSource } from '../../src/pricing/types.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 
 describe('cost engine', () => {
@@ -52,6 +58,160 @@ describe('cost engine', () => {
 
     expect(pricedEvent.costMode).toBe('estimated');
     expect(pricedEvent.costUsd).toBeCloseTo(0.0002, 10);
+  });
+
+  it('records in the run stats only the explicit $0 events it re-estimates', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5-codex': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+      },
+    });
+    const baseEvent = {
+      source: 'pi',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      inputTokens: 100,
+      outputTokens: 50,
+    };
+    const events = [
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costUsd: 0, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'unknown-model', costUsd: 0, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costUsd: 1.5, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
+    ];
+    const stats = createPricingRunStats();
+
+    const pricedEvents = applyPricingToEvents(events, source, {
+      policy: DEFAULT_PRICING_POLICY,
+      stats,
+    });
+
+    expect(pricedEvents.map((event) => stats.reestimatedExplicitZero.has(event))).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ]);
+    expect(stats.reestimatedExplicitZero.has(events[0])).toBe(false);
+    expect(pricedEvents.some((event) => stats.priorityPriced.has(event))).toBe(false);
+  });
+
+  it('records the events it prices at a priority-fallback rate', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'priority-only': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 4,
+          priorityFallback: ['input', 'output'],
+        },
+        'priority-cache-write': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 4,
+          cacheWritePer1MUsd: 1.25,
+          priorityFallback: ['cacheWrite'],
+        },
+        'gpt-5-codex': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+      },
+    });
+    const baseEvent = {
+      source: 'pi',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      inputTokens: 100,
+      outputTokens: 50,
+    };
+    const events = [
+      createUsageEvent({ ...baseEvent, model: 'priority-only', costMode: 'estimated' }),
+      createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 0, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 2, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
+      createUsageEvent({ ...baseEvent, model: 'priority-cache-write', costMode: 'estimated' }),
+      createUsageEvent({
+        ...baseEvent,
+        model: 'priority-cache-write',
+        cacheWriteTokens: 10,
+        costMode: 'estimated',
+      }),
+    ];
+    const stats = createPricingRunStats();
+
+    const pricedEvents = applyPricingToEvents(events, source, {
+      policy: DEFAULT_PRICING_POLICY,
+      stats,
+    });
+
+    // A logged non-zero cost is kept, so no priority rate priced it. An event with no
+    // cache writes never used a model's priority-only cache-write rate.
+    expect(pricedEvents.map((event) => stats.priorityPriced.has(event))).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+    ]);
+  });
+
+  it('counts as priority-priced only tokens billed at the flat priority rate', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'priority-tiered': {
+          inputPer1MUsd: 2,
+          outputPer1MUsd: 8,
+          cacheReadPer1MUsd: 0.2,
+          cacheWritePer1MUsd: 2.5,
+          cacheWrite1hPer1MUsd: 4,
+          priorityFallback: ['input', 'cacheRead', 'cacheWrite'],
+          tiers: [{ aboveTokens: 200_000, inputPer1MUsd: 4, cacheWritePer1MUsd: 5 }],
+        },
+        'priority-no-1h-rate': {
+          inputPer1MUsd: 2,
+          outputPer1MUsd: 8,
+          cacheWritePer1MUsd: 2.5,
+          priorityFallback: ['cacheWrite'],
+        },
+      },
+    });
+    const baseEvent = {
+      source: 'claude',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      outputTokens: 50,
+      costMode: 'estimated' as const,
+      singleRequest: true,
+    };
+    const tiered = { ...baseEvent, model: 'priority-tiered' };
+    const events = [
+      // Above the tier: input and cache writes bill at the tier's standard rates.
+      createUsageEvent({ ...tiered, inputTokens: 150_000, cacheWriteTokens: 60_000 }),
+      // Below the tier, all cache writes at the 1h rate, which is not a priority rate.
+      createUsageEvent({ ...tiered, cacheWriteTokens: 1_000, cacheWrite1hTokens: 1_000 }),
+      // Below the tier, 5m cache writes at the priority rate.
+      createUsageEvent({ ...tiered, cacheWriteTokens: 1_000 }),
+      // Above the tier, which sets no cache-read rate: those bill at the priority rate.
+      createUsageEvent({ ...tiered, inputTokens: 150_000, cacheReadTokens: 60_000 }),
+      // No 1h rate: 1h writes bill at the priority 5m rate.
+      createUsageEvent({
+        ...baseEvent,
+        model: 'priority-no-1h-rate',
+        cacheWriteTokens: 1_000,
+        cacheWrite1hTokens: 1_000,
+      }),
+    ];
+    const stats = createPricingRunStats();
+
+    const pricedEvents = applyPricingToEvents(events, source, {
+      policy: { costMode: 'estimated', perRequestRates: true },
+      stats,
+    });
+
+    expect(pricedEvents.map((event) => stats.priorityPriced.has(event))).toEqual([
+      false,
+      false,
+      true,
+      true,
+      true,
+    ]);
   });
 
   it('estimates cost using alias mapping without double charging reasoning by default', () => {
@@ -463,5 +623,128 @@ describe('cost engine', () => {
     expect(resolveModelAlias).toHaveBeenCalledTimes(2);
     expect(getPricing).toHaveBeenCalledTimes(1);
     expect(getPricing).toHaveBeenCalledWith('gpt-5-codex');
+  });
+
+  describe('long-context tiers', () => {
+    const tieredPricing: ModelPricing = {
+      inputPer1MUsd: 1,
+      outputPer1MUsd: 5,
+      cacheReadPer1MUsd: 0.1,
+      cacheWritePer1MUsd: 1.25,
+      cacheWrite1hPer1MUsd: 2,
+      tiers: [
+        { aboveTokens: 272_000, inputPer1MUsd: 4, outputPer1MUsd: 20 },
+        {
+          aboveTokens: 100_000,
+          inputPer1MUsd: 2,
+          outputPer1MUsd: 10,
+          cacheReadPer1MUsd: 0.2,
+          cacheWritePer1MUsd: 2.5,
+          cacheWrite1hPer1MUsd: 4,
+        },
+      ],
+    };
+
+    function promptOf(tokens: { input?: number; cacheRead?: number; cacheWrite?: number }) {
+      return createUsageEvent({
+        source: 'claude',
+        sessionId: 'session-1',
+        timestamp: '2026-02-16T10:00:00Z',
+        model: 'tiered-model',
+        inputTokens: tokens.input ?? 0,
+        cacheReadTokens: tokens.cacheRead ?? 0,
+        cacheWriteTokens: tokens.cacheWrite ?? 0,
+        outputTokens: 1_000,
+        costMode: 'estimated',
+        singleRequest: true,
+      });
+    }
+
+    it('applies a tier only to a prompt strictly above its threshold', () => {
+      expect(resolveRatesForEvent(promptOf({ input: 100_000 }), tieredPricing, true)).toBe(
+        tieredPricing,
+      );
+      expect(
+        resolveRatesForEvent(promptOf({ input: 100_001 }), tieredPricing, true).inputPer1MUsd,
+      ).toBe(2);
+    });
+
+    it('counts cache reads and cache writes toward the prompt', () => {
+      const event = promptOf({ input: 1_000, cacheRead: 90_000, cacheWrite: 10_000 });
+
+      expect(resolveRatesForEvent(event, tieredPricing, true).inputPer1MUsd).toBe(2);
+    });
+
+    it('uses the highest crossed tier and the base rate for a bucket the tier lacks', () => {
+      const rates = resolveRatesForEvent(promptOf({ input: 300_000 }), tieredPricing, true);
+
+      expect(rates).toMatchObject({
+        inputPer1MUsd: 4,
+        outputPer1MUsd: 20,
+        cacheReadPer1MUsd: 0.1,
+        cacheWritePer1MUsd: 1.25,
+        cacheWrite1hPer1MUsd: 2,
+      });
+    });
+
+    it('keeps base rates for events that may sum several requests', () => {
+      expect(resolveRatesForEvent(promptOf({ input: 300_000 }), tieredPricing, false)).toBe(
+        tieredPricing,
+      );
+    });
+
+    it('reuses one rate object per model and tier', () => {
+      const first = resolveRatesForEvent(promptOf({ input: 150_000 }), tieredPricing, true);
+      const second = resolveRatesForEvent(promptOf({ input: 160_000 }), tieredPricing, true);
+
+      expect(second).toBe(first);
+    });
+
+    it('prices single-request events at tier rates and the others flat', () => {
+      const source = new StaticPricingSource({ pricingByModel: { 'tiered-model': tieredPricing } });
+      const claudeEvent = promptOf({ input: 50_000, cacheRead: 100_000, cacheWrite: 10_000 });
+      const droidEvent = { ...claudeEvent, source: 'droid', singleRequest: undefined };
+      const tieredCost = 0.1 + 0.02 + 0.025 + 0.01;
+      const flatCost = 0.05 + 0.01 + 0.0125 + 0.005;
+
+      const [claudePriced, droidPriced] = applyPricingToEvents([claudeEvent, droidEvent], source, {
+        policy: { costMode: 'both', perRequestRates: true },
+        stats: createPricingRunStats(),
+      });
+      const [claudeUnderFlatPolicy] = applyPricingToEvents([claudeEvent], source, {
+        policy: { costMode: 'both', perRequestRates: false },
+        stats: createPricingRunStats(),
+      });
+
+      // 160k prompt > 100k: 50k*$2 + 100k*$0.20 + 10k*$2.50 + 1k*$10, per 1M.
+      expect(claudePriced.costUsd).toBeCloseTo(tieredCost, 10);
+      // Flat: 50k*$1 + 100k*$0.10 + 10k*$1.25 + 1k*$5, per 1M.
+      expect(droidPriced.costUsd).toBeCloseTo(flatCost, 10);
+      expect(claudeUnderFlatPolicy.costUsd).toBeCloseTo(flatCost, 10);
+    });
+
+    it('bills one-hour cache writes at the tier one-hour rate', () => {
+      const source = new StaticPricingSource({ pricingByModel: { 'tiered-model': tieredPricing } });
+      const event = createUsageEvent({
+        source: 'claude',
+        sessionId: 'session-1',
+        timestamp: '2026-02-16T10:00:00Z',
+        model: 'tiered-model',
+        inputTokens: 100_000,
+        cacheWriteTokens: 10_000,
+        cacheWrite1hTokens: 4_000,
+        outputTokens: 0,
+        costMode: 'estimated',
+        singleRequest: true,
+      });
+
+      const [priced] = applyPricingToEvents([event], source, {
+        policy: { costMode: 'both', perRequestRates: true },
+        stats: createPricingRunStats(),
+      });
+
+      // 100k*$2 + 6k*$2.50 + 4k*$4, per 1M.
+      expect(priced.costUsd).toBeCloseTo(0.2 + 0.015 + 0.016, 10);
+    });
   });
 });

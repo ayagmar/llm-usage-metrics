@@ -1,0 +1,347 @@
+{
+  "schemaVersion": 1,
+  "report": "pricing",
+  "data": {
+    "models": [
+      {
+        "model": "claude-sonnet-4-5-20250929",
+        "normalizedModel": "claude-sonnet-4-5-20250929",
+        "pricingKey": "claude-sonnet-4-5-20250929",
+        "rule": "direct",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 3,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.3,
+          "cacheWritePer1MUsd": 3.75,
+          "cacheWrite1hPer1MUsd": 6,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "k2p5",
+        "normalizedModel": "k2p5",
+        "pricingKey": "moonshot/kimi-k2.5",
+        "rule": "preferred-key",
+        "canonicalModel": "kimi-k2.5",
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 0.6,
+          "outputPer1MUsd": 3,
+          "cacheReadPer1MUsd": 0.09999999999999999,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "gpt-5.4-high",
+        "normalizedModel": "gpt-5.4-high",
+        "pricingKey": "gpt-5.4",
+        "rule": "effort-suffix",
+        "canonicalModel": null,
+        "strippedModel": "gpt-5.4",
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.25,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [
+          {
+            "aboveTokens": 272000,
+            "inputPer1MUsd": 5,
+            "outputPer1MUsd": 22.5,
+            "cacheReadPer1MUsd": 0.5,
+            "cacheWritePer1MUsd": null,
+            "cacheWrite1hPer1MUsd": null
+          }
+        ],
+        "priorityFallback": []
+      },
+      {
+        "model": "deepseek-v3.2",
+        "normalizedModel": "deepseek-v3.2",
+        "pricingKey": "deepseek/deepseek-v3.2",
+        "rule": "provider-prefixed",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 0.28,
+          "outputPer1MUsd": 0.39999999999999997,
+          "cacheReadPer1MUsd": 0.028,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "gpt52codex",
+        "normalizedModel": "gpt52codex",
+        "pricingKey": "gpt-5.2-codex",
+        "rule": "fuzzy",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": 0,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 1.75,
+          "outputPer1MUsd": 14,
+          "cacheReadPer1MUsd": 0.175,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "claude-3-7-sonnet-20250219",
+        "normalizedModel": "claude-3-7-sonnet-20250219",
+        "pricingKey": "claude-3-7-sonnet-20250219",
+        "rule": "direct",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": true,
+        "rates": {
+          "inputPer1MUsd": 3,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.3,
+          "cacheWritePer1MUsd": 3.75,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "gemini-2.5-pro",
+        "normalizedModel": "gemini-2.5-pro",
+        "pricingKey": "gemini-2.5-pro",
+        "rule": "direct",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 1.25,
+          "outputPer1MUsd": 10,
+          "cacheReadPer1MUsd": 0.125,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [
+          {
+            "aboveTokens": 200000,
+            "inputPer1MUsd": 2.5,
+            "outputPer1MUsd": 15,
+            "cacheReadPer1MUsd": 0.25,
+            "cacheWritePer1MUsd": 0.25,
+            "cacheWrite1hPer1MUsd": null
+          }
+        ],
+        "priorityFallback": []
+      },
+      {
+        "model": "fireworks_ai/accounts/fireworks/models/minimax-m2p7",
+        "normalizedModel": "fireworks_ai/accounts/fireworks/models/minimax-m2p7",
+        "pricingKey": "fireworks_ai/accounts/fireworks/models/minimax-m2p7",
+        "rule": "direct",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 1.2,
+          "outputPer1MUsd": 1.2,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [],
+        "priorityFallback": [
+          "input",
+          "output",
+          "cacheRead"
+        ]
+      },
+      {
+        "model": "gpt-5-codex-mini",
+        "normalizedModel": "gpt-5-codex-mini",
+        "pricingKey": null,
+        "rule": null,
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": null,
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "acme-internal-model",
+        "normalizedModel": "acme-internal-model",
+        "pricingKey": "acme-internal-model",
+        "rule": null,
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "raw",
+        "origin": null,
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 1,
+          "outputPer1MUsd": 2,
+          "cacheReadPer1MUsd": 0.1,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "claude-opus-4-8-thinking",
+        "normalizedModel": "claude-opus-4-8-thinking",
+        "pricingKey": "claude-opus-4-8",
+        "rule": "release-suffix",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "resolved",
+        "origin": null,
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 12,
+          "outputPer1MUsd": 60,
+          "cacheReadPer1MUsd": null,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": 70,
+          "reasoningBilling": "separate"
+        },
+        "tiers": [],
+        "priorityFallback": []
+      },
+      {
+        "model": "  GPT-5.5  ",
+        "normalizedModel": "gpt-5.5",
+        "pricingKey": "gpt-5.5",
+        "rule": "direct",
+        "canonicalModel": null,
+        "strippedModel": null,
+        "fuzzyDistance": null,
+        "override": "none",
+        "origin": {
+          "kind": "bundled-snapshot",
+          "fetchedAt": "2026-10-15T01:26:24.430Z",
+          "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+        },
+        "retired": false,
+        "rates": {
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.5,
+          "cacheWritePer1MUsd": null,
+          "cacheWrite1hPer1MUsd": null,
+          "reasoningPer1MUsd": null,
+          "reasoningBilling": "included-in-output"
+        },
+        "tiers": [
+          {
+            "aboveTokens": 272000,
+            "inputPer1MUsd": 10,
+            "outputPer1MUsd": 45,
+            "cacheReadPer1MUsd": 1,
+            "cacheWritePer1MUsd": null,
+            "cacheWrite1hPer1MUsd": null
+          }
+        ],
+        "priorityFallback": []
+      }
+    ]
+  }
+}

@@ -1,4 +1,7 @@
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
+
+import type { AppendStatements, ReadCursorStatements } from './event-store-append.js';
+import type { SessionEventStatements } from './event-store-session-events.js';
 
 export type EventStoreStatement = {
   all: (...parameters: unknown[]) => Record<string, unknown>[];
@@ -35,6 +38,9 @@ export type EventStore = {
     insertEvent?: EventStoreStatement;
     upsertFile?: EventStoreStatement;
     markOverrideOnlyFile?: EventStoreStatement;
+    sessionEvents?: SessionEventStatements;
+    append?: AppendStatements;
+    readCursors?: ReadCursorStatements;
   };
 };
 

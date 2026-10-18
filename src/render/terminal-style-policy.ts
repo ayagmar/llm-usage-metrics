@@ -284,7 +284,7 @@ export function colorizeUsageBodyRows(
     const bodyRow = bodyRows[index] ?? [];
     const sourceStyler =
       row.rowType === 'period_source'
-        ? resolveSourceStyler(String(row.source), palette)
+        ? resolveSourceStyler(row.source, palette)
         : passthroughStyler;
     const baseStyledCells =
       row.rowType === 'period_source'
@@ -293,4 +293,25 @@ export function colorizeUsageBodyRows(
 
     return applyRowTypeStyle(row.rowType, baseStyledCells, palette);
   });
+}
+
+/** Green for a positive delta, red for a negative one, dim for zero; plain without color. */
+export function styleDeltaCell(
+  value: number | undefined,
+  formattedValue: string,
+  useColor: boolean,
+): string {
+  if (!useColor || value === undefined) {
+    return formattedValue;
+  }
+
+  if (value > 0) {
+    return pc.green(formattedValue);
+  }
+
+  if (value < 0) {
+    return pc.red(formattedValue);
+  }
+
+  return pc.dim(formattedValue);
 }

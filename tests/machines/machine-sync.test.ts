@@ -80,9 +80,7 @@ describe('machine add, sync, list and remove', () => {
     );
     expect(calls[1].indexOf('--')).toBe(calls[1].indexOf('me@laptop') - 1);
     expect(printed).toEqual([
-      expect.stringMatching(
-        /^✓ laptop: 1 file\(s\) updated, 0 removed; 1 file\(s\), 2 event\(s\) cached/,
-      ),
+      expect.stringMatching(/^✓ laptop: 1 file updated, 0 removed; 1 file, 2 events cached/),
       `Added laptop to ${localConfigPath}. Reports now include its usage; llm-usage sync fetches it again.`,
     ]);
     expect(await readMachineCacheStatus('laptop')).toMatchObject({
@@ -126,8 +124,8 @@ describe('machine add, sync, list and remove', () => {
     await runMachineList({ print, now: () => NOW + 5 * 60_000 });
 
     expect(printed).toEqual([
-      expect.stringMatching(/^✓ laptop: up to date; 1 file\(s\), 2 event\(s\) cached/),
-      'laptop  me@laptop  synced 5 min ago, 1 file(s), 2 event(s)',
+      expect.stringMatching(/^✓ laptop: up to date; 1 file, 2 events cached/),
+      'laptop  me@laptop  synced 5 min ago, 1 file, 2 events',
     ]);
   });
 

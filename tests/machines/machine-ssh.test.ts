@@ -134,6 +134,19 @@ describe('fetchMachineExport', () => {
     );
   });
 
+  it('names a remote too old to export, past the help text it prints', async () => {
+    const help = `Usage: llm-usage [options] [command]\n${'  daily [options]  Show usage by day\n'.repeat(200)}`;
+    const { spawnSsh } = fakeSsh({
+      stderr: `error: unknown command 'machine'\n${help}`,
+      exitCode: 1,
+    });
+    const failure = fetchMachineExport(machine, [], { spawnSsh });
+
+    await expect(failure).rejects.toThrow(
+      /^llm-usage on me@laptop is too old to export usage: error: unknown command 'machine' Usage: .{1,300}…\. Update llm-usage-metrics there\.$/u,
+    );
+  });
+
   it('fails one machine, not the process, when its output stream breaks', async () => {
     const { spawnSsh } = fakeSsh({ hang: true });
     const breaking: SpawnSsh = (args) => {

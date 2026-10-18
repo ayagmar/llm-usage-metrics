@@ -1,0 +1,75 @@
+---
+title: 'Dedup and cursors'
+description: 'How duplicate events are removed and how incremental reads resume.'
+---
+
+import DedupStages from '@components/diagrams/DedupStages.astro';
+import IncrementalCursors from '@components/diagrams/IncrementalCursors.astro';
+
+Agent logs repeat themselves. Claude retries a call under the same message id, a pi fork copies its parent's entries into a new file, a continued Claude session copies the rows it continues, and a moved file or another machine can hold events this run already counted. This page covers how each event is counted once, and how unchanged files are not read again.
+
+## The content hash
+
+`computeEventContentHash` (`packages/core/src/dedup/content-hash.ts`) identifies a usage event by its content: the first 16 hex characters of a SHA-256 over
+
+- source (lowercased), session id, timestamp,
+- model, provider, repo root,
+- input, output, reasoning, cache-read, and cache-write tokens, and the total,
+- cost mode and logged cost.
+
+It leaves out the file path, so a moved or copied file hashes the same. It also leaves out `cacheWrite1hTokens`, so events stored before that field existed still match. The event store keeps the hash in an indexed column, and history, the repeated-across-files stage, and machine merge all compare by it.
+
+## Stages, in run order
+
+<DedupStages />
+
+1. **Retried claude calls.** Inside the claude adapter, within one file. Each row is keyed by `message.id` plus the request id (retries reuse the message id under a fresh request id), falling back to the row's `uuid`, then timestamp and model. The last row for a key wins, so streaming updates and retries count once. A subagent transcript forked from a parent drops the rows whose message key appears in the parent; the parent file becomes a parse dependency. This stage is always on for claude.
+2. **Repeated across files.** For sources with `capabilities.eventsRepeatAcrossFiles` (pi, whose forks copy their parent's entries). `dedupeRepeatedAcrossFiles` walks the source's files in discovery order and drops an event whose content hash an earlier file already counted. Repeats within one file are kept: an event that appears twice in one file counts twice. Only files that share a session id with another file are hashed.
+3. **History and other machines.** A departed file whose every content hash is already served by live files is suppressed as moved; one with partial overlap is replayed without the events already counted ([Event store](/llm-usage-metrics/architecture/event-store/)). Another machine's events for a session this run already holds are dropped one for one by content hash ([Machine merge](/llm-usage-metrics/architecture/machine-merge/)).
+4. **Copied sessions.** For sources with `capabilities.sessionsCopyEvents` (claude, whose continued sessions copy the rows they continue). `dedupeCopiedSessions` compares events that share a timestamp with an event in another session, on timestamp, provider, model, and every token count including `cacheWrite1hTokens`. The session id, repo root, and cost are not compared. A copy counts once, in the session whose earliest event is oldest, the lower session id on a tie. This runs after history and machines are merged, so a departed or remote copy is counted once too.
+
+Each stage keeps a different copy, on purpose: the last row of a retried call, the first file in discovery order, what this run already served, and the oldest session.
+
+Only usage events are removed. In the library, `readSources` applies stages 2 and 4 per adapter, then the `since`/`until` window; `dedupe: false` turns them off. The [library guide](/llm-usage-metrics/library/guide/) shows how to compose them as stream stages (`repeatedAcrossFiles()`, `copiedSessions()`).
+
+## Not reading unchanged files
+
+<IncrementalCursors />
+
+### Whole-file fingerprints (the CLI)
+
+The CLI's event store decides per file whether stored events are still valid. `getFileFingerprint` (`packages/core/src/sources/parse-fingerprint.ts`) records:
+
+- the parser version, `n<normalization version>.p<adapter parserVersion>`, for example `n2.p4`;
+- the path, existence, size, and modification time of the file and of every file the adapter returns from `getParseDependencies(filePath)` (sidecar files, a fork's parent transcript). A missing dependency is recorded as `exists: false`.
+
+The serialized fingerprint must match the stored string exactly. Any change, in the file, in a dependency, or in either version number, re-reads the whole file and replaces its stored events. The one exception is a claude, pi or qwen file that only grew: the store resumes it from its cursor, below, once a run has seen it grow and stored one. This is why an adapter's events must depend only on its file, its declared dependencies, and its `parserVersion`: anything else would leave stored events stale with no fingerprint change. Bumping `parserVersion` re-reads every file of that source on the next run.
+
+An adapter that declares `capabilities.dependenciesFollowFile` (Codex) has dependency paths that change only with its file or those paths. For its files the CLI passes the stored fingerprint to `getFileFingerprint`, which re-checks the file and the stored dependencies by `stat` and skips `getParseDependencies` while all of them still exist and match, so a warm run does not open every Codex file to look for a fork's parent. A dependency stored as missing never confirms: Codex declares a fork whose parent it did not find by such a path, so the next run looks for the parent again.
+
+### Append-only cursors
+
+The core package can resume a JSONL read where it stopped. The claude, pi and qwen adapters declare `capabilities.incremental`. The CLI resumes claude, pi and qwen files; see [Event store](/llm-usage-metrics/architecture/event-store/#incremental-ingest).
+
+A `JsonlReadCursor` records:
+
+| Field        | Meaning                                                            |
+| ------------ | ------------------------------------------------------------------ |
+| `format`     | `'jsonl'`                                                          |
+| `version`    | `2`                                                                |
+| `parser`     | `<adapter id>@<parser version>`, for example `qwen@n2.p4`           |
+| `offset`     | bytes consumed, up to the end of the last complete line            |
+| `prefixHash` | SHA-256 of the first `offset` bytes                                |
+| `state`      | claude and pi: what their parse keeps for the lines after `offset` |
+
+Pass a cursor as `resume.from`; `resume.onCursor` receives the next one once the read completes (not when it is stopped early or throws). A resumed read starts at `offset` when the parser string matches, the file is at least `offset` bytes long, and the prefix hash matches. Otherwise it reads from byte 0 and reports `restarted: true`, and the caller replaces the events it kept for that file. A last line without a line feed is not read until its line feed arrives; `onCursor` then reports `partialLine: true`.
+
+A claude or pi event can depend on lines before and after it: a later row of the same message replaces a usage event, a tool call waits for its result, and the session's model and directory carry forward. Their cursors carry that parse state in `state`, and a resumed read continues from it. The events a later line could still change stay open: a resumed read yields them again, and `onStart` reports per kind in `replaced` how many of the last events the previous read yielded they replace. Per kind, the kept events followed by the resumed ones equal a full read; the interleaving across kinds can differ. Earlier ids are kept as 32-bit hashes so the state stays small; when a resumed read meets an id whose hash it has already seen, it restarts from byte 0 rather than guess. So does a read from a cursor taken while the parse held rows it could not place yet, such as rows without a timestamp at the end of the file. `packages/core/tests/stream/stateful-cursor.property.test.ts` checks this at every line boundary of every claude and pi fixture.
+
+Any change to the bytes before `offset` restarts the read. Checking the hash reads those bytes once without parsing them, and the resumed read keeps hashing the lines it reads, so the next cursor costs no second pass. [Versioning and cursors](/llm-usage-metrics/library/contracts/) states the contract.
+
+## Related pages
+
+- [Event model](/llm-usage-metrics/architecture/event-model/): the fields the hash covers.
+- [Event store](/llm-usage-metrics/architecture/event-store/): ingest, history replay, and prune.
+- [Parse pipeline](/llm-usage-metrics/architecture/parse-pipeline/): where the fingerprint lookup happens.

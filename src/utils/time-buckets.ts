@@ -1,4 +1,17 @@
+import {
+  getDaysInMonth,
+  getIsoDayOfWeek,
+  getIsoWeekKey,
+  getPeriodKeyRange as getDateKeyPeriodRange,
+  parseDateKey,
+  readDigits,
+  type DateKeyGranularity,
+} from './date-key.js';
+
 export type ReportGranularity = 'daily' | 'weekly' | 'monthly';
+
+/** The usage reports' granularities: the calendar periods plus `hourly`. */
+export type UsageGranularity = ReportGranularity | 'hourly';
 
 type LocalDateParts = {
   year: number;
@@ -20,7 +33,11 @@ type KeyedLocalDate = LocalDateParts & {
 type LocalDateWindow = {
   startMs: number;
   endMs: number;
+  /** Wall clock minus UTC across the window, so the local hour needs no `Intl` call. */
+  offsetMs: number;
   parts: KeyedLocalDate;
+  /** The window's `YYYY-MM-DD HH:00` keys by local hour, built on first use. */
+  hourKeys?: string[];
 };
 
 type LocalDateWindowCache = {
@@ -28,9 +45,10 @@ type LocalDateWindowCache = {
   byDayIndex: Map<number, LocalDateWindow>;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 const SECOND_MS = 1000;
-
 const dateTimeFormatterCache = new Map<string, Intl.DateTimeFormat>();
 const localDateWindowCaches = new Map<string, LocalDateWindowCache>();
 
@@ -62,9 +80,34 @@ function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
 // usage across several machines reaches ~300k, and a memo that starts over mid-run
 // recomputes every pass.
 const MAX_MEMOIZED_TIMESTAMPS = 1_000_000;
+let maxMemoizedTimestamps = MAX_MEMOIZED_TIMESTAMPS;
 const localDatePartsByTimestamp = new Map<string, Map<string, KeyedLocalDate>>();
 
+/**
+ * Test seam: sets the memo cap (the default when undefined), empties the memo, and reports
+ * how many timestamps one timezone's memo holds.
+ *
+ * @internal
+ */
+export const timestampMemoForTesting = {
+  setCap(cap: number | undefined): void {
+    maxMemoizedTimestamps = cap ?? MAX_MEMOIZED_TIMESTAMPS;
+    localDatePartsByTimestamp.clear();
+  },
+  size(timezone: string): number {
+    return localDatePartsByTimestamp.get(timezone)?.size ?? 0;
+  },
+};
+
 function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
+  // The day windows below answer a canonical timestamp in a few comparisons, so it skips
+  // the per-string memo, which would hold every event's timestamp.
+  const canonicalMs = parseCanonicalTimestampMs(timestampIso);
+
+  if (canonicalMs !== undefined) {
+    return getCachedLocalDateParts(canonicalMs, timezone, timestampIso);
+  }
+
   let partsByTimestamp = localDatePartsByTimestamp.get(timezone);
 
   if (!partsByTimestamp) {
@@ -80,12 +123,81 @@ function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLoc
 
   const parts = parseLocalDateParts(timestampIso, timezone);
 
-  if (partsByTimestamp.size >= MAX_MEMOIZED_TIMESTAMPS) {
+  if (partsByTimestamp.size >= maxMemoizedTimestamps) {
     partsByTimestamp.clear();
   }
 
   partsByTimestamp.set(timestampIso, parts);
   return parts;
+}
+
+/**
+ * The instant of a canonical `YYYY-MM-DDTHH:MM:SS.mmmZ` timestamp, read from char codes,
+ * or undefined for any other string. It returns a value only where `Date.parse` returns
+ * the same one: every field in range, and a year of at least 100 (`Date.UTC` maps years
+ * 0–99 to 1900–1999). Callers handle undefined with their general path.
+ */
+export function parseCanonicalTimestampMs(value: string): number | undefined {
+  if (
+    value.length !== 24 ||
+    value.charCodeAt(4) !== 45 ||
+    value.charCodeAt(7) !== 45 ||
+    value.charCodeAt(10) !== 84 ||
+    value.charCodeAt(13) !== 58 ||
+    value.charCodeAt(16) !== 58 ||
+    value.charCodeAt(19) !== 46 ||
+    value.charCodeAt(23) !== 90
+  ) {
+    return undefined;
+  }
+
+  const year = readDigits(value, 0, 4);
+  const month = readDigits(value, 5, 2);
+  const day = readDigits(value, 8, 2);
+  const hour = readDigits(value, 11, 2);
+  const minute = readDigits(value, 14, 2);
+  const second = readDigits(value, 17, 2);
+  const millisecond = readDigits(value, 20, 3);
+
+  if (
+    year < 100 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > getDaysInMonth(year, month) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59 ||
+    millisecond < 0
+  ) {
+    return undefined;
+  }
+
+  return (
+    getUtcDayStartMs(year, month, day) +
+    hour * HOUR_MS +
+    minute * MINUTE_MS +
+    second * SECOND_MS +
+    millisecond
+  );
+}
+
+// Timestamps mostly come in time order, so consecutive ones share a day: its UTC midnight
+// is kept instead of calling `Date.UTC` for every timestamp.
+const lastUtcDay = { year: 0, month: 0, day: 0, startMs: 0 };
+
+function getUtcDayStartMs(year: number, month: number, day: number): number {
+  if (day !== lastUtcDay.day || month !== lastUtcDay.month || year !== lastUtcDay.year) {
+    lastUtcDay.year = year;
+    lastUtcDay.month = month;
+    lastUtcDay.day = day;
+    lastUtcDay.startMs = Date.UTC(year, month - 1, day);
+  }
+
+  return lastUtcDay.startMs;
 }
 
 function parseLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
@@ -104,10 +216,18 @@ function getCachedLocalDateParts(
   timezone: string,
   timestampIso: string,
 ): KeyedLocalDate {
+  return getCachedLocalDateWindow(timestampMs, timezone, timestampIso).parts;
+}
+
+function getCachedLocalDateWindow(
+  timestampMs: number,
+  timezone: string,
+  timestampIso: string,
+): LocalDateWindow {
   const cache = getLocalDateWindowCache(timezone);
 
   if (cache.last && coversTimestamp(cache.last, timestampMs)) {
-    return cache.last.parts;
+    return cache.last;
   }
 
   const localDateTime = resolveLocalDateTimeParts(timestampMs, timezone, timestampIso);
@@ -117,13 +237,13 @@ function getCachedLocalDateParts(
 
   if (cachedWindow && coversTimestamp(cachedWindow, timestampMs)) {
     cache.last = cachedWindow;
-    return cachedWindow.parts;
+    return cachedWindow;
   }
 
   const window = createLocalDateWindow(dayIndex, timestampMs, offsetMs, timezone, localDateTime);
   cache.byDayIndex.set(dayIndex, window);
   cache.last = window;
-  return window.parts;
+  return window;
 }
 
 function getLocalDateWindowCache(timezone: string): LocalDateWindowCache {
@@ -158,7 +278,7 @@ function createLocalDateWindow(
   const parts = { ...localDate, dateKey: formatLocalDateParts(localDate) };
 
   if (hasStableOffsetWindow(startMs, endMs, offsetMs, timezone)) {
-    return { startMs, endMs, parts };
+    return { startMs, endMs, offsetMs, parts };
   }
 
   const fallbackStartMs = floorToSecondMs(timestampMs);
@@ -166,6 +286,7 @@ function createLocalDateWindow(
   return {
     startMs: fallbackStartMs,
     endMs: fallbackStartMs + SECOND_MS,
+    offsetMs,
     parts,
   };
 }
@@ -182,7 +303,8 @@ function hasStableOffsetWindow(
   );
 }
 
-function resolveOffsetMs(timestampMs: number, timezone: string): number {
+/** How far `timezone`'s wall clock is ahead of UTC at `timestampMs`, to the whole second. */
+export function resolveOffsetMs(timestampMs: number, timezone: string): number {
   return getWallClockOffsetMs(
     timestampMs,
     resolveLocalDateTimeParts(timestampMs, timezone, new Date(timestampMs).toISOString()),
@@ -250,64 +372,61 @@ function toLocalDateParts(localDateTime: LocalDateTimeParts): LocalDateParts {
   };
 }
 
-function createUtcDate(localDate: LocalDateParts): Date {
-  return new Date(Date.UTC(localDate.year, localDate.month - 1, localDate.day));
-}
-
-function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * DAY_MS);
-}
-
+// Unlike `formatDateKey`, the year keeps its digits: years below 1000 stay unpadded.
 function formatLocalDateParts(localDate: LocalDateParts): string {
   return `${localDate.year}-${String(localDate.month).padStart(2, '0')}-${String(localDate.day).padStart(2, '0')}`;
 }
 
-function parseLocalDateKey(value: string): LocalDateParts {
-  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
-    throw new Error(`Invalid local date key: ${value}`);
-  }
+/** A local hour bucket: its `YYYY-MM-DD HH:00` key and the UTC offset it was read at. */
+export type LocalHourBucket = {
+  key: string;
+  offsetMs: number;
+};
 
-  const parsed = new Date(`${value}T00:00:00.000Z`);
+/**
+ * The local hour of a timestamp, from the same cached day window as the daily key, so the
+ * key's date always equals `getPeriodKey(…, 'daily')`. On a DST fall-back the repeated
+ * hour gets one key; `offsetMs` tells its two occurrences apart.
+ */
+export function getLocalHourBucket(timestampIso: string, timezone: string): LocalHourBucket {
+  const timestampMs = parseEventTimestampMs(timestampIso);
+  const window = getCachedLocalDateWindow(timestampMs, timezone, timestampIso);
 
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-    throw new Error(`Invalid local date key: ${value}`);
-  }
-
-  return {
-    year: parsed.getUTCFullYear(),
-    month: parsed.getUTCMonth() + 1,
-    day: parsed.getUTCDate(),
-  };
+  return { key: getLocalHourKey(window, timestampMs), offsetMs: window.offsetMs };
 }
 
-function toIsoDayOfWeek(date: Date): number {
-  const utcDay = date.getUTCDay();
-  return utcDay === 0 ? 7 : utcDay;
+function parseEventTimestampMs(timestampIso: string): number {
+  const timestampMs = parseCanonicalTimestampMs(timestampIso) ?? Date.parse(timestampIso);
+
+  if (Number.isNaN(timestampMs)) {
+    throw new Error(`Invalid event timestamp: ${timestampIso}`);
+  }
+
+  return timestampMs;
 }
 
-function getIsoWeekParts(localDate: LocalDateParts): { weekYear: number; weekNumber: number } {
-  const localUtcDate = createUtcDate(localDate);
-  const isoDay = toIsoDayOfWeek(localUtcDate);
+// One key string per window and hour, so an hourly report does not build a key per event.
+function getLocalHourKey(window: LocalDateWindow, timestampMs: number): string {
+  const wallClockMs = timestampMs + window.offsetMs;
+  const hour = Math.floor((((wallClockMs % DAY_MS) + DAY_MS) % DAY_MS) / HOUR_MS);
+  const hourKeys = (window.hourKeys ??= []);
 
-  const currentWeekMonday = addDays(localUtcDate, -(isoDay - 1));
-  const currentWeekThursday = addDays(localUtcDate, 4 - isoDay);
-  const weekYear = currentWeekThursday.getUTCFullYear();
-
-  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
-  const jan4IsoDay = toIsoDayOfWeek(jan4);
-  const firstWeekMonday = addDays(jan4, -(jan4IsoDay - 1));
-
-  const diffMs = currentWeekMonday.getTime() - firstWeekMonday.getTime();
-  const weekNumber = Math.floor(diffMs / (7 * DAY_MS)) + 1;
-
-  return { weekYear, weekNumber };
+  return (hourKeys[hour] ??= `${window.parts.dateKey} ${String(hour).padStart(2, '0')}:00`);
 }
 
 export function getPeriodKey(
   timestampIso: string,
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   timezone: string,
 ): string {
+  if (granularity === 'hourly') {
+    const timestampMs = parseEventTimestampMs(timestampIso);
+    return getLocalHourKey(
+      getCachedLocalDateWindow(timestampMs, timezone, timestampIso),
+      timestampMs,
+    );
+  }
+
   const localDate = extractLocalDateParts(timestampIso, timezone);
 
   if (granularity === 'daily') {
@@ -318,8 +437,7 @@ export function getPeriodKey(
     return `${localDate.year}-${String(localDate.month).padStart(2, '0')}`;
   }
 
-  const isoWeek = getIsoWeekParts(localDate);
-  return `${isoWeek.weekYear}-W${String(isoWeek.weekNumber).padStart(2, '0')}`;
+  return getIsoWeekKey(localDate);
 }
 
 export function getLocalHour(timestampIso: string, timezone: string): number {
@@ -334,52 +452,24 @@ export function getLocalHour(timestampIso: string, timezone: string): number {
 
 /** ISO day of week for a local date key: 1 = Monday … 7 = Sunday. */
 export function getIsoDayOfWeekFromDateKey(localDateKey: string): number {
-  return toIsoDayOfWeek(createUtcDate(parseLocalDateKey(localDateKey)));
+  const parts = parseDateKey(localDateKey);
+
+  if (!parts) {
+    throw new Error(`Invalid local date key: ${localDateKey}`);
+  }
+
+  return getIsoDayOfWeek(parts);
 }
 
 export function getCurrentLocalDateKey(timezone: string, now: Date = new Date()): string {
   return extractLocalDateParts(now.toISOString(), timezone).dateKey;
 }
 
-export function shiftLocalDateKey(localDateKey: string, days: number): string {
-  return extractLocalDateParts(
-    addDays(createUtcDate(parseLocalDateKey(localDateKey)), days).toISOString(),
-    'UTC',
-  ).dateKey;
-}
-
-export function getLocalDateKeyRange(from: string, to: string): string[] {
-  if (from > to) {
-    return [];
-  }
-
-  const range: string[] = [];
-  let current = from;
-
-  while (current <= to) {
-    range.push(current);
-    current = shiftLocalDateKey(current, 1);
-  }
-
-  return range;
-}
-
-function shiftMonthKey(monthKey: string, months: number): string {
-  const index = Number(monthKey.slice(0, 4)) * 12 + Number(monthKey.slice(5, 7)) - 1 + months;
-  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
-}
-
-/** Monday of an ISO week key such as `2026-W05`. */
-function getIsoWeekMonday(weekKey: string): string {
-  const weekYear = Number(weekKey.slice(0, 4));
-  const weekNumber = Number(weekKey.slice(6));
-  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
-  const firstMonday = addDays(jan4, -(toIsoDayOfWeek(jan4) - 1));
-
-  return addDays(firstMonday, (weekNumber - 1) * 7)
-    .toISOString()
-    .slice(0, 10);
-}
+const DATE_KEY_GRANULARITY = {
+  daily: 'day',
+  weekly: 'week',
+  monthly: 'month',
+} as const satisfies Record<ReportGranularity, DateKeyGranularity>;
 
 /** Every period key from `first` to `last` (inclusive), including periods without data. */
 export function getPeriodKeyRange(
@@ -387,28 +477,5 @@ export function getPeriodKeyRange(
   last: string,
   granularity: ReportGranularity,
 ): string[] {
-  if (granularity === 'daily') {
-    return getLocalDateKeyRange(first, last);
-  }
-
-  const keys: string[] = [];
-
-  if (granularity === 'monthly') {
-    for (let key = first; key <= last; key = shiftMonthKey(key, 1)) {
-      keys.push(key);
-    }
-
-    return keys;
-  }
-
-  for (
-    let monday = getIsoWeekMonday(first), key = first;
-    key <= last;
-    monday = shiftLocalDateKey(monday, 7),
-      key = getPeriodKey(`${monday}T12:00:00.000Z`, 'weekly', 'UTC')
-  ) {
-    keys.push(key);
-  }
-
-  return keys;
+  return getDateKeyPeriodRange(first, last, DATE_KEY_GRANULARITY[granularity]);
 }

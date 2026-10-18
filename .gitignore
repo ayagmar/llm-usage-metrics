@@ -150,3 +150,4 @@ site/dist/
 /llm-usage-wrapped-*.svg
 /*-share.html
 /llm-usage-wrapped-*.html
+docs/benchmarks/*.json

@@ -3,11 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
-  getLocalDateKeyRange,
   getLocalHour,
   getPeriodKey,
   getPeriodKeyRange,
-  shiftLocalDateKey,
+  timestampMemoForTesting,
 } from '../../src/utils/time-buckets.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -111,18 +110,40 @@ describe('getPeriodKeyRange', () => {
 });
 
 describe('time bucket helpers', () => {
-  it('stays correct after the timestamp memo fills and starts over', () => {
+  it('stays correct and bounded after the timestamp memo fills and starts over', () => {
+    const cap = 50;
     const base = Date.UTC(2026, 2, 10, 23, 30);
+    // Canonical `...Z` timestamps skip the memo, so these use an offset form.
+    const toMemoizedForm = (ms: number) => new Date(ms).toISOString().replace('Z', '+00:00');
 
-    // More distinct timestamps than the memo keeps (100k), all on one local day per zone.
-    for (let offset = 0; offset <= 100_000; offset += 1) {
-      getPeriodKey(new Date(base + offset).toISOString(), 'daily', 'UTC');
+    timestampMemoForTesting.setCap(cap);
+
+    try {
+      for (let offset = 0; offset < cap; offset += 1) {
+        getPeriodKey(toMemoizedForm(base + offset), 'daily', 'UTC');
+      }
+
+      expect(timestampMemoForTesting.size('UTC')).toBe(cap);
+
+      // The next new timestamp finds the memo full, so it starts over with just that one.
+      getPeriodKey(toMemoizedForm(base + cap), 'daily', 'UTC');
+      expect(timestampMemoForTesting.size('UTC')).toBe(1);
+
+      // Several more fills: the memo never holds more than the cap.
+      for (let offset = cap + 1; offset <= cap * 4; offset += 1) {
+        getPeriodKey(toMemoizedForm(base + offset), 'daily', 'UTC');
+        expect(timestampMemoForTesting.size('UTC')).toBeLessThanOrEqual(cap);
+      }
+
+      // Timestamps dropped by a reset, and new zones, still resolve to their local day.
+      expect(getPeriodKey(toMemoizedForm(base), 'daily', 'UTC')).toBe('2026-03-10');
+      expect(getPeriodKey(toMemoizedForm(base), 'daily', 'Pacific/Kiritimati')).toBe('2026-03-11');
+      expect(getPeriodKey(toMemoizedForm(base + cap * 4), 'daily', 'Pacific/Pago_Pago')).toBe(
+        '2026-03-10',
+      );
+    } finally {
+      timestampMemoForTesting.setCap(undefined);
     }
-
-    expect(getPeriodKey(new Date(base).toISOString(), 'daily', 'UTC')).toBe('2026-03-10');
-    expect(getPeriodKey(new Date(base).toISOString(), 'daily', 'Pacific/Kiritimati')).toBe(
-      '2026-03-11',
-    );
   });
 
   it('keeps repeated lookups of one timestamp correct for each timezone', () => {
@@ -183,19 +204,6 @@ describe('time bucket helpers', () => {
     expect(getIsoDayOfWeekFromDateKey('2026-01-11')).toBe(7); // Sunday
   });
 
-  it('shifts local day keys by whole days', () => {
-    expect(shiftLocalDateKey('2026-03-06', -1)).toBe('2026-03-05');
-    expect(shiftLocalDateKey('2026-03-06', 2)).toBe('2026-03-08');
-  });
-
-  it('builds inclusive local day ranges', () => {
-    expect(getLocalDateKeyRange('2026-03-04', '2026-03-06')).toEqual([
-      '2026-03-04',
-      '2026-03-05',
-      '2026-03-06',
-    ]);
-  });
-
   it('resolves the current local date key from an injected clock', () => {
     expect(getCurrentLocalDateKey('UTC', new Date('2026-03-06T12:00:00.000Z'))).toBe('2026-03-06');
   });
@@ -205,14 +213,8 @@ describe('time bucket helpers', () => {
     expect(getPeriodKey('2026-01-04T23:30:00Z', 'daily', 'Asia/Tokyo')).toBe('2026-01-05');
   });
 
-  it('rejects invalid timestamps and invalid local date keys', () => {
+  it('rejects invalid timestamps', () => {
     expect(() => getPeriodKey('not-a-date', 'daily', 'UTC')).toThrow('Invalid event timestamp');
-    expect(() => shiftLocalDateKey('bad-key', 1)).toThrow('Invalid local date key');
-    expect(() => shiftLocalDateKey('2026-02-30', 1)).toThrow('Invalid local date key');
-  });
-
-  it('returns an empty range when the date range is reversed', () => {
-    expect(getLocalDateKeyRange('2026-03-06', '2026-03-04')).toEqual([]);
   });
 
   it('matches direct Intl local dates across timezone transition windows', () => {

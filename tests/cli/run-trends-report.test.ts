@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/cli/build-trends-data.js', () => ({
   buildTrendsData: vi.fn(async () => ({
@@ -29,6 +29,10 @@ vi.mock('../../src/cli/build-trends-data.js', () => ({
   })),
 }));
 
+vi.mock('../../src/cli/build-share-report-data.js', () => ({
+  buildShareReport: vi.fn(),
+}));
+
 vi.mock('../../src/cli/share-artifact.js', () => ({
   writeShareFile: vi.fn(async (fileName: string) => `/tmp/${fileName}`),
   openShareFile: vi.fn(async () => {
@@ -36,11 +40,17 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
   }),
 }));
 
+import { buildShareReport } from '../../src/cli/build-share-report-data.js';
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import { buildTrendsReport, runTrendsReport } from '../../src/cli/run-trends-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
+import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
 
 describe('run-trends-report', () => {
+  beforeEach(() => {
+    vi.mocked(buildShareReport).mockResolvedValue({ data: readFixturePayload().data });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -98,7 +108,7 @@ describe('run-trends-report', () => {
     }
   });
 
-  it('writes a share SVG while keeping the report body on stdout', async () => {
+  it('writes a share report while keeping the report body on stdout', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -107,31 +117,36 @@ describe('run-trends-report', () => {
         share: true,
       });
 
-      expect(writeShareFile).toHaveBeenCalledTimes(2);
-      const [fileName, svg] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
-      expect(fileName).toBe('trends-share.svg');
-      expect(svg).toContain('Daily tokens');
+      const [request] = vi.mocked(buildShareReport).mock.calls[0] ?? [];
+      expect(request).toMatchObject({
+        command: 'trends',
+        window: { since: '2026-03-04', until: '2026-03-06' },
+        initialView: { since: '2026-03-04', until: '2026-03-06', granularity: 'day' },
+        // The page leads with the --json report.
+        envelope: {
+          report: 'trends',
+          data: { metric: 'tokens', dateRange: { from: '2026-03-04', to: '2026-03-06' } },
+        },
+      });
+
+      expect(writeShareFile).toHaveBeenCalledTimes(1);
+      const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
+      expect(fileName).toBe('trends-share.html');
+      expect(page).toContain('id="report-data"');
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Daily Token Usage Trend');
-      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote trends share SVG');
+      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote trends share report');
     } finally {
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();
     }
   });
 
-  it('rejects by-source share before building trend data', async () => {
-    const buildCallsBefore = vi.mocked(buildTrendsData).mock.calls.length;
+  it('accepts --by-source with --share: the page stacks by source', async () => {
+    await buildTrendsReport({ bySource: true, share: true });
 
-    await expect(
-      buildTrendsReport({
-        bySource: true,
-        share: true,
-      }),
-    ).rejects.toThrow('--share does not support --by-source yet; run without --by-source');
-
-    expect(vi.mocked(buildTrendsData).mock.calls).toHaveLength(buildCallsBefore);
+    expect(vi.mocked(buildShareReport)).toHaveBeenCalledTimes(1);
   });
 
   it('delegates to buildTrendsData', async () => {
