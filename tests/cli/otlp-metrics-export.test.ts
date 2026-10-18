@@ -71,6 +71,11 @@ function totalsFromMetrics(lines: readonly OtlpMetricsData[], timezone: string) 
     for (const metric of resourceMetrics.scopeMetrics[0].metrics) {
       const field = fields[metric.name];
 
+      // The histograms describe a distribution, not totals.
+      if (!('sum' in metric)) {
+        continue;
+      }
+
       for (const point of metric.sum.dataPoints) {
         const key = `${toDayKey(point.startTimeUnixNano, timezone)}/${JSON.stringify(agent)}`;
         const day = totals.get(key) ?? {

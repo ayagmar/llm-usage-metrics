@@ -134,7 +134,10 @@ function countItems(signal: OtlpPushSignal, index: number): number {
   return signal.lines[index].resourceMetrics
     .flatMap((resource) => resource.scopeMetrics)
     .flatMap((scope) => scope.metrics)
-    .reduce((sum, metric) => sum + metric.sum.dataPoints.length, 0);
+    .reduce(
+      (sum, metric) => sum + ('sum' in metric ? metric.sum : metric.histogram).dataPoints.length,
+      0,
+    );
 }
 
 function resourcesOf(signal: OtlpPushSignal, index: number): readonly unknown[] {
