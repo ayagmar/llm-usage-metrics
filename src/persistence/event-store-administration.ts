@@ -44,6 +44,7 @@ import {
   EventStoreSchemaVersionError,
   hasSchemaVersion,
   initializeSchema,
+  readSchemaVersion,
 } from './event-store-schema.js';
 import {
   prepareAppendStatements,
@@ -470,10 +471,7 @@ export async function readEventStoreSummary(
   });
 
   try {
-    const schemaVersionRow = database
-      .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
-      .get();
-    const schemaVersion = toText(schemaVersionRow?.value);
+    const schemaVersion = readSchemaVersion(database);
     const countRows = (tableName: 'events' | 'tool_calls' | 'messages'): number =>
       toNonNegativeInteger(
         database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get()?.count,
@@ -706,13 +704,14 @@ export async function readEventStoreEvents(
   try {
     assertSupportedSchemaVersion(database);
     const meta = readMetaValues(database);
+    const schemaVersion = readSchemaVersion(database);
     const fromTimestamp = window.fromTimestamp ?? '';
     const toTimestamp = window.toTimestamp ?? '\uFFFF';
     const wideWindow = isWideWindow(database, fromTimestamp, toTimestamp);
     const statement = database.prepare(
-      hasSchemaVersion(meta.get('schemaVersion'), 5)
+      hasSchemaVersion(schemaVersion, 5)
         ? selectWindowEventsSql(wideWindow)
-        : selectPreV5WindowEventsSql(meta.get('schemaVersion'), wideWindow),
+        : selectPreV5WindowEventsSql(schemaVersion, wideWindow),
     );
     statement.setReturnArrays(true);
     // StatementSync's return type does not narrow after setReturnArrays(true).
@@ -758,7 +757,7 @@ export async function readStoredSessionEvents(
   });
 
   try {
-    const schemaVersion = readMetaValues(database).get('schemaVersion');
+    const schemaVersion = readSchemaVersion(database);
 
     if (!hasSchemaVersion(schemaVersion, 5)) {
       throw new EventStoreSchemaVersionError(schemaVersion);

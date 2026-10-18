@@ -310,6 +310,36 @@ describe('schema v5 migration', () => {
     });
   });
 
+  it('reads and migrates a v4-layout store a pre-release build stamped v5', async () => {
+    const storePath = await createStorePath();
+    await createV4Store(storePath);
+    const sqlite = (await loadNodeSqliteModule('Test')) as unknown as EventStoreSqliteModule;
+    const database = new sqlite.DatabaseSync(storePath);
+    database.exec("UPDATE meta SET value = '5' WHERE key = 'schemaVersion'");
+    database.close();
+
+    // Machine caches are read without migrating.
+    const { events } = await readEventStoreEvents(storePath);
+    expect(events).toHaveLength(2);
+    await expect(readEventStoreSummary(storePath)).resolves.toMatchObject({ schemaVersion: '4' });
+
+    const store = await openEventStore(storePath);
+
+    try {
+      expect(readFileEvents(store, 'codex', '/logs/a.jsonl')).toEqual([
+        usageEvent('a'),
+        usageEvent('b'),
+      ]);
+    } finally {
+      closeEventStore(store);
+    }
+
+    await expect(readEventStoreSummary(storePath)).resolves.toMatchObject({
+      eventCount: 2,
+      schemaVersion: '5',
+    });
+  });
+
   it('copies every v4 file and its events, in order and with their hashes', async () => {
     const storePath = await createStorePath();
     const events = [usageEvent('c'), usageEvent('a'), usageEvent('b')];

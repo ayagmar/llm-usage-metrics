@@ -148,7 +148,12 @@ function listUserTableNames(database: EventStoreDatabase): string[] {
     .filter((name): name is string => Boolean(name));
 }
 
-function readSchemaVersion(database: EventStoreDatabase): string | undefined {
+/**
+ * The store's schema version. A pre-release build stamped v5 before v5 keyed events by
+ * file id, so a v5 store whose events lack `file_id` still has the v4 layout: it reads as
+ * v4, and opening it for writes migrates it.
+ */
+export function readSchemaVersion(database: EventStoreDatabase): string | undefined {
   const tableNames = new Set(listUserTableNames(database));
 
   if (!tableNames.has('meta')) {
@@ -158,7 +163,18 @@ function readSchemaVersion(database: EventStoreDatabase): string | undefined {
   const schemaVersionRow = database
     .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
     .get();
-  return toText(schemaVersionRow?.value);
+  const schemaVersion = toText(schemaVersionRow?.value);
+
+  return schemaVersion === '5' && tableNames.has('events') && !hasEventsFileIdColumn(database)
+    ? '4'
+    : schemaVersion;
+}
+
+function hasEventsFileIdColumn(database: EventStoreDatabase): boolean {
+  return database
+    .prepare('SELECT name FROM pragma_table_info(?)')
+    .all('events')
+    .some((row) => row.name === 'file_id');
 }
 
 function createFreshSchema(database: EventStoreDatabase): void {
