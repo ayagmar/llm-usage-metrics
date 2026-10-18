@@ -1813,6 +1813,7 @@ Options:
                                  /v1/metrics (unless <url> already ends with it)
                                  instead of printing; headers from
                                  OTEL_EXPORTER_OTLP_HEADERS
+  --last <n>                     Export the last N days, counting today
   --all                          Report the full history (the default without
                                  date flags)
   --repo <project>               Count only these projects (repeatable or
@@ -2299,7 +2300,7 @@ Search across root and command help. See Command help above to check which flags
 | `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--known` | - | `<path>` | Leave out files already held at the same revision, as listed in this JSON file \(- for stdin\) \(machine only\) |
-| `--last` | - | `<n>` | hourly: Report the last N days hour by hour \(1-31\), counting today; daily, context: Report the last N days, counting the current day; weekly: Report the last N weeks, counting the current week; monthly, projects, value: Report the last N months, counting the current month; trends: Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided; tools, blocks: Report the last N days, counting today \(default 7\) |
+| `--last` | - | `<n>` | hourly: Report the last N days hour by hour \(1-31\), counting today; daily, context: Report the last N days, counting the current day; weekly: Report the last N weeks, counting the current week; monthly, projects, value: Report the last N months, counting the current month; trends: Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided; tools, blocks: Report the last N days, counting today \(default 7\); events: Export the last N days, counting today |
 | `--list` | - | - | List available schema names \(schema only\) |
 | `--machine` | - | `<name>` | Count only these machines \(repeatable or comma-separated; local is this one; default: all\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, pricing only\) |

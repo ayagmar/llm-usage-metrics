@@ -286,6 +286,10 @@ export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
 
 export type EventsCommandOptions = SharedOptionsForProfile<'events'> &
   RepoFilterOption & {
+    /** `--last N`: the last N days, counting today. */
+    last?: string;
+    /** Full history, the default without date flags. */
+    all?: boolean;
     format?: string;
     otelIncludePaths?: boolean;
     otlpEndpoint?: string;

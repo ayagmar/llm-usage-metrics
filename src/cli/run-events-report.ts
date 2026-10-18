@@ -14,6 +14,7 @@ import {
 } from '../otel-export/otlp-push.js';
 import { buildOtlpTraces } from '../otel-export/otlp-traces.js';
 import { logger } from '../utils/logger.js';
+import { resolveUsageDataRequest } from './build-usage-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
@@ -138,11 +139,16 @@ function toCsvLine(event: UsageEvent): string {
 }
 
 export async function runEventsReport(
-  options: EventsCommandOptions,
-  deps: BuildUsageDataDeps & OtlpPushDeps = {},
+  commandOptions: EventsCommandOptions,
+  commandDeps: BuildUsageDataDeps & OtlpPushDeps = {},
 ): Promise<void> {
-  const format = resolveEventsFormat(options);
-  const pushTarget = resolveOtlpPushTarget(options);
+  const format = resolveEventsFormat(commandOptions);
+  const pushTarget = resolveOtlpPushTarget(commandOptions);
+  // Full history by default; `--last N` covers the last N days, counting today, as on daily.
+  const { options, deps } =
+    commandOptions.last === undefined
+      ? { options: commandOptions, deps: commandDeps }
+      : await resolveUsageDataRequest('daily', commandOptions, commandDeps);
   const dataset = await buildUsageEventDataset(options, deps);
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,
@@ -189,7 +195,7 @@ export async function runEventsReport(
       timezone: dataset.normalizedInputs.timezone,
       nowMs: (deps.now?.() ?? new Date()).getTime(),
     });
-    await writeOtlp({ kind: 'metrics', lines }, pushTarget, deps);
+    await writeOtlp({ kind: 'metrics', lines }, pushTarget, commandDeps);
     return;
   }
 
@@ -197,9 +203,9 @@ export async function runEventsReport(
     const lines = buildOtlpTraces({
       usageEvents: sortedEvents,
       toolCalls: dedupeToolCalls(toolCalls.events),
-      includePaths: options.otelIncludePaths,
+      includePaths: commandOptions.otelIncludePaths,
     });
-    await writeOtlp({ kind: 'traces', lines }, pushTarget, deps);
+    await writeOtlp({ kind: 'traces', lines }, pushTarget, commandDeps);
     return;
   }
 
