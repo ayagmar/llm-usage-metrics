@@ -165,7 +165,7 @@ function createV2Query(tableNames: {
   const sessionMessage = escapeIdentifier(tableNames.sessionMessage);
   const v1 = tableNames.v1;
   const v1Filter = v1
-    ? `  AND m."id" NOT IN (SELECT ${escapeIdentifier(v1.columns.idColumn)} FROM ${escapeIdentifier(v1.tableName)})`
+    ? `  AND NOT EXISTS (SELECT 1 FROM ${escapeIdentifier(v1.tableName)} AS v1 WHERE v1.${escapeIdentifier(v1.columns.idColumn)} = m."id")`
     : undefined;
 
   return [

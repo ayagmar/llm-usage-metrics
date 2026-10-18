@@ -148,7 +148,7 @@ describe('opencode sqlite query', () => {
     expect([...rows]).toEqual([{ row_id: 'step-1', row_type: 'assistant', data_json: '{}' }]);
     const v2Query = seenQueries.find((query) => query.includes('FROM "session_message"'));
     expect(v2Query).toContain('LEFT JOIN "session_v2"');
-    expect(v2Query).not.toContain('NOT IN');
+    expect(v2Query).not.toContain('NOT EXISTS');
     expect(seenQueries.some((query) => query.includes('PRAGMA'))).toBe(false);
   });
 
@@ -165,7 +165,7 @@ describe('opencode sqlite query', () => {
 
     expect([...rows].map((row) => row.row_id)).toEqual(['v1-message', 'v2-step']);
     expect(seenQueries.find((query) => query.includes('FROM "session_message"'))).toContain(
-      'NOT IN (SELECT "id" FROM "message")',
+      'NOT EXISTS (SELECT 1 FROM "message" AS v1 WHERE v1."id" = m."id")',
     );
   });
 
