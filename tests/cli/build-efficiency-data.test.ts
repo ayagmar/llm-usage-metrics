@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -587,6 +588,27 @@ describe('buildEfficiencyData', () => {
     } finally {
       cwdSpy.mockRestore();
       await rm(nonGitDir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails for a bare repository, which has no work tree to attribute', async () => {
+    const bareDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-bare-'));
+    execFileSync('git', ['init', '--bare', '--quiet', bareDir]);
+    const buildDatasetMock = vi.fn(async (options: Parameters<typeof createUsageEventDataset>[0]) =>
+      createUsageEventDataset(options),
+    );
+
+    try {
+      await expect(
+        buildEfficiencyData(
+          'weekly',
+          { repoDir: bareDir },
+          { buildUsageEventDataset: buildDatasetMock },
+        ),
+      ).rejects.toThrow(`${bareDir} is not a git repository`);
+      expect(buildDatasetMock).not.toHaveBeenCalled();
+    } finally {
+      await rm(bareDir, { recursive: true, force: true });
     }
   });
 

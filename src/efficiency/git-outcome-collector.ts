@@ -135,7 +135,8 @@ async function isGitRepository(
       throw error;
     },
   );
-  return gitRepoResult.exitCode === 0;
+  // A bare repository answers `false` with exit code 0.
+  return gitRepoResult.exitCode === 0 && gitRepoResult.lines[0]?.trim() === 'true';
 }
 
 function notGitRepositoryMessage(repoDir: string, repoDirOption: string | undefined): string {
