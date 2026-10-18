@@ -421,6 +421,28 @@ describe('buildShareReportData', () => {
       );
     });
 
+    it('with --redact, hides whole in stderr the input paths it was given, spaces and all', async () => {
+      const { scrubLog } = await buildShareReport(
+        request({
+          options: {
+            timezone: 'UTC',
+            pricingOffline: true,
+            redact: true,
+            claudeDir: '/srv/public acme-logs',
+            sourceDir: ['codex=/srv/public acme-codex'],
+          },
+          inputPaths: ['/srv/public acme-repo'],
+        }),
+        deps([usage({})]),
+      );
+
+      expect(
+        scrubLog?.(
+          '/srv/public acme-repo is not a git repository; read /srv/public acme-logs and /srv/public acme-codex',
+        ),
+      ).toBe('<path> is not a git repository; read <path> and <path>');
+    });
+
     it('with --redact, names every model model-N when prices do not load, and hides the path why', async () => {
       const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
       const data = await buildShareReportData(
