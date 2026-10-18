@@ -14,7 +14,6 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
-import { pathStat } from '../../utils/fs-helpers.js';
 import {
   readClassifiedJsonlObjectBatches,
   readJsonlObjectBatches,
@@ -24,6 +23,7 @@ import {
   isPathWithinRoots,
   resolveRootDirs,
 } from '../multi-root-discovery.js';
+import { readParentVersion, type ParentVersion } from '../parent-version-cache.js';
 import {
   getClaudeMessageKey,
   getClaudeSubagentMetaPath,
@@ -203,36 +203,6 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
   return left.sequence - right.sequence;
 }
 
-/** A parent transcript's ids at one version of the file. */
-type ParentVersionIds = { versionKey: string; ids: Promise<Set<string>> };
-
-/**
- * A parent transcript's ids, read once per parent version. Only the latest version per
- * parent path is kept, so a parent that grows does not leave one set per version behind.
- */
-async function readParentVersion(
-  parentPath: string,
-  cache: Map<string, ParentVersionIds>,
-  read: (parentPath: string) => Promise<Set<string>>,
-): Promise<Set<string>> {
-  const parentStats = await pathStat(parentPath);
-
-  if (!parentStats) {
-    return new Set();
-  }
-
-  const versionKey = `${parentStats.size}\0${parentStats.mtimeMs}`;
-  const cached = cache.get(parentPath);
-
-  if (cached?.versionKey === versionKey) {
-    return cached.ids;
-  }
-
-  const ids = read(parentPath);
-  cache.set(parentPath, { versionKey, ids });
-  return ids;
-}
-
 /** The usage of a file's assistant rows: last row per dedup key, sorted at the end. */
 class ClaudeUsageRows {
   private readonly eventsByDedupKey = new Map<string, ClaudePendingEvent>();
@@ -364,9 +334,9 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
   // Sibling forks share a parent; read its message keys once per parent version.
-  private readonly parentMessageKeysByPath = new Map<string, ParentVersionIds>();
+  private readonly parentMessageKeysByPath = new Map<string, ParentVersion<Set<string>>>();
   // Read only for non-usage kinds, so `read` never reads them.
-  private readonly parentRowUuidsByPath = new Map<string, ParentVersionIds>();
+  private readonly parentRowUuidsByPath = new Map<string, ParentVersion<Set<string>>>();
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(
@@ -406,11 +376,17 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   }
 
   private async readParentMessageKeys(parentPath: string): Promise<Set<string>> {
-    return readParentVersion(parentPath, this.parentMessageKeysByPath, readClaudeMessageKeys);
+    return (
+      (await readParentVersion(parentPath, this.parentMessageKeysByPath, readClaudeMessageKeys)) ??
+      new Set()
+    );
   }
 
   private async readParentRowUuids(parentPath: string): Promise<Set<string>> {
-    return readParentVersion(parentPath, this.parentRowUuidsByPath, readClaudeRowUuids);
+    return (
+      (await readParentVersion(parentPath, this.parentRowUuidsByPath, readClaudeRowUuids)) ??
+      new Set()
+    );
   }
 
   public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {

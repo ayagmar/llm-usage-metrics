@@ -73,7 +73,8 @@ function isSameDependencyFingerprint(
 /**
  * The stored fingerprint again, when the adapter's dependency list follows its file
  * (`dependenciesFollowFile`), the parser is the same, and the file and every stored
- * dependency still have the stored size and mtime. Undefined otherwise.
+ * dependency still exist with the stored size and mtime. Undefined otherwise: a dependency
+ * stored as missing may have turned up, and only `getParseDependencies` can tell.
  */
 async function confirmPreviousFingerprint(
   adapter: SourceAdapter,
@@ -85,6 +86,7 @@ async function confirmPreviousFingerprint(
   if (
     adapter.capabilities?.dependenciesFollowFile !== true ||
     previous?.parserVersion !== parserVersion ||
+    previous.dependencies.some((dependency) => !dependency.exists) ||
     !isSameDependencyFingerprint(
       previous.dependencies.find((dependency) => dependency.path === primaryFingerprint.path),
       primaryFingerprint,

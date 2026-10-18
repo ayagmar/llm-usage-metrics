@@ -24,9 +24,12 @@ export type SourceCapabilities = {
    */
   eventsPrecedeFileMtime?: boolean;
   /**
-   * The paths `getParseDependencies` returns for a file change only when that file or one
-   * of the paths changes, so a stored fingerprint whose file and dependencies all still
-   * match may be reused without calling it (see `getFileFingerprint`).
+   * The paths `getParseDependencies` returns for a file change only when that file changes
+   * or one of the paths changes or goes away, so a stored fingerprint whose file and
+   * dependencies all still exist with the stored size and mtime may be reused without
+   * calling it (see `getFileFingerprint`). A decision that rests on something else, such as
+   * a file not found under the adapter's roots, must be declared as a path that does not
+   * exist, which is never reused.
    */
   dependenciesFollowFile?: boolean;
   /**

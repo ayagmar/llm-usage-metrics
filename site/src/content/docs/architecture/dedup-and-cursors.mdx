@@ -45,7 +45,7 @@ The CLI's event store decides per file whether stored events are still valid. `g
 
 The serialized fingerprint must match the stored string exactly. Any change, in the file, in a dependency, or in either version number, re-reads the whole file and replaces its stored events. This is why an adapter's events must depend only on its file, its declared dependencies, and its `parserVersion`: anything else would leave stored events stale with no fingerprint change. Bumping `parserVersion` re-reads every file of that source on the next run.
 
-An adapter that declares `capabilities.dependenciesFollowFile` (Codex) has dependency paths that change only with its file or those paths. For its files the CLI passes the stored fingerprint to `getFileFingerprint`, which re-checks the file and the stored dependencies by `stat` and skips `getParseDependencies` while all of them match, so a warm run does not open every Codex file to look for a fork's parent.
+An adapter that declares `capabilities.dependenciesFollowFile` (Codex) has dependency paths that change only with its file or those paths. For its files the CLI passes the stored fingerprint to `getFileFingerprint`, which re-checks the file and the stored dependencies by `stat` and skips `getParseDependencies` while all of them still exist and match, so a warm run does not open every Codex file to look for a fork's parent. A dependency stored as missing never confirms: Codex declares a fork whose parent it did not find by such a path, so the next run looks for the parent again.
 
 ### Append-only cursors (the library)
 
