@@ -49,6 +49,16 @@ export function prepareSessionEventStatements(
   };
 }
 
+/** Deletes the file's stored tool calls and messages; call inside a write transaction. */
+export function deleteFileSessionEvents(
+  statements: SessionEventStatements,
+  source: string,
+  filePath: string,
+): void {
+  statements.deleteToolCalls.run(source, filePath);
+  statements.deleteMessages.run(source, filePath);
+}
+
 /** Replaces the file's stored tool calls and messages; call inside a write transaction. */
 export function writeFileSessionEvents(
   statements: SessionEventStatements,
@@ -56,8 +66,7 @@ export function writeFileSessionEvents(
   filePath: string,
   events: readonly StoredSessionEvent[],
 ): void {
-  statements.deleteToolCalls.run(source, filePath);
-  statements.deleteMessages.run(source, filePath);
+  deleteFileSessionEvents(statements, source, filePath);
 
   events.forEach((event, eventIndex) => {
     if (event.kind === 'tool_call') {

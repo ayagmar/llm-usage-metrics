@@ -36,6 +36,7 @@ import {
 } from './event-store-schema.js';
 import {
   decodeStoredSessionEvent,
+  deleteFileSessionEvents,
   prepareSelectFileSessionEvents,
   prepareSessionEventStatements,
   writeFileSessionEvents,
@@ -940,7 +941,8 @@ export function deleteStoredFiles(
     const deleteOverrideOnlyFile = store.database.prepare(
       'DELETE FROM override_only_files WHERE source = ? AND file_path = ?',
     );
-    const sessionEventStatements = prepareSessionEventStatements(store.database);
+    const sessionEventStatements = (store.statements.sessionEvents ??=
+      prepareSessionEventStatements(store.database));
 
     for (const file of normalizedFiles) {
       for (const tableName of ['events', 'tool_calls', 'messages'] as const) {
@@ -949,7 +951,7 @@ export function deleteStoredFiles(
 
       result.deletedFileCount += countMatchingRows(store, 'files', file.source, file.filePath);
       deleteEvents.run(file.source, file.filePath);
-      writeFileSessionEvents(sessionEventStatements, file.source, file.filePath, []);
+      deleteFileSessionEvents(sessionEventStatements, file.source, file.filePath);
       deleteFile.run(file.source, file.filePath);
       deleteOverrideOnlyFile.run(file.source, file.filePath);
     }
