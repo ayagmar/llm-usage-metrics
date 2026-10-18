@@ -23,6 +23,7 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 
 - `--format <name>`: `jsonl` (default), `csv`, `otlp-traces`, or `otlp-metrics` ([OpenTelemetry export](/llm-usage-metrics/otel/))
 - `--otel-include-paths`: with `otlp-traces`, add repository paths to the spans
+- `--otlp-endpoint <url>`: with `otlp-traces` or `otlp-metrics`, POST the export to an OTLP/HTTP receiver instead of printing it ([Push to a receiver](/llm-usage-metrics/otel/#push-to-a-receiver))
 - shared filters apply: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, `--cost-mode`, and `--no-history`
 
 `events` is an export stream, not a report: it takes `--format` instead of `--json`, and has no `--markdown` or `--share`. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.

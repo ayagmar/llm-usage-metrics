@@ -24,6 +24,7 @@ const UNSET_VARIABLES = [
   'LLM_USAGE_UPDATE_CACHE_SCOPE',
   'LLM_USAGE_UPDATE_CACHE_SESSION_KEY',
   'FORCE_COLOR',
+  'OTEL_EXPORTER_OTLP_HEADERS',
 ] as const;
 
 export type IsolatedEnvironment = {

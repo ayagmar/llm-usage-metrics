@@ -711,6 +711,10 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
         command: 'llm-usage events --format otlp-metrics --since 2026-06-01 > metrics.jsonl',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage events --format otlp-traces --otlp-endpoint http://127.0.0.1:4318',
+        includeInCliReference: true,
+      },
     ],
   },
   register(command) {
@@ -719,6 +723,10 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
       .option(
         '--otel-include-paths',
         'With otlp-traces: add repository paths to spans (left out by default)',
+      )
+      .option(
+        '--otlp-endpoint <url>',
+        'With an OTLP format: POST to <url>/v1/traces or /v1/metrics instead of printing; headers from OTEL_EXPORTER_OTLP_HEADERS',
       );
     addRepoFilterOption(command).action((options: EventsCommandOptions) =>
       runEventsReport(options),

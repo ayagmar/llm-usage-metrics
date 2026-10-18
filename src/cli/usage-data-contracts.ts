@@ -284,6 +284,7 @@ export type EventsCommandOptions = SharedOptionsForProfile<'events'> &
   RepoFilterOption & {
     format?: string;
     otelIncludePaths?: boolean;
+    otlpEndpoint?: string;
   };
 
 export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
