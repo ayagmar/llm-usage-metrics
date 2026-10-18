@@ -6,6 +6,7 @@ type FakeScenario = {
   tables?: string[];
   messageColumns?: string[];
   primaryRows?: Record<string, unknown>[];
+  v2Rows?: Record<string, unknown>[];
   fallbackRows?: Record<string, unknown>[];
   primaryQueryErrors?: Error[];
   seenQueries?: string[];
@@ -37,6 +38,12 @@ function createFakeDatabase(scenario: FakeScenario): FakeDatabase {
         const columns = scenario.messageColumns ?? ['id', 'time_created', 'session_id', 'data'];
         return {
           all: () => columns.map((name) => ({ name })),
+        };
+      }
+
+      if (sql.includes('session_message')) {
+        return {
+          all: () => scenario.v2Rows ?? [],
         };
       }
 
@@ -123,7 +130,51 @@ describe('opencode sqlite query', () => {
           tables: ['session', 'part'],
         }),
       ),
-    ).toThrow('OpenCode schema drift: required "message" table not found.');
+    ).toThrow(
+      'OpenCode schema drift: no "message" table (V1) or "session_message" and "session_v2" tables (V2) found.',
+    );
+  });
+
+  it('reads V2 rows from session_message joined to session_v2 when there is no message table', () => {
+    const seenQueries: string[] = [];
+    const rows = queryOpenCodeMessageRows(
+      createFakeDatabase({
+        tables: ['session_v2', 'session_message', 'event'],
+        v2Rows: [{ row_id: 'step-1', row_type: 'assistant', data_json: '{}' }],
+        seenQueries,
+      }),
+    );
+
+    expect([...rows]).toEqual([{ row_id: 'step-1', row_type: 'assistant', data_json: '{}' }]);
+    const v2Query = seenQueries.find((query) => query.includes('FROM "session_message"'));
+    expect(v2Query).toContain('LEFT JOIN "session_v2"');
+    expect(v2Query).not.toContain('NOT EXISTS');
+    expect(seenQueries.some((query) => query.includes('PRAGMA'))).toBe(false);
+  });
+
+  it('reads V1 rows, then V2 rows not already in message, from a database migrated in place', () => {
+    const seenQueries: string[] = [];
+    const rows = queryOpenCodeMessageRows(
+      createFakeDatabase({
+        tables: ['session', 'message', 'part', 'session_v2', 'session_message'],
+        primaryRows: [{ row_id: 'v1-message' }],
+        v2Rows: [{ row_id: 'v2-step', row_type: 'assistant' }],
+        seenQueries,
+      }),
+    );
+
+    expect([...rows].map((row) => row.row_id)).toEqual(['v1-message', 'v2-step']);
+    expect(seenQueries.find((query) => query.includes('FROM "session_message"'))).toContain(
+      'NOT EXISTS (SELECT 1 FROM "message" AS v1 WHERE v1."id" = m."id")',
+    );
+  });
+
+  it('throws schema drift for session_message without session_v2', () => {
+    expect(() =>
+      queryOpenCodeMessageRows(
+        createFakeDatabase({ tables: ['project', 'session', 'session_message'] }),
+      ),
+    ).toThrow('OpenCode schema drift');
   });
 
   it('throws actionable schema drift error when message data column is missing', () => {

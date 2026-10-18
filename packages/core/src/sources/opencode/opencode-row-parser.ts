@@ -128,7 +128,9 @@ export function parseOpenCodeMessageRow(
     return undefined;
   }
 
-  const role = asTrimmedText(payload.role) ?? asTrimmedText(payload.type);
+  // V2 rows (`session_message`) keep the role in the `type` column, not in the payload.
+  const v2RowType = asTrimmedText(row.row_type);
+  const role = v2RowType ?? asTrimmedText(payload.role) ?? asTrimmedText(payload.type);
 
   if (role?.toLowerCase() !== 'assistant') {
     return undefined;
@@ -153,9 +155,17 @@ export function parseOpenCodeMessageRow(
     return undefined;
   }
 
-  const provider = asTrimmedText(payload.providerID) ?? asTrimmedText(payload.provider);
-  const model = asTrimmedText(payload.modelID) ?? asTrimmedText(payload.model);
-  const repoRoot = resolveRepoRoot(payload);
+  // V2 nests the model: `{ id, providerID, variant }`.
+  const modelPayload = asRecord(payload.model);
+  const provider =
+    asTrimmedText(payload.providerID) ??
+    asTrimmedText(payload.provider) ??
+    asTrimmedText(modelPayload?.providerID);
+  const model =
+    asTrimmedText(payload.modelID) ??
+    asTrimmedText(payload.model) ??
+    asTrimmedText(modelPayload?.id);
+  const repoRoot = resolveRepoRoot(payload) ?? asTrimmedText(row.row_directory);
   const tokens = asRecord(payload.tokens);
   const tokenCache = asRecord(tokens?.cache);
   const inputTokens = toTokenCount(tokens?.input);
@@ -170,8 +180,10 @@ export function parseOpenCodeMessageRow(
   // an inclusive row, and rows without a total predate the split (except Gemini rows, whose
   // SDK then reported thoughts outside output; those are only caught when output is smaller
   // than reasoning, which an inclusive row can never be). The domain contract counts
-  // reasoning inside output, so only exclusive rows get it added back.
+  // reasoning inside output, so only exclusive rows get it added back. V2 rows always store
+  // visible output only, without a total.
   const outputIncludesReasoning =
+    v2RowType === undefined &&
     storedOutputTokens >= reasoningTokens &&
     (declaredTotalTokens === 0 ||
       declaredTotalTokens ===

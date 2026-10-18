@@ -511,7 +511,7 @@ describe('OpenCodeSourceAdapter', () => {
     });
 
     await expect(collect(adapter.read('/tmp/opencode.db'))).rejects.toThrow(
-      'OpenCode schema drift: required "message" table not found.',
+      'OpenCode schema drift: no "message" table (V1) or "session_message" and "session_v2" tables (V2) found.',
     );
   });
 
