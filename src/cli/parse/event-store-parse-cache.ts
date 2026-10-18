@@ -179,14 +179,20 @@ function isOnlyFileChanged(
 }
 
 /**
- * Where a read of a file that changed can resume: the stored version's cursor and events,
- * when the store holds both and only the file changed. The read itself checks that the
- * file still starts with the bytes the cursor covers.
+ * A stored file that only grew. Its read keeps a cursor, so only files seen growing hold
+ * one, and resumes from `resumePoint` when the stored version kept a cursor.
  */
-export function readResumePoint(
+export type StoredFileGrowth = { resumePoint?: StoredResumePoint };
+
+/**
+ * Whether a file that changed only grew since the stored version (only the file changed),
+ * with that version's cursor and events when the store holds both. The read itself checks
+ * that the file still starts with the bytes the cursor covers.
+ */
+export function readFileGrowth(
   context: EventStoreParseContext,
   params: { source: string; filePath: string; fingerprint: EventStoreFileFingerprint },
-): StoredResumePoint | undefined {
+): StoredFileGrowth | undefined {
   if (context.failureState.disabled) {
     return undefined;
   }
@@ -203,13 +209,15 @@ export function readResumePoint(
 
     return cursor && events
       ? {
-          cursor,
-          storedFingerprint: storedEntry.fingerprint,
-          events,
-          skippedRows: storedEntry.skippedRows,
-          skippedRowReasons: storedEntry.skippedRowReasons,
+          resumePoint: {
+            cursor,
+            storedFingerprint: storedEntry.fingerprint,
+            events,
+            skippedRows: storedEntry.skippedRows,
+            skippedRowReasons: storedEntry.skippedRowReasons,
+          },
         }
-      : undefined;
+      : {};
   } catch (error) {
     recordEventStoreFailure(context.failureState, error);
     return undefined;

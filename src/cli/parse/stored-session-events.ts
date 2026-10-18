@@ -90,18 +90,18 @@ function toUsageEvent(record: UsageRecord): UsageEvent {
  * Reads a file once for the event store. A source that declares tool calls or messages is
  * read with `readEvents` for usage and those kinds: its usage events and skipped rows are
  * what `collectFile` returns (the readEvents contract), and the other kinds' skipped rows
- * are left out. An incremental source is read the same way under a cursor, resuming from
- * `from` when given. A read under a cursor leaves a last line without a line feed unread,
- * so such a file is read again without one, and kept without a cursor. Any other source
- * is read with `collectFile`.
+ * are left out. With `cursor`, an incremental source is read the same way under a cursor,
+ * resuming from `cursor.from` when given. A read under a cursor leaves a last line without
+ * a line feed unread, so such a file is read again without one, and kept without a cursor.
+ * Any other source is read with `collectFile`.
  */
 export async function collectFileForEventStore(
   adapter: SourceAdapter,
   filePath: string,
-  options: { from?: ReadCursor; plain?: boolean } = {},
+  options: { cursor?: { from?: ReadCursor } } = {},
 ): Promise<StoreParseFileDiagnostics> {
   const storedKinds = getStoredSessionEventKinds(adapter);
-  const incremental = adapter.capabilities?.incremental === true && options.plain !== true;
+  const incremental = adapter.capabilities?.incremental === true && options.cursor !== undefined;
 
   if (storedKinds.length === 0 && !incremental) {
     return collectFile(adapter, filePath);
@@ -118,7 +118,7 @@ export async function collectFileForEventStore(
     diagnostics,
     resume: incremental
       ? {
-          from: options.from,
+          from: options.cursor?.from,
           onStart: ({ restarted, replaced }) => {
             resumable.resumedReplacing = restarted ? undefined : (replaced ?? {});
           },
@@ -137,7 +137,7 @@ export async function collectFileForEventStore(
   }
 
   if (end.partialLine) {
-    return collectFileForEventStore(adapter, filePath, { plain: true });
+    return collectFileForEventStore(adapter, filePath);
   }
 
   const readReasons = new Map<string, number>();

@@ -20,13 +20,14 @@ import {
   isStoredFileCurrent,
   joinResumedRead,
   readParsedFileFromEventStore,
-  readResumePoint,
+  readFileGrowth,
   recordEventStoreFailure,
   writeParsedFilesToEventStore,
   type EventStoreFailureState,
   type EventStoreParseContext,
   type EventStoreParseDeps,
   type ParsedFileStoreWrite,
+  type StoredFileGrowth,
   type StoredResumePoint,
 } from './parse/event-store-parse-cache.js';
 import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
@@ -143,14 +144,16 @@ type FileLookup =
   | {
       kind: 'miss';
       fileFingerprint?: EventStoreFileFingerprint;
-      /** Set when the read can start where the stored version's read ended. */
-      resumePoint?: StoredResumePoint;
+      /** Set when the file only grew since the stored version: it is read under a cursor. */
+      growth?: StoredFileGrowth;
     };
 
 type MissedParseFile = {
   fileIndex: number;
   filePath: string;
   fileFingerprint?: EventStoreFileFingerprint;
+  /** Kept when the file is read here; a worker reads it without a cursor. */
+  growth?: StoredFileGrowth;
   byteSize: number;
 };
 
@@ -261,11 +264,13 @@ export async function parseAdapterEvents(
   async function parseFileInline(
     filePath: string,
     fileFingerprint: EventStoreFileFingerprint | undefined,
-    resumePoint?: StoredResumePoint,
+    growth?: StoredFileGrowth,
   ): Promise<ParsedFileForEventStore> {
     return isReadForEventStore(fileFingerprint)
       ? withStoreCostModes(
-          await collectFileForEventStore(adapter, filePath, { from: resumePoint?.cursor }),
+          await collectFileForEventStore(adapter, filePath, {
+            cursor: growth && { from: growth.resumePoint?.cursor },
+          }),
         )
       : withCostModes(await collectFile(adapter, filePath));
   }
@@ -415,19 +420,19 @@ export async function parseAdapterEvents(
       }
 
       if (adapter.capabilities?.incremental) {
-        const resumePoint = readResumePoint(eventStore, {
+        const growth = readFileGrowth(eventStore, {
           source: adapter.id,
           filePath,
           fingerprint: fileFingerprint,
         });
-        return { kind: 'miss', fileFingerprint, resumePoint };
+        return { kind: 'miss', fileFingerprint, growth };
       }
     }
 
     return { kind: 'miss', fileFingerprint };
   }
 
-  /** Reads a missed file here, resuming from the stored cursor when there is one. */
+  /** Reads a missed file here, under a cursor when it only grew. */
   async function parseMissInline(
     fileIndex: number,
     filePath: string,
@@ -437,9 +442,9 @@ export async function parseAdapterEvents(
       fileIndex,
       filePath,
       fileFingerprint: lookup.fileFingerprint,
-      diagnostics: await parseFileInline(filePath, lookup.fileFingerprint, lookup.resumePoint),
+      diagnostics: await parseFileInline(filePath, lookup.fileFingerprint, lookup.growth),
       servedFromEventStore: false,
-      resumePoint: lookup.resumePoint,
+      resumePoint: lookup.growth?.resumePoint,
     });
   }
 
@@ -495,7 +500,7 @@ export async function parseAdapterEvents(
       }
 
       // A resumed read only covers the appended lines: too little for a worker.
-      if (lookup.resumePoint) {
+      if (lookup.growth?.resumePoint) {
         await parseMissInline(fileIndex, filePath, lookup);
         return;
       }
@@ -504,6 +509,7 @@ export async function parseAdapterEvents(
         fileIndex,
         filePath,
         fileFingerprint: lookup.fileFingerprint,
+        growth: lookup.growth,
         byteSize:
           getPrimaryFingerprintByteSize(lookup.fileFingerprint) ??
           (await getFileByteSize(filePath)),
@@ -518,6 +524,7 @@ export async function parseAdapterEvents(
       await parseMissInline(missedFile.fileIndex, missedFile.filePath, {
         kind: 'miss',
         fileFingerprint: missedFile.fileFingerprint,
+        growth: missedFile.growth,
       });
     } catch (error) {
       recordParseFailure(missedFile.fileIndex, error);

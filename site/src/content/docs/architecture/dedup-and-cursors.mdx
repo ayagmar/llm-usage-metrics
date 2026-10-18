@@ -43,7 +43,7 @@ The CLI's event store decides per file whether stored events are still valid. `g
 - the parser version, `n<normalization version>.p<adapter parserVersion>`, for example `n2.p4`;
 - the path, existence, size, and modification time of the file and of every file the adapter returns from `getParseDependencies(filePath)` (sidecar files, a fork's parent transcript). A missing dependency is recorded as `exists: false`.
 
-The serialized fingerprint must match the stored string exactly. Any change, in the file, in a dependency, or in either version number, re-reads the whole file and replaces its stored events. The one exception is a claude or pi file whose size or modification time alone changed: the store resumes it from its cursor, below. This is why an adapter's events must depend only on its file, its declared dependencies, and its `parserVersion`: anything else would leave stored events stale with no fingerprint change. Bumping `parserVersion` re-reads every file of that source on the next run.
+The serialized fingerprint must match the stored string exactly. Any change, in the file, in a dependency, or in either version number, re-reads the whole file and replaces its stored events. The one exception is a claude or pi file whose size or modification time alone changed: the store resumes it from its cursor, below, once a run has seen it grow and stored one. This is why an adapter's events must depend only on its file, its declared dependencies, and its `parserVersion`: anything else would leave stored events stale with no fingerprint change. Bumping `parserVersion` re-reads every file of that source on the next run.
 
 ### Append-only cursors
 

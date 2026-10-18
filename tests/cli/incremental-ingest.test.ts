@@ -229,10 +229,13 @@ describe('incremental ingest', () => {
 
     const ingest = await growLineByLine(adapter, tempDir, filePath, CLAUDE_LINES);
 
-    // The first write reads the whole file; every later one only the appended line.
+    // The first run keeps no cursor, the first growth reads the whole file under one, and
+    // every later run reads only the appended line.
     expect(ingest.writes).toHaveLength(CLAUDE_LINES.length);
-    expect(ingest.writes[0]?.append).toBeUndefined();
-    expect(ingest.writes.slice(1).every((write) => write.append !== undefined)).toBe(true);
+    expect(ingest.writes[0]?.readCursor).toBeUndefined();
+    expect(ingest.writes[1]?.readCursor).toBeDefined();
+    expect(ingest.writes[1]?.append).toBeUndefined();
+    expect(ingest.writes.slice(2).every((write) => write.append !== undefined)).toBe(true);
     expect(await readCursorOf(ingest.storePath, 'claude', filePath)).toMatchObject({
       offset: (await readFile(filePath)).length,
     });
@@ -246,7 +249,7 @@ describe('incremental ingest', () => {
 
     const ingest = await growLineByLine(adapter, tempDir, filePath, PI_LINES);
 
-    expect(ingest.writes.slice(1).every((write) => write.append !== undefined)).toBe(true);
+    expect(ingest.writes.slice(2).every((write) => write.append !== undefined)).toBe(true);
   });
 
   it('reads a rewritten or truncated file again in full', async () => {
@@ -313,8 +316,14 @@ describe('incremental ingest', () => {
     const parentPath = path.join(projectDir, 'session-1.jsonl');
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const ingest = createIngest(adapter, path.join(tempDir, 'incremental.db'));
-    // The fixture's files end without a line feed; finish them so the fork keeps a cursor.
-    await Promise.all([forkPath, parentPath].map((filePath) => appendFile(filePath, '\n')));
+    await ingest.run();
+    // The fixture's files end without a line feed. Finishing the fork's last line is the
+    // growth that gives it a cursor; the parent's first, so the fork's read follows alone.
+    await appendFile(parentPath, '\n');
+    await setTime(parentPath, 1_700_000_000);
+    await ingest.run();
+    await appendFile(forkPath, '\n');
+    await setTime(forkPath, 1_700_000_000);
     await ingest.run();
     expect(await readCursorOf(ingest.storePath, 'claude', forkPath)).toBeDefined();
 

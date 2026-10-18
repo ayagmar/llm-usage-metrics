@@ -55,7 +55,7 @@ describe('collectFileForEventStore', () => {
         for (const filePath of await adapter.discoverFiles()) {
           const usageOnly = await collectFile(adapter, filePath);
           const { sessionEvents, readCursor, resumedReplacing, ...forStore } =
-            await collectFileForEventStore(adapter, filePath);
+            await collectFileForEventStore(adapter, filePath, { cursor: {} });
 
           expect(JSON.stringify(forStore), filePath).toBe(JSON.stringify(usageOnly));
           expect(resumedReplacing).toBeUndefined();
