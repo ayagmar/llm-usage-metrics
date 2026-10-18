@@ -1,5 +1,6 @@
 import type * as ChildProcess from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { availableParallelism } from 'node:os';
 import path from 'node:path';
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -319,6 +320,18 @@ describe('config show: defaults', () => {
       parseWorkerMinBytes: { origin: 'default' },
     });
     expect(fromFlag.defaults.timezone).toEqual({ value: 'Europe/Paris', origin: 'cli' });
+  });
+
+  it('shows the auto worker count a run uses, lower with the event store on', async () => {
+    const autoWorkers = (limit: number) => Math.max(0, Math.min(limit, availableParallelism() - 1));
+
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    const storeOn = await build();
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '0');
+    const storeOff = await build();
+
+    expect(storeOn.defaults.parseWorkers).toEqual({ value: autoWorkers(6), origin: 'default' });
+    expect(storeOff.defaults.parseWorkers).toEqual({ value: autoWorkers(8), origin: 'default' });
   });
 
   it('rejects an invalid timezone before reading anything', async () => {

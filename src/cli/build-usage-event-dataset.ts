@@ -220,9 +220,13 @@ export async function buildUsageEventDataset(
   const readEventStoreRuntimeConfig = deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig;
   const makeAdapters = deps.createAdapters ?? createAdaptersFromOptions;
   const config = userConfigResolution.loadedConfig.config;
-  const parsingRuntimeConfig = readParsingRuntimeConfig(process.env, config);
-  const pricingRuntimeConfig = readPricingRuntimeConfig(config);
   const eventStoreRuntimeConfig = readEventStoreRuntimeConfig(process.env, config);
+  const parsingRuntimeConfig = readParsingRuntimeConfig(
+    process.env,
+    config,
+    eventStoreRuntimeConfig.enabled,
+  );
+  const pricingRuntimeConfig = readPricingRuntimeConfig(config);
   const activeConfig = mergeActiveConfigEntries(userConfigResolution.loadedConfig, [
     ...(userConfigResolution.activeConfig?.entries ?? []),
     ...collectRuntimeConfigEntries(userConfigResolution.loadedConfig),

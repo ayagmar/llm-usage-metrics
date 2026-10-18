@@ -81,7 +81,10 @@ export type ConfigReportData = {
     timezone: ConfigSetting<string>;
     /** Empty: every source. */
     sources: ConfigSetting<string[]>;
-    /** The worker count on this machine; the default `auto` is one less than the CPUs, up to 8. */
+    /**
+     * The worker count on this machine; the default `auto` is one less than the CPUs, up to
+     * 6 with the event store on and 8 without.
+     */
     parseWorkers: ConfigSetting<number>;
     parseMaxParallel: ConfigSetting<number>;
     parseWorkerMinBytes: ConfigSetting<number>;
@@ -301,7 +304,7 @@ function buildDefaults(
   historyEnabled: boolean,
 ): ConfigReportData['defaults'] {
   const { cliOptions, loadedConfig } = userConfigResolution;
-  const parsing = getParsingRuntimeConfig(env, loadedConfig.config);
+  const parsing = getParsingRuntimeConfig(env, loadedConfig.config, historyEnabled);
 
   return {
     timezone: {
