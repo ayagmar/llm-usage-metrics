@@ -7,7 +7,6 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { truncateNames } from '../render/truncate-names.js';
-import { pluralize } from '../render/format-number.js';
 import {
   closeEventStore,
   openEventStore,
@@ -67,6 +66,7 @@ import { dedupeCopiedSessions, type SourceAdapter } from '@ayagmar/agent-session
 import {
   getRepeatingSourceIds,
   getSessionCopyingSourceIds,
+  pluralize,
 } from '@ayagmar/agent-sessions/internal';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';

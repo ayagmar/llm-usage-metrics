@@ -2,7 +2,7 @@ import type { ShareSession } from '../../types.js';
 import type { ShareReport } from './decode.js';
 import type { ShareFilters } from './filters.js';
 import { toLocalDateHour } from './local-time.js';
-import { compareText } from './rollup.js';
+import { compareByCodePoint } from '../../../../packages/core/src/utils/compare-by-code-point.js';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -40,7 +40,7 @@ function compareValues(left: SortValue, right: SortValue): number {
     return left - right;
   }
 
-  return compareText(String(left), String(right));
+  return compareByCodePoint(String(left), String(right));
 }
 
 /**
@@ -65,14 +65,14 @@ export function sortRows<Row>(
       if (left.value === null || right.value === null) {
         return (
           Number(left.value === null) - Number(right.value === null) ||
-          compareText(left.label, right.label) ||
+          compareByCodePoint(left.label, right.label) ||
           left.position - right.position
         );
       }
 
       return (
         sign * compareValues(left.value, right.value) ||
-        compareText(left.label, right.label) ||
+        compareByCodePoint(left.label, right.label) ||
         left.position - right.position
       );
     })

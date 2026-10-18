@@ -2,7 +2,8 @@ import { addUsd } from '../../../utils/usd-math.js';
 import type { ShareCostMode, ShareGranularity } from '../../types.js';
 import type { ShareReport } from './decode.js';
 import { DIMENSION_DICTIONARY, type ShareDimension } from './filters.js';
-import { compareText, getPeriodRollupKey } from './rollup.js';
+import { getPeriodRollupKey } from './rollup.js';
+import { compareByCodePoint } from '../../../../packages/core/src/utils/compare-by-code-point.js';
 
 /** What a chart plots: total tokens, or the cost in one mode. */
 export type ShareMetric = { kind: 'tokens' } | { kind: 'cost'; mode: ShareCostMode };
@@ -106,7 +107,9 @@ export function stackByDimension(
 
   const ranked = [...byIndex.values()].sort(
     (left, right) =>
-      right.total - left.total || compareText(left.label, right.label) || left.index - right.index,
+      right.total - left.total ||
+      compareByCodePoint(left.label, right.label) ||
+      left.index - right.index,
   );
   const kept: ShareSeries[] = ranked.slice(0, Math.max(0, options.maxSeries));
   const rest = ranked.slice(kept.length);

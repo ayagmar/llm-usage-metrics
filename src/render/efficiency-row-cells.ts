@@ -1,6 +1,6 @@
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
-import { formatApproxUsd, formatInteger } from './format-number.js';
-import { formatAbbreviatedTokenCount, type UsageTokenFormat } from './row-cells.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
+import type { UsageTokenFormat } from './row-cells.js';
 
 export const efficiencyTableHeaders = [
   'Period',

@@ -3,7 +3,8 @@ import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../doma
 import { findEventBlockKey, toBlockKey, type UsageBlock } from '../blocks/aggregate-blocks.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { shiftDateKey } from '../utils/date-key.js';
-import { getLocalHourBucket, getPeriodKey } from '../utils/time-buckets.js';
+import { formatLocalDateTime } from '../render/format-local-date-time.js';
+import { getPeriodKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { escapeJsonForScript } from './client/ui/export/share-document.js';
 import { toShareModelLabel } from './redact.js';
@@ -458,13 +459,6 @@ function toCube(cells: readonly Cell[], modes: readonly ShareCostMode[]): ShareC
   return cube;
 }
 
-/** `YYYY-MM-DD HH:MM` on the local wall clock. */
-function formatLocalMinute(timeMs: number, timezone: string): string {
-  const iso = new Date(timeMs).toISOString();
-  const wallMs = timeMs + getLocalHourBucket(iso, timezone).offsetMs;
-  return new Date(wallMs).toISOString().slice(0, 16).replace('T', ' ');
-}
-
 function compareNewestFirst(left: SessionAccumulator, right: SessionAccumulator): number {
   return right.lastMs - left.lastMs || right.firstMs - left.firstMs;
 }
@@ -513,7 +507,7 @@ function buildSessions(
     (left, right) =>
       left.session.firstMs - right.session.firstMs || left.session.lastMs - right.session.lastMs,
   )) {
-    const base = `${session.source} · ${formatLocalMinute(session.firstMs, input.timezone)}`;
+    const base = `${session.source} · ${formatLocalDateTime(new Date(session.firstMs).toISOString(), input.timezone)}`;
     const count = (labelCounts.get(base) ?? 0) + 1;
     labelCounts.set(base, count);
     labels.set(session, count === 1 ? base : `${base} #${String(count)}`);

@@ -1,5 +1,6 @@
 import type { UsageDiagnostics, UsagePricingOrigin } from './usage-data-contracts.js';
-import { formatInteger, pluralize } from '../render/format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { formatInteger } from '../render/format-number.js';
 import { logger } from '../utils/logger.js';
 
 export type DiagnosticsLogger = Pick<typeof logger, 'info' | 'warn' | 'dim' | 'debug'>;

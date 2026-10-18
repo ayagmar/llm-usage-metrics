@@ -4,7 +4,7 @@ import {
 } from '../render/render-efficiency-report.js';
 import { attributeUsageEventsToRepo } from '../efficiency/repo-attribution.js';
 import { logger } from '../utils/logger.js';
-import { pluralize } from '../render/format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import {
   buildEfficiencyData,

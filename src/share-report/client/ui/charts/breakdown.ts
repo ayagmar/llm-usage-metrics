@@ -3,7 +3,6 @@
 
 import { addUsd } from '../../../../utils/usd-math.js';
 import {
-  compareText,
   formatUsdOrNone,
   getCost,
   getCostAmount,
@@ -13,13 +12,7 @@ import {
   type ShareDimensionRow,
 } from '../../core/index.js';
 import { DIMENSION_LABELS } from '../controls/model.js';
-import {
-  formatCompact,
-  formatCount,
-  formatDateRange,
-  formatPercent,
-  pluralize,
-} from '../shell/format.js';
+import { formatDateRange, formatPercent } from '../shell/format.js';
 import { COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareViewContext } from '../state/context.js';
 import { caption, LABEL_SIZE, legend, NARROW_WIDTH, type LegendEntry } from './frame.js';
@@ -34,6 +27,9 @@ import {
   type ChartView,
   type SvgNode,
 } from './svg.js';
+import { compareByCodePoint } from '../../../../../packages/core/src/utils/compare-by-code-point.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 /** One ranked row: a label, or the merged remainder with how many it holds. */
 export type RankedRow = {
@@ -72,7 +68,10 @@ export function rankDimension(
   const measure = (row: RankedRow) => (by === 'cost' ? (row.cost ?? 0) : row.tokens);
   const ranked = rollupByDimension(report, cells, dimension)
     .map(toRow)
-    .sort((left, right) => measure(right) - measure(left) || compareText(left.label, right.label));
+    .sort(
+      (left, right) =>
+        measure(right) - measure(left) || compareByCodePoint(left.label, right.label),
+    );
 
   if (ranked.length <= keep + 1) {
     return ranked;
@@ -146,7 +145,7 @@ export function buildProjectChart(
     ],
     rows: rows.map((row) => [
       rowLabel(row, 'project'),
-      formatCount(row.tokens),
+      formatInteger(row.tokens),
       ...(mode === undefined ? [] : [costText(row)]),
       formatPercent(shareOf(value(row), total)),
     ]),
@@ -162,7 +161,7 @@ export function buildProjectChart(
   }
 
   const format = (amount: number) =>
-    by === 'cost' ? formatUsdOrNone(amount) : formatCompact(amount);
+    by === 'cost' ? formatUsdOrNone(amount) : formatAbbreviatedTokenCount(amount);
   const max = Math.max(...rows.map(value));
   const valueTexts = rows.map(
     (row) => `${format(value(row))} · ${formatPercent(shareOf(value(row), total))}`,
@@ -258,7 +257,7 @@ export function buildModelMixChart(
     ],
     rows: rows.map((row) => [
       rowLabel(row, 'model'),
-      formatCount(row.tokens),
+      formatInteger(row.tokens),
       formatPercent(shareOf(row.tokens, tokenTotal)),
       ...(withCost ? [costText(row), formatPercent(shareOf(row.cost ?? 0, costTotal))] : []),
     ]),

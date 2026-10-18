@@ -17,15 +17,11 @@ import {
   type SortValue,
   type TableSortKey,
 } from '../../core/index.js';
-import {
-  formatCost,
-  formatCount,
-  formatDuration,
-  formatPercent,
-  formatTimestamp,
-  pluralize,
-} from '../shell/format.js';
+import { formatCost, formatPercent, formatTimeOrNone } from '../shell/format.js';
 import type { ShareViewContext } from '../state/context.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatDuration } from '../../../../render/format-duration.js';
+import { formatInteger } from '../../../../render/format-number.js';
 
 export const TABLE_PAGE_SIZE = 20;
 
@@ -90,7 +86,7 @@ type Measured = Pick<
 >;
 
 function count(value: number): CellView {
-  return { text: formatCount(value) };
+  return { text: formatInteger(value) };
 }
 
 /** The measure columns both tables share, in reading order; cost only when the file has it. */
@@ -253,7 +249,7 @@ export function buildSessionTable(
       key: 'lastActivity',
       label: 'Last active',
       numeric: false,
-      cell: (row) => ({ text: formatTimestamp(row.lastActivityAt, timezone) }),
+      cell: (row) => ({ text: formatTimeOrNone(row.lastActivityAt, timezone) }),
     },
     ...measureColumns<ShareSession>(context),
   ];
@@ -304,7 +300,7 @@ export function describePage(table: TableView): string {
   const first = table.page * TABLE_PAGE_SIZE + 1;
   const last = Math.min(table.rowCount, first + TABLE_PAGE_SIZE - 1);
 
-  return `${formatCount(first)}–${formatCount(last)} of ${formatCount(table.rowCount)}`;
+  return `${formatInteger(first)}–${formatInteger(last)} of ${formatInteger(table.rowCount)}`;
 }
 
 /** The note under a drill-down whose project had more sessions than the file embeds. */

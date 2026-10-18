@@ -5,7 +5,8 @@ import type { EventStoreInspection } from '../cli/run-doctor-report.js';
 import { formatEnvVarOverrides } from '../config/env-var-display.js';
 import { formatByteSize } from './format-byte-size.js';
 import { formatDuration } from './format-duration.js';
-import { formatInteger, pluralize } from './format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { formatInteger } from './format-number.js';
 import { abbreviateHome, describeMissingEventStore } from './render-doctor-report.js';
 import { formatAge } from './render-machines.js';
 

@@ -3,7 +3,7 @@ import {
   type TerminalColumnsSource,
   visibleWidth,
 } from '../render/table-text-layout.js';
-import { pluralize } from '../render/format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
 
 function detectTerminalOverflowColumns(
   reportOutput: string,

@@ -2,6 +2,7 @@ import { addUsd } from '../../../utils/usd-math.js';
 import type { ShareCosts, ShareGranularity, ShareTokenBuckets } from '../../types.js';
 import { COST_MODES, type SharePeriod, type ShareReport } from './decode.js';
 import { DIMENSION_DICTIONARY, type ShareDimension } from './filters.js';
+import { compareByCodePoint } from '../../../../packages/core/src/utils/compare-by-code-point.js';
 
 /** Sums over a group of cube cells, with one cost per mode the file holds. */
 export type ShareTotals = ShareTokenBuckets & {
@@ -113,13 +114,8 @@ export function getPeriodRollupKey(
   }
 }
 
-/** Code-unit order, the same in every locale. */
-export function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
 function sortedRows<Row extends { key: string }>(groups: Map<string, Row>): Row[] {
-  return [...groups.values()].sort((left, right) => compareText(left.key, right.key));
+  return [...groups.values()].sort((left, right) => compareByCodePoint(left.key, right.key));
 }
 
 /**
@@ -183,7 +179,7 @@ export function rollupByDimension(
   }
 
   return [...groups.values()].sort(
-    (left, right) => compareText(left.key, right.key) || left.index - right.index,
+    (left, right) => compareByCodePoint(left.key, right.key) || left.index - right.index,
   );
 }
 

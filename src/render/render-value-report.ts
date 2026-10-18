@@ -6,11 +6,16 @@ import type {
   ValuePlanReport,
   ValueReportData,
 } from '../value/build-value-report.js';
-import { formatApproxUsd, formatInteger, formatSharePercent, formatUsd } from './format-number.js';
+import {
+  formatAbbreviatedTokenCount,
+  formatApproxUsd,
+  formatInteger,
+  formatSharePercent,
+  formatUsd,
+} from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { formatAbbreviatedTokenCount } from './row-cells.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';

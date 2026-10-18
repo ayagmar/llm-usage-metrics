@@ -3,7 +3,6 @@
 
 import type { ShareCostMode, ShareGranularity } from '../../../types.js';
 import {
-  compareText,
   COST_MODES,
   DIMENSION_DICTIONARY,
   getAvailableCostModes,
@@ -14,9 +13,11 @@ import {
   type ShareDimension,
   type ShareReport,
 } from '../../core/index.js';
-import { formatDay, pluralize } from '../shell/format.js';
+import { formatDay } from '../shell/format.js';
 import { COST_MODE_DETAILS, COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareLabels } from '../state/context.js';
+import { compareByCodePoint } from '../../../../../packages/core/src/utils/compare-by-code-point.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
 
 export const DIMENSION_LABELS: Record<ShareDimension, { one: string; many: string }> = {
   source: { one: 'Source', many: 'Sources' },
@@ -168,7 +169,7 @@ export function getFilterGroups(
     })).sort(
       (left, right) =>
         tokens[dimension][right.index] - tokens[dimension][left.index] ||
-        compareText(left.label, right.label),
+        compareByCodePoint(left.label, right.label),
     );
     const names = DIMENSION_LABELS[dimension];
     const summary =

@@ -6,13 +6,7 @@
 import { formatDuration } from '../../../../render/format-duration.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
-import {
-  formatCompact,
-  formatCount,
-  formatDateRange,
-  formatDay,
-  pluralize,
-} from '../shell/format.js';
+import { formatDateRange, formatDay } from '../shell/format.js';
 import {
   figure,
   FIXED_NOTE,
@@ -26,6 +20,8 @@ import {
   type LedePart,
   type PanelTable,
 } from './model.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 /** A bar in the series chart, in SVG user units. */
 export type TrendBar = {
@@ -81,12 +77,12 @@ function formatValue(value: number, metric: Metric, approximate = false): string
     return formatEnvelopeCost(value, approximate).text;
   }
 
-  return metric === 'active-hours' ? formatDuration(value) : formatCompact(value);
+  return metric === 'active-hours' ? formatDuration(value) : formatAbbreviatedTokenCount(value);
 }
 
 /** A value in full for tooltips and tables: exact tokens, dollars, or a duration. */
 function formatExact(value: number, metric: Metric, approximate = false): string {
-  return metric === 'tokens' ? formatCount(value) : formatValue(value, metric, approximate);
+  return metric === 'tokens' ? formatInteger(value) : formatValue(value, metric, approximate);
 }
 
 type Series = {
@@ -245,7 +241,7 @@ function splitTable(
 /** `2.17K tokens over 181 days, 12 a day on average, peaking at 970 on 15 Jun 2026.` */
 function buildLede(series: Series, metric: Metric, days: number): LedePart[] {
   if (series.observedDays === 0) {
-    const span = days === 1 ? 'on this day' : `in these ${formatCount(days)} days`;
+    const span = days === 1 ? 'on this day' : `in these ${formatInteger(days)} days`;
     return [words(`No ${METRIC_NAMES[metric]} ${span}.`)];
   }
 

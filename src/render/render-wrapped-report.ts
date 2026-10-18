@@ -4,7 +4,8 @@ import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { formatHours } from './format-duration.js';
-import { formatApproxUsd, formatInteger, pluralize } from './format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { formatApproxUsd, formatInteger } from './format-number.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,

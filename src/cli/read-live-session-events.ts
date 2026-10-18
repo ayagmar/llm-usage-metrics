@@ -7,7 +7,7 @@ import {
 } from '@ayagmar/agent-sessions';
 
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
-import { pluralize } from '../render/format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
 import type { UsageEventDataset } from './build-usage-event-dataset.js';
 import { mapWithConcurrency } from './history-live-files.js';
 import { createTimestampWindowFilter } from './parse/usage-event-filters.js';

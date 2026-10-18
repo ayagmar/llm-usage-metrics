@@ -2,7 +2,6 @@
 // `efficiency --json` data. Fixed at generation: the page's filters do not change it.
 
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
-import { formatCount } from '../shell/format.js';
 import {
   figure,
   FIXED_NOTE,
@@ -21,6 +20,7 @@ import {
   type PanelFact,
   type PanelView,
 } from './model.js';
+import { formatInteger } from '../../../../render/format-number.js';
 
 const NOTE = `From the efficiency command: commits and lines come from the git history of the repository it ran in. ${FIXED_NOTE}`;
 
@@ -96,7 +96,7 @@ function buildFacts(total: Record<string, unknown>): PanelFact[] {
     {
       label: 'Lines changed',
       value: formatCountOrNone(readNumber(total, 'linesChanged')),
-      detail: `${formatCount(added)} added, ${formatCount(deleted)} deleted`,
+      detail: `${formatInteger(added)} added, ${formatInteger(deleted)} deleted`,
     },
     { label: 'Cost per commit', value: rateCell(total, 'usdPerCommit').text },
     { label: 'Cost per 1k lines', value: rateCell(total, 'usdPer1kLinesChanged').text },
@@ -127,7 +127,7 @@ function buildLede(total: Record<string, unknown>): LedePart[] {
   }
 
   return [
-    figure(formatCount(commits)),
+    figure(formatInteger(commits)),
     words(' commits for '),
     figure(cost),
     words(': '),

@@ -4,8 +4,9 @@
 import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { getIsoDayOfWeek, parseDateKey } from '../../../../utils/date-key.js';
 import { WEEKDAY_LABELS } from '../../core/index.js';
-import { formatCount, formatDay } from '../shell/format.js';
+import { formatDay } from '../shell/format.js';
 import { readNumber, readString, type PanelTable } from './model.js';
+import { formatInteger } from '../../../../render/format-number.js';
 
 /** A day in the calendar: its week column, its weekday row (Monday 0) and its heat level. */
 export type CalendarDay = {
@@ -64,7 +65,7 @@ export function buildCalendar(
     const level = clampLevel(readNumber(day, 'level'));
 
     if (tokens > 0) {
-      active.push([{ text: formatDay(date) }, { text: formatCount(tokens) }]);
+      active.push([{ text: formatDay(date) }, { text: formatInteger(tokens) }]);
     }
 
     if (parts.day === 1) {
@@ -75,7 +76,7 @@ export function buildCalendar(
       week,
       weekday,
       level,
-      label: `${formatDay(date)}: ${tokens > 0 ? `${formatCount(tokens)} tokens` : 'no usage'}`,
+      label: `${formatDay(date)}: ${tokens > 0 ? `${formatInteger(tokens)} tokens` : 'no usage'}`,
     });
   }
 
