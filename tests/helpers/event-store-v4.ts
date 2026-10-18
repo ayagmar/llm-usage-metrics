@@ -87,6 +87,9 @@ export async function writeV4Store(
       ].join('\n'),
     );
 
+    // One transaction: a commit per row fsyncs per row on a disk-backed temp dir.
+    database.exec('BEGIN');
+
     for (const file of files) {
       insertFile.run(
         file.source,
@@ -118,6 +121,8 @@ export async function writeV4Store(
         );
       });
     }
+
+    database.exec('COMMIT');
   } finally {
     database.close();
   }
