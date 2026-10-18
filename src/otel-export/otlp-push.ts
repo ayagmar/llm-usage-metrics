@@ -52,8 +52,8 @@ export type OtlpPushResult = {
 
 type Batch = { body: string; items: number };
 
-/** Resources that go in one request together: a whole line, or a piece of a split one. */
-type BatchUnit = { resources: readonly unknown[]; items: number; bytes: number };
+/** One resource of a request: a whole line's, or a piece of a split one, with its JSON size. */
+type BatchUnit = { resource: unknown; items: number; bytes: number };
 
 /** Validates `--otlp-endpoint`: an http or https URL without credentials. */
 export function parseOtlpEndpoint(value: string): URL {
@@ -173,53 +173,74 @@ function toBody(signal: OtlpPushSignal, resources: unknown[]): string {
   );
 }
 
+/** The bytes of a request body holding `resourceCount` resources of `resourceBytes` total. */
+function bodyBytes(envelopeBytes: number, resourceBytes: number, resourceCount: number): number {
+  // The commas between the resources.
+  return envelopeBytes + resourceBytes + Math.max(0, resourceCount - 1);
+}
+
 /**
- * A traces line's spans in consecutive pieces of at most `maxBytes`, root span first, each
- * under the line's resource and scope. The spans keep their ids, so a backend joins the
- * pieces into one trace.
+ * A traces line's spans in consecutive pieces whose request body alone fits `maxBytes`, root
+ * span first, each under the line's resource and scope. The spans keep their ids, so a
+ * backend joins the pieces into one trace.
  */
-function splitTracesLine(line: OtlpTracesData, maxBytes: number): BatchUnit[] {
+function splitTracesLine(
+  line: OtlpTracesData,
+  maxBytes: number,
+  envelopeBytes: number,
+): BatchUnit[] {
   const [{ resource, scopeSpans }] = line.resourceSpans;
   const [scopeSpan] = scopeSpans;
   const toResource = (spans: OtlpSpan[]) => ({ resource, scopeSpans: [{ ...scopeSpan, spans }] });
   const emptyBytes = Buffer.byteLength(JSON.stringify(toResource([])));
   const units: BatchUnit[] = [];
   let spans: OtlpSpan[] = [];
+  // The piece's resource JSON: its spans plus the commas between them.
   let bytes = emptyBytes;
 
   for (const span of scopeSpan.spans) {
-    // The span and the comma before it.
-    const spanBytes = Buffer.byteLength(JSON.stringify(span)) + 1;
+    const spanBytes = Buffer.byteLength(JSON.stringify(span));
+    const grown = bytes + spanBytes + (spans.length > 0 ? 1 : 0);
 
-    if (spans.length > 0 && bytes + spanBytes > maxBytes) {
-      units.push({ resources: [toResource(spans)], items: spans.length, bytes });
+    if (spans.length > 0 && bodyBytes(envelopeBytes, grown, 1) > maxBytes) {
+      units.push({ resource: toResource(spans), items: spans.length, bytes });
       spans = [];
-      bytes = emptyBytes;
+      bytes = emptyBytes + spanBytes;
+    } else {
+      bytes = grown;
     }
 
     spans.push(span);
-    bytes += spanBytes;
   }
 
-  units.push({ resources: [toResource(spans)], items: spans.length, bytes });
+  units.push({ resource: toResource(spans), items: spans.length, bytes });
   return units;
 }
 
-/** Each export line as one unit, or a traces line larger than `maxBytes` as its pieces. */
-function toBatchUnits(signal: OtlpPushSignal, maxBytes: number): BatchUnit[] {
+/**
+ * Each export line's resource as one unit, or the pieces of a traces line whose request
+ * body alone would exceed `maxBytes`.
+ */
+function toBatchUnits(
+  signal: OtlpPushSignal,
+  maxBytes: number,
+  envelopeBytes: number,
+): BatchUnit[] {
   return Array.from({ length: signal.lines.length }, (_, index) => index).flatMap((index) => {
-    const bytes = Buffer.byteLength(JSON.stringify(signal.lines[index]));
+    const [resource] = resourcesOf(signal, index);
+    const bytes = Buffer.byteLength(JSON.stringify(resource));
 
-    if (signal.kind === 'traces' && bytes > maxBytes) {
-      return splitTracesLine(signal.lines[index], maxBytes);
+    if (signal.kind === 'traces' && bodyBytes(envelopeBytes, bytes, 1) > maxBytes) {
+      return splitTracesLine(signal.lines[index], maxBytes, envelopeBytes);
     }
 
-    return [{ resources: resourcesOf(signal, index), items: countItems(signal, index), bytes }];
+    return [{ resource, items: countItems(signal, index), bytes }];
   });
 }
 
-/** Units merged in export order, each batch under `maxBytes` when it can be. */
+/** Units merged in export order, each request body within `maxBytes` when it can be. */
 function buildBatches(signal: OtlpPushSignal, maxBytes: number): Batch[] {
+  const envelopeBytes = Buffer.byteLength(toBody(signal, []));
   const batches: Batch[] = [];
   let resources: unknown[] = [];
   let items = 0;
@@ -235,12 +256,15 @@ function buildBatches(signal: OtlpPushSignal, maxBytes: number): Batch[] {
     bytes = 0;
   };
 
-  for (const unit of toBatchUnits(signal, maxBytes)) {
-    if (bytes > 0 && bytes + unit.bytes > maxBytes) {
+  for (const unit of toBatchUnits(signal, maxBytes, envelopeBytes)) {
+    if (
+      resources.length > 0 &&
+      bodyBytes(envelopeBytes, bytes + unit.bytes, resources.length + 1) > maxBytes
+    ) {
       flush();
     }
 
-    resources.push(...unit.resources);
+    resources.push(unit.resource);
     items += unit.items;
     bytes += unit.bytes;
   }
