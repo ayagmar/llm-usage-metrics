@@ -3,47 +3,12 @@ import {
   calculateLongestStreak,
   findBusiestDay,
 } from '../aggregate/daily-activity.js';
-import { getEventSessionKey, IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
+import { computeUnionActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getIsoDayOfWeekFromDateKey, getLocalHour, getPeriodKey } from '../utils/time-buckets.js';
 import type { WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
 import { addUsd } from '../utils/usd-math.js';
-
-/** Wall-clock active time across sessions: each session's consecutive-event
- *  gaps (capped at IDLE_GAP_CAP_MS) become intervals, and overlapping intervals
- *  from parallel sessions count once. */
-function computeWallClockActiveMs(sessions: Iterable<readonly number[]>): number {
-  const intervals: [number, number][] = [];
-
-  for (const timestamps of sessions) {
-    const sorted = [...timestamps].sort((left, right) => left - right);
-
-    for (let index = 1; index < sorted.length; index += 1) {
-      const start = sorted[index - 1];
-      const end = Math.min(sorted[index], start + IDLE_GAP_CAP_MS);
-
-      if (end > start) {
-        intervals.push([start, end]);
-      }
-    }
-  }
-
-  intervals.sort((left, right) => left[0] - right[0]);
-  let activeMs = 0;
-  let coveredUntil = Number.NEGATIVE_INFINITY;
-
-  for (const [start, end] of intervals) {
-    if (end <= coveredUntil) {
-      continue;
-    }
-
-    activeMs += end - Math.max(start, coveredUntil);
-    coveredUntil = end;
-  }
-
-  return activeMs;
-}
 
 export type AggregateWrappedOptions = {
   year: number;
@@ -230,7 +195,7 @@ export function aggregateWrapped(
   }
 
   const sortedDateKeys = [...activeDateKeys].sort(compareByCodePoint);
-  const activeMs = computeWallClockActiveMs(sessionTimestamps.values());
+  const activeMs = computeUnionActiveMs(sessionTimestamps.values());
 
   let peakHour: WrappedRecap['peakHour'];
 

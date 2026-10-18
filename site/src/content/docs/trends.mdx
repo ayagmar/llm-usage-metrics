@@ -72,7 +72,7 @@ llm-usage trends --last 14 --share
 
 ### `--metric active-hours`
 
-- Charts per-day active time: each day's events are grouped by session, gaps between consecutive events are capped at 5 minutes, and the per-session results are summed.
+- Charts per-day active time: each day's events are grouped by session, gaps between consecutive events are capped at 5 minutes, and time where sessions overlap counts once, so a day never exceeds 24h. The total is wall-clock time, matching `wrapped`'s `Hours`; with `--by-source` or `--by-repo`, each series takes the union of its own sessions, so when sources or projects ran in parallel the series can add up to more than the total.
 - A session crossing midnight splits at the day boundary: each day counts only the gaps between that day's events.
 - Terminal and Markdown output format durations (`2h 14m`); JSON `value`, `total`, `average`, and `peak.value` are **milliseconds**, matching session `activeMs`.
 - Skips pricing loads entirely, like `tokens`.
