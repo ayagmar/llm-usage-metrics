@@ -278,15 +278,19 @@ async function readBody(
   }
 }
 
+// Shorter header values and words are left in place: a value like `t1` would blank out
+// unrelated text, and a credential is longer.
+const MIN_REDACTED_CHARS = 8;
+
 /**
- * `text` without the header values: each value, and each word of 8 or more characters in
- * one, becomes `[redacted]`, so a receiver or proxy that echoes `Authorization: Bearer
+ * `text` without the header values: each value, and each word in one, of 8 characters or
+ * more becomes `[redacted]`, so a receiver or proxy that echoes `Authorization: Bearer
  * <token>` or the bare token does not print it.
  */
 function redactHeaderValues(text: string, headers: Record<string, string>): string {
   const secrets = Object.values(headers)
-    .flatMap((value) => [value, ...value.split(/\s+/u).filter((word) => word.length >= 8)])
-    .filter((secret) => secret.trim() !== '')
+    .flatMap((value) => [value.trim(), ...value.split(/\s+/u)])
+    .filter((secret) => secret.length >= MIN_REDACTED_CHARS)
     // Longest first, so a whole value goes before the words inside it.
     .sort((left, right) => right.length - left.length);
 
@@ -421,7 +425,8 @@ async function postBatch(
 /**
  * POSTs the export lines to `<endpoint>/v1/traces` or `/v1/metrics`, batched and in order.
  * A 429, 502, 503 or 504 is retried after its `Retry-After`, else after a delay that doubles
- * each time, for up to `MAX_ATTEMPTS` attempts. Stops at the first failed request; the error says how much was sent before it.
+ * each time, for up to `MAX_ATTEMPTS` attempts. Stops at the first failed request; the error
+ * says how much was sent before it.
  */
 export async function pushOtlp(
   endpoint: URL,
