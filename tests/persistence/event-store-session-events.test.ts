@@ -344,6 +344,26 @@ describe('schema v5 migration', () => {
     expect((await readEventStoreEvents(storePath)).events).toEqual(events);
   });
 
+  it('returns the space of the v4 tables it copied', async () => {
+    const storePath = await createStorePath();
+    const fingerprint = serializeEventStoreFingerprint(FINGERPRINT);
+    const events = Array.from({ length: 2_000 }, (_, index) => usageEvent(`session-${index}`));
+    await writeV4Store(storePath, [
+      { source: 'codex', filePath: '/logs/a.jsonl', fingerprint, events },
+    ]);
+
+    const store = await openEventStore(storePath);
+
+    try {
+      expect(store.database.prepare('PRAGMA freelist_count').get()).toEqual({
+        freelist_count: 0,
+      });
+      expect(readFileEvents(store, 'codex', '/logs/a.jsonl')).toEqual(events);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
   it('reads a v4 store whole while another connection migrates it', async () => {
     const storePath = await createStorePath();
     const events = [usageEvent('a'), usageEvent('b')];
