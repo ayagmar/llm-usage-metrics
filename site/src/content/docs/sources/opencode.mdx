@@ -17,6 +17,8 @@ description: Discovery paths, overrides, and usage parsing for OpenCode.
 
    Per directory, the adapter looks for `opencode.db` first, then `opencode-<channel>.db` variants sorted by name, then `db.sqlite`. OpenCode keeps one database per release channel, so every readable `opencode.db` and `opencode-<channel>.db` in the first directory that has one is read; `db.sqlite` is read only when neither exists there
 
+   `opencode-next.db` is skipped. It is the pre-release V2 database, which OpenCode 2 imports into `opencode.db` on start, so reading both would count its sessions twice. Passed with `--opencode-db`, it fails with an error that points at `opencode.db`
+
 ```bash
 llm-usage daily --source opencode --opencode-db /path/to/opencode.db
 ```

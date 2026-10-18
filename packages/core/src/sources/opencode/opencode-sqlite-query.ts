@@ -217,6 +217,12 @@ export function queryOpenCodeMessageRows(
       : undefined;
 
   if (!v1) {
+    if (!v2Rows && sessionMessage && resolveIdentifierCaseInsensitive(tableNames, ['session'])) {
+      throw new Error(
+        'This is the pre-release OpenCode V2 database (opencode-next.db): OpenCode 2 imports it into opencode.db on start. Read opencode.db instead.',
+      );
+    }
+
     if (!v2Rows) {
       throw new Error(
         'OpenCode schema drift: no "message" table (V1) or "session_message" and "session_v2" tables (V2) found. Inspect schema with `opencode db` commands.',
