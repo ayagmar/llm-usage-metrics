@@ -23,5 +23,7 @@ acme-internal-1
   Peak            9,000
   >200k               0
   Tier extra          -
+  Limit               -
+  >80% limit          -
 
 Aggregated, not per request: codex (1 record). Their records sum several requests, so they have no peak or tier counts.
