@@ -840,7 +840,8 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
       .option(
         '--otlp-endpoint <url>',
         'With an OTLP format: POST to <url>/v1/traces or /v1/metrics (unless <url> already ends with it) instead of printing; headers from OTEL_EXPORTER_OTLP_HEADERS',
-      );
+      )
+      .option('--last <n>', 'Export the last N days, counting today');
     addFullHistoryOption(command);
     addRepoFilterOption(command).action((options: EventsCommandOptions) =>
       runEventsReport(options),

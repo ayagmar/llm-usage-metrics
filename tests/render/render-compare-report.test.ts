@@ -128,7 +128,7 @@ describe('renderCompareReport', () => {
     expect(output).toContain('Input');
     expect(output).toContain('+20');
     expect(output).toContain('~$3.00');
-    expect(output).toContain('~+$1.00');
+    expect(output).toContain('+~$1.00');
     expect(output).toContain('By source (cost)');
     expect(output).toContain('co|dex');
   });
@@ -164,7 +164,7 @@ describe('renderCompareReport', () => {
 
     expect(output).toContain('### Compare: 2026-06 vs 2026-05');
     expect(output).toContain('| Metric');
-    expect(output).toContain('~+$1.00');
+    expect(output).toContain('+\\~$1.00');
     expect(output).toContain('co\\|dex');
   });
 

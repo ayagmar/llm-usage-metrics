@@ -3,6 +3,12 @@ import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 const billingProviderAliases = new Map<string, string>([
   ['openai-codex', 'openai'],
   ['github-copilot', 'github'],
+  // Built-in pi providers that bill through another vendor's API.
+  ['claude-bridge', 'anthropic'],
+  ['google-gemini-cli', 'google'],
+  ['google-antigravity', 'google'],
+  ['deepseek-official', 'deepseek'],
+  ['kimi-coding', 'moonshot'],
 ]);
 
 const billingProviderPrefixAliases: Array<[prefix: string, billingProvider: string]> = [

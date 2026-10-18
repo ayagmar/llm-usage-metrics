@@ -69,6 +69,27 @@ describe('aggregateWrapped', () => {
     });
   });
 
+  it('counts overlapping time from parallel sessions across sources once', () => {
+    const at = (source: string, sessionId: string, time: string) =>
+      baseEvent({ source, sessionId, timestamp: `2026-01-05T${time}:00.000Z` });
+    const recap = aggregateWrapped(
+      [
+        // pi session covers 10:00-10:08.
+        at('pi', 'pi-1', '10:00'),
+        at('pi', 'pi-1', '10:04'),
+        at('pi', 'pi-1', '10:08'),
+        // codex session covers 10:02-10:11 (its 6m gap is capped at 5m).
+        at('codex', 'codex-1', '10:02'),
+        at('codex', 'codex-1', '10:06'),
+        at('codex', 'codex-1', '10:12'),
+      ],
+      { year: 2026, timezone: 'UTC' },
+    );
+
+    // Union 10:00-10:11, not the 8m + 9m per-session sum.
+    expect(recap.activeMs).toBe(11 * 60 * 1000);
+  });
+
   it('leaves time stats empty for an empty year', () => {
     const recap = aggregateWrapped([], { year: 2026, timezone: 'UTC' });
 

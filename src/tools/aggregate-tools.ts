@@ -47,7 +47,8 @@ type CountAccumulator = {
 };
 
 type RowAccumulator = CountAccumulator & {
-  name: string;
+  /** Calls per spelling of the name; sources disagree on case (`Read`, `read`). */
+  callsByName: Map<string, number>;
   source?: string;
   repoRoot?: string | null;
   callsByRepoRoot: Map<string | null, number>;
@@ -74,6 +75,23 @@ function toCounts(accumulator: CountAccumulator): ToolCallCounts {
     errorRate: known === 0 ? null : accumulator.errors / known,
     sessions: accumulator.sessions.size,
   };
+}
+
+/** The spelling with most calls, then the first in code-point order. */
+function findDisplayName(callsByName: ReadonlyMap<string, number>): string {
+  let top: [string, number] | undefined;
+
+  for (const entry of callsByName) {
+    if (
+      top === undefined ||
+      entry[1] > top[1] ||
+      (entry[1] === top[1] && compareByCodePoint(entry[0], top[0]) < 0)
+    ) {
+      top = entry;
+    }
+  }
+
+  return top?.[0] ?? '';
 }
 
 /** Most calls, then the key in code-point order with no root last. */
@@ -106,7 +124,7 @@ function compareRepoRoots(left: string | null, right: string | null): number {
 }
 
 /**
- * One row per tool name (split by source and project when asked), most calls first, then
+ * One row per tool name, case-folded (split by source and project when asked), most calls first, then
  * by name, source and project; and the totals over every call.
  */
 export function aggregateTools(
@@ -122,13 +140,14 @@ export function aggregateTools(
     const repoRoot = toProjectKey(options.sessionRepoRoots.get(sessionKey)) ?? null;
     const source = options.bySource ? call.source : undefined;
     const rowRepoRoot = options.byRepo ? repoRoot : undefined;
-    const key = [call.name, source ?? '', rowRepoRoot ?? ''].join('\0');
+    const foldedName = call.name.toLowerCase();
+    const key = [foldedName, source ?? '', rowRepoRoot ?? ''].join('\0');
     let row = rows.get(key);
 
     if (!row) {
       row = {
         ...createCountAccumulator(),
-        name: call.name,
+        callsByName: new Map(),
         ...(source === undefined ? {} : { source }),
         ...(rowRepoRoot === undefined ? {} : { repoRoot: rowRepoRoot }),
         callsByRepoRoot: new Map(),
@@ -137,13 +156,14 @@ export function aggregateTools(
     }
 
     addCall(row, call, sessionKey);
+    row.callsByName.set(call.name, (row.callsByName.get(call.name) ?? 0) + 1);
     row.callsByRepoRoot.set(repoRoot, (row.callsByRepoRoot.get(repoRoot) ?? 0) + 1);
     addCall(totals, call, sessionKey);
-    names.add(call.name);
+    names.add(foldedName);
   }
 
   const toolRows = [...rows.values()].map((row): ToolRow => ({
-    name: row.name,
+    name: findDisplayName(row.callsByName),
     ...(row.source === undefined ? {} : { source: row.source }),
     ...(row.repoRoot === undefined ? {} : { repoRoot: row.repoRoot }),
     ...toCounts(row),

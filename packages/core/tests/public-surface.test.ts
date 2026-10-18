@@ -47,6 +47,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'collect',
     'collectFile',
     'computeActiveMs',
+    'computeUnionActiveMs',
     'computeEventContentHash',
     'copiedSessions',
     'createMessageEvent',

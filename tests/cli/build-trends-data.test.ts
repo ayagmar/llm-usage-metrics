@@ -177,6 +177,48 @@ describe('buildTrendsData', () => {
     expect(result.diagnostics.pricingOrigin).toBe('none');
   });
 
+  it('counts parallel sessions across and within sources once in active-hours', async () => {
+    const at = (source: 'pi' | 'codex', sessionId: string, time: string) =>
+      createBaseEvent({ source, sessionId, timestamp: `2026-03-05T${time}:00.000Z` });
+
+    const result = await buildTrendsData(
+      {
+        metric: 'active-hours',
+        since: '2026-03-05',
+        until: '2026-03-05',
+        timezone: 'UTC',
+        bySource: true,
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-05T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              // Two parallel pi sessions: 10:00-10:08 and 10:04-10:09 (6m gap capped at 5m).
+              at('pi', 'pi-a', '10:00'),
+              at('pi', 'pi-a', '10:04'),
+              at('pi', 'pi-a', '10:08'),
+              at('pi', 'pi-b', '10:04'),
+              at('pi', 'pi-b', '10:10'),
+            ],
+          }),
+          createAdapter('codex', {
+            '/tmp/codex.jsonl': [
+              // codex 10:06-10:11, overlapping both pi sessions.
+              at('codex', 'codex-a', '10:06'),
+              at('codex', 'codex-a', '10:12'),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    const minutes = (ms: number | undefined) => (ms ?? 0) / 60_000;
+    // Wall clock 10:00-10:11, not 8 + 5 + 5 summed.
+    expect(minutes(result.totalSeries.buckets[0]?.value)).toBe(11);
+    expect(result.sourceSeries?.map((series) => minutes(series.buckets[0]?.value))).toEqual([9, 5]);
+  });
+
   it('uses explicit trailing day ranges when --last is provided', async () => {
     const result = await buildTrendsData(
       {

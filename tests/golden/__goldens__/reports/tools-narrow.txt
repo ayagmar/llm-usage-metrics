@@ -3,9 +3,17 @@
 └───────────────────┘
 
 Bash
-  Calls            4
+  Calls            5
   Errors           1
-  Error Rate   25.0%
+  Error Rate   20.0%
+  Unknown          0
+  Sessions         3
+  Top Project  a/api
+
+Read
+  Calls            3
+  Errors           1
+  Error Rate   33.3%
   Unknown          0
   Sessions         2
   Top Project  a/api
@@ -18,15 +26,7 @@ exec_command
   Sessions         1
   Top Project  tools
 
-Read
-  Calls            2
-  Errors           0
-  Error Rate    0.0%
-  Unknown          0
-  Sessions         1
-  Top Project  a/api
-
-TOTAL (all 9)
+TOTAL (all 7)
   Calls           15
   Errors           4
   Error Rate   30.8%

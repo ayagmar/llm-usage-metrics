@@ -8,7 +8,7 @@ Arguments:
               summary, tools, trends, usage, value, wrapped
 
 Options:
-  --list      List available schema names
+  --list      List available schema names (the default without a name)
   -h, --help  display help for command
 
 Examples:

@@ -180,7 +180,7 @@ describe('gen_ai.provider.name', () => {
     ['azure-openai', 'azure.ai.openai'],
     ['azure-openai-responses', 'azure.ai.openai'],
     // Other Google and Azure ids do not say which well-known endpoint they are.
-    ['google-gemini-cli', 'google-gemini-cli'],
+    ['google-custom', 'google-custom'],
     ['azure-east', 'azure-east'],
     // No well-known value: passes through as a custom value.
     ['github', 'github'],

@@ -7,14 +7,24 @@
     "until": null,
     "bySource": false,
     "byRepo": false,
-    "rowCount": 9,
+    "rowCount": 7,
     "rows": [
       {
         "name": "Bash",
-        "calls": 4,
+        "calls": 5,
         "errors": 1,
         "unknown": 0,
-        "errorRate": 0.25,
+        "errorRate": 0.2,
+        "sessions": 3,
+        "topRepoRoot": "/w/a/api",
+        "topProject": "a/api"
+      },
+      {
+        "name": "Read",
+        "calls": 3,
+        "errors": 1,
+        "unknown": 0,
+        "errorRate": 0.3333333333333333,
         "sessions": 2,
         "topRepoRoot": "/w/a/api",
         "topProject": "a/api"
@@ -28,16 +38,6 @@
         "sessions": 1,
         "topRepoRoot": "/w/c/tools",
         "topProject": "tools"
-      },
-      {
-        "name": "Read",
-        "calls": 2,
-        "errors": 0,
-        "unknown": 0,
-        "errorRate": 0,
-        "sessions": 1,
-        "topRepoRoot": "/w/a/api",
-        "topProject": "a/api"
       },
       {
         "name": "Edit",
@@ -70,26 +70,6 @@
         "topProject": "tools"
       },
       {
-        "name": "bash",
-        "calls": 1,
-        "errors": 0,
-        "unknown": 0,
-        "errorRate": 0,
-        "sessions": 1,
-        "topRepoRoot": null,
-        "topProject": "(unattributed)"
-      },
-      {
-        "name": "read",
-        "calls": 1,
-        "errors": 1,
-        "unknown": 0,
-        "errorRate": 1,
-        "sessions": 1,
-        "topRepoRoot": null,
-        "topProject": "(unattributed)"
-      },
-      {
         "name": "web_search",
         "calls": 1,
         "errors": 0,
@@ -106,7 +86,7 @@
       "unknown": 2,
       "errorRate": 0.3076923076923077,
       "sessions": 4,
-      "tools": 9
+      "tools": 7
     }
   }
 }

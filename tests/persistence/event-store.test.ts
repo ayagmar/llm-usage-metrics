@@ -332,6 +332,7 @@ type FakeSqliteModule = {
 
 function createFakeSqliteModule(
   rowsBySql: Record<string, Record<string, unknown> | undefined> = {},
+  allRowsBySql: Record<string, Record<string, unknown>[]> = {},
 ): FakeSqliteModule {
   const fakeSqlite: FakeSqliteModule = {
     DatabaseSync: class {
@@ -346,7 +347,7 @@ function createFakeSqliteModule(
       prepare(sql: string) {
         fakeSqlite.prepareCalls.push(sql);
         return {
-          all: () => [],
+          all: () => allRowsBySql[sql] ?? [],
           // The file upsert returns the file's id.
           get: () => rowsBySql[sql] ?? (sql.endsWith('RETURNING id') ? { id: 1 } : undefined),
           run: () => undefined,
@@ -1925,12 +1926,19 @@ END;
   });
 
   it('reads summaries through a read-only connection with a busy timeout', async () => {
-    const fakeSqlite = createFakeSqliteModule({
-      "SELECT value FROM meta WHERE key = 'schemaVersion'": { value: EVENT_STORE_SCHEMA_VERSION },
-      'SELECT COUNT(*) AS count FROM events': { count: 5 },
-      'SELECT COUNT(*) AS count FROM tool_calls': { count: 3 },
-      'SELECT COUNT(*) AS count FROM messages': { count: 2 },
-    });
+    const fakeSqlite = createFakeSqliteModule(
+      {
+        "SELECT value FROM meta WHERE key = 'schemaVersion'": { value: EVENT_STORE_SCHEMA_VERSION },
+        'SELECT COUNT(*) AS count FROM events': { count: 5 },
+        'SELECT COUNT(*) AS count FROM tool_calls': { count: 3 },
+        'SELECT COUNT(*) AS count FROM messages': { count: 2 },
+      },
+      {
+        "SELECT name\nFROM sqlite_master\nWHERE type = 'table' AND name NOT LIKE 'sqlite_%'\nORDER BY name ASC":
+          [{ name: 'meta' }, { name: 'events' }],
+        'SELECT name FROM pragma_table_info(?)': [{ name: 'file_id' }],
+      },
+    );
 
     await expect(readEventStoreSummary('/tmp/events.db', async () => fakeSqlite)).resolves.toEqual({
       eventCount: 5,

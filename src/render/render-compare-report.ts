@@ -52,7 +52,7 @@ function formatDeltaUsd(
 
   const sign = options.signed && value !== 0 ? (value > 0 ? '+' : '-') : '';
   const formatted = formatUsd(Math.abs(value));
-  return `${options.approximate ? '~' : ''}${sign}${formatted}`;
+  return `${sign}${options.approximate ? '~' : ''}${formatted}`;
 }
 
 function formatPercent(value: number | undefined): string {

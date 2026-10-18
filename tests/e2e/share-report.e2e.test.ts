@@ -570,14 +570,16 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
   });
 
   it('--share --redact keeps paths and local names out of stderr, except the file written', async () => {
-    const notRepoDir = path.join(environment.rootDir, 'public acme-not-a-repo');
-    await mkdir(notRepoDir);
+    const { repoDir: acmeRepoDir } = await createGitFixtureRepo(
+      path.join(environment.rootDir, 'public acme-repo'),
+      [{ date: '2026-06-10T10:00:00Z', message: 'feat: one', files: { 'a.txt': 'a\n' } }],
+    );
     const runs: [string[], string?][] = [
       [
         ['optimize', 'daily', '--provider', 'anthropic', '--candidate-model', 'Acme-Local-Model'],
         'claude',
       ],
-      [['efficiency', 'weekly', '--repo-dir', notRepoDir]],
+      [['efficiency', 'weekly', '--repo-dir', acmeRepoDir]],
     ];
 
     for (const [index, [args, source]] of runs.entries()) {
@@ -589,7 +591,7 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
       // The plain run prints what --redact must hide, so the check below means something.
       expect(plain.toLowerCase()).toContain('acme-');
       expect(redacted.join('\n')).toMatch(
-        /Missing pricing for candidate model\(s\): model-\d|<path> is not a git repository/u,
+        /Missing pricing for candidate model\(s\): model-\d|Git outcomes .*\(<path>\)/u,
       );
 
       for (const line of redacted) {

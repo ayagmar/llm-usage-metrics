@@ -60,6 +60,20 @@ describe('runEfficiencyReport diagnostics', () => {
     expect(stderr).toContain('Usage filters (--model) narrow.');
   });
 
+  it('groups thousands in repo-attributed usage event counts', async () => {
+    const stderr = await runStderr(
+      efficiencyData({
+        repoMatchedUsageEvents: 1200,
+        repoExcludedUsageEvents: 75739,
+        repoUnattributedUsageEvents: 65430,
+      }),
+    );
+
+    expect(stderr).toContain(
+      'Repo-attributed usage events: 1,200 matched, 75,739 excluded, 65,430 unattributed',
+    );
+  });
+
   it.each([
     [1, 'Skipped 1 malformed git commit boundary'],
     [2, 'Skipped 2 malformed git commit boundaries'],

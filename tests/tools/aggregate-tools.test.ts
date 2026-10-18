@@ -122,6 +122,26 @@ describe('aggregateTools', () => {
     expect(byRepo.rows[0]).not.toHaveProperty('source');
   });
 
+  it('merges names that differ only in case under the most used spelling', () => {
+    const { rows, totals } = aggregateTools(
+      [
+        call('read', 'ok', { source: 'pi' }),
+        call('Read', 'ok'),
+        call('Read', 'error'),
+        call('mcp__custom-tools__bash', 'ok'),
+        call('bash', 'ok', { source: 'pi' }),
+      ],
+      { sessionRepoRoots },
+    );
+
+    expect(rows.map((row) => [row.name, row.calls])).toEqual([
+      ['Read', 3],
+      ['bash', 1],
+      ['mcp__custom-tools__bash', 1],
+    ]);
+    expect(totals.tools).toBe(3);
+  });
+
   it('orders rows by calls, then by name', () => {
     const { rows } = aggregateTools(
       [call('b', 'ok'), call('a', 'ok'), call('c', 'ok'), call('c', 'ok')],

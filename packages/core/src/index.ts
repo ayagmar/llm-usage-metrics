@@ -1,4 +1,4 @@
-export { computeActiveMs, IDLE_GAP_CAP_MS } from './domain/active-time.js';
+export { computeActiveMs, computeUnionActiveMs, IDLE_GAP_CAP_MS } from './domain/active-time.js';
 export { normalizeTimestamp, type NumberLike } from './domain/normalization.js';
 export {
   USAGE_EVENT_NORMALIZATION_VERSION,

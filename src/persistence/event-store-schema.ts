@@ -148,7 +148,12 @@ function listUserTableNames(database: EventStoreDatabase): string[] {
     .filter((name): name is string => Boolean(name));
 }
 
-function readSchemaVersion(database: EventStoreDatabase): string | undefined {
+/**
+ * The store's schema version. A pre-release build stamped v5 before v5 keyed events by
+ * file id, so a v5 store whose events lack `file_id` still has the v4 layout: it reads as
+ * v4, and opening it for writes migrates it.
+ */
+export function readSchemaVersion(database: EventStoreDatabase): string | undefined {
   const tableNames = new Set(listUserTableNames(database));
 
   if (!tableNames.has('meta')) {
@@ -158,7 +163,18 @@ function readSchemaVersion(database: EventStoreDatabase): string | undefined {
   const schemaVersionRow = database
     .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
     .get();
-  return toText(schemaVersionRow?.value);
+  const schemaVersion = toText(schemaVersionRow?.value);
+
+  return schemaVersion === '5' && tableNames.has('events') && !hasEventsFileIdColumn(database)
+    ? '4'
+    : schemaVersion;
+}
+
+function hasEventsFileIdColumn(database: EventStoreDatabase): boolean {
+  return database
+    .prepare('SELECT name FROM pragma_table_info(?)')
+    .all('events')
+    .some((row) => row.name === 'file_id');
 }
 
 function createFreshSchema(database: EventStoreDatabase): void {
@@ -294,7 +310,9 @@ function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
 // layout. An event row without a files row was never read by a report's file lookups; it
 // is left behind. Files stored before v5 have no tool call or message rows. The stored
 // fingerprint of a source that keeps them changed with v5, so its files on disk re-ingest
-// on the next run. v4 rows have no single-request flag; it is set for the sources whose
+// on the next run.
+// A pre-release build that stamped v5 over the v4 tables may have left tool call and message
+// tables in an older layout: they are dropped, and their files re-ingest with the rest. v4 rows have no single-request flag; it is set for the sources whose
 // every event was one request then.
 /** Whether this call copied the tables; false when the store was not at v4. */
 export function migrateSchemaV4ToV5(database: EventStoreDatabase): boolean {
@@ -309,6 +327,8 @@ export function migrateSchemaV4ToV5(database: EventStoreDatabase): boolean {
 ALTER TABLE files RENAME TO v4_files;
 ALTER TABLE events RENAME TO v4_events;
 DROP INDEX IF EXISTS events_content_hash;
+DROP TABLE IF EXISTS tool_calls;
+DROP TABLE IF EXISTS messages;
 ${createFileTablesSql()}
 INSERT INTO files (source, file_path, fingerprint, skipped_rows, skipped_row_reasons, ingested_at)
 SELECT source, file_path, fingerprint, skipped_rows, skipped_row_reasons, ingested_at

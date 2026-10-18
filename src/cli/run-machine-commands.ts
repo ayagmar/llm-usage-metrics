@@ -21,6 +21,8 @@ export type MachineCommandDeps = {
   spawnSsh?: SpawnSsh;
   now?: () => number;
   print?: (line: string) => void;
+  /** Where a failed sync's lines go; stderr by default. */
+  printError?: (line: string) => void;
 };
 
 export type MachineAddOptions = { command?: string };
@@ -159,6 +161,7 @@ export async function runSync(
   deps: MachineCommandDeps = {},
 ): Promise<void> {
   const print = deps.print ?? console.log;
+  const printError = deps.printError ?? console.error;
   const machines = await loadConfiguredMachines();
   const unknownNames = names.filter((name) => !Object.hasOwn(machines, name));
 
@@ -194,7 +197,7 @@ export async function runSync(
       });
 
       for (const line of renderSyncOutcome(outcome, (deps.now ?? Date.now)())) {
-        print(line);
+        (outcome.ok ? print : printError)(line);
       }
 
       return outcome;

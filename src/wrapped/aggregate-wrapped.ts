@@ -3,7 +3,7 @@ import {
   calculateLongestStreak,
   findBusiestDay,
 } from '../aggregate/daily-activity.js';
-import { computeActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
+import { computeUnionActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getIsoDayOfWeekFromDateKey, getLocalHour, getPeriodKey } from '../utils/time-buckets.js';
@@ -195,11 +195,7 @@ export function aggregateWrapped(
   }
 
   const sortedDateKeys = [...activeDateKeys].sort(compareByCodePoint);
-  let activeMs = 0;
-
-  for (const timestamps of sessionTimestamps.values()) {
-    activeMs += computeActiveMs(timestamps);
-  }
+  const activeMs = computeUnionActiveMs(sessionTimestamps.values());
 
   let peakHour: WrappedRecap['peakHour'];
 

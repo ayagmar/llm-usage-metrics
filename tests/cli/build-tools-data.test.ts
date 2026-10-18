@@ -46,17 +46,15 @@ describe('buildToolsData', () => {
     const result = await build();
 
     expect(result.defaultWindowSince).toBe('2026-06-15');
-    expect(result.data).toMatchObject({ since: '2026-06-15', until: null, rowCount: 9 });
-    // Bash: claude-a's 3 plus claude-b's own call; toolu-1 in claude-b is a copy.
+    expect(result.data).toMatchObject({ since: '2026-06-15', until: null, rowCount: 7 });
+    // Bash: claude-a's 3, claude-b's own call and pi's bash; toolu-1 in claude-b is a copy.
     expect(summarize(result.data.rows)).toEqual([
-      ['Bash', 4],
+      ['Bash', 5],
+      ['Read', 3],
       ['exec_command', 3],
-      ['Read', 2],
       ['Edit', 1],
       ['Grep', 1],
       ['apply_patch', 1],
-      ['bash', 1],
-      ['read', 1],
       ['web_search', 1],
     ]);
     expect(result.data.totals).toMatchObject({ calls: 15, errors: 4, unknown: 2, sessions: 4 });
@@ -69,7 +67,8 @@ describe('buildToolsData', () => {
     expect(topProjects.get('Bash')).toBe('a/api');
     expect(topProjects.get('Grep')).toBe('b/api');
     expect(topProjects.get('exec_command')).toBe('tools');
-    expect(topProjects.get('bash')).toBe('(unattributed)');
+    const pi = await build({ source: 'pi' });
+    expect(pi.data.rows.find((row) => row.name === 'bash')?.topProject).toBe('(unattributed)');
   });
 
   it('honours --all, --last and --since/--until', async () => {
@@ -117,9 +116,9 @@ describe('buildToolsData', () => {
     const all = await build({ top: '0' });
 
     expect(top.data.rows).toHaveLength(2);
-    expect(top.data.rowCount).toBe(9);
+    expect(top.data.rowCount).toBe(7);
     expect(top.data.totals.calls).toBe(15);
-    expect(top.limitNote).toBe('Showing top 2 of 9 tools by calls. Use --top 0 for all.');
+    expect(top.limitNote).toBe('Showing top 2 of 7 tools by calls. Use --top 0 for all.');
     expect(all.limitNote).toBeUndefined();
     await expect(build({ top: '-1' })).rejects.toThrow('--top must be a non-negative integer');
   });

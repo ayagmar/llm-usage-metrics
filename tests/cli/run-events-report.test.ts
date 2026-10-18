@@ -255,6 +255,29 @@ describe('run-events-report', () => {
     expect(row.endsWith(',600,615,0.3,explicit,,400')).toBe(true);
   });
 
+  it('exports only the last N days, counting today, with --last', async () => {
+    const output = captureOutput();
+
+    try {
+      await runEventsReport(
+        { timezone: 'UTC', last: '7' },
+        { ...runtimeDeps(fixtureAdapters()), now: () => new Date('2026-02-01T18:00:00.000Z') },
+      );
+    } finally {
+      output.restore();
+    }
+
+    const lines = output.stdout().trimEnd().split('\n');
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({ timestamp: '2026-02-01T12:00:00.000Z' });
+  });
+
+  it('rejects --last combined with --since', async () => {
+    await expect(
+      runEventsReport({ last: '7', since: '2026-01-01' }, runtimeDeps([])),
+    ).rejects.toThrow('--last cannot be combined with --since, --until, or --all');
+  });
+
   it('rejects unknown formats', async () => {
     await expect(runEventsReport({ format: 'tsv' }, runtimeDeps([]))).rejects.toThrow(
       '--format must be one of: jsonl, csv',

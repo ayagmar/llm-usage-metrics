@@ -364,6 +364,23 @@ describe('reports with other machines', () => {
     ]);
   });
 
+  it('print no machines note when every machine was left out', async () => {
+    const unreachable = createInProcessRemote({
+      ...remote,
+      fail: { exitCode: 255, stderr: 'ssh: connect to host laptop port 22: No route to host' },
+    });
+    await writeFile(
+      path.join(rootDir, 'local', 'data', 'llm-usage-metrics', 'machines', 'laptop.db'),
+      'not sqlite',
+    );
+    const dataset = await buildDataset({ timezone: 'UTC' }, { spawnSsh: unreachable.spawnSsh });
+
+    expect(dataset.warnings).toContainEqual(
+      expect.stringMatching(/^Left out machine laptop: its cache cannot be read/),
+    );
+    expect(dataset.notes.filter((note) => note.startsWith('Machines:'))).toEqual([]);
+  });
+
   it('leave other machines out of a run pointed at a custom source directory', async () => {
     const dataset = await buildDataset({
       timezone: 'UTC',

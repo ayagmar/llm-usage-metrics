@@ -623,9 +623,9 @@ describe('Codex forks written before the copied block had an end marker', () => 
     const dirAdapter = new CodexSourceAdapter({ dir });
     const current = await getFileFingerprint(dirAdapter, forkPath);
     // Builds of M15 shipped Codex parser versions 4 and 5 with other fork output.
-    const stored = { dependencies: current?.dependencies ?? [], parserVersion: 'n3.p5' };
+    const stored = { dependencies: current?.dependencies ?? [], parserVersion: 'n4.p5' };
 
     await expect(getFileFingerprint(dirAdapter, forkPath, stored)).resolves.toEqual(current);
-    expect(current?.parserVersion).toBe('n3.p6');
+    expect(current?.parserVersion).toBe('n4.p6');
   });
 });

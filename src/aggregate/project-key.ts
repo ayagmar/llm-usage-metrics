@@ -26,9 +26,38 @@ export function stripTrailingSeparators(value: string): string {
   return value.slice(0, end);
 }
 
-/** The project key of an event: its raw `repoRoot` without trailing separators. */
+/** The directory above the first `node_modules` segment, or `value` without one. */
+function stripDependencyPath(value: string): string {
+  let cut = value.length;
+
+  for (const separator of ['/', '\\']) {
+    const needle = `${separator}node_modules`;
+
+    for (let index = value.indexOf(needle); index >= 0; index = value.indexOf(needle, index + 1)) {
+      const end = index + needle.length;
+
+      if (end === value.length || isSeparator(value[end])) {
+        cut = Math.min(cut, index);
+        break;
+      }
+    }
+  }
+
+  // `/node_modules/x` and `C:\node_modules\x` keep their root's separator.
+  return cut < value.length && isBareRoot(value.slice(0, cut + 1))
+    ? value.slice(0, cut + 1)
+    : value.slice(0, cut);
+}
+
+/**
+ * The project key of an event: its `repoRoot` without trailing separators. A directory
+ * inside `node_modules`, where a session can `cd` into a dependency, counts as the project
+ * that holds it.
+ */
 export function toProjectKey(repoRoot: string | undefined): string | undefined {
-  return repoRoot === undefined ? undefined : stripTrailingSeparators(repoRoot);
+  return repoRoot === undefined
+    ? undefined
+    : stripDependencyPath(stripTrailingSeparators(repoRoot));
 }
 
 /** The label `labels` gives the event's project; `(unattributed)` without one. */

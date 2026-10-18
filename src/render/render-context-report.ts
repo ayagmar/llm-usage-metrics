@@ -53,9 +53,9 @@ function toPressureCells(row: ContextPressure): string[] {
   ];
 }
 
-// An unknown limit leaves its cells blank, so it never reads as zero.
+// An unknown limit shows `-`, like other unknown values, so it never reads as zero.
 function formatOptionalInteger(value: number | undefined): string {
-  return value === undefined ? '' : formatInteger(value);
+  return value === undefined ? '-' : formatInteger(value);
 }
 
 function buildModelTable(rows: readonly ContextModelRow[]): ContextTable {

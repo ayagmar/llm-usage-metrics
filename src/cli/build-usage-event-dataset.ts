@@ -475,13 +475,15 @@ export async function buildUsageEventDataset(
           (failure.stale ? machineWarnings : machineNotes).push(failure.text);
         }
       }
-      machineNotes.push(
-        formatMachinesNote(
-          machineUsage.machines,
-          nowMs(),
-          loadPackageMetadataFromRuntime().packageVersion,
-        ),
-      );
+      if (machineUsage.machines.length > 0) {
+        machineNotes.push(
+          formatMachinesNote(
+            machineUsage.machines,
+            nowMs(),
+            loadPackageMetadataFromRuntime().packageVersion,
+          ),
+        );
+      }
     }
 
     // After history and other machines, so a departed or remote copy is counted once too.

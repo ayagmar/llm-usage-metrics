@@ -310,6 +310,43 @@ describe('schema v5 migration', () => {
     });
   });
 
+  it('reads and migrates a v4-layout store a pre-release build stamped v5', async () => {
+    const storePath = await createStorePath();
+    await createV4Store(storePath);
+    const sqlite = (await loadNodeSqliteModule('Test')) as unknown as EventStoreSqliteModule;
+    const database = new sqlite.DatabaseSync(storePath);
+    // The pre-release build also created tool call and message tables in an older layout.
+    database.exec(`
+UPDATE meta SET value = '5' WHERE key = 'schemaVersion';
+CREATE TABLE tool_calls (source TEXT NOT NULL, file_path TEXT NOT NULL, event_index INTEGER NOT NULL);
+CREATE TABLE messages (source TEXT NOT NULL, file_path TEXT NOT NULL, event_index INTEGER NOT NULL);
+`);
+    database.close();
+
+    // Machine caches are read without migrating.
+    const { events } = await readEventStoreEvents(storePath);
+    expect(events).toHaveLength(2);
+    await expect(readEventStoreSummary(storePath)).resolves.toMatchObject({ schemaVersion: '4' });
+
+    const store = await openEventStore(storePath);
+
+    try {
+      expect(readFileEvents(store, 'codex', '/logs/a.jsonl')).toEqual([
+        usageEvent('a'),
+        usageEvent('b'),
+      ]);
+      writeFile(store, '/logs/b.jsonl', [toolCall()]);
+    } finally {
+      closeEventStore(store);
+    }
+
+    await expect(readEventStoreSummary(storePath)).resolves.toMatchObject({
+      eventCount: 3,
+      toolCallCount: 1,
+      schemaVersion: '5',
+    });
+  });
+
   it('copies every v4 file and its events, in order and with their hashes', async () => {
     const storePath = await createStorePath();
     const events = [usageEvent('c'), usageEvent('a'), usageEvent('b')];

@@ -3,6 +3,7 @@ import {
   type EfficiencyReportFormat,
 } from '../render/render-efficiency-report.js';
 import { attributeUsageEventsToRepo } from '../efficiency/repo-attribution.js';
+import { formatInteger } from '../render/format-number.js';
 import { logger } from '../utils/logger.js';
 import { pluralize } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
@@ -95,7 +96,7 @@ function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): vo
     `Git outcomes (${mergeModeLabel}): ${pluralize(diagnostics.gitCommitCount, 'commit')}, +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
   );
   logger.info(
-    `Repo-attributed usage events: ${diagnostics.repoMatchedUsageEvents} matched, ${diagnostics.repoExcludedUsageEvents} excluded, ${diagnostics.repoUnattributedUsageEvents} unattributed`,
+    `Repo-attributed usage events: ${formatInteger(diagnostics.repoMatchedUsageEvents)} matched, ${formatInteger(diagnostics.repoExcludedUsageEvents)} excluded, ${formatInteger(diagnostics.repoUnattributedUsageEvents)} unattributed`,
   );
 
   if (diagnostics.scopeNote) {

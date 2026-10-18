@@ -1,7 +1,7 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { findSpendSpikes, resolveSpikeBaselineStart } from '../aggregate/spend-spikes.js';
-import { computeActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
+import { computeUnionActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
@@ -221,16 +221,20 @@ function toProjectTrendValueRows(
   );
 }
 
-// Per-day gap-capped active time: order a day's events by session, split each session
-// into runs of consecutive events in one group, run computeActiveMs per run, and sum per
-// source (or per project). A session crossing midnight splits at the day boundary; with
-// --by-repo, a session splits at each project switch, so a return to a project is a new
-// run and the projects never sum to more than the combined time.
+// Per-day gap-capped wall-clock active time: order a day's events by session, split each
+// session into runs of consecutive events in one group, and take the union of each
+// group's runs (computeUnionActiveMs), so parallel sessions count once. Each day also gets
+// a `combined` value: the union of the day's whole sessions across groups. A session
+// crossing midnight splits at the day boundary; with --by-repo, a session splits at each
+// project switch, so a return to a project is a new run.
 function sumActiveMsByDay<Group>(
   events: readonly UsageEvent[],
   timezone: string,
   groupOf: (event: UsageEvent) => Group,
-): { periodKey: string; group: Group; value: number }[] {
+): {
+  rows: { periodKey: string; group: Group; value: number }[];
+  combinedByDay: Map<string, number>;
+} {
   const sessionsByDate = new Map<string, Map<string, { timestampMs: number; group: Group }[]>>();
 
   for (const event of events) {
@@ -251,12 +255,15 @@ function sumActiveMsByDay<Group>(
   }
 
   const rows: { periodKey: string; group: Group; value: number }[] = [];
+  const combinedByDay = new Map<string, number>();
 
   for (const [periodKey, sessions] of sessionsByDate) {
-    const activeMsByGroup = new Map<Group, number>();
+    const runsByGroup = new Map<Group, number[][]>();
+    const sessionTimestamps: number[][] = [];
 
     for (const sessionEvents of sessions.values()) {
       sessionEvents.sort((left, right) => left.timestampMs - right.timestampMs);
+      sessionTimestamps.push(sessionEvents.map((entry) => entry.timestampMs));
       let runStart = 0;
 
       for (let index = 1; index <= sessionEvents.length; index += 1) {
@@ -266,28 +273,37 @@ function sumActiveMsByDay<Group>(
           continue;
         }
 
-        const runMs = computeActiveMs(
-          sessionEvents.slice(runStart, index).map((entry) => entry.timestampMs),
-        );
-        activeMsByGroup.set(group, (activeMsByGroup.get(group) ?? 0) + runMs);
+        const runs = runsByGroup.get(group) ?? [];
+        runs.push(sessionEvents.slice(runStart, index).map((entry) => entry.timestampMs));
+        runsByGroup.set(group, runs);
         runStart = index;
       }
     }
 
-    for (const [group, value] of activeMsByGroup) {
-      rows.push({ periodKey, group, value });
+    for (const [group, runs] of runsByGroup) {
+      rows.push({ periodKey, group, value: computeUnionActiveMs(runs) });
     }
+
+    combinedByDay.set(periodKey, computeUnionActiveMs(sessionTimestamps));
   }
 
-  return rows;
+  return { rows, combinedByDay };
 }
 
 function toActiveTimeValueRows(events: readonly UsageEvent[], timezone: string): TrendValueRow[] {
-  return sumActiveMsByDay(events, timezone, (event) => event.source).map((row) => ({
+  const { rows, combinedByDay } = sumActiveMsByDay(events, timezone, (event) => event.source);
+  const sourceRows: TrendValueRow[] = rows.map((row) => ({
     periodKey: row.periodKey,
     source: row.group,
     value: row.value,
   }));
+  const combinedRows: TrendValueRow[] = [...combinedByDay].map(([periodKey, value]) => ({
+    periodKey,
+    source: 'combined',
+    value,
+  }));
+
+  return [...sourceRows, ...combinedRows];
 }
 
 function toActiveTimeProjectValueRows(
@@ -295,7 +311,9 @@ function toActiveTimeProjectValueRows(
   timezone: string,
   projectLabels: ReadonlyMap<string | undefined, string>,
 ): ProjectTrendValueRow[] {
-  return sumActiveMsByDay(events, timezone, (event) => toProjectKey(event.repoRoot)).map((row) => {
+  const { rows } = sumActiveMsByDay(events, timezone, (event) => toProjectKey(event.repoRoot));
+
+  return rows.map((row) => {
     const project = projectLabels.get(row.group);
 
     if (project === undefined) {
