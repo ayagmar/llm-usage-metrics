@@ -30,7 +30,7 @@ vi.mock('../../src/cli/build-trends-data.js', () => ({
 }));
 
 vi.mock('../../src/cli/build-share-report-data.js', () => ({
-  buildShareReportData: vi.fn(),
+  buildShareReport: vi.fn(),
 }));
 
 vi.mock('../../src/cli/share-artifact.js', () => ({
@@ -40,7 +40,7 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
   }),
 }));
 
-import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
+import { buildShareReport } from '../../src/cli/build-share-report-data.js';
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import { buildTrendsReport, runTrendsReport } from '../../src/cli/run-trends-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
@@ -48,7 +48,7 @@ import { readFixturePayload } from '../share-report/client/core/share-fixture.js
 
 describe('run-trends-report', () => {
   beforeEach(() => {
-    vi.mocked(buildShareReportData).mockResolvedValue(readFixturePayload().data);
+    vi.mocked(buildShareReport).mockResolvedValue({ data: readFixturePayload().data });
   });
 
   afterEach(() => {
@@ -117,7 +117,7 @@ describe('run-trends-report', () => {
         share: true,
       });
 
-      const [request] = vi.mocked(buildShareReportData).mock.calls[0] ?? [];
+      const [request] = vi.mocked(buildShareReport).mock.calls[0] ?? [];
       expect(request).toMatchObject({
         command: 'trends',
         window: { since: '2026-03-04', until: '2026-03-06' },
@@ -146,7 +146,7 @@ describe('run-trends-report', () => {
   it('accepts --by-source with --share: the page stacks by source', async () => {
     await buildTrendsReport({ bySource: true, share: true });
 
-    expect(vi.mocked(buildShareReportData)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(buildShareReport)).toHaveBeenCalledTimes(1);
   });
 
   it('delegates to buildTrendsData', async () => {

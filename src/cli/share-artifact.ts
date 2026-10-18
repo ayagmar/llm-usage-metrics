@@ -12,6 +12,8 @@ export type ShareArtifact = {
   /** Names the report in the stderr lines, e.g. `usage`. */
   logLabel: string;
   render: () => string;
+  /** With --redact: a stderr line with what the file hides (paths, names) hidden too. */
+  scrubLog?: (message: string) => string;
 };
 
 /**
