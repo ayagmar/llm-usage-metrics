@@ -5,7 +5,7 @@ description: Direct-process and launcher-inclusive runtimes on stable snapshots 
 
 This page started in February 2026, when `llm-usage` and `ccusage` were both TypeScript programs running on Node.js. ccusage 20.0.0 (May 2026) replaced its TypeScript code with a Rust binary. Its npm package is now a small Node launcher that starts the native binary for your platform. The direct comparison below is therefore Node against native code, with ccusage's launcher included because its package executable is the launcher. The `npx` scenario adds npm's package resolution on top.
 
-All numbers below were measured on 2026-10-17 with 8 timed runs per cell, using ccusage 20.0.35 and `llm-usage` built from the development branch at git `bbbd23d7` (version 0.11.0, unreleased). ccusage is ahead on Codex. llm-usage is ahead on Claude Code and on the warm monthly terminal check.
+All numbers below were measured on 2026-10-17 with 8 timed runs per cell, using ccusage 20.0.35 and a development build of `llm-usage` 0.12.0 (unreleased). ccusage is ahead on Codex. llm-usage is ahead on Claude Code and on the warm monthly terminal check.
 
 ## Direct-process results
 
@@ -69,7 +69,7 @@ Each command received one untimed warm-up, then 8 timed runs in rotating order, 
 | Node.js   | v24.21.0                                                     |
 | pnpm      | 12.9.1                                                       |
 | ccusage   | 20.0.35 (Node launcher + native linux-x64 binary)            |
-| llm-usage | 0.11.0, built from the development branch (git `bbbd23d7`) |
+| llm-usage | 0.12.0 (unreleased), development build                       |
 
 The machine was otherwise idle: the load average was 0.2 before the first run.
 
@@ -105,36 +105,38 @@ On the July 2026 Codex corpus (1,168 files, ≈ 1.77 GiB), a fresh run took 8.7 
 
 `scripts/benchmark-baseline.mjs` times the built CLI over a generated pi and codex corpus (200,000 lines per source over 4 files, 399,984 events), with a temp `HOME` and the store, pricing and update check pinned. It measures what is cheap to repeat: a cold run with the store off, a warm `daily`, a statusline tick, a growing JSONL file, and a statusline tick where most files are older than its 53-week window (`statusline-aged`).
 
-The M8 performance work was checked with it on 2026-10-15: three alternating serial rounds of M0 (`78feb74`), pre-M8 (`abe3ace`) and the M8 build `d2de9a0` (before the pool fix `8af5ed5`, which this corpus never exercises because no source reaches the worker threshold) on one machine (AMD Ryzen 9 9950X3D, 32 logical CPUs, 62.2 GiB RAM, Linux 7.2.9, Node.js v24.21.0). Each figure is the minimum over 15 timed runs:
+0.11.0 and 0.12.0 (unreleased) were compared with it on 2026-10-18 on one machine (AMD Ryzen 9 9950X3D, 32 logical CPUs, 62.2 GiB RAM, Linux 7.2.9, Node.js v24.21.0, load average 1.2–1.6). Two serial rounds alternated the versions (0.11.0 then 0.12.0, then 0.12.0 then 0.11.0), with 5 timed runs per scenario per round. Each cell gives the two rounds' medians, and the change compares their means:
 
-| Scenario          | M0 (s) | pre-M8 (s) | M8 (s) | M8 vs pre-M8 |
-| ----------------- | -----: | ---------: | -----: | -----------: |
-| `cold`            |  1.174 |      1.275 |  1.224 |        −4.0% |
-| `warm`            |  0.653 |      0.662 |  0.548 |       −17.3% |
-| `statusline`      |  0.773 |      0.766 |  0.514 |       −32.8% |
-| `active-jsonl`    |  0.994 |      1.028 |  0.927 |        −9.9% |
-| `statusline-aged` |  0.272 |      0.265 |  0.199 |       −24.7% |
+| Scenario          |    0.11.0 (s) | 0.12.0 (unreleased) (s) | Change |
+| ----------------- | ------------: | ----------------------: | -----: |
+| `cold`            | 1.206 / 1.212 |           1.239 / 1.245 |  +2.7% |
+| `warm`            | 0.688 / 0.699 |           0.552 / 0.569 | −19.2% |
+| `statusline`      | 0.806 / 0.861 |           0.520 / 0.525 | −37.3% |
+| `active-jsonl`    | 1.034 / 1.048 |           0.986 / 0.987 |  −5.2% |
+| `statusline-aged` | 0.280 / 0.283 |           0.215 / 0.218 | −23.1% |
 
-The cold run is still 4% slower than M0. Per-round numbers, load averages, RSS and the full method are in [`docs/benchmarks/2026-10-15-m8.md`](https://github.com/ayagmar/llm-usage-metrics/blob/master/docs/benchmarks/2026-10-15-m8.md). These are synthetic files with dense usage lines, so they show relative change between builds, not what real logs cost.
+The store-off cold run is about 3% slower in 0.12.0, in both rounds. Peak RSS was about the same on `cold` (417–435 MB against 417–447 MB) and lower in 0.12.0 on `warm` (363–368 MB against 432–435 MB) and `statusline` (331–355 MB against 430–434 MB). No source in this corpus reaches the parse-worker threshold, so the worker-pool change behind the real-log cold gain below does not show here. These are synthetic files with dense usage lines, so they show relative change between builds, not what real logs cost.
 
-## Real logs (owner's machine)
+## Real logs (maintainer's machine)
 
-The synthetic corpus above has dense usage lines. Real logs are mostly conversation text, so M8 was also checked on the maintainer's own logs on 2026-10-15, on the same machine as the synthetic baseline:
+The synthetic corpus above has dense usage lines. Real logs are mostly conversation text, so 0.11.0 and 0.12.0 (unreleased) were also compared on the maintainer's own logs, on a Linux machine with 32 logical CPUs and Node.js v24.21.0:
 
-- **Corpus:** 1,923 files, about 3.9 GiB. Claude Code has 1,416 files (3.2 GiB), pi 342, Codex 154, Antigravity 6 and Gemini 5.
-- **Method:**
-  - Each run uses a temp `HOME` that links to the log directories read-only, plus temp cache, data and config directories, `TZ=Europe/Paris` and the bundled pricing snapshot.
-  - "Cold" starts from an empty event store. "Warm" is the next run against the store that run filled.
-  - The pre-M8 (`abe3ace`) and M8 builds alternate. The table shows the minimum of three rounds for cold and two rounds for warm.
+- Each run uses a temp `HOME` that links to the log directories read-only, plus temp cache, data and config directories and `TZ=Europe/Paris`.
+- "Cold" is `statusline` on an empty event store. "Warm" runs reuse the store that cold run filled.
+- The two versions alternate over 3 rounds, each round with a fresh store. Each cell gives the range over the rounds.
 
-| Run               |     pre-M8 |             M8 |     Change |
-| ----------------- | ---------: | -------------: | ---------: |
-| Cold `statusline` |    4.343 s |        1.793 s |       −59% |
-| Warm `statusline` |     496 ms |         355 ms |       −28% |
-| Warm `daily`      |     322 ms |         291 ms |       −10% |
-| Cold peak RSS     | 637–693 MB | 1,167–1,260 MB | about +82% |
+| Run                 |        0.11.0 | 0.12.0 (unreleased) |
+| ------------------- | ------------: | ------------------: |
+| Cold `statusline`   |   5.24–5.45 s |         2.75–2.79 s |
+| Cold peak RSS       |    657–677 MB |          912–944 MB |
+| Warm `statusline`   |    563–567 ms |          421–460 ms |
+| Warm `daily --json` |    446–463 ms |          428–443 ms |
+| Warm `tools --json` | not in 0.11.0 |         0.70–0.73 s |
+| Event store size    |         73 MB |               64 MB |
 
-Most of the cold gain comes from parsing Claude Code and pi files on the worker pool. The cost is memory, because a cold run keeps several parse workers busy at once. The RSS row gives the range over the three cold rounds. Cold runs happen only on the first run and after a parser update. Warm runs read unchanged files from the event store and parse only files that changed.
+A warm `daily --json` takes about the same time in both versions; one 0.12.0 round had a 592 ms outlier, left out of its range. The 0.12.0 store is smaller although it also holds tool calls and messages.
+
+Most of the cold gain comes from parsing Claude Code and pi files on the worker pool. The cost is memory, because a cold run keeps several parse workers busy at once. Cold runs happen only on the first run and after a parser update; a lower `parseWorkers` lowers the peak. Warm runs read unchanged files from the event store and parse only files that changed.
 
 ## Reproduce it
 
