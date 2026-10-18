@@ -4,11 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { buildOtlpTraces } from '../../src/otel-export/otlp-traces.js';
 
-function event(timestamp: string, inputTokens: number) {
+function event(timestamp: string, inputTokens: number, provider = 'openai') {
   return createUsageEvent({
     source: 'codex',
     sessionId: 'session-1',
     timestamp,
+    provider,
     model: 'gpt-4.1',
     inputTokens,
     outputTokens: 5,
@@ -60,5 +61,19 @@ describe('buildOtlpTraces span ids', () => {
     expect(windowSpanIds).toHaveLength(usageEvents.length + toolCalls.length);
     expect(new Set(windowSpanIds).size).toBe(windowSpanIds.length);
     expect(allSpanIds).toEqual(expect.arrayContaining(windowSpanIds));
+  });
+
+  it('keeps a chat span id under a provider filter that drops a same-instant request', () => {
+    const pair = [
+      event('2026-03-01T10:00:00.000Z', 10, 'openai'),
+      event('2026-03-01T10:00:00.000Z', 20, 'azure'),
+    ];
+    const chatSpanIds = (events: typeof pair) =>
+      buildOtlpTraces({ usageEvents: events, toolCalls: [] })[0]
+        .resourceSpans[0].scopeSpans[0].spans.filter((span) => span.parentSpanId !== undefined)
+        .map((span) => span.spanId);
+
+    expect(chatSpanIds(pair)).toContain(chatSpanIds(pair.slice(1))[0]);
+    expect(chatSpanIds(pair.slice(1))).not.toEqual(chatSpanIds(pair.slice(0, 1)));
   });
 });

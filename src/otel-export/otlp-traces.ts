@@ -184,7 +184,7 @@ function sessionTraces(group: SessionGroup, includePaths: boolean): OtlpTracesDa
   const rootSpanId = deriveSpanId(traceId, 'invoke_agent', '');
   const chatKeys = occurrenceKeys(
     group.usageEvents,
-    (event) => `${event.timestamp}|${event.model ?? ''}`,
+    (event) => `${event.timestamp}|${event.model ?? ''}|${event.provider ?? ''}`,
   );
   const chats = group.usageEvents.map((event, index) =>
     chatSpan(event, chatKeys[index], traceId, rootSpanId, includePaths),
