@@ -357,13 +357,18 @@ class PiSessionEvents {
     this.meta = new SessionMetaTrackers(request.text);
   }
 
-  /** The events a record completes, after those of records held for its timestamp. */
-  public *add(line: Record<string, unknown>, state: PiSessionState): Generator<SessionEvent> {
+  /**
+   * The events a record completes, after those of records held for its timestamp.
+   * `timestamp` is the record's own, as `resolveTimestamp` gives it.
+   */
+  public *add(
+    line: Record<string, unknown>,
+    state: PiSessionState,
+    timestamp: string | undefined,
+  ): Generator<SessionEvent> {
     if (!isPiEventRecord(line)) {
       return;
     }
-
-    const timestamp = resolveTimestamp(line, asRecord(line.message), state);
 
     if (timestamp) {
       for (const held of this.carry.advance(timestamp)) {
@@ -693,18 +698,12 @@ export class PiSourceAdapter implements SourceAdapter {
     return this.parse(filePath, options.diagnostics ?? createReadDiagnostics());
   }
 
-  public async *readEvents(
+  public readEvents(
     filePath: string,
     options: ReadEventsOptions = {},
   ): AsyncGenerator<SessionEvent> {
-    const kinds = resolveReadKinds(options.kinds, this.capabilities.kinds);
-
-    if (kinds.size === 0) {
-      return;
-    }
-
-    yield* this.parse(filePath, options.diagnostics ?? createReadDiagnostics(), {
-      kinds,
+    return this.parse(filePath, options.diagnostics ?? createReadDiagnostics(), {
+      kinds: resolveReadKinds(options.kinds, this.capabilities.kinds),
       text: options.text ?? false,
       raw: options.raw ?? false,
     });
@@ -712,8 +711,9 @@ export class PiSourceAdapter implements SourceAdapter {
 
   // One parser serves both reads. Without a request it is `read`: usage events only,
   // through the usage prefilter. A request for usage alone takes the same path and
-  // yields usage records. Any other kind reads through the union prefilter, and the
-  // usage branch still runs only on lines the usage prefilter accepts.
+  // yields usage records, and a request for no kind yields nothing. Any other kind reads
+  // through the union prefilter, and the usage branch still runs only on lines the usage
+  // prefilter accepts.
   private parse(filePath: string, diagnostics: SourceReadDiagnostics): AsyncGenerator<UsageEvent>;
   private parse(
     filePath: string,
@@ -725,6 +725,10 @@ export class PiSourceAdapter implements SourceAdapter {
     diagnostics: SourceReadDiagnostics,
     request?: PiEventRequest,
   ): AsyncGenerator<UsageEvent | SessionEvent> {
+    if (request?.kinds.size === 0) {
+      return;
+    }
+
     const state: PiSessionState = { sessionId: getFallbackSessionId(filePath) };
 
     if (!request || !hasNonUsageKind(request.kinds)) {
@@ -777,10 +781,15 @@ export class PiSourceAdapter implements SourceAdapter {
           applyModelChangeLine(line, state);
         }
 
-        yield* events.add(line, state);
+        // Resolved once for both branches: parsing it is a large part of a line's cost.
+        const timestamp = resolveTimestamp(line, asRecord(line.message), state);
+
+        for (const event of events.add(line, state, timestamp)) {
+          yield event;
+        }
 
         if (isUsageLine && kinds.has('usage') && line.type === 'message') {
-          const event = this.createUsage(line, state, diagnostics, request);
+          const event = this.createUsage(line, state, diagnostics, request, timestamp);
 
           if (event) {
             yield event;
@@ -789,7 +798,9 @@ export class PiSourceAdapter implements SourceAdapter {
       }
     }
 
-    yield* events.finish();
+    for (const event of events.finish()) {
+      yield event;
+    }
   }
 
   private async applySessionLine(
@@ -803,12 +814,16 @@ export class PiSourceAdapter implements SourceAdapter {
     state.fork = (await resolveFork(line, filePath, this.rootDirs)) ?? state.fork;
   }
 
-  /** A message line's usage event for `read`, or its usage record for `readEvents`. */
+  /**
+   * A message line's usage event for `read`, or its usage record for `readEvents`.
+   * `resolvedTimestamp` is the line's timestamp when the caller already resolved it.
+   */
   private createUsage(
     line: Record<string, unknown>,
     state: PiSessionState,
     diagnostics: SourceReadDiagnostics,
     request: PiEventRequest | undefined,
+    resolvedTimestamp?: string,
   ): UsageEvent | UsageRecord | undefined {
     const message = asRecord(line.message);
     const usage = extractUsage(line, message);
@@ -826,7 +841,7 @@ export class PiSourceAdapter implements SourceAdapter {
     const provider =
       asTrimmedText(line.provider) ?? asTrimmedText(message?.provider) ?? state.provider;
 
-    const timestamp = resolveTimestamp(line, message, state);
+    const timestamp = resolvedTimestamp ?? resolveTimestamp(line, message, state);
 
     if (!timestamp || !state.sessionId) {
       recordSkippedRow(diagnostics, 'invalid_timestamp');

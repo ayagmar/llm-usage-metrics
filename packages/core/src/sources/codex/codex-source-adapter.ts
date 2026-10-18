@@ -314,6 +314,7 @@ function parseUsageRecord(
   line: Record<string, unknown>,
   state: CodexSessionState,
   capture: UsageCapture,
+  resolvedTimestamp: string | undefined,
 ): { record?: PendingUsageRecord; invalidTimestamp?: boolean } {
   const payload = asRecord(line.payload);
   const usage = toUsage(payload?.usage);
@@ -328,7 +329,7 @@ function parseUsageRecord(
     return {};
   }
 
-  const timestamp = normalizeTimestampCandidate(line.timestamp);
+  const timestamp = resolvedTimestamp ?? normalizeTimestampCandidate(line.timestamp);
 
   if (!timestamp) {
     return { invalidTimestamp: true };
@@ -361,13 +362,15 @@ const NO_USAGE: readonly PendingUsageRecord[] = [];
 /**
  * Takes one line the usage prefilter accepted into the session state, and returns the
  * usage records it releases, in order. `diagnostics` is undefined when the read yields no
- * usage, so it records no usage reason codes.
+ * usage, so it records no usage reason codes. `resolvedTimestamp` is the line's normalized
+ * timestamp when the caller already has it.
  */
 function takeUsageLine(
   line: Record<string, unknown>,
   state: CodexSessionState,
   capture: UsageCapture,
   diagnostics: SourceReadDiagnostics | undefined,
+  resolvedTimestamp?: string,
 ): readonly PendingUsageRecord[] {
   if (line.type === 'session_meta') {
     const payload = asRecord(line.payload);
@@ -387,7 +390,7 @@ function takeUsageLine(
   }
 
   if (line.type === 'token_usage_record') {
-    const { record, invalidTimestamp } = parseUsageRecord(line, state, capture);
+    const { record, invalidTimestamp } = parseUsageRecord(line, state, capture, resolvedTimestamp);
 
     if (record) {
       state.pendingUsageRecords.push(record);
@@ -428,7 +431,7 @@ function takeUsageLine(
     return NO_USAGE;
   }
 
-  const timestamp = normalizeTimestampCandidate(line.timestamp);
+  const timestamp = resolvedTimestamp ?? normalizeTimestampCandidate(line.timestamp);
 
   if (!timestamp) {
     if (!fromLastUsageOnly) {
@@ -580,23 +583,18 @@ export class CodexSourceAdapter implements SourceAdapter {
     );
   }
 
-  public async *readEvents(
+  public readEvents(
     filePath: string,
     options: ReadEventsOptions = {},
   ): AsyncGenerator<SessionEvent> {
     const kinds = resolveReadKinds(options.kinds, getDeclaredKinds(this));
-
-    if (kinds.size === 0) {
-      return;
-    }
-
     const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const raw = options.raw === true;
     const kindReader = [...kinds].some((kind) => kind !== 'usage')
       ? new CodexKindReader({ kinds, text: options.text === true, raw, diagnostics })
       : undefined;
 
-    yield* this.readFile<UsageRecord, SessionEvent>(
+    return this.readFile<UsageRecord, SessionEvent>(
       filePath,
       {
         kinds,
@@ -624,6 +622,11 @@ export class CodexSourceAdapter implements SourceAdapter {
     kindReader: CodexKindEvents<Kind> | undefined,
   ): AsyncGenerator<Usage | Kind> {
     const { diagnostics, kinds } = options;
+
+    if (kinds.size === 0) {
+      return;
+    }
+
     const yieldsUsage = kinds.has('usage');
     const usageDiagnostics = yieldsUsage ? diagnostics : undefined;
 
@@ -688,10 +691,12 @@ export class CodexSourceAdapter implements SourceAdapter {
       })) {
         for (const { record: line, isUsageLine } of items) {
           const timestamp = normalizeTimestampCandidate(line.timestamp);
-          yield* kindReader.advance(timestamp);
+          for (const event of kindReader.advance(timestamp)) {
+            yield event;
+          }
 
           const released = isUsageLine
-            ? takeUsageLine(line, state, options, usageDiagnostics)
+            ? takeUsageLine(line, state, options, usageDiagnostics, timestamp)
             : NO_USAGE;
 
           for (const record of yieldsUsage ? released : NO_USAGE) {
@@ -702,15 +707,19 @@ export class CodexSourceAdapter implements SourceAdapter {
             }
           }
 
-          yield* kindReader.record(line, {
+          for (const event of kindReader.record(line, {
             sessionId: state.sessionId,
             model: state.model,
             timestamp,
-          });
+          })) {
+            yield event;
+          }
         }
       }
 
-      yield* kindReader.finish();
+      for (const event of kindReader.finish()) {
+        yield event;
+      }
     }
 
     for (const record of yieldsUsage ? state.pendingUsageRecords : NO_USAGE) {
