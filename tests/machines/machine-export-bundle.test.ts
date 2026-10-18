@@ -165,6 +165,14 @@ describe('readMachineExport', () => {
     });
   });
 
+  it('reads a complete bundle before a logout message', async () => {
+    const bundle = await readMachineExport(
+      linesOf(headerLine, fileLine(), endLine(), 'Connection to laptop closed. Goodbye!'),
+    );
+
+    expect(bundle.files).toEqual([['codex', '/a.jsonl', 'r1']]);
+  });
+
   it('reads tool calls and turns, never their text, and skips kinds it does not keep', async () => {
     const bundle = await readMachineExport(
       linesOf(
