@@ -33,6 +33,7 @@ export type OtlpPushDeps = {
 };
 
 export type OtlpPushResult = {
+  /** The signal URL without its query string or fragment, which can hold a token. */
   url: string;
   items: number;
   unit: 'spans' | 'points';
@@ -122,6 +123,12 @@ function signalUrl(endpoint: URL, kind: OtlpPushSignal['kind']): string {
   const base = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
   url.pathname = `${base}/v1/${kind}`;
   return url.toString();
+}
+
+/** What a summary or error names: the endpoint's query string can carry a token. */
+function printableUrl(url: string): string {
+  const { origin, pathname } = new URL(url);
+  return `${origin}${pathname}`;
 }
 
 function countItems(signal: OtlpPushSignal, index: number): number {
@@ -345,7 +352,13 @@ export async function pushOtlp(
   const url = signalUrl(endpoint, signal.kind);
   const unit = signal.kind === 'traces' ? 'spans' : 'points';
   const batches = buildBatches(signal, resolvedDeps.otlpMaxBatchBytes);
-  const result: OtlpPushResult = { url, items: 0, unit, batches: 0, rejected: 0 };
+  const result: OtlpPushResult = {
+    url: printableUrl(url),
+    items: 0,
+    unit,
+    batches: 0,
+    rejected: 0,
+  };
 
   for (const batch of batches) {
     let response: Response;
@@ -358,7 +371,7 @@ export async function pushOtlp(
       }
 
       throw new Error(
-        `OTLP push to ${url} failed after ${result.batches} of ${batches.length} batches (${result.items} ${unit} sent): ${error.message}`,
+        `OTLP push to ${result.url} failed after ${result.batches} of ${batches.length} batches (${result.items} ${unit} sent): ${error.message}`,
         { cause: error },
       );
     }
