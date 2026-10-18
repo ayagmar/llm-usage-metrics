@@ -47,13 +47,16 @@ export function getStoredSessionEventKinds(
 
 /**
  * The file's fingerprint with the kinds the store keeps for its source, so a file stored
- * while the store kept fewer kinds no longer matches and is read again.
+ * while the store kept fewer kinds no longer matches and is read again. `previous` is the
+ * fingerprint stored for the file, which `getFileFingerprint` may confirm instead of
+ * asking the adapter for its dependencies.
  */
 export async function getEventStoreFileFingerprint(
   adapter: SourceAdapter,
   filePath: string,
+  previous?: EventStoreFileFingerprint,
 ): Promise<EventStoreFileFingerprint | undefined> {
-  const fingerprint = await getFileFingerprint(adapter, filePath);
+  const fingerprint = await getFileFingerprint(adapter, filePath, previous);
   const storedKinds = getStoredSessionEventKinds(adapter);
 
   return fingerprint && storedKinds.length > 0 ? { ...fingerprint, storedKinds } : fingerprint;

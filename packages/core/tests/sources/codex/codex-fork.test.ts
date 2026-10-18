@@ -11,7 +11,7 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { SessionEvent } from '../../../src/domain/session-event.js';
 import { CodexSourceAdapter } from '../../../src/sources/codex/index.js';
@@ -488,5 +488,40 @@ describe('Codex forks written before the copied block had an end marker', () => 
     const events = await read(withParent);
     expect(events).toEqual(await read(withoutParent));
     expect(events.filter((event) => event.kind === 'usage')).toMatchObject([{ totalTokens: 300 }]);
+  });
+
+  it('confirms a stored fingerprint without reading the fork again', async () => {
+    const dir = await copyToTempDir([PARENT_FILE, FULL_FILE]);
+    const forkPath = path.join(dir, FULL_FILE);
+    const stored = await getFileFingerprint(new CodexSourceAdapter({ dir }), forkPath);
+    const warmAdapter = new CodexSourceAdapter({ dir });
+    const dependencies = vi.spyOn(warmAdapter, 'getParseDependencies');
+
+    await expect(getFileFingerprint(warmAdapter, forkPath, stored)).resolves.toEqual(stored);
+    expect(dependencies).not.toHaveBeenCalled();
+  });
+
+  it('looks the parent up again when the stored one has moved', async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = path.join(codexHome, 'sessions');
+    await mkdir(path.join(codexHome, 'archived_sessions'));
+    await mkdir(sessionsDir);
+    await copyFile(path.join(PARENT_DIR, FULL_FILE), path.join(sessionsDir, FULL_FILE));
+    await copyFile(path.join(PARENT_DIR, PARENT_FILE), path.join(sessionsDir, PARENT_FILE));
+    const forkPath = path.join(sessionsDir, FULL_FILE);
+    const stored = await getFileFingerprint(new CodexSourceAdapter({ dir: sessionsDir }), forkPath);
+    const archivedPath = path.join(codexHome, 'archived_sessions', PARENT_FILE);
+    await rename(path.join(sessionsDir, PARENT_FILE), archivedPath);
+
+    const after = await getFileFingerprint(
+      new CodexSourceAdapter({ dir: sessionsDir }),
+      forkPath,
+      stored,
+    );
+
+    expect(after?.dependencies.map((dependency) => dependency.path)).toEqual([
+      forkPath,
+      archivedPath,
+    ]);
   });
 });

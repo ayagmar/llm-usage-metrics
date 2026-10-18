@@ -11,6 +11,7 @@ import {
   type StoredSessionEvent,
 } from '../../persistence/event-store.js';
 import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 import type { RuntimeProfileCollector } from '../runtime-profile.js';
 import { getErrorReason } from '../../utils/get-error-reason.js';
 
@@ -59,6 +60,61 @@ export function recordEventStoreFailure(state: EventStoreFailureState, error: un
 
   state.disabled = true;
   state.warning = `Event store disabled after failure: ${getErrorReason(error)}`;
+}
+
+/**
+ * The fingerprint the store holds for a file, for a source whose dependency list follows
+ * its file (see `getFileFingerprint`). Undefined when there is none or it does not parse.
+ */
+export function readStoredFileFingerprint(
+  context: EventStoreParseContext,
+  params: { source: string; filePath: string },
+): EventStoreFileFingerprint | undefined {
+  if (context.failureState.disabled) {
+    return undefined;
+  }
+
+  let storedEntry: EventStoreFileEntry | undefined;
+
+  try {
+    storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+  } catch (error) {
+    recordEventStoreFailure(context.failureState, error);
+    return undefined;
+  }
+
+  let fingerprint: Record<string, unknown> | undefined;
+
+  try {
+    fingerprint = storedEntry && asRecord(JSON.parse(storedEntry.fingerprint));
+  } catch {
+    return undefined;
+  }
+
+  const dependencies: EventStoreFileFingerprint['dependencies'] = [];
+
+  for (const value of Array.isArray(fingerprint?.dependencies) ? fingerprint.dependencies : []) {
+    const dependency = asRecord(value);
+
+    if (typeof dependency?.path !== 'string') {
+      return undefined;
+    }
+
+    dependencies.push({
+      path: dependency.path,
+      exists: dependency.exists === true,
+      size: typeof dependency.size === 'number' ? dependency.size : undefined,
+      mtimeMs: typeof dependency.mtimeMs === 'number' ? dependency.mtimeMs : undefined,
+    });
+  }
+
+  return fingerprint && dependencies.length > 0
+    ? {
+        parserVersion:
+          typeof fingerprint.parserVersion === 'string' ? fingerprint.parserVersion : undefined,
+        dependencies,
+      }
+    : undefined;
 }
 
 /** Whether the store already holds this exact version of the file. */

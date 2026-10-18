@@ -46,6 +46,7 @@ describe('createDefaultAdapters', () => {
     expect(getCapabilitiesBesidesKinds('codex')).toEqual({
       fixedProviderRoots: ['openai'],
       eventsPrecedeFileMtime: true,
+      dependenciesFollowFile: true,
     });
     expect(getCapabilitiesBesidesKinds('gemini')).toEqual({
       fixedProviderRoots: ['google'],

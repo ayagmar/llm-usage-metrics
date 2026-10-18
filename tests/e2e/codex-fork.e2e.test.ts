@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -75,5 +75,44 @@ describe('daily over a Codex parent and its fork', () => {
       '2026-01-03': 600,
       all: 3900,
     });
+  });
+
+  it('keeps counting an old fork once after Codex archives its parent', async () => {
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'codex-fork-'));
+    tempDirs.push(rootDir);
+    vi.stubEnv('HOME', rootDir);
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'events.db'));
+    const codexHome = path.join(rootDir, '.codex');
+    const sessionsDir = path.join(codexHome, 'sessions');
+    const dayDir = path.join(sessionsDir, '2026', '01', '01');
+    await mkdir(dayDir, { recursive: true });
+    await mkdir(path.join(codexHome, 'archived_sessions'));
+    const parent = 'rollout-2026-01-01T10-00-00-019a0000-0000-7000-8000-00000000000a.jsonl';
+    const fork = 'rollout-2026-01-02T09-00-00-019a0000-0000-7000-8000-00000000000b.jsonl';
+
+    for (const name of [parent, fork]) {
+      await copyFile(path.join(LEGACY_FORK_FIXTURES, name), path.join(dayDir, name));
+    }
+
+    const totals = async (): Promise<Record<string, number>> => {
+      const result = await buildUsageData('daily', {
+        all: true,
+        source: 'codex',
+        codexDir: sessionsDir,
+        timezone: 'UTC',
+        pricingOffline: true,
+      });
+      return Object.fromEntries(
+        result.rows.map((row) => [
+          row.rowType === 'grand_total' ? 'all' : row.periodKey,
+          row.totalTokens,
+        ]),
+      );
+    };
+    await expect(totals()).resolves.toEqual({ '2026-01-01': 2760, '2026-01-02': 540, all: 3300 });
+    await rename(path.join(dayDir, parent), path.join(codexHome, 'archived_sessions', parent));
+    // The parent left the sessions directory; the fork still counts only its own turn.
+    await expect(totals()).resolves.toMatchObject({ '2026-01-02': 540 });
   });
 });

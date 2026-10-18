@@ -18,6 +18,7 @@ import {
   claimFilesInUsualLocations,
   isStoredFileCurrent,
   readParsedFileFromEventStore,
+  readStoredFileFingerprint,
   recordEventStoreFailure,
   writeParsedFilesToEventStore,
   type EventStoreFailureState,
@@ -368,9 +369,14 @@ export async function parseAdapterEvents(
 
   async function lookUpFile(filePath: string): Promise<FileLookup> {
     const storeEnabled = eventStore !== undefined && !eventStore.failureState.disabled;
+    // Only a source whose dependency list follows its file can confirm the stored one.
+    const previousFingerprint =
+      storeEnabled && adapter.capabilities?.dependenciesFollowFile === true
+        ? readStoredFileFingerprint(eventStore, { source: adapter.id, filePath })
+        : undefined;
     const fileFingerprint =
       storeEnabled || skipCutoffMs !== undefined
-        ? await getEventStoreFileFingerprint(adapter, filePath)
+        ? await getEventStoreFileFingerprint(adapter, filePath, previousFingerprint)
         : undefined;
 
     if (canSkipOutsideWindow(filePath, fileFingerprint)) {

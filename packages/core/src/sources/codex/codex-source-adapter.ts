@@ -794,6 +794,9 @@ export class CodexSourceAdapter implements SourceAdapter {
   public readonly capabilities = {
     fixedProviderRoots: ['openai'],
     eventsPrecedeFileMtime: true,
+    // A fork's parent is looked up by the id in its first line; a parent that comes back
+    // after the fork was read without it is not noticed until the fork changes.
+    dependenciesFollowFile: true,
     kinds: ['usage', 'message', 'tool_call', 'session_meta'],
   } as const;
 

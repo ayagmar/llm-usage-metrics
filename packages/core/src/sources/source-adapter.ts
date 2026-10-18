@@ -24,6 +24,12 @@ export type SourceCapabilities = {
    */
   eventsPrecedeFileMtime?: boolean;
   /**
+   * The paths `getParseDependencies` returns for a file change only when that file or one
+   * of the paths changes, so a stored fingerprint whose file and dependencies all still
+   * match may be reused without calling it (see `getFileFingerprint`).
+   */
+  dependenciesFollowFile?: boolean;
+  /**
    * A file can repeat events that another file of the source also holds (a pi fork copies
    * its parent's entries), so an event found in several files is counted once. Events are
    * the same when their content hashes match, which cover session id and timestamp.
