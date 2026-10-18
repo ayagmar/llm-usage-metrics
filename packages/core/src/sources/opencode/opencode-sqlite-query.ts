@@ -114,21 +114,12 @@ function createFallbackQuery(tableName: string, columns: MessageQueryColumns): s
   ].join('\n');
 }
 
-function resolveMessageTableName(database: OpenCodeSqliteDatabase): string {
-  const tablesResult = database
+function listTableNames(database: OpenCodeSqliteDatabase): string[] {
+  return database
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
     .all()
     .map((row) => asTrimmedText(row.name))
     .filter((value): value is string => Boolean(value));
-  const messageTableName = resolveIdentifierCaseInsensitive(tablesResult, ['message']);
-
-  if (!messageTableName) {
-    throw new Error(
-      'OpenCode schema drift: required "message" table not found. Inspect schema with `opencode db` commands.',
-    );
-  }
-
-  return messageTableName;
 }
 
 function resolveMessageQueryColumns(
@@ -145,16 +136,13 @@ function resolveMessageQueryColumns(
   return resolveRequiredMessageColumns(messageColumns);
 }
 
-/** The assistant message rows, with the first row already pulled (see `iterateRows`). */
-export function queryOpenCodeMessageRows(
+function queryV1MessageRows(
   database: OpenCodeSqliteDatabase,
+  messageTableName: string,
+  columns: MessageQueryColumns,
 ): IterableIterator<OpenCodeSqliteRow> {
-  const messageTableName = resolveMessageTableName(database);
-  const columns = resolveMessageQueryColumns(database, messageTableName);
-  const primaryQuery = createPrimaryQuery(messageTableName, columns);
-
   try {
-    return iterateRows(database.prepare(primaryQuery));
+    return iterateRows(database.prepare(createPrimaryQuery(messageTableName, columns)));
   } catch (error) {
     if (!shouldFallbackToNonJsonExtractQuery(error)) {
       throw error;
@@ -162,4 +150,82 @@ export function queryOpenCodeMessageRows(
 
     return iterateRows(database.prepare(createFallbackQuery(messageTableName, columns)));
   }
+}
+
+/**
+ * OpenCode V2 writes one `session_message` row per step, with the session's
+ * directory on `session_v2`. Its migration copies V1 messages under the same ids and keeps
+ * the V1 tables, so ids still in `message` are left to the V1 query.
+ */
+function createV2Query(tableNames: {
+  sessionMessage: string;
+  session: string;
+  v1: { tableName: string; columns: MessageQueryColumns } | undefined;
+}): string {
+  const sessionMessage = escapeIdentifier(tableNames.sessionMessage);
+  const v1 = tableNames.v1;
+  const v1Filter = v1
+    ? `  AND m."id" NOT IN (SELECT ${escapeIdentifier(v1.columns.idColumn)} FROM ${escapeIdentifier(v1.tableName)})`
+    : undefined;
+
+  return [
+    'SELECT',
+    '  m."id" AS row_id,',
+    '  m."time_created" AS row_time,',
+    '  m."session_id" AS row_session_id,',
+    '  m."type" AS row_type,',
+    '  s."directory" AS row_directory,',
+    '  m."data" AS data_json',
+    `FROM ${sessionMessage} AS m`,
+    `LEFT JOIN ${escapeIdentifier(tableNames.session)} AS s ON s."id" = m."session_id"`,
+    'WHERE m."type" = \'assistant\'',
+    ...(v1Filter ? [v1Filter] : []),
+    'ORDER BY m."time_created" ASC, m."id" ASC',
+  ].join('\n');
+}
+
+function* chainRows(
+  first: IterableIterator<OpenCodeSqliteRow>,
+  second: IterableIterator<OpenCodeSqliteRow>,
+): Generator<OpenCodeSqliteRow> {
+  try {
+    yield* first;
+    yield* second;
+  } finally {
+    second.return?.();
+  }
+}
+
+/**
+ * The assistant message rows of a V1 database (`message`), a V2 one (`session_message`
+ * with `session_v2`), or both after OpenCode's in-place migration: V1 rows first. Each
+ * query's first row is already pulled (see `iterateRows`). V2 rows carry `row_type`.
+ */
+export function queryOpenCodeMessageRows(
+  database: OpenCodeSqliteDatabase,
+): IterableIterator<OpenCodeSqliteRow> {
+  const tableNames = listTableNames(database);
+  const v1TableName = resolveIdentifierCaseInsensitive(tableNames, ['message']);
+  const v1 = v1TableName
+    ? { tableName: v1TableName, columns: resolveMessageQueryColumns(database, v1TableName) }
+    : undefined;
+  const sessionMessage = resolveIdentifierCaseInsensitive(tableNames, ['session_message']);
+  const session = resolveIdentifierCaseInsensitive(tableNames, ['session_v2']);
+  const v2Rows =
+    sessionMessage && session
+      ? iterateRows(database.prepare(createV2Query({ sessionMessage, session, v1 })))
+      : undefined;
+
+  if (!v1) {
+    if (!v2Rows) {
+      throw new Error(
+        'OpenCode schema drift: no "message" table (V1) or "session_message" and "session_v2" tables (V2) found. Inspect schema with `opencode db` commands.',
+      );
+    }
+
+    return v2Rows;
+  }
+
+  const v1Rows = queryV1MessageRows(database, v1.tableName, v1.columns);
+  return v2Rows ? chainRows(v1Rows, v2Rows) : v1Rows;
 }
