@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   utimes,
   writeFile,
@@ -37,8 +38,10 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
+// Discovery stores each file under its real path (macOS /private/var, Windows long names),
+// so the tests name files by it too.
 async function createTempDir(): Promise<string> {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'incremental-ingest-'));
+  const tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), 'incremental-ingest-')));
   tempDirs.push(tempDir);
   return tempDir;
 }
