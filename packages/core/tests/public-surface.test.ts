@@ -125,6 +125,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'isBusyOrLockedSqliteError',
     'isPathWithinRoots',
     'isPriceableEvent',
+    'isReadReasonCode',
     'loadNodeSqliteModule',
     'loadNodeSqliteModuleFromRequire',
     'matchesCanonicalProviderFilter',
