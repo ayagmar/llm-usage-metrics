@@ -184,6 +184,20 @@ describe('readMachineExport', () => {
     expect(bundle.sentFiles[0].sessionEvents).toEqual([turn, turn, call]);
   });
 
+  it('drops a tool call or turn with a value a newer version may add, and keeps the usage', async () => {
+    const bundle = await readMachineExport(
+      linesOf(
+        headerLine,
+        fileLine('r1', [event], {
+          sessionEvents: [{ ...call, status: 'cancelled' }, { ...turn, role: 'developer' }, call],
+        }),
+        endLine(),
+      ),
+    );
+
+    expect(bundle.sentFiles[0]).toMatchObject({ events: [event], sessionEvents: [call] });
+  });
+
   it('builds a file line a reader without session events reads unchanged', async () => {
     const lines = buildMachineExportLines(header, [
       {
@@ -275,15 +289,6 @@ describe('readMachineExport', () => {
         endLine(),
       ],
       'invalid session event at index 0: its source is pi, not codex',
-    ],
-    [
-      'a tool call with an unknown status',
-      [
-        headerLine,
-        fileLine('r1', [event], { sessionEvents: [{ ...call, status: 'done' }] }),
-        endLine(),
-      ],
-      'invalid session event at index 0',
     ],
     [
       'a turn with a wrong type',
