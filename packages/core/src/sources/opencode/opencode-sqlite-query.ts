@@ -7,6 +7,12 @@ type OpenCodeSqliteDatabase = {
   prepare: (sql: string) => SqliteRowStatement;
 };
 
+type PartQueryColumns = {
+  tableName: string;
+  messageIdColumn: string;
+  dataColumn: string;
+};
+
 type MessageQueryColumns = {
   idColumn: string;
   timestampColumn: string;
@@ -75,18 +81,62 @@ function resolveRequiredMessageColumns(messageColumns: readonly string[]): Messa
   };
 }
 
-function createPrimaryQuery(tableName: string, columns: MessageQueryColumns): string {
+/**
+ * V1 sets a message's tokens to its last step's while adding up the cost of every step,
+ * and writes one `step-finish` part per step with that step's tokens. This sums those
+ * parts per message. The `LIKE` skips most parts before their JSON is parsed, and is
+ * several times faster than `instr` on large part tables.
+ */
+function createStepTotalsJoin(parts: PartQueryColumns, messageIdColumn: string): string {
+  const data = escapeIdentifier(parts.dataColumn);
+  const sumOf = (jsonPath: string, alias: string): string =>
+    `    SUM(json_extract(${data}, '${jsonPath}')) AS ${alias},`;
+
+  return [
+    'LEFT JOIN (',
+    '  SELECT',
+    `    ${escapeIdentifier(parts.messageIdColumn)} AS step_message_id,`,
+    '    COUNT(*) AS step_count,',
+    sumOf('$.tokens.input', 'step_input_tokens'),
+    sumOf('$.tokens.output', 'step_output_tokens'),
+    sumOf('$.tokens.reasoning', 'step_reasoning_tokens'),
+    sumOf('$.tokens.cache.read', 'step_cache_read_tokens'),
+    sumOf('$.tokens.cache.write', 'step_cache_write_tokens'),
+    // A total only when every step has one, as a partial sum would not match the buckets.
+    `    CASE WHEN COUNT(json_extract(${data}, '$.tokens.total')) = COUNT(*) THEN SUM(json_extract(${data}, '$.tokens.total')) END AS step_total_tokens`,
+    `  FROM ${escapeIdentifier(parts.tableName)}`,
+    `  WHERE ${data} LIKE '%"step-finish"%'`,
+    `    AND CASE WHEN json_valid(${data}) = 1 THEN json_extract(${data}, '$.type') END = 'step-finish'`,
+    `  GROUP BY ${escapeIdentifier(parts.messageIdColumn)}`,
+    `) AS steps ON steps.step_message_id = ${escapeIdentifier(messageIdColumn)}`,
+  ].join('\n');
+}
+
+function createPrimaryQuery(
+  tableName: string,
+  columns: MessageQueryColumns,
+  parts: PartQueryColumns | undefined,
+): string {
   const rowSessionId = columns.sessionIdColumn
     ? `${escapeIdentifier(columns.sessionIdColumn)} AS row_session_id`
     : 'NULL AS row_session_id';
+  const stepColumns = parts
+    ? [
+        ',',
+        '  steps.step_count, steps.step_input_tokens, steps.step_output_tokens,',
+        '  steps.step_reasoning_tokens, steps.step_cache_read_tokens,',
+        '  steps.step_cache_write_tokens, steps.step_total_tokens',
+      ]
+    : [];
 
   return [
     'SELECT',
     `  ${escapeIdentifier(columns.idColumn)} AS row_id,`,
     `  ${escapeIdentifier(columns.timestampColumn)} AS row_time,`,
     `  ${rowSessionId},`,
-    `  ${escapeIdentifier(columns.dataColumn)} AS data_json`,
+    `  ${escapeIdentifier(columns.dataColumn)} AS data_json${stepColumns.join('\n')}`,
     `FROM ${escapeIdentifier(tableName)}`,
+    ...(parts ? [createStepTotalsJoin(parts, columns.idColumn)] : []),
     [
       'WHERE CASE',
       `  WHEN json_valid(${escapeIdentifier(columns.dataColumn)}) = 1`,
@@ -122,27 +172,48 @@ function listTableNames(database: OpenCodeSqliteDatabase): string[] {
     .filter((value): value is string => Boolean(value));
 }
 
+function listColumnNames(database: OpenCodeSqliteDatabase, tableName: string): string[] {
+  const escapedTableName = tableName.replaceAll("'", "''");
+  return database
+    .prepare(`PRAGMA table_info('${escapedTableName}')`)
+    .all()
+    .map((row) => asTrimmedText(row.name))
+    .filter((value): value is string => Boolean(value));
+}
+
 function resolveMessageQueryColumns(
   database: OpenCodeSqliteDatabase,
   messageTableName: string,
 ): MessageQueryColumns {
-  const escapedMessageTableName = messageTableName.replaceAll("'", "''");
-  const messageColumns = database
-    .prepare(`PRAGMA table_info('${escapedMessageTableName}')`)
-    .all()
-    .map((row) => asTrimmedText(row.name))
-    .filter((value): value is string => Boolean(value));
+  return resolveRequiredMessageColumns(listColumnNames(database, messageTableName));
+}
 
-  return resolveRequiredMessageColumns(messageColumns);
+/** The V1 `part` table, when it has the columns the step totals need. */
+function resolvePartQueryColumns(
+  database: OpenCodeSqliteDatabase,
+  tableNames: readonly string[],
+): PartQueryColumns | undefined {
+  const tableName = resolveIdentifierCaseInsensitive(tableNames, ['part']);
+
+  if (!tableName) {
+    return undefined;
+  }
+
+  const partColumns = listColumnNames(database, tableName);
+  const messageIdColumn = resolveIdentifierCaseInsensitive(partColumns, ['message_id']);
+  const dataColumn = resolveIdentifierCaseInsensitive(partColumns, ['data']);
+
+  return messageIdColumn && dataColumn ? { tableName, messageIdColumn, dataColumn } : undefined;
 }
 
 function queryV1MessageRows(
   database: OpenCodeSqliteDatabase,
   messageTableName: string,
   columns: MessageQueryColumns,
+  parts: PartQueryColumns | undefined,
 ): IterableIterator<OpenCodeSqliteRow> {
   try {
-    return iterateRows(database.prepare(createPrimaryQuery(messageTableName, columns)));
+    return iterateRows(database.prepare(createPrimaryQuery(messageTableName, columns, parts)));
   } catch (error) {
     if (!shouldFallbackToNonJsonExtractQuery(error)) {
       throw error;
@@ -232,6 +303,11 @@ export function queryOpenCodeMessageRows(
     return v2Rows;
   }
 
-  const v1Rows = queryV1MessageRows(database, v1.tableName, v1.columns);
+  const v1Rows = queryV1MessageRows(
+    database,
+    v1.tableName,
+    v1.columns,
+    resolvePartQueryColumns(database, tableNames),
+  );
   return v2Rows ? chainRows(v1Rows, v2Rows) : v1Rows;
 }

@@ -84,6 +84,24 @@ function resolveRepoRoot(messagePayload: Record<string, unknown>): string | unde
   );
 }
 
+/**
+ * A V1 message's tokens are its last step's (its cost covers every step), so a message
+ * with several steps takes the sum of its `step-finish` parts, in the message's shape.
+ */
+function readStepTokens(row: OpenCodeSqliteRow): Record<string, unknown> | undefined {
+  if (toTokenCount(row.step_count) < 2) {
+    return undefined;
+  }
+
+  return {
+    input: row.step_input_tokens,
+    output: row.step_output_tokens,
+    reasoning: row.step_reasoning_tokens,
+    cache: { read: row.step_cache_read_tokens, write: row.step_cache_write_tokens },
+    total: row.step_total_tokens,
+  };
+}
+
 function hasUsageSignal(usageFields: Array<unknown>, explicitCost: number | undefined): boolean {
   if (explicitCost !== undefined) {
     return true;
@@ -166,7 +184,7 @@ export function parseOpenCodeMessageRow(
     asTrimmedText(payload.model) ??
     asTrimmedText(modelPayload?.id);
   const repoRoot = resolveRepoRoot(payload) ?? asTrimmedText(row.row_directory);
-  const tokens = asRecord(payload.tokens);
+  const tokens = readStepTokens(row) ?? asRecord(payload.tokens);
   const tokenCache = asRecord(tokens?.cache);
   const inputTokens = toTokenCount(tokens?.input);
   const storedOutputTokens = toTokenCount(tokens?.output);
