@@ -13,7 +13,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 
 ### Added
 
-- `hourly`: usage hour by hour, today unless `--last`, `--since` or `--until`. In `--json`, rows of the hour repeated when clocks go back carry `repeatedHour`.
+- `hourly`: usage hour by hour, today unless `--last`, `--since`, `--until` or `--all`. In `--json`, rows of the hour repeated when clocks go back carry `repeatedHour`.
 - `projects`: cost, tokens, events, active days and top models per project, costliest first.
 - `blocks`: estimated 5-hour usage blocks per source, with the active block and its burn rate.
 - `value`: the API-priced cost of each month against subscription plan prices, per plan and project.
@@ -31,7 +31,8 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - `events --format otlp-metrics`: daily token and cost counters as OTLP/JSON Lines, one line per agent and day in `--timezone`. Token counts use the GenAI `gen_ai.client.inference.usage.*` counters and cost goes in `llm_usage.cost_usd`, all DELTA Sums whose points span the day. Metric backends often reject old points; the [OpenTelemetry export](https://ayagmar.github.io/llm-usage-metrics/otel/#metrics) page covers Prometheus and Datadog.
 - The OTLP exports follow `semantic-conventions-genai` commit `f49da22`. `chat` spans leave out reasoning and cache token counts that are zero, and `execute_tool` spans carry `gen_ai.agent.name`. `otlp-metrics` adds the per-inference token histograms `gen_ai.client.inference.operation.input_tokens` and `.output_tokens`, and `gen_ai.execute_tool.duration` for tool calls whose log records when they ended.
 - `events --otlp-endpoint <url>` sends the `otlp-traces` or `otlp-metrics` export to an OTLP/HTTP receiver instead of printing it, with headers from `OTEL_EXPORTER_OTLP_HEADERS`. Requests stay under 4 MiB, time out after 10 seconds, and are retried once on `429` or `503` with `Retry-After`. Redirects are not followed. See [Push to a receiver](https://ayagmar.github.io/llm-usage-metrics/otel/#push-to-a-receiver).
-- `--help-all` works on every command and subcommand.
+- `--help-all` works on every command and subcommand. `llm-usage --help-all` prints the root help instead of the summary's.
+- `--all` works on every report that reads usage. `trends` charts every day since the first usage with it, and `hourly` every hour. Where the default is already the full history it changes nothing, and `summary` and `compare` ignore it.
 - `machine export` records each source's parser version in the bundle header.
 - `machine export` sends each file's tool calls and turns (no text) in bundle format 1, which 0.11.0 still reads. `tools` and `session --timeline` include other machines, and `tools` takes `--machine`, `--no-sync` and `--history` like the other reports. A machine running 0.11.0 or older sends usage only; its tool calls appear once it is updated and synced again. The first sync after the syncing machine upgrades fetches every file once, so tool calls a 0.11.0 sync dropped are not lost.
 - The parsers are a separate package, [`@ayagmar/agent-sessions`](https://ayagmar.github.io/llm-usage-metrics/library/), versioned on its own. It is not on npm yet; the CLI bundles it. It exports `dedupeToolCalls`, which counts a tool call that a resumed or forked transcript repeats once.
@@ -64,6 +65,9 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - `session` labels each project from every row in the window, as `projects` does, so a label no longer depends on `--top` or `--id`, and `--by-repo` keys rows as `projects` does, so `/x/app` and `/x/app/` are one row.
 - The priority-rate note on `stderr` no longer counts an event whose priority-only bucket was billed at a long-context tier rate or the one-hour cache-write rate.
 - The history note, `doctor`, `machine export` and machine sync messages say `1 event` and `2 departed files` instead of `event(s)` and `file(s)`, and group thousands.
+- On a Node.js version outside the supported range (22.16+ or 24+), the CLI says which versions it needs instead of failing on a missing API.
+- `efficiency --markdown` prints the no-usage message when no period has both commits and usage, as the terminal output does, instead of an all-zero table.
+- Root help examples that are wider than the terminal wrap between flags with shell line continuations, so they still paste as one command.
 - `trends` and `wrapped` fall back to UTC when the system reports no time zone, as the other reports do.
 - Share page: a report made with `--all` shows the first date with data as the period start instead of a blank date field; a long filter list in the header badge shows three names and counts the rest; wide summary tables shade the edge that has more columns and scroll with the keyboard.
 - Library: `since` and `until` throw on a date-only bound that is not an ISO date (`'June 1, 2026'`), which `Date.parse` would read as local midnight; `maxBusyRetries` on the SQLite adapters throws unless it is a non-negative integer; a failed `node:sqlite` load names the source.

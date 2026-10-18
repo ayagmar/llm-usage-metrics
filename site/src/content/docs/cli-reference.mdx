@@ -103,8 +103,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -128,6 +129,8 @@ Options:
                                  it
   --redact                       With --share, label projects project-N and
                                  machines machine-N
+  --all                          No effect: the summary always covers today, the
+                                 last 7 days and month to date
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -149,7 +152,7 @@ Options:
 ```text
 Usage: llm-usage hourly [options]
 
-Show hourly usage report (today unless --last, --since, or --until)
+Show hourly usage report (today unless --last, --since, --until, or --all)
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -200,8 +203,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -223,6 +227,7 @@ Options:
                                  table columns (terminal/markdown)
   --last <n>                     Report the last N days hour by hour (1-31),
                                  counting today
+  --all                          Report every hour instead of today
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
   --no-cost                      Leave cost out of the table, e.g. for
@@ -303,8 +308,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -414,8 +420,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -524,8 +531,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -551,6 +559,8 @@ Options:
                                  it
   --redact                       With --share, label projects project-N and
                                  machines machine-N
+  --all                          Report the full history (the default without
+                                 date flags)
   --last <n>                     Report the last N months, counting the current
                                  month
   --compact                      Abbreviate token counts and hide the Reasoning
@@ -635,8 +645,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -738,8 +749,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -769,6 +781,8 @@ Options:
                                  window
   --by-repo                      Also compare each project (the working
                                  directory the tool recorded)
+  --all                          No effect: compare reads its two windows from
+                                 the date flags
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -845,8 +859,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -873,6 +888,8 @@ Options:
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
+  --all                          Report the full history (the default without
+                                 date flags)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -951,8 +968,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -980,6 +998,8 @@ Options:
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
                                  (positive integer)
+  --all                          Report the full history (the default without
+                                 date flags)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -1052,8 +1072,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -1081,6 +1102,8 @@ Options:
                                  today; defaults to 30 when no date flags are
                                  provided
   --days <n>                     Alias of --last
+  --all                          Chart every day since the first usage instead
+                                 of the last 30 days
   --metric <name>                Trend metric: cost | tokens | active-hours
                                  (default: "cost")
   --by-source                    Render one sparkline row per source instead of
@@ -1160,8 +1183,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -1189,6 +1213,8 @@ Options:
   --timeline                     With --id naming one session: list its requests
                                  in time order with a running cost, between its
                                  tool calls and turns
+  --all                          Report the full history (the default without
+                                 date flags)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -1346,8 +1372,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -1446,8 +1473,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -1548,8 +1576,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -1656,8 +1685,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -1744,8 +1774,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the
@@ -1769,6 +1800,8 @@ Options:
   --otlp-endpoint <url>          With an OTLP format: POST to <url>/v1/traces or
                                  /v1/metrics instead of printing; headers from
                                  OTEL_EXPORTER_OTLP_HEADERS
+  --all                          Report the full history (the default without
+                                 date flags)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -1804,7 +1837,9 @@ Options:
   --pricing-url <url>         Override LiteLLM pricing source URL
   --pricing-overrides <path>  Path to a JSON file of per-model pricing overrides
                               (takes precedence over LiteLLM)
-  --pricing-offline           Use cached LiteLLM pricing only (no network fetch)
+  --pricing-offline           Never fetch pricing: use the cached LiteLLM
+                              pricing, or the bundled snapshot when there is no
+                              cache
   --markdown                  Render output as markdown table
   --help-all                  Display help for command
   -h, --help                  display help for command
@@ -2056,8 +2091,9 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing
                                  overrides (takes precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network
-                                 fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM
+                                 pricing, or the bundled snapshot when there is
+                                 no cache
   -h, --help                     display help for command
 
 Usage: llm-usage config path [options]
@@ -2215,7 +2251,7 @@ Search across root and command help. See Command help above to check which flags
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
-| `--all` | - | - | daily, context: Report every day instead of the last 7 days; weekly: Report every week instead of the last 8 weeks; projects: Report the full history \(the default without date flags\); tools: Report every tool call on disk instead of the last 7 days; blocks: Report every block instead of the last 7 days; value: Report every month since the first usage \(the default without date flags\) |
+| `--all` | - | - | summary: No effect: the summary always covers today, the last 7 days and month to date; hourly: Report every hour instead of today; daily, context: Report every day instead of the last 7 days; weekly: Report every week instead of the last 8 weeks; monthly, projects, efficiency, optimize, session, events: Report the full history \(the default without date flags\); compare: No effect: compare reads its two windows from the date flags; trends: Chart every day since the first usage instead of the last 30 days; tools: Report every tool call on disk instead of the last 7 days; blocks: Report every block instead of the last 7 days; value: Report every month since the first usage \(the default without date flags\) |
 | `--amp-dir` | - | `<path>` | Path to Amp threads directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
@@ -2268,7 +2304,7 @@ Search across root and command help. See Command help above to check which flags
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--plan` | - | `<id>` | Plan to compare with, over the sources it covers \(repeatable; default claude-max-20x, or chatgpt-pro-200 when the source filter leaves out claude\). Two plans that cover the same source each count its full cost \(choices: "claude-pro", "claude-max-5x", "claude-max-20x", "chatgpt-go", "chatgpt-plus", "chatgpt-pro-100", "chatgpt-pro-200", "chatgpt-pro-500"\) \(value only\) |
 | `--plan-price` | - | `<usd>` | Monthly plan price in USD to use instead of the plan's list price \(one plan only\) \(value only\) |
-| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, pricing, config only\) |
+| `--pricing-offline` | - | - | Never fetch pricing: use the cached LiteLLM pricing, or the bundled snapshot when there is no cache \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, pricing, config only\) |
 | `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, pricing, statusline, config only\) |
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, pricing, config only\) |
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
