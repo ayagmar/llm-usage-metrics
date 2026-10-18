@@ -152,19 +152,18 @@ describe('collectGitOutcomes', () => {
     }
   });
 
-  it('warns instead of silently reporting zero commits when there is no usage outside a git repository', async () => {
+  it('fails instead of silently reporting zero commits when there is no usage outside a git repository', async () => {
     const nonGitDir = await mkdtemp(path.join(os.tmpdir(), 'git-outcomes-non-git-'));
 
     try {
-      const result = await collectGitOutcomes({
-        repoDir: nonGitDir,
-        granularity: 'daily',
-        timezone: 'UTC',
-        activeUsageDays: new Set(),
-      });
-
-      expect(result.diagnostics.commitsCollected).toBe(0);
-      expect(result.warning).toBe(
+      await expect(
+        collectGitOutcomes({
+          repoDir: nonGitDir,
+          granularity: 'daily',
+          timezone: 'UTC',
+          activeUsageDays: new Set(),
+        }),
+      ).rejects.toThrow(
         `${nonGitDir} is not a git repository; pass --repo-dir <path to a git repository>`,
       );
     } finally {

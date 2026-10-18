@@ -45,8 +45,6 @@ export type GitOutcomeCollectionResult = {
   periodOutcomes: Map<string, EfficiencyOutcomeTotals>;
   totalOutcomes: EfficiencyOutcomeTotals;
   diagnostics: GitOutcomeCollectionDiagnostics;
-  /** Set when there was no usage to match and the repo directory is not a git repository. */
-  warning?: string;
 };
 
 type MutableGitOutcomeEvent = {
@@ -143,6 +141,16 @@ async function isGitRepository(
 function notGitRepositoryMessage(repoDir: string, repoDirOption: string | undefined): string {
   const hint = repoDirOption === undefined ? '<path>' : '<path to a git repository>';
   return `${repoDir} is not a git repository; pass --repo-dir ${hint}`;
+}
+
+/** Fails with an actionable error unless the repo directory is a readable git work tree. */
+export async function assertGitRepositoryDir(repoDirOption: string | undefined): Promise<void> {
+  const repoDir = resolveRepoDir(repoDirOption);
+  await assertRepoDirReadable(repoDir);
+
+  if (!(await isGitRepository(repoDir, runGitCommand))) {
+    throw new Error(notGitRepositoryMessage(repoDir, repoDirOption));
+  }
 }
 
 function isNoCommitHistoryFailure(result: GitCommandResult): boolean {
@@ -547,26 +555,12 @@ export async function collectGitOutcomes(
   const includeMergeCommits = options.includeMergeCommits ?? false;
   const runCommand = deps.runGitCommand ?? runGitCommand;
 
-  if (options.activeUsageDays?.size === 0) {
-    const emptyCollection = createEmptyOutcomeCollection(repoDir, includeMergeCommits);
-
-    if (!deps.runGitCommand) {
-      await assertRepoDirReadable(repoDir);
-
-      if (!(await isGitRepository(repoDir, runCommand))) {
-        emptyCollection.warning = notGitRepositoryMessage(repoDir, options.repoDir);
-      }
-    }
-
-    return emptyCollection;
+  if (!deps.runGitCommand) {
+    await assertGitRepositoryDir(options.repoDir);
   }
 
-  if (!deps.runGitCommand) {
-    await assertRepoDirReadable(repoDir);
-
-    if (!(await isGitRepository(repoDir, runCommand))) {
-      throw new Error(notGitRepositoryMessage(repoDir, options.repoDir));
-    }
+  if (options.activeUsageDays?.size === 0) {
+    return createEmptyOutcomeCollection(repoDir, includeMergeCommits);
   }
 
   let authorEmail: string;

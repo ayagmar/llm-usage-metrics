@@ -1,6 +1,6 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { aggregateEfficiency } from '../efficiency/aggregate-efficiency.js';
-import { collectGitOutcomes } from '../efficiency/git-outcome-collector.js';
+import { assertGitRepositoryDir, collectGitOutcomes } from '../efficiency/git-outcome-collector.js';
 import {
   attributeUsageEventsToRepo,
   resolveRepoRootFromPathHint,
@@ -169,6 +169,11 @@ export async function buildEfficiencyData(
     throw new Error('--repo-dir must be a non-empty path');
   }
 
+  // Fail before scanning usage files; an injected collector owns its own repo check.
+  if (!deps.collectGitOutcomes) {
+    await assertGitRepositoryDir(repoDir);
+  }
+
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.dataset.total',
@@ -228,7 +233,7 @@ export async function buildEfficiencyData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
-    warnings: gitOutcomes.warning ? [...dataset.warnings, gitOutcomes.warning] : dataset.warnings,
+    warnings: dataset.warnings,
     // The pricing stats are keyed by the priced events, not attribution's copies.
     notes: withPricingNotes(
       dataset.notes,

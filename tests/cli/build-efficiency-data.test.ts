@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildEfficiencyData } from '../../src/cli/build-efficiency-data.js';
@@ -567,6 +570,24 @@ describe('buildEfficiencyData', () => {
 
     expect(result.diagnostics.scopeNote).toContain('--opencode-db');
     expect(result.diagnostics.scopeNote).toContain('--goose-db');
+  });
+
+  it('fails before scanning usage files when the working directory is not a git repository', async () => {
+    const nonGitDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-non-git-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nonGitDir);
+    const buildDatasetMock = vi.fn(async (options: Parameters<typeof createUsageEventDataset>[0]) =>
+      createUsageEventDataset(options),
+    );
+
+    try {
+      await expect(
+        buildEfficiencyData('weekly', {}, { buildUsageEventDataset: buildDatasetMock }),
+      ).rejects.toThrow(`${nonGitDir} is not a git repository; pass --repo-dir <path>`);
+      expect(buildDatasetMock).not.toHaveBeenCalled();
+    } finally {
+      cwdSpy.mockRestore();
+      await rm(nonGitDir, { recursive: true, force: true });
+    }
   });
 
   it('passes an empty active-usage-day set when no events match the target repo', async () => {
