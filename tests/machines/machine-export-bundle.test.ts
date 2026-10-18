@@ -206,6 +206,67 @@ describe('readMachineExport', () => {
     expect(bundle.sentFiles[0]).toMatchObject({ events: [event], sessionEvents: [call] });
   });
 
+  it('keeps which events record one request through an export', async () => {
+    const claudeEvent = createUsageEvent({ ...event, source: 'claude', singleRequest: true });
+    const droidEvent = createUsageEvent({ ...event, source: 'droid' });
+    const lines = buildMachineExportLines(header, [
+      {
+        source: 'claude',
+        filePath: '/c.jsonl',
+        revision: 'r1',
+        events: [claudeEvent],
+        sessionEvents: [],
+      },
+      {
+        source: 'droid',
+        filePath: '/d.jsonl',
+        revision: 'r1',
+        events: [droidEvent],
+        sessionEvents: [],
+      },
+    ]);
+    const bundle = await readMachineExport(linesOf(...lines.map((line) => JSON.stringify(line))));
+
+    expect(bundle.sentFiles.map((file) => file.events[0].singleRequest)).toEqual([true, undefined]);
+  });
+
+  it('flags the events of an export that predates the flag from their source', async () => {
+    const claudeEvent = createUsageEvent({ ...event, source: 'claude' });
+    const bundle = await readMachineExport(
+      linesOf(
+        headerLine,
+        fileLine('r1', [event]),
+        JSON.stringify({
+          type: 'file',
+          source: 'claude',
+          filePath: '/c.jsonl',
+          revision: 'r1',
+          events: [claudeEvent],
+        }),
+        endLine(
+          [
+            ['codex', '/a.jsonl', 'r1'],
+            ['claude', '/c.jsonl', 'r1'],
+          ],
+          2,
+        ),
+      ),
+    );
+
+    expect(bundle.sentFiles.map((file) => [file.source, file.events[0].singleRequest])).toEqual([
+      ['codex', undefined],
+      ['claude', true],
+    ]);
+  });
+
+  it('rejects a singleRequest that is not a boolean', async () => {
+    await expect(
+      readMachineExport(
+        linesOf(headerLine, fileLine('r1', [{ ...event, singleRequest: 'yes' }]), endLine()),
+      ),
+    ).rejects.toThrow('line 2 has an invalid event at index 0: singleRequest is not a boolean');
+  });
+
   it('builds a file line a reader without session events reads unchanged', async () => {
     const lines = buildMachineExportLines(header, [
       {

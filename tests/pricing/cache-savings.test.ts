@@ -61,7 +61,7 @@ describe('estimateCacheSavingsUsd', () => {
     expect(estimateCacheSavingsUsd([event()], source, DEFAULT_PRICING_POLICY)).toBe(0);
   });
 
-  it('uses long-context tier rates only for per-request sources', () => {
+  it('uses long-context tier rates only for single-request events under a per-request policy', () => {
     const source = pricingSource({
       'gpt-4.1': {
         inputPer1MUsd: 2,
@@ -70,12 +70,12 @@ describe('estimateCacheSavingsUsd', () => {
         tiers: [{ aboveTokens: 272_000, inputPer1MUsd: 4, cacheReadPer1MUsd: 1 }],
       },
     });
-    const longPrompt = event();
+    const longPrompt = event({ singleRequest: true });
+    const perRequest = { perRequestRates: true };
 
     // 1M cache-read tokens * ($4 - $1) per 1M at the tier; $1.50 at the base rates.
-    expect(
-      estimateCacheSavingsUsd([longPrompt], source, { perRequestSourceIds: new Set(['codex']) }),
-    ).toBe(3);
+    expect(estimateCacheSavingsUsd([longPrompt], source, perRequest)).toBe(3);
     expect(estimateCacheSavingsUsd([longPrompt], source, DEFAULT_PRICING_POLICY)).toBe(1.5);
+    expect(estimateCacheSavingsUsd([event()], source, perRequest)).toBe(1.5);
   });
 });

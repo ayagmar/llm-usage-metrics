@@ -39,7 +39,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 
 ### Changed
 
-- **Long-context tiers**: a request whose prompt is over a model's LiteLLM threshold bills at the higher tier for the whole request (claude, gemini, pi, opencode and antigravity events). Pricing caches written before tiers existed are discarded once.
+- **Long-context tiers**: a request whose prompt is over a model's LiteLLM threshold bills at the higher tier for the whole request. Tiers apply to events that record one request: every claude, gemini, pi, opencode and antigravity event, and codex events logged per response or equal to the row's `last_token_usage`. `events` marks them with `singleRequest: true`. Pricing caches written before tiers existed are discarded once.
 - **Priority rates**: stderr counts the events priced at a priority rate, for a model that LiteLLM lists only with a priority rate for a token bucket. Prices are unchanged.
 - **Retired prices** are dropped when a live LiteLLM key prices the same name at the same rates, so a few model names resolve to a different key.
 - **MiniMax M2.1 and M2.5** (and their `-free` names) are priced at MiniMax's own LiteLLM keys instead of OpenRouter's retired ones: $0.30 input, $1.20 output, $0.03 cache read and $0.375 cache write per 1M tokens. M2.5 was $0.27, $1.08 and $0.027 with no cache-write rate; M2.1 cache writes were $0. Names that spell out OpenRouter (`openrouter/minimax/minimax-m2.5`) keep OpenRouter's rates.

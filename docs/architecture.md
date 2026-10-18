@@ -180,7 +180,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 1. `buildContextData(...)` resolves the window as `daily` does and builds the usage dataset
 2. pricing is loaded whenever an event names a model, since the report needs tier rates and context limits (`getMaxInputTokens`), not event costs
-3. `aggregateContextPressure(...)` (`src/context`): per model or per session, peak prompt, requests above 200k tokens, the long-context tier extra from the cost engine's `estimateLongContextExtraUsd`, and requests above 80% of the context limit; sources without `capabilities.usagePerRequest` are listed as aggregated
+3. `aggregateContextPressure(...)` (`src/context`): per model or per session, peak prompt, requests above 200k tokens, the long-context tier extra from the cost engine's `estimateLongContextExtraUsd`, and requests above 80% of the context limit; events without `singleRequest` are counted per source as aggregated
 4. `renderContextReport(...)`
 5. shared report runtime emits diagnostics and stdout body
 

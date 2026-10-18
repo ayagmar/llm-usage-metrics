@@ -28,12 +28,12 @@ function event(input: Partial<UsageEventInput> & { inputTokens: number }) {
     timestamp: '2026-06-18T10:00:00.000Z',
     model: 'tiered-model',
     outputTokens: 0,
+    singleRequest: true,
     ...input,
   });
 }
 
 const options = {
-  perRequestSourceIds: new Set(['claude']),
   lookupPricing: () => TIERED_PRICING,
   getContextLimit: (model: string) => (model === 'tiered-model' ? 250_000 : undefined),
 };
@@ -92,20 +92,26 @@ describe('aggregateContextPressure', () => {
     ]);
   });
 
-  it('lists sources without per-request usage instead of giving them a peak', () => {
+  it('lists records that can sum several requests instead of giving them a peak', () => {
     const report = aggregateContextPressure(
       [
-        event({ inputTokens: 500_000, source: 'codex' }),
-        event({ inputTokens: 1_000, source: 'codex', sessionId: 'session-b' }),
+        event({ inputTokens: 500_000, source: 'codex', singleRequest: false }),
+        event({
+          inputTokens: 1_000,
+          source: 'codex',
+          sessionId: 'session-b',
+          singleRequest: false,
+        }),
+        event({ inputTokens: 2_000, source: 'codex', sessionId: 'session-c' }),
       ],
       options,
     );
 
-    expect(report).toEqual({
-      models: [],
-      sessions: [],
-      aggregatedSources: [{ source: 'codex', records: 2 }],
-    });
+    expect(report.models.map((row) => [row.model, row.requests, row.peakPromptTokens])).toEqual([
+      ['tiered-model', 1, 2_000],
+    ]);
+    expect(report.sessions.map((row) => row.sessionId)).toEqual(['session-c']);
+    expect(report.aggregatedSources).toEqual([{ source: 'codex', records: 2 }]);
   });
 
   it('orders sessions by peak prompt and names each model once', () => {

@@ -210,6 +210,7 @@ function createRequestEvent(
       cacheWriteTokens,
       totalTokens,
       costUsd: explicitCost,
+      singleRequest: true,
     });
   } catch {
     skipRow('invalid_usage_event');

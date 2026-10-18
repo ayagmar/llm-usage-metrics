@@ -122,14 +122,14 @@ describe('pricing report', () => {
     expect(output).toContain('Input           $1.00 / 1M');
   });
 
-  it('lists the per-request sources only when a name has tiers', async () => {
+  it('explains per-request tier rates only when a name has tiers', async () => {
     const tiered = await buildPricingReport(['gemini-2.5-pro'], { pricingOffline: true });
     const flat = await buildPricingReport(['claude-sonnet-4-5-20250929'], {
       pricingOffline: true,
       markdown: true,
     });
 
-    expect(tiered).toMatch(/apply per request .* only to events from: .*claude/u);
+    expect(tiered).toMatch(/apply per request .* only to events that record one request/u);
     expect(flat).not.toContain('per request');
   });
 });

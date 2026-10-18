@@ -41,7 +41,7 @@ export type ContextSessionRow = ContextPressure & {
   models: string[];
 };
 
-/** A source whose usage records sum several requests, so it has no per-request prompt sizes. */
+/** A source's usage records that can sum several requests, so they have no per-request prompt sizes. */
 export type AggregatedContextSource = {
   source: string;
   records: number;
@@ -54,8 +54,6 @@ export type ContextPressureReport = {
 };
 
 export type AggregateContextPressureOptions = {
-  /** Sources whose usage events each record one request. */
-  perRequestSourceIds: ReadonlySet<string>;
   /** The rates the cost engine prices an event's model with; undefined when not estimated. */
   lookupPricing: (event: UsageEvent) => ModelPricing | undefined;
   /** The model's context limit in tokens; undefined when unknown. */
@@ -107,8 +105,8 @@ function sortByPeak<Row extends ContextPressure>(
 }
 
 /**
- * Prompt sizes per model and per session, from the events of per-request sources; the other
- * sources are counted in `aggregatedSources`. Rows are ordered by peak prompt, largest first.
+ * Prompt sizes per model and per session, from the events that record one request; the
+ * others are counted per source in `aggregatedSources`. Rows are ordered by peak prompt, largest first.
  */
 export function aggregateContextPressure(
   events: readonly UsageEvent[],
@@ -120,7 +118,7 @@ export function aggregateContextPressure(
   const aggregatedRecords = new Map<string, number>();
 
   for (const event of events) {
-    if (!options.perRequestSourceIds.has(event.source)) {
+    if (event.singleRequest !== true) {
       aggregatedRecords.set(event.source, (aggregatedRecords.get(event.source) ?? 0) + 1);
       continue;
     }

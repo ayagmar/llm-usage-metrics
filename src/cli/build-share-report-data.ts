@@ -52,7 +52,6 @@ import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { readBlocksDataset } from './build-blocks-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
-  getPerRequestSourceIds,
   resolvePricingPolicy,
   resolvePricingSource,
   shouldLoadPricingSource,
@@ -325,10 +324,7 @@ export async function buildShareReport(
   );
   const windowEvents = allEvents.filter((_, index) => inWindow[index]);
 
-  const policy = resolvePricingPolicy(
-    dataset.options,
-    getPerRequestSourceIds(dataset.adaptersToParse),
-  );
+  const policy = resolvePricingPolicy(dataset.options, true);
   const { costs, unavailable, pricingSource, pricingWarning } = await measureRuntimeProfileStage(
     runtimeProfile,
     'share.pricing',

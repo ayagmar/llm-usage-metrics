@@ -323,6 +323,7 @@ class ClaudeUsageRows {
         provider: pendingEvent.provider,
         model: pendingEvent.model,
         ...pendingEvent.usage,
+        singleRequest: true,
       };
       let event: UsageEvent | UsageRecord;
 
@@ -358,7 +359,6 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     eventsPrecedeFileMtime: true,
     sessionsCopyEvents: true,
     kinds: EVENT_KINDS,
-    usagePerRequest: true,
   } as const;
 
   private readonly rootDirs: readonly string[];

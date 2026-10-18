@@ -13,8 +13,8 @@ export type PricingCostMode = 'both' | 'explicit' | 'estimated';
 /** How a pricing run prices events. */
 export type PricingPolicy = {
   costMode: PricingCostMode;
-  /** Sources whose events each record a single model request, so per-request rates apply. */
-  perRequestSourceIds: ReadonlySet<string>;
+  /** Whether events that record a single model request (`singleRequest`) get per-request rates. */
+  perRequestRates: boolean;
 };
 
 /**
@@ -30,7 +30,7 @@ export type PricingRunStats = {
 
 export const DEFAULT_PRICING_POLICY: PricingPolicy = {
   costMode: 'both',
-  perRequestSourceIds: new Set(),
+  perRequestRates: false,
 };
 
 export function createPricingRunStats(): PricingRunStats {
@@ -128,6 +128,14 @@ function toFlatTierRates(pricing: ModelPricing, tier: PricingTier): ModelPricing
   return rates;
 }
 
+/** Whether `policy` prices `event` at per-request rates: it applies them and the event is one request. */
+export function usesPerRequestRates(
+  event: UsageEvent,
+  policy: Pick<PricingPolicy, 'perRequestRates'>,
+): boolean {
+  return policy.perRequestRates && event.singleRequest === true;
+}
+
 /** The prompt a request sent: input, cache read and cache write tokens. */
 export function getPromptTokens(usage: BillableTokenUsage): number {
   return usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
@@ -136,8 +144,8 @@ export function getPromptTokens(usage: BillableTokenUsage): number {
 /**
  * The flat rates for one event. A per-request event (`perRequest`) whose prompt (input,
  * cache read and cache write tokens) is strictly above a tier's threshold bills at the
- * highest such tier; any other event bills at the base rates. Events from sources that sum
- * several requests must not cross a threshold on their totals, hence the gate.
+ * highest such tier; any other event bills at the base rates. An event that sums several
+ * requests must not cross a threshold on its totals, hence the gate.
  */
 export function resolveRatesForEvent(
   event: BillableTokenUsage,
@@ -295,7 +303,7 @@ function resolvePricingOutcome(
     return notPriced;
   }
 
-  const rates = resolveRatesForEvent(event, pricing, policy.perRequestSourceIds.has(event.source));
+  const rates = resolveRatesForEvent(event, pricing, usesPerRequestRates(event, policy));
 
   if (!canEstimateUsageCost(event, rates)) {
     return notPriced;

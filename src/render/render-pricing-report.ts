@@ -151,7 +151,7 @@ function describeNotes(data: PricingReportData): string[] {
   }
 
   return [
-    `"Above N" rates apply per request when its prompt (input, cache read and cache write tokens) is above N, and only to events from: ${data.perRequestSources.join(', ')}.`,
+    '"Above N" rates apply per request when its prompt (input, cache read and cache write tokens) is above N, and only to events that record one request. Events that sum several requests, such as session totals, stay at base rates.',
   ];
 }
 

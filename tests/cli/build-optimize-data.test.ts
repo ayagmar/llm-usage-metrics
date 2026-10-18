@@ -118,21 +118,19 @@ describe('buildOptimizeData', () => {
   // Candidates are priced at base rates, so the baseline must be too, even for a
   // per-request source whose request is above a long-context tier.
   it('shows no savings for the model already in use when a request is above a tier', async () => {
-    const adapter: SourceAdapter = {
-      ...createAdapter('claude', {
-        '/tmp/a.jsonl': [
-          createBaseEvent({
-            source: 'claude',
-            provider: 'anthropic',
-            model: 'claude-tiered',
-            inputTokens: 150_000,
-            outputTokens: 1_000,
-            totalTokens: 151_000,
-          }),
-        ],
-      }),
-      capabilities: { usagePerRequest: true },
-    };
+    const adapter: SourceAdapter = createAdapter('claude', {
+      '/tmp/a.jsonl': [
+        createBaseEvent({
+          source: 'claude',
+          provider: 'anthropic',
+          model: 'claude-tiered',
+          inputTokens: 150_000,
+          outputTokens: 1_000,
+          totalTokens: 151_000,
+          singleRequest: true,
+        }),
+      ],
+    });
 
     const result = await buildOptimizeData(
       'daily',

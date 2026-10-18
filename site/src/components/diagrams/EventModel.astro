@@ -15,6 +15,7 @@ const variants = [
       'cacheWriteTokens',
       'cacheWrite1hTokens',
       'totalTokens',
+      'singleRequest?',
       'costUsd?',
       'model?',
       'provider?',
@@ -85,7 +86,7 @@ const height = cursor + 40;
         Every event has source, sessionId and timestamp, plus raw when the read asks for it, and a
         kind that is one of four. usage: inputTokens, outputTokens, reasoningTokens,
         cacheReadTokens, cacheWriteTokens, cacheWrite1hTokens and totalTokens, with optional
-        costUsd, model, provider, repoRoot, rawProvider, messageId and requestId. message: role and
+        singleRequest, costUsd, model, provider, repoRoot, rawProvider, messageId and requestId. message: role and
         textLength, with optional text, model and messageId. tool_call: name and status, with
         optional toolCallId, completedAt, durationMs and messageId. session_meta: all optional, cwd,
         title, gitBranch, agentVersion, parentSessionId, model and rawProvider. read() yields usage

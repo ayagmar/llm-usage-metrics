@@ -22,6 +22,7 @@ import { getUserDataRootDir } from '../utils/data-root-dir.js';
 import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
 import {
   normalizeStoredEventTuple,
+  selectSingleRequestBeforeFlagSql,
   STORED_EVENT_COLUMNS,
   type StoredEventTuple,
 } from './event-store-codec.js';
@@ -644,7 +645,8 @@ function selectPreV5WindowEventsSql(
   schemaVersion: string | undefined,
   wideWindow: boolean,
 ): string {
-  // A read-only open cannot migrate, and stores older than v4 lack the one-hour column.
+  // A read-only open cannot migrate. Stores older than v4 lack the one-hour column, and
+  // stores older than v5 the single-request flag.
   const cacheWrite1hColumn = hasSchemaVersion(schemaVersion, 4)
     ? 'cache_write_1h_tokens'
     : '0 AS cache_write_1h_tokens';
@@ -652,7 +654,8 @@ function selectPreV5WindowEventsSql(
   return [
     'SELECT source, session_id, timestamp, model, provider, repo_root,',
     '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-    `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode`,
+    `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode,`,
+    `  ${selectSingleRequestBeforeFlagSql('source')} AS single_request`,
     wideWindow ? 'FROM events INDEXED BY events_file' : 'FROM events',
     'WHERE timestamp >= ? AND timestamp < ?',
     'ORDER BY source, file_path, event_index',
@@ -1074,8 +1077,8 @@ export function replaceFilesEvents(
       '  file_id, event_index, session_id, timestamp, model, provider, repo_root,',
       '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
       '  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd,',
-      '  cost_mode',
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      '  cost_mode, single_request',
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ].join('\n'),
   ));
   const upsertFile = (store.statements.upsertFile ??= store.database.prepare(
@@ -1147,6 +1150,7 @@ export function replaceFilesEvents(
           computeEventContentHash(event),
           event.costUsd ?? null,
           event.costMode,
+          event.singleRequest === true ? 1 : 0,
         );
       });
       insertFileSessionEvents(sessionEventStatements, fileId, write.sessionEvents);
