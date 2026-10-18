@@ -11,6 +11,7 @@ import {
   type StoredSessionEvent,
 } from '../../persistence/event-store.js';
 import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 import type { RuntimeProfileCollector } from '../runtime-profile.js';
 import { getErrorReason } from '../../utils/get-error-reason.js';
 
@@ -61,17 +62,85 @@ export function recordEventStoreFailure(state: EventStoreFailureState, error: un
   state.warning = `Event store disabled after failure: ${getErrorReason(error)}`;
 }
 
+/**
+ * The store's entry for a file, read once by a caller that needs it before the lookup
+ * (see `parseStoredFileFingerprint`); pass it on as `storedEntry`.
+ */
+export function readStoredFileEntry(
+  context: EventStoreParseContext,
+  params: { source: string; filePath: string },
+): EventStoreFileEntry | undefined {
+  if (context.failureState.disabled) {
+    return undefined;
+  }
+
+  try {
+    return context.getFileEntry(context.store, params.source, params.filePath);
+  } catch (error) {
+    recordEventStoreFailure(context.failureState, error);
+    return undefined;
+  }
+}
+
+/**
+ * The fingerprint a store entry holds, for a source whose dependency list follows its file
+ * (see `getFileFingerprint`). Undefined when there is none or it does not parse.
+ */
+export function parseStoredFileFingerprint(
+  storedEntry: EventStoreFileEntry | undefined,
+): EventStoreFileFingerprint | undefined {
+  let fingerprint: Record<string, unknown> | undefined;
+
+  try {
+    fingerprint = storedEntry && asRecord(JSON.parse(storedEntry.fingerprint));
+  } catch {
+    return undefined;
+  }
+
+  const dependencies: EventStoreFileFingerprint['dependencies'] = [];
+
+  for (const value of Array.isArray(fingerprint?.dependencies) ? fingerprint.dependencies : []) {
+    const dependency = asRecord(value);
+
+    if (typeof dependency?.path !== 'string') {
+      return undefined;
+    }
+
+    dependencies.push({
+      path: dependency.path,
+      exists: dependency.exists === true,
+      size: typeof dependency.size === 'number' ? dependency.size : undefined,
+      mtimeMs: typeof dependency.mtimeMs === 'number' ? dependency.mtimeMs : undefined,
+    });
+  }
+
+  return fingerprint && dependencies.length > 0
+    ? {
+        parserVersion:
+          typeof fingerprint.parserVersion === 'string' ? fingerprint.parserVersion : undefined,
+        dependencies,
+      }
+    : undefined;
+}
+
 /** Whether the store already holds this exact version of the file. */
 export function isStoredFileCurrent(
   context: EventStoreParseContext,
-  params: { source: string; filePath: string; fingerprint: EventStoreFileFingerprint },
+  params: {
+    source: string;
+    filePath: string;
+    fingerprint: EventStoreFileFingerprint;
+    /** The file's entry, when the caller already read it. */
+    storedEntry?: EventStoreFileEntry;
+  },
 ): boolean {
   if (context.failureState.disabled) {
     return false;
   }
 
   try {
-    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+    const storedEntry =
+      params.storedEntry ?? context.getFileEntry(context.store, params.source, params.filePath);
     return storedEntry?.fingerprint === serializeEventStoreFingerprint(params.fingerprint);
   } catch (error) {
     recordEventStoreFailure(context.failureState, error);
@@ -86,6 +155,8 @@ export function readParsedFileFromEventStore(
     filePath: string;
     fingerprint: EventStoreFileFingerprint;
     runtimeProfile?: RuntimeProfileCollector;
+    /** The file's entry, when the caller already read it. */
+    storedEntry?: EventStoreFileEntry;
   },
 ): ParseFileDiagnostics | undefined {
   if (context.failureState.disabled) {
@@ -94,7 +165,8 @@ export function readParsedFileFromEventStore(
 
   try {
     const fingerprint = serializeEventStoreFingerprint(params.fingerprint);
-    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+    const storedEntry =
+      params.storedEntry ?? context.getFileEntry(context.store, params.source, params.filePath);
 
     if (storedEntry?.fingerprint !== fingerprint) {
       params.runtimeProfile?.recordEventStoreResult(params.source, 'miss');
