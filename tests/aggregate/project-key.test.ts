@@ -30,6 +30,8 @@ describe('toProjectKey', () => {
     expect(toProjectKey('/w/app/site/node_modules/')).toBe('/w/app/site');
     expect(toProjectKey('C:\\src\\web\\node_modules\\pkg')).toBe('C:\\src\\web');
     expect(toProjectKey('/w/node_modules_tools/src')).toBe('/w/node_modules_tools/src');
+    expect(toProjectKey('/node_modules/pkg')).toBe('/');
+    expect(toProjectKey('C:\\node_modules\\pkg')).toBe('C:\\');
     expect(toProjectKey('/w/node_modules_cache/app/node_modules/dep')).toBe(
       '/w/node_modules_cache/app',
     );

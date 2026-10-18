@@ -33,7 +33,7 @@ function stripDependencyPath(value: string): string {
   for (const separator of ['/', '\\']) {
     const needle = `${separator}node_modules`;
 
-    for (let index = value.indexOf(needle); index > 0; index = value.indexOf(needle, index + 1)) {
+    for (let index = value.indexOf(needle); index >= 0; index = value.indexOf(needle, index + 1)) {
       const end = index + needle.length;
 
       if (end === value.length || isSeparator(value[end])) {
@@ -43,7 +43,10 @@ function stripDependencyPath(value: string): string {
     }
   }
 
-  return value.slice(0, cut);
+  // `/node_modules/x` and `C:\node_modules\x` keep their root's separator.
+  return cut < value.length && isBareRoot(value.slice(0, cut + 1))
+    ? value.slice(0, cut + 1)
+    : value.slice(0, cut);
 }
 
 /**
