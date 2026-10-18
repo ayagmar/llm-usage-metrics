@@ -218,7 +218,7 @@ describe('DshSourceAdapter', () => {
       sessionId: SESSION_HEADER.id,
       timestamp: new Date(SESSION_HEADER.createdAt + 1_000).toISOString(),
       repoRoot: '/home/dev/projects/llm-usage-metrics',
-      provider: 'deepseek-official',
+      provider: 'deepseek',
       model: 'deepseek-flash',
       inputTokens: 883,
       outputTokens: 195,
@@ -311,7 +311,7 @@ describe('DshSourceAdapter', () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
       sessionId,
-      provider: 'deepseek-official',
+      provider: 'deepseek',
       model: 'deepseek-flash',
       repoRoot: undefined,
       inputTokens: 7,
@@ -522,7 +522,7 @@ describe('DshSourceAdapter', () => {
     expect(result.events[0]).toMatchObject({
       sessionId,
       repoRoot: undefined,
-      provider: 'deepseek-official',
+      provider: 'deepseek',
       model: 'deepseek-flash',
     });
     // A non-string header id must not overwrite the identity resolved earlier,
@@ -530,7 +530,7 @@ describe('DshSourceAdapter', () => {
     expect(result.events[1]).toMatchObject({
       sessionId,
       repoRoot: '/tmp/from-header',
-      provider: 'deepseek-official',
+      provider: 'deepseek',
       model: 'deepseek-flash',
     });
   });

@@ -107,7 +107,7 @@ describe('getFileFingerprint', () => {
     );
 
     expect(JSON.stringify(fingerprint)).toBe(
-      `{"parserVersion":"n3.p3","dependencies":[` +
+      `{"parserVersion":"n4.p3","dependencies":[` +
         `{"path":${JSON.stringify(filePath)},"exists":true,"size":3,"mtimeMs":1700000000000},` +
         `{"path":${JSON.stringify(missingDependency)},"exists":false}]}`,
     );
