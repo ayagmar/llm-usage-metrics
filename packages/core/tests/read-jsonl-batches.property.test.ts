@@ -13,9 +13,9 @@ import {
 // The reader reads 1 MiB at a time; a padding line this long puts a chunk boundary inside
 // the lines after it, often inside a multi-byte character.
 const CHUNK_BYTES = 1024 * 1024;
-// Each case may hold a line of nearly one chunk; 20 cases stay well inside the timeout when
-// gates run in parallel.
-const CASES = 20;
+// Each case may hold a line of nearly one chunk, so each gets its own test and timeout:
+// one case takes about 1.5 s with coverage on a fast machine and several times that on CI.
+const SEEDS = Array.from({ length: 20 }, (_, index) => index + 1);
 
 let rootDir: string;
 
@@ -178,8 +178,9 @@ async function readBatches(
 }
 
 describe('batched JSONL reads', () => {
-  it('match the line rules on random files, whole and resumed', async () => {
-    for (let seed = 1; seed <= CASES; seed += 1) {
+  it.each(SEEDS)(
+    'match the line rules on random file %i, whole and resumed',
+    async (seed) => {
       const random = createRandom(seed);
       const bytes = randomFile(random);
       const filePath = path.join(rootDir, `case-${seed}.jsonl`);
@@ -230,8 +231,9 @@ describe('batched JSONL reads', () => {
           resumedReference.map((line) => line.lineEndOffset),
         );
       }
-    }
-  }, 60_000);
+    },
+    30_000,
+  );
 
   it('stops parsing at the record a consumer stops at', async () => {
     const filePath = path.join(rootDir, 'early-stop.jsonl');
