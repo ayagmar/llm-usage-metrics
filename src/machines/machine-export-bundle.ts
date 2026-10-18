@@ -268,7 +268,8 @@ function toUsageEventInput(value: unknown): UsageEventInput {
 
 /**
  * Tool calls and messages as the store keeps them; only their typed fields are read, so a
- * bundle's `text` is never stored. Undefined for a kind this version does not keep.
+ * bundle's `text` is never stored. Undefined for a kind this version does not keep or a
+ * value it does not know.
  */
 function toStoredSessionEvent(value: unknown): StoredSessionEvent | undefined {
   const record = asRecord(value);
@@ -285,7 +286,7 @@ function toStoredSessionEvent(value: unknown): StoredSessionEvent | undefined {
   };
 
   if (record.kind === 'tool_call') {
-    return createToolCallEvent({
+    const input = {
       ...base,
       toolCallId: optionalText(record, 'toolCallId'),
       name: optionalText(record, 'name') ?? '',
@@ -294,21 +295,35 @@ function toStoredSessionEvent(value: unknown): StoredSessionEvent | undefined {
       status: (optionalText(record, 'status') ?? '') as ToolCallStatus,
       completedAt: optionalText(record, 'completedAt'),
       durationMs: optionalCount(record, 'durationMs'),
-    });
+    };
+    return skipRejected(() => createToolCallEvent(input));
   }
 
   if (record.kind === 'message') {
-    return createMessageEvent({
+    const input = {
       ...base,
       // The constructor rejects a role outside MessageEvent['role'].
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       role: (optionalText(record, 'role') ?? '') as MessageEvent['role'],
       model: optionalText(record, 'model'),
       textLength: optionalCount(record, 'textLength') ?? 0,
-    });
+    };
+    return skipRejected(() => createMessageEvent(input));
   }
 
   return undefined;
+}
+
+/**
+ * A value the constructor rejects, such as a status a newer version added, drops that one
+ * event as an unknown kind does; a wrong type still fails the bundle.
+ */
+function skipRejected<E>(create: () => E): E | undefined {
+  try {
+    return create();
+  } catch {
+    return undefined;
+  }
 }
 
 /** Each event's source must be the file's. */

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { buildToolsData } from '../../src/cli/build-tools-data.js';
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
 import {
+  formatLiveEventsNote,
   readLiveSessionEvents,
   type LiveEventKind,
   type ReadLiveSessionEventsOptions,
@@ -159,6 +160,21 @@ describe('buildToolsData', () => {
     expect(storeOn.data).toEqual(storeOff.data);
     expect(storeOn.data.totals.calls).toBeGreaterThan(0);
     expect(storeOn.diagnostics.notes).toContain(
+      'Tool calls come from the event store (claude, codex, pi).',
+    );
+  });
+
+  it('names departed files in the note only when history served some', async () => {
+    const dataset = await buildUsageEventDataset({ timezone: 'UTC' }, createDeps());
+    const withLedger = (historyFiles: { source: string; filePath: string }[]) =>
+      formatLiveEventsNote('Tool calls', {
+        ...dataset,
+        ledger: { path: 'events.db', parsedFiles: [], historyFiles, copiedEventCount: 0 },
+      });
+
+    // --no-history, or nothing departed.
+    expect(withLedger([])).toBe('Tool calls come from the event store (claude, codex, pi).');
+    expect(withLedger([{ source: 'pi', filePath: '/tools-fixture/pi/departed.jsonl' }])).toBe(
       'Tool calls come from the event store (claude, codex, pi), departed files included.',
     );
   });

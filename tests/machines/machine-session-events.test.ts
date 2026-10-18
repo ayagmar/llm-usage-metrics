@@ -171,6 +171,20 @@ describe('tool calls and turns of other machines', () => {
     );
   });
 
+  it('gets the tool calls a 0.11.0 reader dropped once the reader upgrades', async () => {
+    // The laptop already exports tool calls; 0.11.0 here stored its revisions without them.
+    await sync((bundle) => bundle.replaceAll(/,"sessionEvents":\[[^\]]*\]/gu, ''));
+    const cache = await openMachineCache('laptop');
+    cache.database.prepare("DELETE FROM meta WHERE key = 'sessionEventsKept'").run();
+    closeEventStore(cache);
+
+    const { spawnSsh } = createInProcessRemote(remote);
+    const outcome = await syncMachine('laptop', { ssh: 'me@laptop' }, { spawnSsh });
+
+    expect(outcome).toMatchObject({ ok: true, result: { receivedFileCount: 3 } });
+    expect((await tools(local, ['laptop'])).data).toEqual((await tools(remote)).data);
+  });
+
   it('reads no tool calls from a cache last synced before the store kept them', async () => {
     await sync();
     // As a sync by 0.11.0 left it: schema v4, without the tables; reports never migrate it.
