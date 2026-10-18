@@ -11,7 +11,7 @@ import ShareDataFlow from '@components/diagrams/ShareDataFlow.astro';
 
 ## Which commands
 
-`summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `efficiency`, `optimize`, and `wrapped` accept `--share`, with `--no-open` and `--redact`. The file goes to the current directory under a fixed name per command (for example `usage-daily-share.html`, `compare-share.html`, `llm-usage-wrapped-<year>.html`) and replaces a file of that name. `--no-open` and `--redact` without `--share` are errors.
+`summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `efficiency`, `optimize`, and `wrapped` accept `--share`, with `--no-open` and `--redact`. The file goes to the current directory under a fixed name per command (for example `usage-daily-share.html`, `compare-share.html`, `llm-usage-wrapped-<year>.html`) and replaces a file of that name: the old entry is unlinked and the new file created with mode `0600`, so a symlink at that name is never followed. `--no-open` and `--redact` without `--share` are errors.
 
 The command still prints its normal report to stdout. Before it does, it writes the file, logs `Wrote <report> share report: <path>` to stderr, and opens it with the system handler (`xdg-open`, `open`, or `rundll32` on Windows) unless `--no-open` is passed. A file that cannot be opened is a warning, not a failure.
 
@@ -42,7 +42,7 @@ Active time is the gaps between consecutive events in a session, each capped at 
 
 Project labels never hold a full home path, even without `--redact`: a home directory collapses to `~`, and labels that only a full path would tell apart get ` #2`, ` #3`. A model name that looks like a path keeps only its last part. The envelope drops path fields (`repoRoot`, `cwd`, `filePath` and others) and scrubs paths from other strings.
 
-`--redact` replaces project names with `project-N` and machine names with `machine-N`, numbered by total tokens. `(unattributed)` and `local` stay as they are. The page's own "hide names" switch only masks the display; the file still holds the names.
+`--redact` replaces project names with `project-N` and machine names with `machine-N`, numbered by total tokens. `(unattributed)` and `local` stay as they are. Models whose name holds a path or that LiteLLM does not list get `model-N`; to tell which, prices load even with `--no-cost`, and when they do not load every model gets `model-N`. The time zone and session start and end times stay. The page's own "hide names" switch only masks the display; the file still holds the names.
 
 ## The HTML file
 
