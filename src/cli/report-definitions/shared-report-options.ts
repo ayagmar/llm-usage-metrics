@@ -170,7 +170,7 @@ export const sharedOptionProfileConfig = {
     includeShare: false,
     includeTimezone: true,
   },
-  // tools: no prices, and only local files on disk, so no history, machines or sync.
+  // tools: no prices and this machine's events only, so no --history, machine or sync flags.
   tools: {
     includeSources: true,
     includeVerbose: true,
