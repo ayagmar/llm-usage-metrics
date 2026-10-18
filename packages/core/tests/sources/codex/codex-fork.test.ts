@@ -40,7 +40,9 @@ describe('Codex forks', () => {
     });
   });
 
-  it.each(['fork-copied.jsonl', 'fork-referenced.jsonl'])(
+  // fork-referenced-usage-limit.jsonl: a fork written by Codex 0.153, whose first turn
+  // hits the usage limit and logs the parent's running totals before its own turn.
+  it.each(['fork-copied.jsonl', 'fork-referenced.jsonl', 'fork-referenced-usage-limit.jsonl'])(
     'counts only the fork’s own turn in %s',
     async (fileName) => {
       await expect(usageTotals(fileName)).resolves.toEqual({
