@@ -3,7 +3,6 @@ import {
   sumDailyTotals,
   type DailyActivity,
 } from '../aggregate/daily-activity.js';
-import { getParsingRuntimeConfig } from '../config/runtime-overrides.js';
 import { formatApproxUsd, formatStatuslineCompact, formatUsd } from '../render/format-number.js';
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { setLogLevel } from '../utils/logger.js';
@@ -176,11 +175,6 @@ export function formatStatusline(summary: StatuslineSummary, session?: ClaudeCod
  * priced event (`applyPricingToEvents`), so the line's totals do not change. Prices load
  * when the year's events need them, as for the summary, so a load failure does not change.
  */
-// A cold tick (empty event store) on large logs parses on the worker pool, and each worker
-// holds its own heap. On real logs (M12 Q), four workers took about 16% longer than eight
-// and peaked about 40% lower (0.8 GB against 1.3 GB); two workers took about 50% longer.
-const STATUSLINE_AUTO_PARSE_WORKERS = 4;
-
 export async function buildStatuslineData(
   options: StatuslineCommandOptions,
   deps: BuildSummaryDataDeps,
@@ -188,15 +182,7 @@ export async function buildStatuslineData(
   // A status line refreshes often: cached or bundled prices and other machines' cached
   // usage only, never a network fetch or an ssh connection.
   const { userConfigResolution, timezone, windows, today, since, dataset } =
-    await buildSummaryDataset(
-      { ...options, pricingOffline: true, sync: false },
-      {
-        ...deps,
-        getParsingRuntimeConfig:
-          deps.getParsingRuntimeConfig ??
-          ((env, config) => getParsingRuntimeConfig(env, config, STATUSLINE_AUTO_PARSE_WORKERS)),
-      },
-    );
+    await buildSummaryDataset({ ...options, pricingOffline: true, sync: false }, deps);
   // Today, the last 7 days, then month to date (resolveSummaryWindows).
   const [todayWindow, , monthToDateWindow] = windows;
   const monthToDateEvents = dataset.filteredEvents.filter(

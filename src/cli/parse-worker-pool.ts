@@ -72,6 +72,13 @@ type WorkerSlot = {
   currentTask?: PendingParseTask;
 };
 
+/**
+ * Each worker's young generation. V8's default lets it grow to 128 MB per worker. On a
+ * 5.9 GiB synthetic Claude corpus, 2 MB cut a cold run's peak from about 840 to 550 MB
+ * with 4 workers and from 850 to 770 MB with 8, at the same parse time within noise.
+ */
+const WORKER_YOUNG_GENERATION_MB = 2;
+
 function isStoreParseFileDiagnostics(value: unknown): value is StoreParseFileDiagnostics {
   const diagnostics = asRecord(value);
 
@@ -234,6 +241,7 @@ export function createParseWorkerPool(options: {
       workerData: {
         llmUsageParseWorker: true,
       },
+      resourceLimits: { maxYoungGenerationSizeMb: WORKER_YOUNG_GENERATION_MB },
     });
     const slot: WorkerSlot = { worker };
     worker.on('message', (message) => {
