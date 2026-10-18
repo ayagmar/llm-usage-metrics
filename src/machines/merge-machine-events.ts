@@ -1,13 +1,27 @@
 import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import { computeEventContentHash } from '@ayagmar/agent-sessions';
+import {
+  computeEventContentHash,
+  getParserVersion,
+  type SourceAdapter,
+} from '@ayagmar/agent-sessions';
 import { addHashCount, takeUncountedEvents } from '@ayagmar/agent-sessions/internal';
+import type { StoredSessionEvent } from '../persistence/event-store.js';
 
 /** Source id → the parser version a machine read it with (`getParserVersion`). */
 export type ParserVersions = Readonly<Record<string, string>>;
 
-export type MachineEvents = {
+/** The parser versions this machine reads `adapters` with. */
+export function getParserVersions(
+  adapters: readonly Pick<SourceAdapter, 'id' | 'parserVersion'>[],
+): Record<string, string> {
+  return Object.fromEntries(adapters.map((adapter) => [adapter.id, getParserVersion(adapter)]));
+}
+
+type MergedEvent = UsageEvent | StoredSessionEvent;
+
+export type MachineEvents<E extends MergedEvent = UsageEvent> = {
   name: string;
-  events: UsageEvent[];
+  events: E[];
   /** Undefined when the machine's last sync did not record them (an older export). */
   parserVersions?: ParserVersions;
 };
@@ -20,10 +34,10 @@ export type ParserSkew = {
   servedVersion: string;
 };
 
-export type MergedMachineEvents = {
+export type MergedMachineEvents<E extends MergedEvent = UsageEvent> = {
   name: string;
   /** Events counted from this machine. */
-  events: UsageEvent[];
+  events: E[];
   /** Events left out because an identical one is already counted. */
   duplicateCount: number;
   /** Events left out because a differently parsed copy of them is already counted. */
@@ -33,9 +47,15 @@ export type MergedMachineEvents = {
 
 type Server = { name: string; parserVersions?: ParserVersions };
 
-function countKeys(
-  events: readonly UsageEvent[],
-  toKey: (event: UsageEvent) => string,
+/** How events are told apart: the same event, or the same turn parsed differently. */
+type EventKeys<E extends MergedEvent> = {
+  hash: (event: E) => string;
+  turn: (event: E) => string;
+};
+
+function countKeys<E extends MergedEvent>(
+  events: readonly E[],
+  toKey: (event: E) => string,
 ): Map<string, number> {
   const counts = new Map<string, number>();
 
@@ -51,12 +71,22 @@ function countKeys(
  * Another parser version can split tokens and resolve models differently, but keeps when
  * a turn happened.
  */
-function toTurnKey(event: UsageEvent): string {
-  return event.timestamp;
-}
+const USAGE_KEYS: EventKeys<UsageEvent> = {
+  hash: computeEventContentHash,
+  turn: (event) => event.timestamp,
+};
 
-function groupBySession(events: readonly UsageEvent[]): Map<string, UsageEvent[]> {
-  const groups = new Map<string, UsageEvent[]>();
+/**
+ * Tool calls and messages have no content hash; the stored fields are the event, built by
+ * the same constructors on every machine, so their JSON is one.
+ */
+const SESSION_EVENT_KEYS: EventKeys<StoredSessionEvent> = {
+  hash: (event) => JSON.stringify(event),
+  turn: (event) => `${event.kind}\0${event.timestamp}`,
+};
+
+function groupBySession<E extends MergedEvent>(events: readonly E[]): Map<string, E[]> {
+  const groups = new Map<string, E[]>();
 
   for (const event of events) {
     const key = getEventSessionKey(event);
@@ -99,14 +129,36 @@ export function mergeMachineEvents(
   machines: readonly MachineEvents[],
   servedParserVersions?: ParserVersions,
 ): MergedMachineEvents[] {
+  return mergeByKeys(servedEvents, machines, servedParserVersions, USAGE_KEYS);
+}
+
+/**
+ * Combines other machines' tool calls and messages with the ones already counted here,
+ * with the decisions `mergeMachineEvents` makes for usage: per session, in the same machine
+ * order and against the same parser versions. Matched on kind and timestamp under skew.
+ */
+export function mergeMachineSessionEvents(
+  servedEvents: readonly StoredSessionEvent[],
+  machines: readonly MachineEvents<StoredSessionEvent>[],
+  servedParserVersions?: ParserVersions,
+): MergedMachineEvents<StoredSessionEvent>[] {
+  return mergeByKeys(servedEvents, machines, servedParserVersions, SESSION_EVENT_KEYS);
+}
+
+function mergeByKeys<E extends MergedEvent>(
+  servedEvents: readonly E[],
+  machines: readonly MachineEvents<E>[],
+  servedParserVersions: ParserVersions | undefined,
+  keys: EventKeys<E>,
+): MergedMachineEvents<E>[] {
   const local: Server = { name: LOCAL_MACHINE_NAME, parserVersions: servedParserVersions };
   const servedBySession = groupBySession(servedEvents);
   const serverBySession = new Map<string, Server>();
   const servedHashesBySession = new Map<string, Map<string, number>>();
-  const merged: MergedMachineEvents[] = [];
+  const merged: MergedMachineEvents<E>[] = [];
 
   for (const machine of machines) {
-    const kept: UsageEvent[] = [];
+    const kept: E[] = [];
     const skews = new Map<string, ParserSkew>();
     let duplicateCount = 0;
     let skewDroppedCount = 0;
@@ -126,10 +178,10 @@ export function mergeMachineEvents(
 
       if (skew) {
         skews.set(JSON.stringify([skew.source, skew.servedBy]), skew);
-        const available = countKeys(served, toTurnKey);
+        const available = countKeys(served, keys.turn);
 
         for (const event of events) {
-          const key = toTurnKey(event);
+          const key = keys.turn(event);
           const count = available.get(key) ?? 0;
 
           if (count > 0) {
@@ -142,7 +194,7 @@ export function mergeMachineEvents(
           served.push(event);
 
           if (servedHashes) {
-            addHashCount(servedHashes, computeEventContentHash(event), 1);
+            addHashCount(servedHashes, keys.hash(event), 1);
           }
         }
 
@@ -150,12 +202,12 @@ export function mergeMachineEvents(
       }
 
       if (!servedHashes) {
-        servedHashes = countKeys(served, computeEventContentHash);
+        servedHashes = countKeys(served, keys.hash);
         servedHashesBySession.set(sessionKey, servedHashes);
       }
 
       // Matched against what was served before this machine, one served event each.
-      const uncounted = takeUncountedEvents(events, servedHashes);
+      const uncounted = takeUncountedEvents(events, servedHashes, keys.hash);
       duplicateCount += events.length - uncounted.length;
       kept.push(...uncounted);
       served.push(...uncounted);

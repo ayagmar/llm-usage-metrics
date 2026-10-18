@@ -19,24 +19,31 @@ export function addHashCount(target: Map<string, number>, hash: string, count: n
   target.set(hash, (target.get(hash) ?? 0) + count);
 }
 
+function hashUsageEvent(event: DedupedEvent): string | undefined {
+  return isHashedEvent(event) ? computeEventContentHash(event) : undefined;
+}
+
 /**
  * Leaves out a file's events that `countedHashes` already counts, per content hash, and
  * adds the rest to it; repeats within the file are kept. An identical content hash
  * covers the session id and timestamp, so it is the same event, not a lookalike: e.g. a
  * pi fork's copy of a parent session that is also counted from the parent or another fork.
+ * By default only usage events are hashed; `toHash` returns undefined for an event to keep.
  */
 export function takeUncountedEvents<E extends DedupedEvent>(
   events: readonly E[],
   countedHashes: Map<string, number>,
+  toHash: (event: E) => string | undefined = hashUsageEvent,
 ): E[] {
   const fileHashCounts = new Map<string, number>();
   const keptHashes: string[] = [];
   const keptEvents = events.filter((event) => {
-    if (!isHashedEvent(event)) {
+    const hash = toHash(event);
+
+    if (hash === undefined) {
       return true;
     }
 
-    const hash = computeEventContentHash(event);
     const seen = (fileHashCounts.get(hash) ?? 0) + 1;
     fileHashCounts.set(hash, seen);
 
