@@ -377,7 +377,7 @@ describe('buildSummaryData', () => {
       events: period.totals.events,
       costUsd: period.totals.costUsd,
       activeDays: period.totals.activeDays,
-      sources: period.sources.map((source) => [source.source, source.costUsd]),
+      sources: period.sources.map((source) => [source.source, source.costUsd, source.activeDays]),
     }));
 
     expect(result.timezone).toBe('UTC');
@@ -389,8 +389,8 @@ describe('buildSummaryData', () => {
         costUsd: 5,
         activeDays: 1,
         sources: [
-          ['claude', 4],
-          ['codex', 1],
+          ['claude', 4, 1],
+          ['codex', 1, 1],
         ],
       },
       {
@@ -400,8 +400,8 @@ describe('buildSummaryData', () => {
         costUsd: 6,
         activeDays: 2,
         sources: [
-          ['claude', 4],
-          ['codex', 2],
+          ['claude', 4, 1],
+          ['codex', 2, 2],
         ],
       },
       {
@@ -411,8 +411,8 @@ describe('buildSummaryData', () => {
         costUsd: 7,
         activeDays: 3,
         sources: [
-          ['claude', 4],
-          ['codex', 3],
+          ['claude', 4, 1],
+          ['codex', 3, 3],
         ],
       },
     ]);
