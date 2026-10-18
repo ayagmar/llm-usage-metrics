@@ -81,6 +81,29 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
     expect(JSON.parse(viaBin.stdout)).toMatchObject({ report: 'usage' });
   });
 
+  // npm only warns about `engines`, so an unsupported Node must still get a clear message.
+  it.each(['20.11.0', '22.15.1', '23.11.0'])(
+    'names the supported Node versions on Node %s',
+    async (version) => {
+      const fakeVersion = `Object.defineProperty(process.versions, 'node', { value: '${version}' });`;
+      const failure = (await execFileAsync(
+        process.execPath,
+        [
+          '--import',
+          `data:text/javascript,${encodeURIComponent(fakeVersion)}`,
+          distBinPath,
+          '--version',
+        ],
+        { encoding: 'utf8', env: createSmokeEnv() },
+      ).catch((error: unknown) => error)) as ExecFileFailure;
+
+      expect(failure.code).toBe(1);
+      expect(failure.stderr).toBe(
+        `llm-usage requires Node.js 22.16+ or 24+; this is Node.js ${version}.\n`,
+      );
+    },
+  );
+
   it('prints data-only monthly JSON from the built CLI', async () => {
     const { stdout, stderr } = await execFileAsync(
       process.execPath,
