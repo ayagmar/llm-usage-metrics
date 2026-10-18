@@ -114,8 +114,9 @@ const TURN_CONTEXT_BYTES = Buffer.from('"turn_context"');
 const EVENT_MSG_BYTES = Buffer.from('"event_msg"');
 const TOKEN_COUNT_BYTES = Buffer.from('"token_count"');
 const THREAD_SETTINGS_APPLIED_BYTES = Buffer.from('"thread_settings_applied"');
-// `event_msg"` is followed by `,"payload":{"type":"thread_settings_applied"`.
-const PAYLOAD_TYPE_WINDOW_BYTES = 64;
+const THREAD_SETTINGS_APPLIED_PAYLOAD_BYTES = Buffer.from(
+  ',"payload":{"type":"thread_settings_applied"',
+);
 const TOKEN_USAGE_RECORD_BYTES = Buffer.from('"token_usage_record"');
 const TYPE_FIELD_BYTES = Buffer.from('"type":"');
 const SESSION_META_TYPE_BYTES = Buffer.from('session_meta"');
@@ -142,9 +143,11 @@ function shouldParseCodexJsonlLineBytes(lineBytes: Buffer): boolean {
     if (lineBytesIncludesAt(lineBytes, EVENT_MSG_TYPE_BYTES, typeValueIndex)) {
       return (
         lineBytes.includes(TOKEN_COUNT_BYTES, typeValueIndex) ||
-        lineBytes
-          .subarray(typeValueIndex, typeValueIndex + PAYLOAD_TYPE_WINDOW_BYTES)
-          .includes(THREAD_SETTINGS_APPLIED_BYTES)
+        lineBytesIncludesAt(
+          lineBytes,
+          THREAD_SETTINGS_APPLIED_PAYLOAD_BYTES,
+          typeValueIndex + EVENT_MSG_TYPE_BYTES.length,
+        )
       );
     }
 
