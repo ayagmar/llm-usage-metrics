@@ -382,6 +382,28 @@ describe('acquireStatuslineLock', () => {
     });
   });
 
+  it('keeps a lock another tick took over held while the old holder releases', async () => {
+    await withLockPath(async (lockPath) => {
+      // A held the lock past the stale age and B took it over while A still ran.
+      const releaseA = await acquireStatuslineLock(lockPath, 0);
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+      const releaseB = await acquireStatuslineLock(lockPath, 0);
+      const lockB = await readFile(lockPath, 'utf8');
+
+      // C starts while A releases.
+      let releaseC: (() => Promise<void>) | undefined;
+      fsHooks.afterReadFile = async () => {
+        releaseC = await acquireStatuslineLock(lockPath, 0);
+      };
+      await releaseA?.();
+
+      expect(releaseC).toBeUndefined();
+      await expect(readFile(lockPath, 'utf8')).resolves.toBe(lockB);
+      await releaseB?.();
+    });
+  });
+
   it('leaves a lock another tick took over in place on release', async () => {
     await withLockPath(async (lockPath) => {
       // Held past the stale age, so another tick takes it over while this one still runs.
