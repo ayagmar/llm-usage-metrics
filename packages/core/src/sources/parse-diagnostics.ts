@@ -21,6 +21,15 @@ export function recordSkippedRow(diagnostics: SourceReadDiagnostics, reason: str
   incrementSkippedReason(diagnostics.skippedRowReasons, reason);
 }
 
+/** Adds every skipped row `from` counted to `into`. */
+export function recordSkippedRows(into: SourceReadDiagnostics, from: SourceReadDiagnostics): void {
+  into.skippedRows += from.skippedRows;
+
+  for (const [reason, count] of from.skippedRowReasons) {
+    into.skippedRowReasons.set(reason, (into.skippedRowReasons.get(reason) ?? 0) + count);
+  }
+}
+
 function toSkippedRowReasonStats(reasons: Map<string, number>): SourceSkippedRowReasonStat[] {
   return [...reasons.entries()]
     .map(([reason, count]) => ({ reason, count }))

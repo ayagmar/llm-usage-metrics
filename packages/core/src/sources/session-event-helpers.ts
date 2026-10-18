@@ -3,6 +3,8 @@ import {
   type EventKind,
   type SessionMetaFields,
 } from '../domain/session-event.js';
+import { ResumableIdSet } from '../stream/cursor-state.js';
+import { asRecord } from '../utils/as-record.js';
 import { recordSkippedRow } from './parse-diagnostics.js';
 import type { SourceAdapter, SourceReadDiagnostics } from './source-adapter.js';
 
@@ -155,7 +157,7 @@ export function joinTextBlocks(
  */
 export class ToolCallPairing<Call> {
   private readonly pending = new Map<string, Call>();
-  private readonly seenCallIds = new Set<string>();
+  private seenCallIds = new ResumableIdSet();
 
   public constructor(
     private readonly diagnostics: SourceReadDiagnostics,
@@ -196,6 +198,38 @@ export class ToolCallPairing<Call> {
     this.pending.clear();
     return calls;
   }
+
+  /** The calls still waiting and every id seen, for a cursor state. */
+  public toState(): { pending: Call[]; seen: string } {
+    return { pending: [...this.pending.values()], seen: this.seenCallIds.toState() };
+  }
+
+  /** Restores `toState` into a new pairing; false when the state does not check out. */
+  public restoreState(
+    value: unknown,
+    toCall: (call: unknown) => { callId: string; call: Call } | undefined,
+  ): boolean {
+    const state = asRecord(value);
+    const seenCallIds = ResumableIdSet.fromState(state?.seen);
+
+    if (!seenCallIds || !Array.isArray(state?.pending)) {
+      return false;
+    }
+
+    for (const item of state.pending as unknown[]) {
+      const restored = toCall(item);
+
+      if (!restored) {
+        return false;
+      }
+
+      seenCallIds.add(restored.callId);
+      this.pending.set(restored.callId, restored.call);
+    }
+
+    this.seenCallIds = seenCallIds;
+    return true;
+  }
 }
 
 const SESSION_META_FIELDS = [
@@ -208,6 +242,10 @@ const SESSION_META_FIELDS = [
   'rawProvider',
 ] as const satisfies readonly (keyof SessionMetaFields)[];
 
+function isSessionMetaField(field: string): field is (typeof SESSION_META_FIELDS)[number] {
+  return (SESSION_META_FIELDS as readonly string[]).includes(field);
+}
+
 /**
  * Turns the session facts each record states into partial session_meta fields: a field
  * is kept when it differs from the last value emitted for it in this session. Titles are
@@ -215,7 +253,7 @@ const SESSION_META_FIELDS = [
  * are ignored for the rest of the session.
  */
 export class SessionMetaTracker {
-  private readonly emitted: SessionMetaFields = {};
+  private emitted: SessionMetaFields = {};
   private customTitleSeen = false;
 
   public constructor(private readonly text: boolean) {}
@@ -246,6 +284,32 @@ export class SessionMetaTracker {
 
     return changed;
   }
+
+  public toState(): [SessionMetaFields, boolean] {
+    return [{ ...this.emitted }, this.customTitleSeen];
+  }
+
+  public restoreState(emitted: unknown, customTitleSeen: boolean): boolean {
+    const fields = asRecord(emitted);
+
+    if (!fields) {
+      return false;
+    }
+
+    const restored: SessionMetaFields = {};
+
+    for (const [field, fieldValue] of Object.entries(fields)) {
+      if (!isSessionMetaField(field) || typeof fieldValue !== 'string') {
+        return false;
+      }
+
+      restored[field] = fieldValue;
+    }
+
+    this.emitted = restored;
+    this.customTitleSeen = customTitleSeen;
+    return true;
+  }
 }
 
 /**
@@ -264,6 +328,35 @@ export class SessionMetaTrackers {
     stated: SessionMetaFields,
     options?: { aiTitle?: boolean },
   ): SessionMetaFields | undefined {
+    return this.trackerFor(sessionId).changes(stated, options);
+  }
+
+  /** Each session's last emitted fields, for a cursor state. */
+  public toState(): Array<[string, SessionMetaFields, boolean]> {
+    return [...this.bySessionId].map(([sessionId, tracker]) => [sessionId, ...tracker.toState()]);
+  }
+
+  /** Restores `toState`; false when the state does not check out. */
+  public restoreState(value: unknown): boolean {
+    if (!Array.isArray(value)) {
+      return false;
+    }
+
+    for (const entry of value as unknown[]) {
+      if (
+        !Array.isArray(entry) ||
+        typeof entry[0] !== 'string' ||
+        typeof entry[2] !== 'boolean' ||
+        !this.trackerFor(entry[0]).restoreState(entry[1], entry[2])
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private trackerFor(sessionId: string): SessionMetaTracker {
     let tracker = this.bySessionId.get(sessionId);
 
     if (!tracker) {
@@ -271,7 +364,7 @@ export class SessionMetaTrackers {
       this.bySessionId.set(sessionId, tracker);
     }
 
-    return tracker.changes(stated, options);
+    return tracker;
   }
 }
 
@@ -317,5 +410,25 @@ export class TimestampCarry<Held> {
     const unreleased = this.held;
     this.held = [];
     return unreleased;
+  }
+
+  /**
+   * The last timestamp, for a cursor state, or undefined while records are held: a held
+   * record is counted at the end of the file, so a read can only resume once none is.
+   */
+  public toState(): { lastTimestamp?: string } | undefined {
+    return this.held.length === 0 ? { lastTimestamp: this.lastTimestamp } : undefined;
+  }
+
+  /** Restores `toState`; false when the state does not check out. */
+  public restoreState(value: unknown): boolean {
+    const state = asRecord(value);
+
+    if (!state || (state.lastTimestamp !== undefined && typeof state.lastTimestamp !== 'string')) {
+      return false;
+    }
+
+    this.lastTimestamp = state.lastTimestamp;
+    return true;
   }
 }

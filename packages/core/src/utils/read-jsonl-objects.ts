@@ -15,7 +15,10 @@ export type JsonlReadPosition = {
   handle: FileHandle;
   /** The byte offset to start at. A BOM is stripped only when it is 0. */
   start: number;
-  /** Every chunk read, in order, starting at `start`. */
+  /**
+   * Every chunk read, in order, starting at `start`, once its complete lines are reported.
+   * The bytes are valid only during the call: the next read reuses the buffer.
+   */
   onChunk: (chunk: Buffer) => void;
   /** The offset just past each complete line's line feed, before its record is yielded. */
   onLineEnd: (lineEndOffset: number) => void;
@@ -73,6 +76,12 @@ const UTF8_BOM = [0xef, 0xbb, 0xbf] as const;
 
 // A chunk buffer no read holds, for the next read to take.
 let spareChunkBuffer: Buffer | undefined;
+
+function takeChunkBuffer(): Buffer {
+  const buffer = spareChunkBuffer ?? Buffer.allocUnsafe(STREAM_CHUNK_SIZE_BYTES);
+  spareChunkBuffer = undefined;
+  return buffer;
+}
 
 // Overloads, so each form's callbacks are typed from the predicate the caller passes.
 export function readJsonlObjects(
@@ -167,21 +176,25 @@ async function* flattenBatches<T>(
 }
 
 // Reads through the caller's handle with positioned reads, so nothing here owns or closes
-// it: destroying a stream made by `handle.createReadStream` closes the handle.
+// it: destroying a stream made by `handle.createReadStream` closes the handle. One buffer
+// serves every chunk, as in `readFileChunks`.
 async function* readHandleChunks(handle: FileHandle, start: number): AsyncGenerator<Buffer> {
+  const buffer = takeChunkBuffer();
   let offset = start;
 
-  for (;;) {
-    const buffer = Buffer.allocUnsafe(STREAM_CHUNK_SIZE_BYTES);
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, offset);
+  try {
+    for (;;) {
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, offset);
 
-    if (bytesRead === 0) {
-      return;
+      if (bytesRead === 0) {
+        return;
+      }
+
+      offset += bytesRead;
+      yield buffer.subarray(0, bytesRead);
     }
-
-    offset += bytesRead;
-    // A short read keeps only its bytes, so a held chunk does not pin the whole buffer.
-    yield bytesRead === buffer.length ? buffer : Buffer.from(buffer.subarray(0, bytesRead));
+  } finally {
+    spareChunkBuffer = buffer;
   }
 }
 
@@ -192,8 +205,7 @@ async function* readHandleChunks(handle: FileHandle, start: number): AsyncGenera
  */
 async function* readFileChunks(filePath: string): AsyncGenerator<Buffer> {
   const handle = await open(filePath, 'r');
-  const buffer = spareChunkBuffer ?? Buffer.allocUnsafe(STREAM_CHUNK_SIZE_BYTES);
-  spareChunkBuffer = undefined;
+  const buffer = takeChunkBuffer();
 
   try {
     for (;;) {
@@ -262,7 +274,6 @@ async function* readJsonlBatches<T>(
   }
 
   for await (const chunk of chunks) {
-    position?.onChunk(chunk);
     const batch = parseChunkLines(chunk);
     yield batch;
 
@@ -270,6 +281,8 @@ async function* readJsonlBatches<T>(
     while (!batch.next().done) {
       // Each step parses one more line.
     }
+
+    position?.onChunk(chunk);
   }
 
   // A resumable read leaves an unterminated final line for the read after its line feed.

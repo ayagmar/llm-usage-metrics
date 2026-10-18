@@ -501,7 +501,8 @@ describe('readJsonlObjects with a position', () => {
       position: {
         handle,
         start,
-        onChunk: (chunk: Buffer) => chunks.push(chunk),
+        // The reader reuses its buffer, so a chunk is copied to outlive the call.
+        onChunk: (chunk: Buffer) => chunks.push(Buffer.from(chunk)),
         onLineEnd: (offset: number) => lineEnds.push(offset),
       },
     };
