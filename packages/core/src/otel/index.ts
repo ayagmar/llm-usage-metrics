@@ -21,7 +21,7 @@ import type { CostMode } from '../domain/usage-event.js';
  */
 export const SEMCONV_GENAI_REF = Object.freeze({
   repository: 'open-telemetry/semantic-conventions-genai',
-  commit: 'f3c6d0c9bb66ebd474668a3a0be25c61226f02c2',
+  commit: 'f49da22056925ae9ba78ec5dd7fe1fa559adce05',
   schemaUrl: 'https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev',
 });
 
@@ -89,10 +89,16 @@ function withDefined(
   return target;
 }
 
+/** `value` when it is above zero: the optional token counts are set only when non-zero. */
+function nonZero(value: number): number | undefined {
+  return value > 0 ? value : undefined;
+}
+
 /**
  * Attributes for one inference (`gen_ai.operation.name` = `chat`). `gen_ai.usage.input_tokens`
  * counts cache reads and writes, as the convention asks; `gen_ai.usage.output_tokens`
- * already includes reasoning. `gen_ai.provider.name` is omitted when the provider is unknown.
+ * already includes reasoning. The reasoning and cache counts appear only when non-zero.
+ * `gen_ai.provider.name` is omitted when the provider is unknown.
  * The record's model is the lowercased response model; `gen_ai.request.model` is not emitted,
  * since the logs do not say what was requested.
  *
@@ -109,12 +115,12 @@ export function usageRecordAttributes(
       'gen_ai.usage.input_tokens':
         record.inputTokens + record.cacheReadTokens + record.cacheWriteTokens,
       'gen_ai.usage.output_tokens': record.outputTokens,
-      'gen_ai.usage.reasoning.output_tokens': record.reasoningTokens,
-      'gen_ai.usage.cache_read.input_tokens': record.cacheReadTokens,
-      'gen_ai.usage.cache_write.input_tokens': record.cacheWriteTokens,
       'llm_usage.source': record.source,
     },
     {
+      'gen_ai.usage.reasoning.output_tokens': nonZero(record.reasoningTokens),
+      'gen_ai.usage.cache_read.input_tokens': nonZero(record.cacheReadTokens),
+      'gen_ai.usage.cache_write.input_tokens': nonZero(record.cacheWriteTokens),
       'gen_ai.provider.name': toProviderName(record.provider),
       'gen_ai.response.model': record.model,
       'gen_ai.response.id': record.messageId,
@@ -126,7 +132,9 @@ export function usageRecordAttributes(
 }
 
 /**
- * Attributes for one tool call (`gen_ai.operation.name` = `execute_tool`). A failed call gets
+ * Attributes for one tool call (`gen_ai.operation.name` = `execute_tool`).
+ * `gen_ai.tool.call.id` is the id the model or provider gave the call, and is absent when the
+ * log has none: the convention requires it only when one was supplied. A failed call gets
  * `error.type` = `_OTHER`, the convention's value when no finer class is known; a call
  * without a recognised result gets `llm_usage.tool.status` = `unknown`.
  *

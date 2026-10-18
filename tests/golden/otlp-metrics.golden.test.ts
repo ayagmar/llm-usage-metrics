@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { runEventsReport } from '../../src/cli/run-events-report.js';
@@ -17,7 +19,10 @@ import {
 } from './golden-harness.js';
 import { M13_OTLP_METRICS_GOLDEN_NAMES } from './m13-otlp-metrics-names.js';
 
-const [metricsGolden] = M13_OTLP_METRICS_GOLDEN_NAMES;
+const [metricsGolden, toolsGolden] = M13_OTLP_METRICS_GOLDEN_NAMES;
+
+// The tools report's fixtures: real claude, codex and pi logs with tool calls and results.
+const TOOL_FIXTURES = path.resolve('tests/fixtures/tools');
 
 // Skipped on Windows: paths and newline handling differ there; the Linux leg guards behaviour.
 describe.skipIf(process.platform === 'win32')(
@@ -53,6 +58,26 @@ describe.skipIf(process.platform === 'win32')(
 
       expect(output.length).toBeGreaterThan(0);
       await expectGolden(metricsGolden, normalizePaths(output, environment.rootDir));
+    });
+
+    it(`freezes ${toolsGolden}`, async () => {
+      const output = await captureStdout(() =>
+        runEventsReport(
+          {
+            claudeDir: path.join(TOOL_FIXTURES, 'claude'),
+            codexDir: path.join(TOOL_FIXTURES, 'codex'),
+            piDir: path.join(TOOL_FIXTURES, 'pi'),
+            source: 'claude,codex,pi',
+            timezone: 'UTC',
+            pricingOffline: true,
+            format: 'otlp-metrics',
+          },
+          { now: fixedNow },
+        ),
+      );
+
+      expect(output).toContain('gen_ai.execute_tool.duration');
+      await expectGolden(toolsGolden, normalizePaths(output, environment.rootDir));
     });
   },
 );

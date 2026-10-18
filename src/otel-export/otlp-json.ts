@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 
+import type { ToolCallEvent } from '@ayagmar/agent-sessions';
 import { SEMCONV_GENAI_REF, type OtelAttributes } from '@ayagmar/agent-sessions/otel';
 
 /**
@@ -69,6 +70,29 @@ export const OTLP_SCHEMA_URL = SEMCONV_GENAI_REF.schemaUrl;
 /** Milliseconds since the epoch as fixed64 nanoseconds, a decimal string past 2^53. */
 export function toUnixNanos(epochMs: number): string {
   return (BigInt(epochMs) * 1_000_000n).toString();
+}
+
+/**
+ * A tool call's start and end in epoch milliseconds: the end is `completedAt`, else the start
+ * plus `durationMs`, else the start. `measured` says whether the log gave an end at all.
+ */
+export function toolCallBoundsMs(call: ToolCallEvent): {
+  startMs: number;
+  endMs: number;
+  measured: boolean;
+} {
+  const startMs = Date.parse(call.timestamp);
+  const endMs =
+    call.completedAt === undefined
+      ? startMs + (call.durationMs ?? 0)
+      : Date.parse(call.completedAt);
+
+  return {
+    startMs,
+    // A result logged before its call (clock changes between records) ends at the start.
+    endMs: Math.max(startMs, endMs),
+    measured: call.completedAt !== undefined || call.durationMs !== undefined,
+  };
 }
 
 function hashHex(parts: readonly string[], bytes: number): string {

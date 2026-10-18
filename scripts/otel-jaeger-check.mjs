@@ -202,6 +202,14 @@ async function main() {
 
       for (const span of trace.spans.filter((candidate) => candidate !== root)) {
         assertEqual(span.references?.[0]?.spanID, root.spanID, `parent of ${span.operationName}`);
+
+        if (span.operationName.startsWith('execute_tool')) {
+          assertEqual(
+            tagValue(span, 'gen_ai.agent.name'),
+            serviceName,
+            `agent of ${span.operationName}`,
+          );
+        }
       }
 
       spanCount += trace.spans.length;

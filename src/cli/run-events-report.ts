@@ -150,9 +150,10 @@ export async function runEventsReport(
     'auto',
   );
   const sortedEvents = sortEventsForExport(pricedEvents);
-  // Tool spans: the calls of the exported sessions, counted once as `tools` counts them.
+  // Tool spans and durations: the calls of the exported sessions, counted once as `tools`
+  // counts them.
   const toolCalls =
-    format === 'otlp-traces'
+    format === 'otlp-traces' || format === 'otlp-metrics'
       ? await readLiveSessionEvents(dataset, {
           kinds: ['tool_call'],
           sessionKeys: new Set(sortedEvents.map((event) => getEventSessionKey(event))),
@@ -181,9 +182,10 @@ export async function runEventsReport(
     getActiveConfig: (usageDiagnostics) => usageDiagnostics.activeConfig,
   });
 
-  if (format === 'otlp-metrics') {
+  if (toolCalls && format === 'otlp-metrics') {
     const lines = buildOtlpMetrics({
       usageEvents: sortedEvents,
+      toolCalls: dedupeToolCalls(toolCalls.events),
       timezone: dataset.normalizedInputs.timezone,
     });
     await writeOtlp({ kind: 'metrics', lines }, pushTarget, deps);

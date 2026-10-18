@@ -3,7 +3,7 @@ title: OpenTelemetry Export
 description: Export sessions as OTLP/JSON traces and daily token and cost metrics that follow the OpenTelemetry GenAI conventions, and replay them into any OTLP backend.
 ---
 
-`llm-usage events --format otlp-traces` turns your session history into OpenTelemetry traces: one trace per session, written to `stdout` as OTLP/JSON Lines. `--format otlp-metrics` writes daily token and cost counters instead ([Metrics](#metrics)). The output is the [OTLP file format](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/file-exporter.md), so an OpenTelemetry Collector can read the file and send it to Jaeger, Tempo, Honeycomb or any other backend that takes OTLP. Nothing is sent over the network unless you pass `--otlp-endpoint` ([Push to a receiver](#push-to-a-receiver)).
+`llm-usage events --format otlp-traces` turns your session history into OpenTelemetry traces: one trace per session, written to `stdout` as OTLP/JSON Lines. `--format otlp-metrics` writes daily token, cost and tool duration metrics instead ([Metrics](#metrics)). The output is the [OTLP file format](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/file-exporter.md), so an OpenTelemetry Collector can read the file and send it to Jaeger, Tempo, Honeycomb or any other backend that takes OTLP. Nothing is sent over the network unless you pass `--otlp-endpoint` ([Push to a receiver](#push-to-a-receiver)).
 
 ```bash
 llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl
@@ -30,12 +30,12 @@ invoke_agent {agent}            INTERNAL  earliest to latest event of the sessio
 
 - `invoke_agent` carries `gen_ai.operation.name`, `gen_ai.agent.name` (the same value as `service.name`), `gen_ai.conversation.id`, and the session's sums of `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens`. It has no cache attributes: the convention asks consumers to sum those from the `chat` spans.
 - `chat` spans carry the usage attributes in the [mapping table](#mapping). The span is named `chat` when the model is unknown.
-- `execute_tool` spans come from the tool calls the [`tools` report](/llm-usage-metrics/tools/) counts (Claude Code, codex and pi), deduplicated the same way. They run from the call to its result, or for the logged duration when the source records one instead. A call with no result in the log is zero-length.
+- `execute_tool` spans carry the tool attributes in the [mapping table](#mapping), plus `gen_ai.agent.name`. They come from the tool calls the [`tools` report](/llm-usage-metrics/tools/) counts (Claude Code, codex and pi), deduplicated the same way. They run from the call to its result, or for the logged duration when the source records one instead. A call with no result in the log is zero-length.
 - A session appears when it has usage in the export. Its tool calls come with it; tool calls of sessions the filters leave out do not.
 
 ### Zero-length spans
 
-Session logs record when a response arrived, not how long the request took. Every `chat` span therefore starts and ends at the event's timestamp. Latency views, duration histograms and span-metrics generated from these traces show zero for inference. The export emits no `gen_ai.client.inference.duration`.
+Session logs record when a response arrived, not how long the request took. Every `chat` span therefore starts and ends at the event's timestamp. Latency views, duration histograms and span-metrics generated from these traces show zero for inference. The export emits no `gen_ai.client.inference.duration`; tool calls get [`gen_ai.execute_tool.duration`](#tool-durations) where the log records when they ended.
 
 ### Stable ids
 
@@ -58,7 +58,7 @@ A tool call whose result is an error sets the span status to `ERROR` (code 2) an
 
 ## Mapping
 
-Names follow commit [`f3c6d0c`](https://github.com/open-telemetry/semantic-conventions-genai/tree/f3c6d0c9bb66ebd474668a3a0be25c61226f02c2/model/gen-ai) of `open-telemetry/semantic-conventions-genai` (schema URL `https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev`). The conventions have no release, so names can change when the pin moves. The experimental `@ayagmar/agent-sessions/otel` helpers implement these tables.
+Names follow commit [`f49da22`](https://github.com/open-telemetry/semantic-conventions-genai/tree/f49da22056925ae9ba78ec5dd7fe1fa559adce05/model/gen-ai) of `open-telemetry/semantic-conventions-genai` (schema URL `https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev`). The conventions have no release, so names can change when the pin moves. The experimental `@ayagmar/agent-sessions/otel` helpers implement these tables.
 
 Usage event → `chat` span:
 
@@ -70,9 +70,9 @@ Usage event → `chat` span:
 | `sessionId` | `gen_ai.conversation.id` |
 | `inputTokens` + `cacheReadTokens` + `cacheWriteTokens` | `gen_ai.usage.input_tokens` (the convention counts cached tokens as input) |
 | `outputTokens` | `gen_ai.usage.output_tokens` (already includes reasoning) |
-| `reasoningTokens` | `gen_ai.usage.reasoning.output_tokens` |
-| `cacheReadTokens` | `gen_ai.usage.cache_read.input_tokens` |
-| `cacheWriteTokens` | `gen_ai.usage.cache_write.input_tokens` |
+| `reasoningTokens` | `gen_ai.usage.reasoning.output_tokens`, left out when zero |
+| `cacheReadTokens` | `gen_ai.usage.cache_read.input_tokens`, left out when zero |
+| `cacheWriteTokens` | `gen_ai.usage.cache_write.input_tokens`, left out when zero |
 | `costUsd`, `costMode` | no convention yet; `llm_usage.cost_usd` (always a double), `llm_usage.cost_mode` |
 | `source` | `llm_usage.source` |
 | `machine` | `llm_usage.machine`, for events from [other machines](/llm-usage-metrics/machines/) |
@@ -85,12 +85,12 @@ Tool call → `execute_tool` span:
 | --- | --- |
 | (every call) | `gen_ai.operation.name` = `execute_tool` |
 | `name` | `gen_ai.tool.name`, and the span name `execute_tool {name}` |
-| `toolCallId` | `gen_ai.tool.call.id` |
+| `toolCallId` | `gen_ai.tool.call.id`: the id the model or provider gave the call (Claude Code `tool_use` id, codex `call_id`, pi tool call id); left out when the log has none |
 | `sessionId` | `gen_ai.conversation.id` |
 | `status` | `error`: status `ERROR` and `error.type` = `_OTHER`; `unknown`: `llm_usage.tool.status` = `unknown`; `ok`: status unset |
 | `messageId` | `llm_usage.message_id`, the assistant message that made the call |
 | `timestamp`, `completedAt`, `durationMs` | start at `timestamp`; end at `completedAt`, else `timestamp` + `durationMs`, else zero-length |
-| `source` | `llm_usage.source` |
+| `source` | `llm_usage.source`, and `gen_ai.agent.name` (the same value as `service.name`) |
 
 Deviations from the convention:
 
@@ -103,7 +103,7 @@ Deviations from the convention:
 
 `--format otlp-metrics` writes one `MetricsData` object per agent and day, ordered by day and then by agent. A day is a calendar day in `--timezone`, the same buckets `daily` uses, so the points of one day add up to that day's rows in `daily --json` for the same filters. Resource and scope are the same as for traces.
 
-Each line holds monotonic Sums with DELTA temporality (`"aggregationTemporality": 1`). Every data point covers one day: `startTimeUnixNano` is local midnight and `timeUnixNano` the next local midnight, so a day with a DST change is 23 or 25 hours long.
+Each line holds monotonic Sums and histograms, all with DELTA temporality (`"aggregationTemporality": 1`). Every data point covers one day: `startTimeUnixNano` is local midnight and `timeUnixNano` the next local midnight, so a day with a DST change is 23 or 25 hours long.
 
 | metric | unit | value |
 | --- | --- | --- |
@@ -115,6 +115,17 @@ Each line holds monotonic Sums with DELTA temporality (`"aggregationTemporality"
 | `llm_usage.cost_usd` | `USD` | `costUsd`, logged or estimated; no convention yet |
 
 A metric has one point per provider, model and machine that had usage that day. The points carry `gen_ai.operation.name` = `chat`, `gen_ai.provider.name` and `gen_ai.response.model` (mapped as for `chat` spans, and left out when unknown), `gen_ai.token.modality` = `unknown` (the logs do not split tokens by modality), and `llm_usage.machine` for usage from [other machines](/llm-usage-metrics/machines/). Token points are written even when the count is zero. Usage without a price adds nothing to `llm_usage.cost_usd`; when none of a point's usage has a price, that point has no cost value. Paths are never on metric points, so `--otel-include-paths` is rejected with `otlp-metrics`.
+
+The two per-inference histograms describe how tokens spread across requests, for percentiles and outliers; the convention says not to sum them for totals. Each has one point per provider, model and machine with `count`, `sum`, `min`, `max` and bucket counts, over the bounds the convention advises (1, 4, 16, … 67108864 tokens). They carry the same attributes as the counters except `gen_ai.token.modality`, which the convention leaves off histograms.
+
+| metric | unit | value per inference |
+| --- | --- | --- |
+| `gen_ai.client.inference.operation.input_tokens` | `{token}` | `inputTokens` + `cacheReadTokens` + `cacheWriteTokens` |
+| `gen_ai.client.inference.operation.output_tokens` | `{token}` | `outputTokens` |
+
+### Tool durations
+
+`gen_ai.execute_tool.duration` (unit `s`) is a histogram of tool call durations, one point per tool name and outcome, with `gen_ai.tool.name`, `gen_ai.agent.name` and, for failed calls, `error.type` = `_OTHER`. The bucket bounds are the advised 0.01 s to 81.92 s. A call counts on the day it started. It reads the same tool calls as the [`execute_tool` spans](#span-tree) and keeps only the ones with a measured duration: a result with its own timestamp, or a logged duration. Calls with no result, and calls whose result shares the call's record (codex web searches), are left out rather than counted as zero. A day whose only activity for an agent is tool calls gets a line holding just this metric.
 
 Older instrumentations and backends use `gen_ai.client.token.usage` with a `gen_ai.token.type` attribute. The pinned conventions replaced it with the counters above, so the export does not write it.
 

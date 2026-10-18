@@ -56,4 +56,4 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 
 ## OpenTelemetry
 
-`--format otlp-traces` exports sessions as OTLP/JSON traces instead of usage lines, and `--format otlp-metrics` exports daily token and cost counters. [OpenTelemetry export](/llm-usage-metrics/otel/) describes the span tree, the metrics, the attribute mapping onto the GenAI conventions, and a Collector config that replays the file into a backend.
+`--format otlp-traces` exports sessions as OTLP/JSON traces instead of usage lines, and `--format otlp-metrics` exports daily token, cost and tool duration metrics. [OpenTelemetry export](/llm-usage-metrics/otel/) describes the span tree, the metrics, the attribute mapping onto the GenAI conventions, and a Collector config that replays the file into a backend.
