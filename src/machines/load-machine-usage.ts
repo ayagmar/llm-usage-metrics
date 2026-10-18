@@ -146,8 +146,9 @@ export async function loadMachineUsage(params: {
   });
 
   return {
+    // The events were read for this call alone, so each takes its machine name in place.
     events: merged.flatMap((machine) =>
-      machine.events.map((event) => ({ ...event, machine: machine.name })),
+      machine.events.map((event) => Object.assign(event, { machine: machine.name })),
     ),
     machines: readable.map(({ name, usage }, index) => ({
       name,

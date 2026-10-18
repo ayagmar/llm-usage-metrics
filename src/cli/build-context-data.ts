@@ -56,7 +56,6 @@ export async function buildContextData(
     await applyPricingToUsageEventDataset(dataset, deps, 'force');
   const report = measureRuntimeProfileStageSync(deps.runtimeProfile, 'context.aggregate', () =>
     aggregateContextPressure(dataset.filteredEvents, {
-      perRequestSourceIds: pricingPolicy.perRequestSourceIds,
       lookupPricing: pricingSource
         ? createModelPricingLookup(pricingSource, pricingPolicy.costMode)
         : () => undefined,

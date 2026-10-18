@@ -4,7 +4,7 @@ Parsers for the session logs that local coding agents (Claude Code, Codex, Gemin
 
 The package is read-only: it makes no network calls, never writes to the agents' stores, and reads nothing (environment, home directory, files) at import. See [Security posture](#security-posture).
 
-The package is at 0.x: see [Versioning](#versioning) for what is stable. It is not published to npm yet; the [library overview](https://ayagmar.github.io/llm-usage-metrics/library/) shows how to build and install it from a checkout.
+The package is at 0.x: see [Versioning](#versioning) for what is stable. Install it with `npm install @ayagmar/agent-sessions`.
 
 The site has a guided introduction: [Reading and composing](https://ayagmar.github.io/llm-usage-metrics/library/guide/) walks through `readSources`, adapters, event kinds and the dedup stages with examples that run, and [Versioning and cursors](https://ayagmar.github.io/llm-usage-metrics/library/contracts/) covers stale events and resuming a read. This README is the full reference.
 
@@ -195,7 +195,7 @@ Pass `env: {}` as well when the home directory is all that should decide the loc
 
 ## Resuming a read
 
-An adapter whose `capabilities.incremental` is true can resume a JSONL file where an earlier read stopped. qwen is the only one so far. Check the flag before passing `resume`: any other adapter ignores `resume` and calls neither callback.
+An adapter whose `capabilities.incremental` is true can resume a JSONL file where an earlier read stopped: claude, pi and qwen. Check the flag before passing `resume`: any other adapter ignores `resume` and calls neither callback.
 
 ```ts
 import type { ReadCursor } from '@ayagmar/agent-sessions';
@@ -205,8 +205,9 @@ let cursor: ReadCursor | undefined; // persisted between runs, per file
 for await (const event of qwen.read(filePath, {
   resume: {
     from: cursor,
-    onStart: ({ restarted }) => {
+    onStart: ({ restarted, replaced }) => {
       if (restarted) dropStoredEventsFor(filePath);
+      else dropLastStoredEventsFor(filePath, replaced ?? {});
     },
     onCursor: (update) => {
       cursor = update.cursor;
@@ -218,17 +219,18 @@ for await (const event of qwen.read(filePath, {
 ```
 
 - `onStart` fires once when the read of the file starts, before any event, including for an empty file. `restarted: true` means the read starts from byte 0, so its events replace what you stored for the file; append only when it is false.
-- `onCursor` fires once, when the read completes. A read you break out of, or that throws, does not call it: keep the cursor you had.
-- A cursor is valid when its `parser` matches the adapter's (`<source>@<getParserVersion>`), the file is at least `offset` bytes long, and the sha256 of the first 64 KiB and of the 64 KiB ending at `offset` both match. Anything else restarts.
+- `replaced` counts, per event kind, how many of the last events the previous read yielded this read yields again (claude and pi: usage a later row can still change, tool calls still waiting for a result). Drop them before appending.
+- `onCursor` fires once, when the read completes. A read you break out of, or that throws, does not call it: keep the cursor you had. `partialLine: true` says the file ends in a line without a line feed, which the read left out.
+- Per kind, the kept events followed by the resumed read's equal a full read; the interleaving across kinds can differ.
+- A cursor is valid when its `parser` matches the adapter's (`<source>@<getParserVersion>`), the file is at least `offset` bytes long, and the sha256 of its first `offset` bytes matches `prefixHash`. Anything else restarts, so any change to the bytes the cursor covers reads the file again. Checking it reads those bytes once, without parsing them, and the resumed read extends the same hash.
 - `offset` is the end of the last line-feed-terminated line. A final line without a line feed is not parsed, yielded or counted under `resume`; the next read sees it whole once its line feed arrives.
 - `readEvents` forwards `resume` too, and honours it only when the read includes usage.
-- Stores are assumed append-only. A rewrite that keeps the file's size and changes only bytes between the two hashed windows passes validation, and the resumed read misses it.
 
-The cursor is plain JSON, so it can be stored as is. `JsonlReadCursor` reserves `state` for adapter-defined state; no adapter sets it yet.
+The cursor is plain JSON, so it can be stored as is. claude and pi keep their parse state in `JsonlReadCursor.state`; treat it as opaque. After a read with `raw: true`, that state holds the raw lines of the events and tool calls still open at `offset`, message text included, so store it as you store raw records.
 
 ## Per-request usage
 
-An adapter whose `capabilities.usagePerRequest` is true yields usage events that each record a single model request: claude, gemini, pi, opencode and antigravity. Prices that depend on one request's prompt size, such as long-context tiers, can be applied to those events one by one. Other sources can sum several requests into one event: droid and goose report session totals, and a codex event is the change in running totals between two `token_count` rows, which can span more than one request. Leave the flag unset on an adapter unless every event it yields is a single request.
+A usage event with `singleRequest: true` records exactly one model request, so prices that depend on one request's prompt size, such as long-context tiers, can be applied to it. claude, gemini, pi, opencode (one event per step) and antigravity set it on every event. codex sets it on a per-response `token_usage_record` (Codex 0.153 and later) and on a `token_count` delta equal to that row's `last_token_usage`; a delta that spans several responses has no flag. droid and goose report session totals and never set it. An adapter passes `singleRequest: true` to `createUsageEvent` only for a record it knows covers one request.
 
 ## OpenTelemetry attributes
 

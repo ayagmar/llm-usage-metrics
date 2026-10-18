@@ -65,8 +65,8 @@ function getOpenCodeParseDependencies(dbPath: string): string[] {
  */
 export class OpenCodeSourceAdapter implements SourceAdapter {
   public readonly id = 'opencode' as const;
-  public readonly capabilities = { kinds: ['usage'], usagePerRequest: true } as const;
-  public readonly parserVersion = 3;
+  public readonly capabilities = { kinds: ['usage'] } as const;
+  public readonly parserVersion = 5;
 
   private readonly explicitDbPath?: string;
   private readonly resolveDefaultDbPaths: () => string[];
@@ -215,11 +215,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     try {
       try {
         for (const row of rows) {
-          const event = parseOpenCodeMessageRow(row, this.id, diagnostics);
-
-          if (event) {
-            yield event;
-          }
+          yield* parseOpenCodeMessageRow(row, this.id, diagnostics);
         }
       } finally {
         database.close();

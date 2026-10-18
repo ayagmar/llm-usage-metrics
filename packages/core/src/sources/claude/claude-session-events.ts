@@ -7,6 +7,8 @@ import {
   type SessionEvent,
   type SessionMetaFields,
 } from '../../domain/session-event.js';
+import { ResumeConflict } from '../../stream/cursor.js';
+import { ResumableIdSet } from '../../stream/cursor-state.js';
 import { asRecord } from '../../utils/as-record.js';
 import { cutUnusedJsonStrings, type UnusedJsonValues } from '../../utils/cut-json-strings.js';
 import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
@@ -20,6 +22,8 @@ import {
   TimestampCarry,
   TOOL_CALL_REASONS,
   ToolCallPairing,
+  toPendingToolCall,
+  type PendingToolCall,
   type ToolCallReason,
 } from '../session-event-helpers.js';
 import type { SourceReadDiagnostics } from '../source-adapter.js';
@@ -67,15 +71,11 @@ export type ClaudeSessionEventsOptions = {
    */
   replayedRowUuids: ReadonlySet<string>;
   replayedMessageKeys: ReadonlySet<string>;
-};
-
-type ToolCall = {
-  sessionId: string;
-  timestamp: string;
-  toolCallId: string;
-  name: string;
-  messageId?: string;
-  row?: Record<string, unknown>;
+  /**
+   * Under a cursor: the `toState` of the read before it, null when that read left none.
+   * A state that does not check out throws `ResumeConflict`.
+   */
+  from?: unknown;
 };
 
 /** What one row contributes once its timestamp is known, possibly an event. */
@@ -110,15 +110,58 @@ function contentBlocks(content: unknown): ContentBlock[] {
  */
 export class ClaudeSessionEvents {
   private readonly carry = new TimestampCarry<RowAction>();
-  private readonly pairing: ToolCallPairing<ToolCall>;
+  private readonly pairing: ToolCallPairing<PendingToolCall>;
   private readonly meta: SessionMetaTrackers;
-  private readonly messageRowUuids = new Set<string>();
+  private messageRowUuids = new ResumableIdSet();
   // Calls in rows replayed from a fork's parent: a result for one is not an orphan.
-  private readonly replayedCallIds = new Set<string>();
+  private replayedCallIds = new ResumableIdSet();
 
   public constructor(private readonly options: ClaudeSessionEventsOptions) {
     this.pairing = new ToolCallPairing(options.diagnostics, options.kinds);
     this.meta = new SessionMetaTrackers(options.text);
+
+    if (options.from !== undefined && !this.restoreState(options.from)) {
+      throw new ResumeConflict();
+    }
+  }
+
+  /**
+   * What the rows so far leave for the rows after them, for a cursor; undefined while a
+   * row waits for a timestamp. Take it before `finish`.
+   */
+  public toState(): unknown {
+    const carry = this.carry.toState();
+
+    return (
+      carry && {
+        carry,
+        pairing: this.pairing.toState(),
+        meta: this.meta.toState(),
+        messageRowUuids: this.messageRowUuids.toState(),
+        replayedCallIds: this.replayedCallIds.toState(),
+      }
+    );
+  }
+
+  private restoreState(value: unknown): boolean {
+    const state = asRecord(value);
+    const messageRowUuids = ResumableIdSet.fromState(state?.messageRowUuids);
+    const replayedCallIds = ResumableIdSet.fromState(state?.replayedCallIds);
+
+    if (
+      !state ||
+      !messageRowUuids ||
+      !replayedCallIds ||
+      !this.carry.restoreState(state.carry) ||
+      !this.pairing.restoreState(state.pairing, toPendingToolCall) ||
+      !this.meta.restoreState(state.meta)
+    ) {
+      return false;
+    }
+
+    this.messageRowUuids = messageRowUuids;
+    this.replayedCallIds = replayedCallIds;
+    return true;
   }
 
   public *add(line: Record<string, unknown>): Generator<SessionEvent> {
@@ -381,7 +424,7 @@ export class ClaudeSessionEvents {
             toolCallId,
             name,
             messageId,
-            row: this.options.raw ? line : undefined,
+            raw: this.options.raw ? line : undefined,
           });
           return undefined;
         },
@@ -437,7 +480,7 @@ export class ClaudeSessionEvents {
   }
 
   private createToolCall(
-    call: ToolCall,
+    call: PendingToolCall,
     status: 'ok' | 'error' | 'unknown',
     result: {
       completedAt?: string;
@@ -458,8 +501,8 @@ export class ClaudeSessionEvents {
         messageId: call.messageId,
         raw: this.options.raw
           ? result.resultRow
-            ? { call: call.row, result: result.resultRow }
-            : { call: call.row }
+            ? { call: call.raw, result: result.resultRow }
+            : { call: call.raw }
           : undefined,
       }),
     );

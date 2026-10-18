@@ -13,7 +13,7 @@ import { loadNodeSqliteModule } from '@ayagmar/agent-sessions/internal';
 import { afterEach, describe, expect, it } from 'vitest';
 import { pathToFileURL } from 'node:url';
 
-import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
   deleteStoredFiles,
@@ -342,6 +342,38 @@ describe('schema v5 migration', () => {
     // A read-only reader reads the v4 layout as it reads the v5 one.
     expect(v4Read.events).toEqual(events);
     expect((await readEventStoreEvents(storePath)).events).toEqual(events);
+  });
+
+  it('flags v4 rows single-request for the sources whose every event was one request then', async () => {
+    const storePath = await createStorePath();
+    const fingerprint = serializeEventStoreFingerprint(FINGERPRINT);
+    const claudeEvent = createUsageEvent({ ...usageEvent(), source: 'claude' });
+    await writeV4Store(storePath, [
+      { source: 'claude', filePath: '/logs/claude.jsonl', fingerprint, events: [claudeEvent] },
+      { source: 'codex', filePath: '/logs/codex.jsonl', fingerprint, events: [usageEvent()] },
+    ]);
+    const flagsOf = (events: readonly UsageEvent[]) =>
+      events.map((event) => [event.source, event.singleRequest]);
+    const expected = [
+      ['claude', true],
+      ['codex', undefined],
+    ];
+
+    // A read-only reader of a machine cache no sync has migrated yet.
+    expect(flagsOf((await readEventStoreEvents(storePath)).events)).toEqual(expected);
+
+    const store = await openEventStore(storePath);
+
+    try {
+      expect(
+        flagsOf([
+          ...(readFileEvents(store, 'claude', '/logs/claude.jsonl') ?? []),
+          ...(readFileEvents(store, 'codex', '/logs/codex.jsonl') ?? []),
+        ]),
+      ).toEqual(expected);
+    } finally {
+      closeEventStore(store);
+    }
   });
 
   it('returns the space of the v4 tables it copied', async () => {

@@ -103,6 +103,7 @@ export const CONTEXT_FIXTURE_EVENTS: readonly UsageEvent[] = FIXTURE_INPUTS.map(
   createUsageEvent({
     ...input,
     provider: { claude: 'anthropic', gemini: 'google', codex: 'openai' }[input.source],
+    singleRequest: PER_REQUEST_SOURCES.has(input.source),
   }),
 );
 
@@ -110,7 +111,6 @@ export const CONTEXT_FIXTURE_EVENTS: readonly UsageEvent[] = FIXTURE_INPUTS.map(
 export function createContextFixtureAdapters(): SourceAdapter[] {
   return (['claude', 'gemini', 'codex'] as const).map((source) => ({
     id: source,
-    ...(PER_REQUEST_SOURCES.has(source) ? { capabilities: { usagePerRequest: true } } : {}),
     discoverFiles: async () => [`/context-fixture/${source}/usage.jsonl`],
     read: readFrom(async () => CONTEXT_FIXTURE_EVENTS.filter((event) => event.source === source)),
   }));

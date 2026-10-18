@@ -79,7 +79,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     id: 'codex',
     format: 'jsonl',
     supportsSourceDir: true,
-    // Parsing a Codex file never reads its roots.
+    // A Codex fork's parent is looked up under the root that holds the fork.
     createParseWorkerAdapter: (roots) => new CodexSourceAdapter({ dir: roots[0] }),
     create: (resolved, context) => new CodexSourceAdapter(dirOptions(resolved, context)),
   },

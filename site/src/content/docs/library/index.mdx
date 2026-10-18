@@ -18,18 +18,9 @@ for await (const usage of pipe(readSources(context, ['claude', 'codex']), kinds(
 
 ## Install
 
-The package is not on npm yet: its `package.json` is marked `private` while the 0.x API settles. To use it now, build and pack it from a checkout of the repository:
-
 ```bash
-git clone https://github.com/ayagmar/llm-usage-metrics.git
-cd llm-usage-metrics
-pnpm install
-pnpm run core:build
-cd packages/core
-pnpm pack
+npm install @ayagmar/agent-sessions
 ```
-
-`pnpm pack` writes `ayagmar-agent-sessions-<version>.tgz`. Install that file in your project with `npm install /path/to/ayagmar-agent-sessions-<version>.tgz`.
 
 - **No dependencies.** The manifest lists none, and `pnpm run core:pack:check` fails if one appears.
 - **Node.js 22.16+ or 24+**, not 23 (`engines` in its `package.json`). The SQLite sources (opencode, goose, antigravity) use the built-in `node:sqlite`.

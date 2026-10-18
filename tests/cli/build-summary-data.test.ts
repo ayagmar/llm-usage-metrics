@@ -20,11 +20,9 @@ import { readFrom } from '../helpers/fake-read.js';
 function createAdapter(
   id: SourceAdapter['id'],
   events: ReturnType<typeof createUsageEvent>[],
-  capabilities?: SourceAdapter['capabilities'],
 ): SourceAdapter {
   return {
     id,
-    capabilities,
     discoverFiles: async () => [`/tmp/${id}.jsonl`],
     read: readFrom(async () => events),
   };
@@ -297,23 +295,20 @@ describe('buildSummaryData', () => {
   });
 
   it('estimates cache savings at long-context rates for a per-request source', async () => {
-    const run = (capabilities?: SourceAdapter['capabilities']) =>
+    const run = (singleRequest?: boolean) =>
       buildSummaryData(
         { timezone: 'UTC', pricingOffline: true },
         runtimeDeps(
           [
-            createAdapter(
-              'codex',
-              [
-                createEvent('2026-03-05T09:00:00.000Z', {
-                  model: 'gpt-5.4',
-                  costMode: 'estimated',
-                  costUsd: undefined,
-                  cacheReadTokens: 300_000,
-                }),
-              ],
-              capabilities,
-            ),
+            createAdapter('codex', [
+              createEvent('2026-03-05T09:00:00.000Z', {
+                model: 'gpt-5.4',
+                costMode: 'estimated',
+                costUsd: undefined,
+                cacheReadTokens: 300_000,
+                singleRequest,
+              }),
+            ]),
           ],
           '2026-03-10T18:00:00.000Z',
         ),
@@ -321,7 +316,7 @@ describe('buildSummaryData', () => {
 
     // gpt-5.4 bundled pricing above 272k prompt tokens: $5.00 input vs $0.50 cache read per
     // 1M; at the base rates, $2.50 vs $0.25.
-    expect((await run({ usagePerRequest: true })).monthToDateCacheSavingsUsd).toBeCloseTo(1.35, 6);
+    expect((await run(true)).monthToDateCacheSavingsUsd).toBeCloseTo(1.35, 6);
     expect((await run()).monthToDateCacheSavingsUsd).toBeCloseTo(0.675, 6);
   });
 
@@ -377,7 +372,7 @@ describe('buildSummaryData', () => {
       events: period.totals.events,
       costUsd: period.totals.costUsd,
       activeDays: period.totals.activeDays,
-      sources: period.sources.map((source) => [source.source, source.costUsd]),
+      sources: period.sources.map((source) => [source.source, source.costUsd, source.activeDays]),
     }));
 
     expect(result.timezone).toBe('UTC');
@@ -389,8 +384,8 @@ describe('buildSummaryData', () => {
         costUsd: 5,
         activeDays: 1,
         sources: [
-          ['claude', 4],
-          ['codex', 1],
+          ['claude', 4, 1],
+          ['codex', 1, 1],
         ],
       },
       {
@@ -400,8 +395,8 @@ describe('buildSummaryData', () => {
         costUsd: 6,
         activeDays: 2,
         sources: [
-          ['claude', 4],
-          ['codex', 2],
+          ['claude', 4, 1],
+          ['codex', 2, 2],
         ],
       },
       {
@@ -411,8 +406,8 @@ describe('buildSummaryData', () => {
         costUsd: 7,
         activeDays: 3,
         sources: [
-          ['claude', 4],
-          ['codex', 3],
+          ['claude', 4, 1],
+          ['codex', 3, 3],
         ],
       },
     ]);

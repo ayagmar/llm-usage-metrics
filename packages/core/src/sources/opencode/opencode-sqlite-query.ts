@@ -7,6 +7,14 @@ type OpenCodeSqliteDatabase = {
   prepare: (sql: string) => SqliteRowStatement;
 };
 
+type PartQueryColumns = {
+  tableName: string;
+  idColumn: string;
+  messageIdColumn: string;
+  timeColumn: string | undefined;
+  dataColumn: string;
+};
+
 type MessageQueryColumns = {
   idColumn: string;
   timestampColumn: string;
@@ -75,7 +83,36 @@ function resolveRequiredMessageColumns(messageColumns: readonly string[]): Messa
   };
 }
 
-function createPrimaryQuery(tableName: string, columns: MessageQueryColumns): string {
+/**
+ * V1 sets a message's tokens to its last step's while adding up the cost of every step,
+ * and writes one `step-finish` part per step with that step's tokens and cost. This
+ * returns those parts, as a JSON array, for each message with more than one, so every
+ * step can be read as its own request. The `LIKE` skips most parts before their JSON is
+ * parsed, and is several times faster than `instr` on large part tables.
+ */
+function createStepPartsJoin(parts: PartQueryColumns, messageIdColumn: string): string {
+  const data = escapeIdentifier(parts.dataColumn);
+  const time = parts.timeColumn ? escapeIdentifier(parts.timeColumn) : 'NULL';
+
+  return [
+    'LEFT JOIN (',
+    '  SELECT',
+    `    ${escapeIdentifier(parts.messageIdColumn)} AS step_message_id,`,
+    `    json_group_array(json_object('id', ${escapeIdentifier(parts.idColumn)}, 'time', ${time}, 'part', json(${data}))) AS step_parts_json`,
+    `  FROM ${escapeIdentifier(parts.tableName)}`,
+    `  WHERE ${data} LIKE '%"step-finish"%'`,
+    `    AND CASE WHEN json_valid(${data}) = 1 THEN json_extract(${data}, '$.type') END = 'step-finish'`,
+    `  GROUP BY ${escapeIdentifier(parts.messageIdColumn)}`,
+    '  HAVING COUNT(*) > 1',
+    `) AS steps ON steps.step_message_id = ${escapeIdentifier(messageIdColumn)}`,
+  ].join('\n');
+}
+
+function createPrimaryQuery(
+  tableName: string,
+  columns: MessageQueryColumns,
+  parts: PartQueryColumns | undefined,
+): string {
   const rowSessionId = columns.sessionIdColumn
     ? `${escapeIdentifier(columns.sessionIdColumn)} AS row_session_id`
     : 'NULL AS row_session_id';
@@ -85,8 +122,9 @@ function createPrimaryQuery(tableName: string, columns: MessageQueryColumns): st
     `  ${escapeIdentifier(columns.idColumn)} AS row_id,`,
     `  ${escapeIdentifier(columns.timestampColumn)} AS row_time,`,
     `  ${rowSessionId},`,
-    `  ${escapeIdentifier(columns.dataColumn)} AS data_json`,
+    `  ${escapeIdentifier(columns.dataColumn)} AS data_json${parts ? ',\n  steps.step_parts_json' : ''}`,
     `FROM ${escapeIdentifier(tableName)}`,
+    ...(parts ? [createStepPartsJoin(parts, columns.idColumn)] : []),
     [
       'WHERE CASE',
       `  WHEN json_valid(${escapeIdentifier(columns.dataColumn)}) = 1`,
@@ -122,27 +160,52 @@ function listTableNames(database: OpenCodeSqliteDatabase): string[] {
     .filter((value): value is string => Boolean(value));
 }
 
+function listColumnNames(database: OpenCodeSqliteDatabase, tableName: string): string[] {
+  const escapedTableName = tableName.replaceAll("'", "''");
+  return database
+    .prepare(`PRAGMA table_info('${escapedTableName}')`)
+    .all()
+    .map((row) => asTrimmedText(row.name))
+    .filter((value): value is string => Boolean(value));
+}
+
 function resolveMessageQueryColumns(
   database: OpenCodeSqliteDatabase,
   messageTableName: string,
 ): MessageQueryColumns {
-  const escapedMessageTableName = messageTableName.replaceAll("'", "''");
-  const messageColumns = database
-    .prepare(`PRAGMA table_info('${escapedMessageTableName}')`)
-    .all()
-    .map((row) => asTrimmedText(row.name))
-    .filter((value): value is string => Boolean(value));
+  return resolveRequiredMessageColumns(listColumnNames(database, messageTableName));
+}
 
-  return resolveRequiredMessageColumns(messageColumns);
+/** The V1 `part` table, when it has the columns the step parts need. */
+function resolvePartQueryColumns(
+  database: OpenCodeSqliteDatabase,
+  tableNames: readonly string[],
+): PartQueryColumns | undefined {
+  const tableName = resolveIdentifierCaseInsensitive(tableNames, ['part']);
+
+  if (!tableName) {
+    return undefined;
+  }
+
+  const partColumns = listColumnNames(database, tableName);
+  const idColumn = resolveIdentifierCaseInsensitive(partColumns, ['id']);
+  const messageIdColumn = resolveIdentifierCaseInsensitive(partColumns, ['message_id']);
+  const timeColumn = resolveIdentifierCaseInsensitive(partColumns, ['time_created']);
+  const dataColumn = resolveIdentifierCaseInsensitive(partColumns, ['data']);
+
+  return idColumn && messageIdColumn && dataColumn
+    ? { tableName, idColumn, messageIdColumn, timeColumn, dataColumn }
+    : undefined;
 }
 
 function queryV1MessageRows(
   database: OpenCodeSqliteDatabase,
   messageTableName: string,
   columns: MessageQueryColumns,
+  parts: PartQueryColumns | undefined,
 ): IterableIterator<OpenCodeSqliteRow> {
   try {
-    return iterateRows(database.prepare(createPrimaryQuery(messageTableName, columns)));
+    return iterateRows(database.prepare(createPrimaryQuery(messageTableName, columns, parts)));
   } catch (error) {
     if (!shouldFallbackToNonJsonExtractQuery(error)) {
       throw error;
@@ -217,6 +280,12 @@ export function queryOpenCodeMessageRows(
       : undefined;
 
   if (!v1) {
+    if (!v2Rows && sessionMessage && resolveIdentifierCaseInsensitive(tableNames, ['session'])) {
+      throw new Error(
+        'This is the pre-release OpenCode V2 database (opencode-next.db): OpenCode 2 imports it into opencode.db on start. Read opencode.db instead.',
+      );
+    }
+
     if (!v2Rows) {
       throw new Error(
         'OpenCode schema drift: no "message" table (V1) or "session_message" and "session_v2" tables (V2) found. Inspect schema with `opencode db` commands.',
@@ -226,6 +295,11 @@ export function queryOpenCodeMessageRows(
     return v2Rows;
   }
 
-  const v1Rows = queryV1MessageRows(database, v1.tableName, v1.columns);
+  const v1Rows = queryV1MessageRows(
+    database,
+    v1.tableName,
+    v1.columns,
+    resolvePartQueryColumns(database, tableNames),
+  );
   return v2Rows ? chainRows(v1Rows, v2Rows) : v1Rows;
 }

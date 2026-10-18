@@ -55,7 +55,7 @@ describe('pricing --json schema', () => {
     const payload = {
       schemaVersion: 1,
       report: 'pricing',
-      data: { models: [], perRequestSources: [], extra: true },
+      data: { models: [], extra: true },
     };
 
     expect(validate?.(payload)).toBe(false);

@@ -3,14 +3,17 @@
   "version": "0.1.0",
   "description": "Read-only parsers that normalize local coding-agent session logs into usage events",
   "type": "module",
-  "private": true,
   "engines": {
     "node": ">=22.16 <23 || >=24"
   },
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "exports": {
@@ -110,7 +113,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ayagmar/llm-usage-metrics",
+    "url": "git+https://github.com/ayagmar/llm-usage-metrics.git",
     "directory": "packages/core"
   }
 }

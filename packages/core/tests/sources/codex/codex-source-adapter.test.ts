@@ -184,6 +184,60 @@ describe('CodexSourceAdapter', () => {
     expect(events[1]?.totalTokens).toBe(25);
     expect(events[2]?.totalTokens).toBe(20);
     expect(events.every((event) => event.repoRoot === '/tmp/codex-repo')).toBe(true);
+    // A last_token_usage is one response; the closing delta has none to compare with.
+    expect(events.map((event) => event.singleRequest)).toEqual([true, true, undefined]);
+  });
+
+  it('marks a token_count delta single-request only when it equals last_token_usage', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-single-request-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+    const usage = (input: number, output: number) => ({
+      input_tokens: input,
+      cached_input_tokens: 0,
+      output_tokens: output,
+      reasoning_output_tokens: 0,
+      total_tokens: input + output,
+    });
+    const tokenCount = (second: number, total: object, last: object) =>
+      JSON.stringify({
+        timestamp: `2026-02-14T10:00:0${String(second)}.000Z`,
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: { total_token_usage: total, last_token_usage: last },
+        },
+      });
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:00.000Z',
+          type: 'session_meta',
+          payload: { id: 'codex-single-request', model_provider: 'openai' },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:01.000Z',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.4' },
+        }),
+        tokenCount(2, usage(300_000, 100), usage(300_000, 100)),
+        tokenCount(3, usage(600_000, 300), usage(300_000, 200)),
+        // A response whose token_count was never written: the next delta spans two.
+        tokenCount(5, usage(1_200_000, 600), usage(300_000, 150)),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await collect(new CodexSourceAdapter({ dir: root }).read(filePath));
+
+    expect(events.map((event) => [event.inputTokens, event.singleRequest])).toEqual([
+      [300_000, true],
+      [300_000, true],
+      [600_000, undefined],
+    ]);
   });
 
   it('deduplicates repeated last_token_usage-only rows', async () => {
@@ -836,6 +890,8 @@ describe('CodexSourceAdapter', () => {
 
     expect(diagnostics.skippedRows).toBe(1);
     expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
+    // Each record is one response's usage.
+    expect(diagnostics.events.every((event) => event.singleRequest === true)).toBe(true);
     expect(
       diagnostics.events.map((event) => ({
         timestamp: event.timestamp,

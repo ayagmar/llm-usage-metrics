@@ -53,7 +53,6 @@ import {
 import { refreshDueMachines } from '../machines/refresh-machines.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
-  getPerRequestSourceIds,
   resolveAndApplyPricingToEvents,
   resolvePricingPolicy,
   resolvePricingSource,
@@ -220,9 +219,13 @@ export async function buildUsageEventDataset(
   const readEventStoreRuntimeConfig = deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig;
   const makeAdapters = deps.createAdapters ?? createAdaptersFromOptions;
   const config = userConfigResolution.loadedConfig.config;
-  const parsingRuntimeConfig = readParsingRuntimeConfig(process.env, config);
-  const pricingRuntimeConfig = readPricingRuntimeConfig(config);
   const eventStoreRuntimeConfig = readEventStoreRuntimeConfig(process.env, config);
+  const parsingRuntimeConfig = readParsingRuntimeConfig(
+    process.env,
+    config,
+    eventStoreRuntimeConfig.enabled,
+  );
+  const pricingRuntimeConfig = readPricingRuntimeConfig(config);
   const activeConfig = mergeActiveConfigEntries(userConfigResolution.loadedConfig, [
     ...(userConfigResolution.activeConfig?.entries ?? []),
     ...collectRuntimeConfigEntries(userConfigResolution.loadedConfig),
@@ -599,10 +602,7 @@ export async function applyPricingToUsageEventDataset(
       loadPricingSource,
       pricingLoadMode,
       loadDecisionEvents: dataset.filteredEvents,
-      policy: resolvePricingPolicy(
-        pricingOptions,
-        perRequestRates ? getPerRequestSourceIds(dataset.adaptersToParse) : new Set(),
-      ),
+      policy: resolvePricingPolicy(pricingOptions, perRequestRates),
     }),
   );
 }

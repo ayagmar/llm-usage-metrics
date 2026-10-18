@@ -1,4 +1,5 @@
-import { mkdir, open, readFile, rm, stat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -296,18 +297,56 @@ function isRunningProcess(pid: number): boolean {
   }
 }
 
-async function isStaleLock(lockPath: string, now: number): Promise<boolean> {
+/** A lock file's content and modification time, which together tell one lock from the next. */
+type LockState = { content: string; mtimeMs: number };
+
+async function readLock(lockPath: string): Promise<LockState | undefined> {
   try {
     const [content, stats] = await Promise.all([readFile(lockPath, 'utf8'), stat(lockPath)]);
-    const pid = Number.parseInt(content, 10);
-
-    return (
-      now - stats.mtimeMs > STATUSLINE_LOCK_STALE_MS ||
-      (Number.isInteger(pid) && pid > 0 && !isRunningProcess(pid))
-    );
+    return { content, mtimeMs: stats.mtimeMs };
   } catch {
     // Released while we looked: the next attempt takes it.
-    return false;
+    return undefined;
+  }
+}
+
+function isStaleLock(lock: LockState, now: number): boolean {
+  const pid = Number.parseInt(lock.content, 10);
+
+  return (
+    now - lock.mtimeMs > STATUSLINE_LOCK_STALE_MS ||
+    (Number.isInteger(pid) && pid > 0 && !isRunningProcess(pid))
+  );
+}
+
+/**
+ * Removes a stale lock if it is still the one read as `expected`. The lock is first renamed
+ * to a name only this call uses, so of several ticks reclaiming one lock only one gets it.
+ * A tick that got a newer lock than the one it read puts it back, so no tick removes a
+ * lock it does not own. Content and mtime both identify the lock: an empty lock left by a
+ * crash reads the same as one just created and not yet written. With three or more ticks
+ * reclaiming at once, the put-back can replace a lock taken meanwhile: both holders then
+ * parse, as they would with no lock.
+ */
+async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<void> {
+  const claimPath = `${lockPath}.${randomUUID()}`;
+
+  try {
+    await rename(lockPath, claimPath);
+  } catch (error) {
+    if (hasErrorCode(error, 'ENOENT')) {
+      return;
+    }
+
+    throw error;
+  }
+
+  const claimed = await readLock(claimPath);
+
+  if (claimed?.content === expected.content && claimed.mtimeMs === expected.mtimeMs) {
+    await rm(claimPath, { force: true });
+  } else {
+    await rename(claimPath, lockPath);
   }
 }
 
@@ -320,9 +359,12 @@ export async function acquireStatuslineLock(
   lockPath: string,
   waitMs = STATUSLINE_LOCK_WAIT_MS,
 ): Promise<(() => Promise<void>) | undefined> {
-  const token = String(process.pid);
+  // The pid tells other ticks whether the holder still runs; the UUID makes the lock this
+  // tick's alone, also against another tick of the same process.
+  const token = `${String(process.pid)} ${randomUUID()}`;
   const release = async () => {
-    // A lock taken over after it went stale is the other tick's to remove.
+    // A lock taken over after it went stale is the other tick's to remove. Never renamed:
+    // that would leave the path free for a third tick while the other tick holds it.
     if ((await readFile(lockPath, 'utf8').catch(() => undefined)) === token) {
       await rm(lockPath, { force: true });
     }
@@ -344,8 +386,10 @@ export async function acquireStatuslineLock(
         }
       }
 
-      if (await isStaleLock(lockPath, Date.now())) {
-        await rm(lockPath, { force: true });
+      const lock = await readLock(lockPath);
+
+      if (lock && isStaleLock(lock, Date.now())) {
+        await reclaimStaleLock(lockPath, lock);
       } else if (Date.now() >= deadline) {
         return undefined;
       } else {

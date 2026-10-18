@@ -6,9 +6,7 @@ import './diagrams.css';
 const barX = 28;
 const barW = 384;
 const fileEnd = barX + barW;
-const head = { x: barX, w: 76 };
 const offset = barX + 278;
-const tail = { x: offset - 76, w: 76 };
 const cursorTop = 222;
 const barY = cursorTop + 66;
 ---
@@ -26,12 +24,12 @@ const barY = cursorTop + 66;
         Two ways to avoid re-reading a file. The CLI's event store keeps a fingerprint per file: the
         parser version plus the path, existence, size and modification time of the file and each
         file it depends on. The same fingerprint serves the stored events; any change re-reads the
-        whole file and replaces its stored events. The library also offers a cursor for append-only
-        JSONL reads, which only the qwen adapter supports: it records the parser, the byte offset
-        read so far and SHA-256 hashes of the first and last 64 KiB before that offset. A resumed
-        read starts at the offset when the parser matches, the file is at least offset bytes long
-        and both hashes match; otherwise it reads from byte 0 and reports restarted, and the new
-        events replace the earlier ones.
+        whole file and replaces its stored events, except a claude, pi or qwen file that only grew,
+        which resumes from its stored cursor. The cursor serves append-only JSONL reads, which the
+        claude, pi and qwen adapters support: it records the parser, the byte offset read so far and
+        the SHA-256 hash of every byte before that offset. A resumed read starts at the offset when
+        the parser matches, the file is at least offset bytes long and the hash matches; otherwise
+        it reads from byte 0 and reports restarted, and the new events replace the earlier ones.
       </desc>
 
       <text class="dg-t dg-t--label" x="12" y="18">
@@ -69,26 +67,18 @@ const barY = cursorTop + 66;
       <line class="dg-rule" x1="12" y1="212" x2="428" y2="212"></line>
 
       <text class="dg-t dg-t--label" x="12" y={cursorTop + 16}>
-        library cursor: append-only JSONL
+        read cursor: append-only JSONL
       </text>
       <text class="dg-t dg-t--sm" x="12" y={cursorTop + 36}>
-        qwen only; the CLI does not use cursors
+        claude, pi and qwen; the CLI resumes all three
       </text>
 
       <rect class="dg-box dg-box--plain" x={barX} y={barY} width={barW} height="34" rx="4"></rect>
       <rect
         class="dg-box dg-box--cyan"
-        x={head.x}
+        x={barX}
         y={barY}
-        width={head.w}
-        height="34"
-        rx="4"
-      ></rect>
-      <rect
-        class="dg-box dg-box--cyan"
-        x={tail.x}
-        y={barY}
-        width={tail.w}
+        width={offset - barX}
         height="34"
         rx="4"
       ></rect>
@@ -100,11 +90,8 @@ const barY = cursorTop + 66;
         height="34"
         rx="4"
       ></rect>
-      <text class="dg-t dg-t--sm" x={head.x + 8} y={barY + 22}>
-        64 KiB
-      </text>
-      <text class="dg-t dg-t--sm" x={tail.x + 8} y={barY + 22}>
-        64 KiB
+      <text class="dg-t dg-t--sm" x={barX + 8} y={barY + 22}>
+        every byte read so far
       </text>
       <text class="dg-t dg-t--sm" x={offset + 10} y={barY + 22}>
         new lines
@@ -117,11 +104,8 @@ const barY = cursorTop + 66;
         y2={barY + 46}
       ></line>
 
-      <text class="dg-t dg-t--mono dg-t--cyan" x={head.x} y={barY + 64} style="font-size: 13px">
-        headHash
-      </text>
-      <text class="dg-t dg-t--mono dg-t--cyan" x={tail.x} y={barY + 64} style="font-size: 13px">
-        tailHash
+      <text class="dg-t dg-t--mono dg-t--cyan" x={barX} y={barY + 64} style="font-size: 13px">
+        prefixHash
       </text>
       <text
         class="dg-t dg-t--mono dg-t--accent"
@@ -137,7 +121,7 @@ const barY = cursorTop + 66;
         resume at offset
       </text>
       <text class="dg-t dg-t--sm" x="26" y="427">
-        same parser, size ≥ offset, both hashes match
+        same parser, size ≥ offset, prefix hash matches
       </text>
       <rect class="dg-box dg-box--accent" x="12" y="446" width="416" height="48" rx="8"></rect>
       <text class="dg-t" x="26" y="466">

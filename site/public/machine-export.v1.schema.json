@@ -24,6 +24,10 @@
           "description": "Source id to the parser version the export read it with. Optional: older exports leave it out, and readers that predate it ignore it.",
           "type": "object",
           "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "singleRequestFlag": {
+          "description": "Events carry singleRequest. Optional: older exports leave it out, and readers take the flag from the event's source (antigravity, claude, gemini, opencode, pi).",
+          "const": true
         }
       },
       "required": ["type", "format", "version", "cliVersion", "hostname", "exportedAt"],

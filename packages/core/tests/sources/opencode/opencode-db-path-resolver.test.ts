@@ -131,6 +131,27 @@ describe('getDefaultOpenCodeDbPathCandidates', () => {
     ]);
   });
 
+  it('leaves out opencode-next.db, which OpenCode 2 imports into opencode.db', async () => {
+    const xdgDataHome = await mkdtemp(path.join(os.tmpdir(), 'opencode-xdg-'));
+    tempDirs.push(xdgDataHome);
+    const opencodeDir = path.join(xdgDataHome, 'opencode');
+    await mkdir(opencodeDir, { recursive: true });
+    await writeFile(path.join(opencodeDir, 'opencode.db'), '', 'utf8');
+    await writeFile(path.join(opencodeDir, 'opencode-next.db'), '', 'utf8');
+    await writeFile(path.join(opencodeDir, 'opencode-beta-2.db'), '', 'utf8');
+
+    const candidates = getDefaultOpenCodeDbPathCandidates(
+      createSourceContext({
+        platform: 'linux',
+        homeDir: '/home/test-user',
+        env: { XDG_DATA_HOME: xdgDataHome },
+      }),
+    );
+
+    expect(candidates).not.toContain(path.join(opencodeDir, 'opencode-next.db'));
+    expect(candidates).toContain(path.join(opencodeDir, 'opencode-beta-2.db'));
+  });
+
   it('falls back to home-directory candidates when no Windows roaming base is available', () => {
     const candidates = getDefaultOpenCodeDbPathCandidates(
       createSourceContext({

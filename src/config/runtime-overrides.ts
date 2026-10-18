@@ -15,6 +15,12 @@ export const PARSE_MAX_PARALLEL_DEFAULT = 8;
 export const PARSE_WORKERS_CONFIG_DEFAULT = 'auto';
 const PARSE_WORKER_MAX = 64;
 const AUTO_PARSE_WORKER_LIMIT = 8;
+/**
+ * `auto` when the run writes the event store. The main thread writes every parsed file to
+ * the store, so past about six workers they wait on it and only add their heaps: on a
+ * 2.5 GiB synthetic Claude corpus, 6 workers took 2.5% longer than 8 at a 20% lower peak.
+ */
+const AUTO_STORE_PARSE_WORKER_LIMIT = 6;
 export const PARSE_WORKER_MIN_BYTES_DEFAULT = 268_435_456;
 export const EVENT_STORE_ENABLED_DEFAULT = true;
 
@@ -139,29 +145,30 @@ export function getPricingFetcherRuntimeConfig(
   };
 }
 
-/** `auto`: one worker per available CPU but one, at most `AUTO_PARSE_WORKER_LIMIT`. */
-function getAutoParseWorkerCount(): number {
-  return Math.max(0, Math.min(AUTO_PARSE_WORKER_LIMIT, availableParallelism() - 1));
+/** `auto`: one worker per available CPU but one, at most `limit`. */
+function getAutoParseWorkerCount(limit: number): number {
+  return Math.max(0, Math.min(limit, availableParallelism() - 1));
 }
 
 function resolveParseWorkers(
   envValue: string | undefined,
   configValue: UserConfig['parseWorkers'],
+  autoLimit: number,
 ): number {
   if (envValue === undefined || envValue.trim().length === 0) {
     return configValue === undefined || configValue === 'auto'
-      ? getAutoParseWorkerCount()
+      ? getAutoParseWorkerCount(autoLimit)
       : configValue;
   }
 
   const trimmedValue = envValue.trim().toLowerCase();
 
   if (trimmedValue === 'auto') {
-    return getAutoParseWorkerCount();
+    return getAutoParseWorkerCount(autoLimit);
   }
 
   return resolveBoundedInteger(envValue, configValue === 'auto' ? undefined : configValue, {
-    fallback: getAutoParseWorkerCount(),
+    fallback: getAutoParseWorkerCount(autoLimit),
     min: 0,
     max: PARSE_WORKER_MAX,
   });
@@ -170,6 +177,8 @@ function resolveParseWorkers(
 export function getParsingRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
   config: UserConfig = {},
+  /** Whether the run writes the event store, which lowers what `auto` resolves to. */
+  writesEventStore = false,
 ): ParsingRuntimeConfig {
   return {
     maxParallelFileParsing: resolveBoundedInteger(undefined, config.parseMaxParallel, {
@@ -177,7 +186,11 @@ export function getParsingRuntimeConfig(
       min: 1,
       max: 64,
     }),
-    parseWorkers: resolveParseWorkers(env.LLM_USAGE_PARSE_WORKERS, config.parseWorkers),
+    parseWorkers: resolveParseWorkers(
+      env.LLM_USAGE_PARSE_WORKERS,
+      config.parseWorkers,
+      writesEventStore ? AUTO_STORE_PARSE_WORKER_LIMIT : AUTO_PARSE_WORKER_LIMIT,
+    ),
     parseWorkerMinBytes: resolveBoundedInteger(
       env.LLM_USAGE_PARSE_WORKER_MIN_BYTES,
       config.parseWorkerMinBytes,

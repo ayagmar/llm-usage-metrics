@@ -10,11 +10,13 @@ import {
   type FileFingerprint,
   compareByCodePoint,
   hasErrorCode,
+  isJsonlReadCursor,
   takeUncountedEvents,
 } from '@ayagmar/agent-sessions/internal';
 import {
   computeEventContentHash,
   normalizeSourceId,
+  type ReadCursor,
   type SourceSkippedRowReasonStat,
 } from '@ayagmar/agent-sessions';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
@@ -22,6 +24,7 @@ import { getUserDataRootDir } from '../utils/data-root-dir.js';
 import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
 import {
   normalizeStoredEventTuple,
+  selectSingleRequestBeforeFlagSql,
   STORED_EVENT_COLUMNS,
   type StoredEventTuple,
 } from './event-store-codec.js';
@@ -42,6 +45,13 @@ import {
   hasSchemaVersion,
   initializeSchema,
 } from './event-store-schema.js';
+import {
+  prepareAppendStatements,
+  prepareFileAppend,
+  prepareReadCursorStatements,
+  writeFileReadCursor,
+  type EventStoreAppend,
+} from './event-store-append.js';
 import {
   deleteFileSessionEvents,
   insertFileSessionEvents,
@@ -96,6 +106,13 @@ export type ReplaceFileEventsInput = {
    * override-only, until a run with the usual directories discovers it too.
    */
   overrideOnly?: boolean;
+  /** Where the next read of the file resumes; stored with this version of the file. */
+  readCursor?: ReadCursor;
+  /**
+   * Set when the events are only those of the lines appended after the stored cursor: they
+   * are added to the stored ones instead of replacing them. `skippedRows` is the total.
+   */
+  append?: EventStoreAppend;
 };
 
 export type DeleteStoredFilesInput = {
@@ -644,7 +661,8 @@ function selectPreV5WindowEventsSql(
   schemaVersion: string | undefined,
   wideWindow: boolean,
 ): string {
-  // A read-only open cannot migrate, and stores older than v4 lack the one-hour column.
+  // A read-only open cannot migrate. Stores older than v4 lack the one-hour column, and
+  // stores older than v5 the single-request flag.
   const cacheWrite1hColumn = hasSchemaVersion(schemaVersion, 4)
     ? 'cache_write_1h_tokens'
     : '0 AS cache_write_1h_tokens';
@@ -652,7 +670,8 @@ function selectPreV5WindowEventsSql(
   return [
     'SELECT source, session_id, timestamp, model, provider, repo_root,',
     '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-    `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode`,
+    `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode,`,
+    `  ${selectSingleRequestBeforeFlagSql('source')} AS single_request`,
     wideWindow ? 'FROM events INDEXED BY events_file' : 'FROM events',
     'WHERE timestamp >= ? AND timestamp < ?',
     'ORDER BY source, file_path, event_index',
@@ -834,6 +853,30 @@ function selectFileEventRows(
   return statement.all(source, filePath) as unknown as StoredEventTuple[];
 }
 
+/** The cursor stored with the file's stored version, or undefined when there is none. */
+export function getFileReadCursor(
+  store: EventStore,
+  source: string,
+  filePath: string,
+): ReadCursor | undefined {
+  const statements = (store.statements.readCursors ??= prepareReadCursorStatements(store.database));
+  const text = toText(
+    statements.select.get(normalizeStoreSource(source), normalizeStoreFilePath(filePath))?.cursor,
+  );
+
+  if (!text) {
+    return undefined;
+  }
+
+  try {
+    // The read validates the rest; a cursor that fails it restarts the read.
+    const cursor: unknown = JSON.parse(text);
+    return isJsonlReadCursor(cursor) ? cursor : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function readFileEvents(
   store: EventStore,
   source: string,
@@ -1011,6 +1054,9 @@ export function deleteStoredFiles(
     );
     const sessionEventStatements = (store.statements.sessionEvents ??=
       prepareSessionEventStatements(store.database));
+    const readCursorStatements = (store.statements.readCursors ??= prepareReadCursorStatements(
+      store.database,
+    ));
 
     for (const file of normalizedFiles) {
       deleteOverrideOnlyFile.run(file.source, file.filePath);
@@ -1025,6 +1071,7 @@ export function deleteStoredFiles(
       result.deletedEventCount += toNonNegativeInteger(row?.row_count) ?? 0;
       deleteEvents.run(fileId);
       deleteFileSessionEvents(sessionEventStatements, fileId);
+      readCursorStatements.delete.run(fileId);
       deleteFile.run(fileId);
     }
   });
@@ -1063,6 +1110,8 @@ export function replaceFilesEvents(
     events: input.events.map((event) => createUsageEvent(event)),
     sessionEvents: input.sessionEvents ?? [],
     overrideOnly: input.overrideOnly === true,
+    readCursor: input.readCursor,
+    append: input.append,
   }));
 
   const deleteFileEvents = (store.statements.deleteFileEvents ??= store.database.prepare(
@@ -1074,8 +1123,8 @@ export function replaceFilesEvents(
       '  file_id, event_index, session_id, timestamp, model, provider, repo_root,',
       '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
       '  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd,',
-      '  cost_mode',
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      '  cost_mode, single_request',
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ].join('\n'),
   ));
   const upsertFile = (store.statements.upsertFile ??= store.database.prepare(
@@ -1101,13 +1150,32 @@ export function replaceFilesEvents(
   const sessionEventStatements = (store.statements.sessionEvents ??= prepareSessionEventStatements(
     store.database,
   ));
+  const readCursorStatements = (store.statements.readCursors ??= prepareReadCursorStatements(
+    store.database,
+  ));
 
   runTransaction(store.database, () => {
     for (const write of writes) {
       const { source, filePath } = write;
+      let firstEventIndex = 0;
+      let firstSessionEventIndex = 0;
 
-      // Before the upsert, which would make every file look already stored.
-      if (write.overrideOnly) {
+      if (write.append) {
+        // Checked under the write lock: another run may have stored the file since.
+        const append = prepareFileAppend(
+          (store.statements.append ??= prepareAppendStatements(store.database)),
+          write,
+          write.append,
+        );
+
+        if (!append) {
+          continue;
+        }
+
+        firstEventIndex = append.nextEventIndex;
+        firstSessionEventIndex = append.nextSessionEventIndex;
+      } else if (write.overrideOnly) {
+        // Before the upsert, which would make every file look already stored.
         markOverrideOnlyFile.run(source, filePath, source, filePath);
       }
 
@@ -1126,12 +1194,15 @@ export function replaceFilesEvents(
         throw new Error(`Event store did not return a file id for ${filePath}`);
       }
 
-      deleteFileEvents.run(fileId);
-      deleteFileSessionEvents(sessionEventStatements, fileId);
-      write.events.forEach((event, eventIndex) => {
+      if (!write.append) {
+        deleteFileEvents.run(fileId);
+        deleteFileSessionEvents(sessionEventStatements, fileId);
+      }
+
+      write.events.forEach((event, position) => {
         insertEvent.run(
           fileId,
-          eventIndex,
+          firstEventIndex + position,
           event.sessionId,
           event.timestamp,
           event.model ?? null,
@@ -1147,9 +1218,16 @@ export function replaceFilesEvents(
           computeEventContentHash(event),
           event.costUsd ?? null,
           event.costMode,
+          event.singleRequest === true ? 1 : 0,
         );
       });
-      insertFileSessionEvents(sessionEventStatements, fileId, write.sessionEvents);
+      insertFileSessionEvents(
+        sessionEventStatements,
+        fileId,
+        write.sessionEvents,
+        firstSessionEventIndex,
+      );
+      writeFileReadCursor(readCursorStatements, fileId, write.fingerprint, write.readCursor);
     }
   });
 }

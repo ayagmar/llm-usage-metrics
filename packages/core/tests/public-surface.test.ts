@@ -73,6 +73,8 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'JsonlReadCursor',
     'ReadCursor',
     'ReadResume',
+    // M15-IJ
+    'ReplacedEventCounts',
     // T-stages
     'SessionGroup',
     'bySession',
@@ -164,6 +166,8 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     // T-cursor
     'JsonlReadPosition',
     'readJsonlFromCursor',
+    // M15-IJ
+    'isJsonlReadCursor',
     // M7-G
     'toSqliteDbReadError',
   ],

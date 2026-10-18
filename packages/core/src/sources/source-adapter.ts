@@ -24,6 +24,15 @@ export type SourceCapabilities = {
    */
   eventsPrecedeFileMtime?: boolean;
   /**
+   * The paths `getParseDependencies` returns for a file change only when that file changes
+   * or one of the paths changes or goes away, so a stored fingerprint whose file and
+   * dependencies all still exist with the stored size and mtime may be reused without
+   * calling it (see `getFileFingerprint`). A decision that rests on something else, such as
+   * a file not found under the adapter's roots, must be declared as a path that does not
+   * exist, which is never reused.
+   */
+  dependenciesFollowFile?: boolean;
+  /**
    * A file can repeat events that another file of the source also holds (a pi fork copies
    * its parent's entries), so an event found in several files is counted once. Events are
    * the same when their content hashes match, which cover session id and timestamp.
@@ -45,13 +54,6 @@ export type SourceCapabilities = {
    * Check this before passing `resume`; any other adapter ignores it.
    */
   incremental?: boolean;
-  /**
-   * Each usage event records a single model request, never a sum of several. Prices that
-   * depend on one request's prompt size (long-context tiers) can then apply per event.
-   * Leave it unset when an event can total several requests (a session or a cumulative
-   * delta).
-   */
-  usagePerRequest?: boolean;
 };
 
 /** Constructor options shared by the directory-backed adapters. */

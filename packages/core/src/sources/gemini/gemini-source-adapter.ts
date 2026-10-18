@@ -235,7 +235,6 @@ export class GeminiSourceAdapter implements SourceAdapter {
     fixedProviderRoots: ['google'],
     eventsPrecedeFileMtime: true,
     kinds: ['usage'],
-    usagePerRequest: true,
   } as const;
 
   private readonly geminiDir: string;
@@ -364,6 +363,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
           provider: 'google',
           model,
           ...tokens,
+          singleRequest: true,
         });
       } catch {
         recordSkippedRow(diagnostics, 'event_creation_failed');

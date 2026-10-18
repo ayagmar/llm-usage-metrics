@@ -6,10 +6,12 @@ import {
   claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
   closeEventStore as closeDefaultEventStore,
   getFileEntry as getDefaultEventStoreFileEntry,
+  getFileReadCursor as getDefaultFileReadCursor,
   openEventStore as openDefaultEventStore,
   readFileEvents as readDefaultEventStoreFileEvents,
   replaceFilesEvents as replaceDefaultFilesEvents,
   type EventStore,
+  type EventStoreFileEntry,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
 import type { SourceAdapter, SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
@@ -17,13 +19,19 @@ import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
   claimFilesInUsualLocations,
   isStoredFileCurrent,
+  joinResumedRead,
+  parseStoredFileFingerprint,
   readParsedFileFromEventStore,
+  readFileGrowth,
+  readStoredFileEntry,
   recordEventStoreFailure,
   writeParsedFilesToEventStore,
   type EventStoreFailureState,
   type EventStoreParseContext,
   type EventStoreParseDeps,
   type ParsedFileStoreWrite,
+  type StoredFileGrowth,
+  type StoredResumePoint,
 } from './parse/event-store-parse-cache.js';
 import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
 import {
@@ -136,12 +144,19 @@ type FileLookup =
       fileFingerprint: EventStoreFileFingerprint;
       diagnostics: ParsedFileForEventStore;
     }
-  | { kind: 'miss'; fileFingerprint?: EventStoreFileFingerprint };
+  | {
+      kind: 'miss';
+      fileFingerprint?: EventStoreFileFingerprint;
+      /** Set when the file only grew since the stored version: it is read under a cursor. */
+      growth?: StoredFileGrowth;
+    };
 
 type MissedParseFile = {
   fileIndex: number;
   filePath: string;
   fileFingerprint?: EventStoreFileFingerprint;
+  /** Kept when the file is read here; a worker reads it without a cursor. */
+  growth?: StoredFileGrowth;
   byteSize: number;
 };
 
@@ -252,9 +267,14 @@ export async function parseAdapterEvents(
   async function parseFileInline(
     filePath: string,
     fileFingerprint: EventStoreFileFingerprint | undefined,
+    growth?: StoredFileGrowth,
   ): Promise<ParsedFileForEventStore> {
     return isReadForEventStore(fileFingerprint)
-      ? withStoreCostModes(await collectFileForEventStore(adapter, filePath))
+      ? withStoreCostModes(
+          await collectFileForEventStore(adapter, filePath, {
+            cursor: growth && { from: growth.resumePoint?.cursor },
+          }),
+        )
       : withCostModes(await collectFile(adapter, filePath));
   }
 
@@ -264,13 +284,19 @@ export async function parseAdapterEvents(
     fileFingerprint?: EventStoreFileFingerprint;
     diagnostics: ParsedFileForEventStore;
     servedFromEventStore: boolean;
+    resumePoint?: StoredResumePoint;
   }): void {
-    const skippedRows = normalizeSkippedRowsCount(params.diagnostics.skippedRows);
-    const normalizedSkippedRowReasons = normalizeSkippedRowReasons(
-      params.diagnostics.skippedRowReasons,
-    );
+    const { diagnostics: read, resumePoint } = params;
+    const resumedReplacing = resumePoint ? read.resumedReplacing : undefined;
+    // A resumed read holds only the appended lines; the file's events include the stored ones.
+    const diagnostics =
+      resumePoint && resumedReplacing
+        ? joinResumedRead(resumePoint, { ...read, resumedReplacing })
+        : read;
+    const skippedRows = normalizeSkippedRowsCount(diagnostics.skippedRows);
+    const normalizedSkippedRowReasons = normalizeSkippedRowReasons(diagnostics.skippedRowReasons);
 
-    parsedByFile[params.fileIndex] = params.diagnostics.events;
+    parsedByFile[params.fileIndex] = diagnostics.events;
     parsedFileIndexes.add(params.fileIndex);
     if (params.fileFingerprint && isBeforeWindow(params.fileFingerprint)) {
       beforeWindowFileIndexes.add(params.fileIndex);
@@ -292,14 +318,22 @@ export async function parseAdapterEvents(
         source: adapter.id,
         filePath: params.filePath,
         fingerprint: params.fileFingerprint,
-        events: params.diagnostics.events,
-        sessionEvents: params.diagnostics.sessionEvents,
+        events: read.events,
+        sessionEvents: read.sessionEvents,
         skippedRows,
         skippedRowReasons: normalizedSkippedRowReasons,
+        readCursor: read.readCursor,
+        ...(resumePoint &&
+          resumedReplacing && {
+            append: {
+              expectedFingerprint: resumePoint.storedFingerprint,
+              expectedCursor: resumePoint.cursor,
+              replaced: resumedReplacing,
+            },
+          }),
       });
       // Tool calls and messages are rows to write and memory held until the flush too.
-      pendingStoreEventCount +=
-        params.diagnostics.events.length + (params.diagnostics.sessionEvents?.length ?? 0);
+      pendingStoreEventCount += read.events.length + (read.sessionEvents?.length ?? 0);
 
       if (pendingStoreEventCount >= STORE_WRITE_BATCH_EVENTS) {
         flushPendingStoreWrites();
@@ -350,6 +384,7 @@ export async function parseAdapterEvents(
   function canSkipOutsideWindow(
     filePath: string,
     fileFingerprint: EventStoreFileFingerprint | undefined,
+    storedEntry: EventStoreFileEntry | undefined,
   ): boolean {
     if (!fileFingerprint || !isBeforeWindow(fileFingerprint)) {
       return false;
@@ -363,17 +398,28 @@ export async function parseAdapterEvents(
       source: adapter.id,
       filePath,
       fingerprint: fileFingerprint,
+      storedEntry,
     });
   }
 
   async function lookUpFile(filePath: string): Promise<FileLookup> {
     const storeEnabled = eventStore !== undefined && !eventStore.failureState.disabled;
+    // Only a source whose dependency list follows its file can confirm the stored
+    // fingerprint; its entry is read once, here.
+    const storedEntry =
+      storeEnabled && adapter.capabilities?.dependenciesFollowFile === true
+        ? readStoredFileEntry(eventStore, { source: adapter.id, filePath })
+        : undefined;
     const fileFingerprint =
       storeEnabled || skipCutoffMs !== undefined
-        ? await getEventStoreFileFingerprint(adapter, filePath)
+        ? await getEventStoreFileFingerprint(
+            adapter,
+            filePath,
+            parseStoredFileFingerprint(storedEntry),
+          )
         : undefined;
 
-    if (canSkipOutsideWindow(filePath, fileFingerprint)) {
+    if (canSkipOutsideWindow(filePath, fileFingerprint, storedEntry)) {
       return { kind: 'skipped' };
     }
 
@@ -383,14 +429,40 @@ export async function parseAdapterEvents(
         filePath,
         fingerprint: fileFingerprint,
         runtimeProfile,
+        storedEntry,
       });
 
       if (diagnostics) {
         return { kind: 'hit', fileFingerprint, diagnostics };
       }
+
+      if (adapter.capabilities?.incremental) {
+        const growth = readFileGrowth(eventStore, {
+          source: adapter.id,
+          filePath,
+          fingerprint: fileFingerprint,
+        });
+        return { kind: 'miss', fileFingerprint, growth };
+      }
     }
 
     return { kind: 'miss', fileFingerprint };
+  }
+
+  /** Reads a missed file here, under a cursor when it only grew. */
+  async function parseMissInline(
+    fileIndex: number,
+    filePath: string,
+    lookup: Extract<FileLookup, { kind: 'miss' }>,
+  ): Promise<void> {
+    recordParsedFile({
+      fileIndex,
+      filePath,
+      fileFingerprint: lookup.fileFingerprint,
+      diagnostics: await parseFileInline(filePath, lookup.fileFingerprint, lookup.growth),
+      servedFromEventStore: false,
+      resumePoint: lookup.growth?.resumePoint,
+    });
   }
 
   async function parseFileAtIndexInline(fileIndex: number): Promise<void> {
@@ -403,17 +475,17 @@ export async function parseAdapterEvents(
         return;
       }
 
-      const diagnostics =
-        lookup.kind === 'hit'
-          ? lookup.diagnostics
-          : await parseFileInline(filePath, lookup.fileFingerprint);
+      if (lookup.kind === 'miss') {
+        await parseMissInline(fileIndex, filePath, lookup);
+        return;
+      }
 
       recordParsedFile({
         fileIndex,
         filePath,
         fileFingerprint: lookup.fileFingerprint,
-        diagnostics,
-        servedFromEventStore: lookup.kind === 'hit',
+        diagnostics: lookup.diagnostics,
+        servedFromEventStore: true,
       });
     } catch (error) {
       recordParseFailure(fileIndex, error);
@@ -444,10 +516,17 @@ export async function parseAdapterEvents(
         return;
       }
 
+      // A resumed read only covers the appended lines: too little for a worker.
+      if (lookup.growth?.resumePoint) {
+        await parseMissInline(fileIndex, filePath, lookup);
+        return;
+      }
+
       missedFiles.push({
         fileIndex,
         filePath,
         fileFingerprint: lookup.fileFingerprint,
+        growth: lookup.growth,
         byteSize:
           getPrimaryFingerprintByteSize(lookup.fileFingerprint) ??
           (await getFileByteSize(filePath)),
@@ -459,13 +538,10 @@ export async function parseAdapterEvents(
 
   async function parseMissedFileInline(missedFile: MissedParseFile): Promise<void> {
     try {
-      const diagnostics = await parseFileInline(missedFile.filePath, missedFile.fileFingerprint);
-      recordParsedFile({
-        fileIndex: missedFile.fileIndex,
-        filePath: missedFile.filePath,
+      await parseMissInline(missedFile.fileIndex, missedFile.filePath, {
+        kind: 'miss',
         fileFingerprint: missedFile.fileFingerprint,
-        diagnostics,
-        servedFromEventStore: false,
+        growth: missedFile.growth,
       });
     } catch (error) {
       recordParseFailure(missedFile.fileIndex, error);
@@ -631,6 +707,7 @@ export async function parseSelectedAdapters(
         replaceFilesEvents: options.eventStoreDeps?.replaceFilesEvents ?? replaceDefaultFilesEvents,
         claimOverrideOnlyFiles:
           options.eventStoreDeps?.claimOverrideOnlyFiles ?? claimDefaultOverrideOnlyFiles,
+        getFileReadCursor: options.eventStoreDeps?.getFileReadCursor ?? getDefaultFileReadCursor,
         now: options.now ?? Date.now,
         failureState: eventStoreFailureState,
         overrideSourceIds: options.overrideSourceIds ?? new Set(),

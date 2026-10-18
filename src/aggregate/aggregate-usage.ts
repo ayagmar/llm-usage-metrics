@@ -117,9 +117,14 @@ function addEventToAccumulator(
     return;
   }
 
-  const existingTotals = accumulator.modelTotals.get(normalizedModel) ?? createEmptyTotals();
-  addEventToTotals(existingTotals, event);
-  accumulator.modelTotals.set(normalizedModel, existingTotals);
+  let modelTotals = accumulator.modelTotals.get(normalizedModel);
+
+  if (!modelTotals) {
+    modelTotals = createEmptyTotals();
+    accumulator.modelTotals.set(normalizedModel, modelTotals);
+  }
+
+  addEventToTotals(modelTotals, event);
 }
 
 export function addTotals(target: UsageTotals, source: UsageTotals): void {
@@ -336,8 +341,12 @@ export function aggregateUsage(
 
   for (const event of events) {
     const periodKey = getPeriodKey(event.timestamp, options.granularity, options.timezone);
-    const periodSources = periodMap.get(periodKey) ?? new Map<string, RowAccumulator>();
-    periodMap.set(periodKey, periodSources);
+    let periodSources = periodMap.get(periodKey);
+
+    if (!periodSources) {
+      periodSources = new Map<string, RowAccumulator>();
+      periodMap.set(periodKey, periodSources);
+    }
 
     const rowKey = isSplit ? toSplitRowKey(event, split) : event.source;
     let rowAccumulator = periodSources.get(rowKey);

@@ -14,6 +14,7 @@ import {
   EventStoreSchemaVersionError,
   getDefaultEventStorePath,
   getFileEntry,
+  getFileReadCursor,
   MIGRATION_BATCH_SIZE,
   migrateSchemaV1ToV2,
   migrateSchemaV2ToV3,
@@ -131,6 +132,7 @@ function createStoredEventRow(overrides: Record<string, unknown> = {}): Record<s
     reasoning_tokens: 0,
     cache_read_tokens: 3,
     cache_write_tokens: 4,
+    cache_write_1h_tokens: 0,
     total_tokens: 99,
     cost_usd: null,
     cost_mode: 'estimated',
@@ -368,6 +370,14 @@ function createFakeSqliteModule(
   return fakeSqlite;
 }
 
+const readCursor = {
+  format: 'jsonl' as const,
+  version: 2 as const,
+  parser: 'codex@1',
+  offset: 10,
+  prefixHash: 'a'.repeat(64),
+};
+
 async function createTempStore(name: string): Promise<EventStore> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), name));
   tempDirs.push(tempDir);
@@ -470,6 +480,133 @@ describe('event-store', () => {
       deleteStoredFiles(store, [{ source: 'codex', filePath: '/tmp/export.jsonl' }]);
 
       expect(readOverrideOnlyFiles(store)).toEqual([]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('appends a resumed read after the rows it replaces, unless the file changed since', async () => {
+    const store = await createTempStore('event-store-append-');
+    const events = [0, 1, 2].map((index) => createEvent({ inputTokens: index }));
+    const first = createFingerprint([
+      { path: '/tmp/session.jsonl', exists: true, size: 10, mtimeMs: 20 },
+    ]);
+    const grown = createFingerprint([
+      { path: '/tmp/session.jsonl', exists: true, size: 30, mtimeMs: 40 },
+    ]);
+    const writeGrown = (fingerprint: EventStoreFileFingerprint, inputTokens = 9): void => {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: grown,
+          events: [createEvent({ inputTokens })],
+          skippedRows: 0,
+          now: 2_000,
+          readCursor: { ...readCursor, offset: 30 },
+          append: {
+            expectedFingerprint: serializeEventStoreFingerprint(fingerprint),
+            expectedCursor: readCursor,
+            replaced: { usage: 1 },
+          },
+        },
+      ]);
+    };
+
+    try {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: first,
+          events,
+          skippedRows: 0,
+          now: 1_000,
+          readCursor,
+        },
+      ]);
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toEqual(readCursor);
+
+      writeGrown(first);
+      const appended = [events[0], events[1], createEvent({ inputTokens: 9 })];
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toMatchObject({ offset: 30 });
+
+      // A second run resuming from the same stored version finds it gone and writes nothing.
+      writeGrown(first);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
+
+      // Nor does one resuming from an older cursor of a version stored with that fingerprint.
+      writeGrown(grown, 7);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual(appended);
+
+      // A write without a cursor leaves the next read nothing to resume from.
+      replaceCodexFile(store);
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('forgets a stored cursor with its file or once another build rewrites the file', async () => {
+    const store = await createTempStore('event-store-cursor-lifecycle-');
+    const writeWithCursor = (): void => {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: createFingerprint(),
+          events: [createEvent()],
+          skippedRows: 0,
+          now: 1_000,
+          readCursor,
+        },
+      ]);
+    };
+
+    try {
+      writeWithCursor();
+      // An older build rewrites the file's row without knowing about cursors.
+      store.database
+        .prepare("UPDATE files SET fingerprint = '{}' WHERE file_path = '/tmp/session.jsonl'")
+        .run();
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+
+      writeWithCursor();
+      deleteStoredFiles(store, [{ source: 'codex', filePath: '/tmp/session.jsonl' }]);
+      expect(
+        store.database.prepare('SELECT COUNT(*) AS count FROM file_read_cursors').get(),
+      ).toEqual({
+        count: 0,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('adds the read cursor table to a current store written by an older build', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-cursor-table-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const olderStore = await openEventStore(dbPath);
+    olderStore.database.exec('DROP TABLE file_read_cursors');
+    closeEventStore(olderStore);
+    const store = await openEventStore(dbPath);
+
+    try {
+      replaceFilesEvents(store, [
+        {
+          source: 'codex',
+          filePath: '/tmp/session.jsonl',
+          fingerprint: createFingerprint(),
+          events: [createEvent()],
+          skippedRows: 0,
+          now: 1_000,
+          readCursor,
+        },
+      ]);
+
+      expect(getFileReadCursor(store, 'codex', '/tmp/session.jsonl')).toEqual(readCursor);
     } finally {
       closeEventStore(store);
     }
@@ -1005,6 +1142,8 @@ describe('event-store', () => {
       createStoredEventRow({ cost_mode: 'explicit', cost_usd: null }),
       createStoredEventRow({ timestamp: '2026-02-30T10:00:00.000Z' }),
       createStoredEventRow({ timestamp: '2026-02-01T00:00:00Z' }),
+      createStoredEventRow({ timestamp: '2026-02-01T24:00:00.000Z' }),
+      createStoredEventRow({ timestamp: '0050-02-01T00:00:00.000Z' }),
       createStoredEventRow({ input_tokens: -1 }),
       createStoredEventRow({ output_tokens: 2.8 }),
       createStoredEventRow({ cost_mode: 'estimated', cost_usd: -0.5 }),
@@ -1655,8 +1794,9 @@ describe('event-store', () => {
     replaceCodexFile(store, { filePath: '/tmp/b.jsonl' });
     replaceCodexFile(store, { filePath: '/tmp/c.jsonl' });
 
-    // events, files and override-only statements, and the four of tool calls and messages.
-    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(8);
+    // events, files and override-only statements, the four of tool calls and messages, and
+    // the three of read cursors.
+    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(11);
     closeEventStore(store);
   });
 
@@ -1831,6 +1971,7 @@ END;
       repoRoot: '/workspace/repo',
       provider: 'OpenAI-Codex',
       model: ' GPT-4.1 ',
+      singleRequest: true,
       costUsd: 0.12,
       costMode: 'explicit',
     });
@@ -1843,6 +1984,7 @@ END;
           repoRoot: '/workspace/repo',
           provider: 'openai',
           model: 'gpt-4.1',
+          singleRequest: true,
           costUsd: 0.12,
           costMode: 'explicit',
         }),

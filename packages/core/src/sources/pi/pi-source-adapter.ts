@@ -14,6 +14,13 @@ import {
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
+import {
+  readJsonlFromStatefulCursor,
+  ResumeConflict,
+  type ReadResume,
+  type ResumablePass,
+} from '../../stream/cursor.js';
+import { getReadPlanKey } from '../../stream/cursor-state.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathExists } from '../../utils/fs-helpers.js';
@@ -46,6 +53,9 @@ import {
   TimestampCarry,
   TOOL_CALL_REASONS,
   ToolCallPairing,
+  finishResumableSessionEvents,
+  toPendingToolCall,
+  type PendingToolCall,
 } from '../session-event-helpers.js';
 import type {
   ReadEventsOptions,
@@ -55,6 +65,12 @@ import type {
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
+import {
+  parsePiCursorState,
+  type PiCursorState,
+  type PiFork,
+  type PiSessionState,
+} from './pi-cursor-state.js';
 
 function resolveDefaultPiRootDirs(context: SourceContext): string[] {
   return [
@@ -62,16 +78,6 @@ function resolveDefaultPiRootDirs(context: SourceContext): string[] {
     path.join(context.homeDir, '.omp', 'agent', 'sessions'),
   ];
 }
-
-type PiSessionState = {
-  sessionId?: string;
-  sessionTimestamp?: string;
-  /** Set for forked sessions. */
-  fork?: PiFork;
-  repoRoot?: string;
-  provider?: string;
-  model?: string;
-};
 
 type PiUsageExtract = {
   inputTokens?: NumberLike;
@@ -150,15 +156,6 @@ async function readParentSessionPath(filePath: string): Promise<string | undefin
     return undefined;
   }
 }
-
-/** Entries of a forked session older than its header were copied from the parent. */
-type PiFork = {
-  forkedAtMs: number;
-  /** The same report counts the parent: it exists and lies under a discovery root. */
-  parentCounted: boolean;
-  /** Undefined when the parent's file name does not follow pi's naming. */
-  parentSessionId?: string;
-};
 
 /** pi names a session file `<timestamp>_<session id>.jsonl`; other names give nothing. */
 function getSessionIdFromPath(filePath: string): string | undefined {
@@ -303,21 +300,16 @@ type PiEventRequest = {
   raw: boolean;
 };
 
+/** The read's options as a cursor state records them; `read` has no request. */
+function getPiReadPlanKey(request: PiEventRequest | undefined): string {
+  return request ? getReadPlanKey(request.kinds, request.text, request.raw) : 'read';
+}
+
 function hasNonUsageKind(kinds: ReadonlySet<EventKind>): boolean {
   return kinds.size > (kinds.has('usage') ? 1 : 0);
 }
 
 const PI_TEXT_BLOCK_TYPES: ReadonlySet<string> = new Set(['text']);
-
-type PiPendingToolCall = {
-  sessionId: string;
-  timestamp: string;
-  toolCallId: string;
-  name: string;
-  messageId?: string;
-  /** The call's record, only when the read asked for `raw`. */
-  line?: Record<string, unknown>;
-};
 
 type PiToolResult = {
   status: ToolCallStatus;
@@ -340,21 +332,47 @@ function toToolCallStatus(isError: unknown): ToolCallStatus {
  */
 class PiSessionEvents {
   private readonly kinds: ReadonlySet<EventKind>;
-  private readonly pairing: ToolCallPairing<PiPendingToolCall>;
+  private readonly pairing: ToolCallPairing<PendingToolCall>;
   private readonly carry = new TimestampCarry<Record<string, unknown>>();
   // A fork of an uncounted parent states the parent's facts under the parent's id and its
   // own under its id.
   private readonly meta: SessionMetaTrackers;
 
+  /** `from`: under a cursor, the `toState` of the read before it; throws `ResumeConflict` when it does not check out. */
   public constructor(
     private readonly source: 'pi',
     private readonly filePath: string,
     private readonly diagnostics: SourceReadDiagnostics,
     private readonly request: PiEventRequest,
+    from?: unknown,
   ) {
     this.kinds = request.kinds;
     this.pairing = new ToolCallPairing(diagnostics, request.kinds);
     this.meta = new SessionMetaTrackers(request.text);
+
+    if (from !== undefined && !this.restoreState(from)) {
+      throw new ResumeConflict();
+    }
+  }
+
+  /**
+   * What the records so far leave for the records after them, for a cursor; undefined
+   * while a record waits for a timestamp. Take it before `finish`.
+   */
+  public toState(): unknown {
+    const carry = this.carry.toState();
+    return carry && { carry, pairing: this.pairing.toState(), meta: this.meta.toState() };
+  }
+
+  private restoreState(value: unknown): boolean {
+    const state = asRecord(value);
+
+    return (
+      state !== undefined &&
+      this.carry.restoreState(state.carry) &&
+      this.pairing.restoreState(state.pairing, toPendingToolCall) &&
+      this.meta.restoreState(state.meta)
+    );
   }
 
   /**
@@ -550,7 +568,7 @@ class PiSessionEvents {
         toolCallId,
         name,
         messageId,
-        line: this.request.raw ? line : undefined,
+        raw: this.request.raw ? line : undefined,
       });
     }
   }
@@ -579,7 +597,7 @@ class PiSessionEvents {
       : undefined;
   }
 
-  private createToolCall(call: PiPendingToolCall, result?: PiToolResult): SessionEvent | undefined {
+  private createToolCall(call: PendingToolCall, result?: PiToolResult): SessionEvent | undefined {
     return createKindEvent(this.diagnostics, this.kinds, 'tool_call', () =>
       createToolCallEvent({
         source: this.source,
@@ -592,7 +610,7 @@ class PiSessionEvents {
         durationMs: result?.durationMs,
         messageId: call.messageId,
         raw: this.request.raw
-          ? { call: call.line, ...(result && { result: result.line }) }
+          ? { call: call.raw, ...(result && { result: result.line }) }
           : undefined,
       }),
     );
@@ -649,6 +667,7 @@ function getStatedKinds(
 /**
  * pi sessions (JSONL), from `~/.pi/agent/sessions` and `~/.omp/agent/sessions`. Yields every
  * event kind. A fork's events depend on its parent session, found under the same roots.
+ * Incremental: honours `resume`, with its parse state in the cursor.
  */
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
@@ -658,7 +677,7 @@ export class PiSourceAdapter implements SourceAdapter {
     eventsPrecedeFileMtime: true,
     eventsRepeatAcrossFiles: true,
     kinds: ['usage', 'message', 'tool_call', 'session_meta'],
-    usagePerRequest: true,
+    incremental: true,
   } as const;
 
   private readonly rootDirs: readonly string[];
@@ -695,17 +714,52 @@ export class PiSourceAdapter implements SourceAdapter {
   }
 
   public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
-    return this.parse(filePath, options.diagnostics ?? createReadDiagnostics());
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
+
+    return options.resume
+      ? this.readFromCursor(filePath, diagnostics, undefined, options.resume)
+      : this.parse(filePath, diagnostics);
   }
 
   public readEvents(
     filePath: string,
     options: ReadEventsOptions = {},
   ): AsyncGenerator<SessionEvent> {
-    return this.parse(filePath, options.diagnostics ?? createReadDiagnostics(), {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
+    const request: PiEventRequest = {
       kinds: resolveReadKinds(options.kinds, this.capabilities.kinds),
       text: options.text ?? false,
       raw: options.raw ?? false,
+    };
+
+    return options.resume && request.kinds.has('usage')
+      ? this.readFromCursor(filePath, diagnostics, request, options.resume)
+      : this.parse(filePath, diagnostics, request);
+  }
+
+  private readFromCursor(
+    filePath: string,
+    diagnostics: SourceReadDiagnostics,
+    request: undefined,
+    resume: ReadResume,
+  ): AsyncGenerator<UsageEvent>;
+  private readFromCursor(
+    filePath: string,
+    diagnostics: SourceReadDiagnostics,
+    request: PiEventRequest,
+    resume: ReadResume,
+  ): AsyncGenerator<SessionEvent>;
+  private readFromCursor(
+    filePath: string,
+    diagnostics: SourceReadDiagnostics,
+    request: PiEventRequest | undefined,
+    resume: ReadResume,
+  ): AsyncGenerator<UsageEvent | SessionEvent> {
+    const planKey = getPiReadPlanKey(request);
+
+    return readJsonlFromStatefulCursor(this, filePath, resume, diagnostics, {
+      parseState: (value) => parsePiCursorState(value, planKey),
+      parse: (pass, passDiagnostics) => this.parse(filePath, passDiagnostics, request, pass),
     });
   }
 
@@ -713,23 +767,34 @@ export class PiSourceAdapter implements SourceAdapter {
   // through the usage prefilter. A request for usage alone takes the same path and
   // yields usage records, and a request for no kind yields nothing. Any other kind reads
   // through the union prefilter, and the usage branch still runs only on lines the usage
-  // prefilter accepts.
+  // prefilter accepts. Under a cursor it starts where the cursor's state left off.
   private parse(filePath: string, diagnostics: SourceReadDiagnostics): AsyncGenerator<UsageEvent>;
   private parse(
     filePath: string,
     diagnostics: SourceReadDiagnostics,
     request: PiEventRequest,
   ): AsyncGenerator<SessionEvent>;
+  private parse(
+    filePath: string,
+    diagnostics: SourceReadDiagnostics,
+    request: PiEventRequest | undefined,
+    resumable: ResumablePass<PiCursorState>,
+  ): AsyncGenerator<UsageEvent | SessionEvent>;
   private async *parse(
     filePath: string,
     diagnostics: SourceReadDiagnostics,
     request?: PiEventRequest,
+    resumable?: ResumablePass<PiCursorState>,
   ): AsyncGenerator<UsageEvent | SessionEvent> {
     if (request?.kinds.size === 0) {
       return;
     }
 
-    const state: PiSessionState = { sessionId: getFallbackSessionId(filePath) };
+    const from = resumable?.from;
+    const state: PiSessionState = from
+      ? { ...from.session }
+      : { sessionId: getFallbackSessionId(filePath) };
+    const position = resumable?.position;
 
     if (!request || !hasNonUsageKind(request.kinds)) {
       for await (const lines of readJsonlObjectBatches(filePath, {
@@ -737,6 +802,7 @@ export class PiSourceAdapter implements SourceAdapter {
         onMalformedLine: () => {
           recordSkippedRow(diagnostics, 'json_parse_error');
         },
+        position,
       })) {
         for (const line of lines) {
           if (line.type === 'session') {
@@ -761,11 +827,18 @@ export class PiSourceAdapter implements SourceAdapter {
         }
       }
 
+      resumable?.end({ plan: getPiReadPlanKey(request), replaced: {}, session: state });
       return;
     }
 
     const { kinds } = request;
-    const events = new PiSessionEvents(this.id, filePath, diagnostics, request);
+    const events = new PiSessionEvents(
+      this.id,
+      filePath,
+      diagnostics,
+      request,
+      from && (from.events ?? null),
+    );
 
     for await (const items of readClassifiedJsonlObjectBatches(filePath, {
       shouldParseLine: shouldParsePiEventLine,
@@ -773,6 +846,7 @@ export class PiSourceAdapter implements SourceAdapter {
       onMalformedLine: (lineText) => {
         recordMalformedLine(diagnostics, kinds, shouldParsePiJsonlLine(lineText));
       },
+      position,
     })) {
       for (const { record: line, isUsageLine } of items) {
         if (isUsageLine && line.type === 'session') {
@@ -798,9 +872,15 @@ export class PiSourceAdapter implements SourceAdapter {
       }
     }
 
-    for (const event of events.finish()) {
-      yield event;
-    }
+    const end = yield* finishResumableSessionEvents(events, diagnostics, resumable !== undefined);
+    resumable?.end(
+      end && {
+        plan: getPiReadPlanKey(request),
+        replaced: end.replaced,
+        session: state,
+        events: end.state,
+      },
+    );
   }
 
   private async applySessionLine(
@@ -864,6 +944,7 @@ export class PiSourceAdapter implements SourceAdapter {
       model: resolveModel(line, message, state),
       ...usage,
       totalTokens: resolveUsageTotalTokens(usage),
+      singleRequest: true,
     };
 
     try {

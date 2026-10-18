@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import type * as FsPromises from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
@@ -25,6 +26,24 @@ import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { logger, setLogLevel } from '../../src/utils/logger.js';
 import { readFrom } from '../helpers/fake-read.js';
+
+const fsHooks = vi.hoisted(() => ({
+  /** Runs once, after the next `readFile` call reads its file. */
+  afterReadFile: undefined as (() => Promise<void>) | undefined,
+}));
+
+vi.mock('node:fs/promises', async () => {
+  const actual = await vi.importActual<typeof FsPromises>('node:fs/promises');
+  const readFile = async (...args: Parameters<typeof actual.readFile>) => {
+    const content = await actual.readFile(...args);
+    const hook = fsHooks.afterReadFile;
+    fsHooks.afterReadFile = undefined;
+    await hook?.();
+    return content;
+  };
+
+  return { ...actual, readFile };
+});
 
 function totals(overrides: Partial<UsageWindowTotals> = {}): UsageWindowTotals {
   return {
@@ -333,7 +352,7 @@ describe('acquireStatuslineLock', () => {
       await writeFile(lockPath, String(exited.pid));
       const afterExit = await acquireStatuslineLock(lockPath, 0);
       expect(afterExit).toBeTypeOf('function');
-      await expect(readFile(lockPath, 'utf8')).resolves.toBe(String(process.pid));
+      await expect(readFile(lockPath, 'utf8')).resolves.toMatch(`${String(process.pid)} `);
 
       // Still this process's lock, but ten minutes old.
       const longAgo = new Date(Date.now() - 600_000);
@@ -342,12 +361,62 @@ describe('acquireStatuslineLock', () => {
     });
   });
 
+  it('lets only one of two ticks reclaiming the same stale lock through', async () => {
+    await withLockPath(async (lockPath) => {
+      await acquireStatuslineLock(lockPath, 0);
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+
+      // The second tick reads the stale lock, then the first takes it over before the
+      // second acts on what it read.
+      let first: (() => Promise<void>) | undefined;
+      fsHooks.afterReadFile = async () => {
+        first = await acquireStatuslineLock(lockPath, 0);
+      };
+      const second = await acquireStatuslineLock(lockPath, 0);
+
+      expect(first).toBeTypeOf('function');
+      expect(second).toBeUndefined();
+      await first?.();
+      await expect(readdir(path.dirname(lockPath))).resolves.toEqual([]);
+    });
+  });
+
+  it('keeps a lock another tick took over held while the old holder releases', async () => {
+    await withLockPath(async (lockPath) => {
+      // A held the lock past the stale age and B took it over while A still ran.
+      const releaseA = await acquireStatuslineLock(lockPath, 0);
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+      const releaseB = await acquireStatuslineLock(lockPath, 0);
+      const lockB = await readFile(lockPath, 'utf8');
+
+      // C starts while A releases.
+      let releaseC: (() => Promise<void>) | undefined;
+      fsHooks.afterReadFile = async () => {
+        releaseC = await acquireStatuslineLock(lockPath, 0);
+      };
+      await releaseA?.();
+
+      expect(releaseC).toBeUndefined();
+      await expect(readFile(lockPath, 'utf8')).resolves.toBe(lockB);
+      await releaseB?.();
+    });
+  });
+
   it('leaves a lock another tick took over in place on release', async () => {
     await withLockPath(async (lockPath) => {
+      // Held past the stale age, so another tick takes it over while this one still runs.
       const release = await acquireStatuslineLock(lockPath, 0);
-      await writeFile(lockPath, '1');
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+      const next = await acquireStatuslineLock(lockPath, 0);
+      const nextLock = await readFile(lockPath, 'utf8');
+
       await release?.();
-      await expect(readFile(lockPath, 'utf8')).resolves.toBe('1');
+      await expect(readFile(lockPath, 'utf8')).resolves.toBe(nextLock);
+      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toBeUndefined();
+      await next?.();
     });
   });
 });

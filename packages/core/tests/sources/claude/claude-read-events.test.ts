@@ -80,6 +80,7 @@ function usage(
     ...usageTokens,
     ...tokens,
     costUsd: undefined,
+    singleRequest: true,
     messageId,
     requestId,
   };

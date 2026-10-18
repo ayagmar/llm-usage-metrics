@@ -14,7 +14,7 @@ function parseOpenCodeMessageRows(
   sourceId: UsageEvent['source'],
 ): SourceParseFileDiagnostics {
   const diagnostics = createReadDiagnostics();
-  const events = rows.flatMap((row) => parseOpenCodeMessageRow(row, sourceId, diagnostics) ?? []);
+  const events = rows.flatMap((row) => parseOpenCodeMessageRow(row, sourceId, diagnostics));
 
   return toParseDiagnostics(events, diagnostics.skippedRows, diagnostics.skippedRowReasons);
 }

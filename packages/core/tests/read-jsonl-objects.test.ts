@@ -251,6 +251,53 @@ describe('readJsonlObjects', () => {
     expect(records).toEqual([{ type: 'message', text }]);
   });
 
+  it('keeps reads in progress at once apart after an earlier read', async () => {
+    // The CLI parses several files at once on one thread; each read keeps its own chunk.
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-interleaved-'));
+    tempDirs.push(rootDir);
+
+    const expectedByFile = ['a', 'b'].map((name) =>
+      Array.from({ length: 3_000 }, (_, index) => ({
+        file: name,
+        index,
+        text: name.repeat(700 + (index % 97)),
+      })),
+    );
+    const filePaths = expectedByFile.map((_, index) => path.join(rootDir, `${index}.jsonl`));
+
+    await Promise.all(
+      filePaths.map((filePath, index) =>
+        writeFile(filePath, expectedByFile[index].map((row) => JSON.stringify(row)).join('\n')),
+      ),
+    );
+
+    const readFirst: Array<Record<string, unknown>> = [];
+
+    for await (const record of readJsonlObjects(filePaths[0])) {
+      readFirst.push(record);
+    }
+
+    const readers = filePaths.map((filePath) => readJsonlObjects(filePath));
+    const recordsByFile: Array<Record<string, unknown>[]> = [[], []];
+    let openReads = readers.length;
+
+    while (openReads > 0) {
+      openReads = 0;
+
+      for (const [index, reader] of readers.entries()) {
+        const next = await reader.next();
+
+        if (!next.done) {
+          recordsByFile[index].push(next.value);
+          openReads += 1;
+        }
+      }
+    }
+
+    expect(readFirst).toEqual(expectedByFile[0]);
+    expect(recordsByFile).toEqual(expectedByFile);
+  });
+
   it('supports byte-level parse filtering before utf8 decoding', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-byte-filter-'));
     tempDirs.push(rootDir);
@@ -454,7 +501,8 @@ describe('readJsonlObjects with a position', () => {
       position: {
         handle,
         start,
-        onChunk: (chunk: Buffer) => chunks.push(chunk),
+        // The reader reuses its buffer, so a chunk is copied to outlive the call.
+        onChunk: (chunk: Buffer) => chunks.push(Buffer.from(chunk)),
         onLineEnd: (offset: number) => lineEnds.push(offset),
       },
     };

@@ -16,20 +16,13 @@
     "data": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["models", "perRequestSources"],
+      "required": ["models"],
       "properties": {
         "models": {
           "description": "One entry per name, in the order given.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/model"
-          }
-        },
-        "perRequestSources": {
-          "description": "Sources whose events each record one request; tiers apply only to their events.",
-          "type": "array",
-          "items": {
-            "type": "string"
           }
         }
       }
