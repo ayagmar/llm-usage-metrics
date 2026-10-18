@@ -315,7 +315,12 @@ describe('schema v5 migration', () => {
     await createV4Store(storePath);
     const sqlite = (await loadNodeSqliteModule('Test')) as unknown as EventStoreSqliteModule;
     const database = new sqlite.DatabaseSync(storePath);
-    database.exec("UPDATE meta SET value = '5' WHERE key = 'schemaVersion'");
+    // The pre-release build also created tool call and message tables in an older layout.
+    database.exec(`
+UPDATE meta SET value = '5' WHERE key = 'schemaVersion';
+CREATE TABLE tool_calls (source TEXT NOT NULL, file_path TEXT NOT NULL, event_index INTEGER NOT NULL);
+CREATE TABLE messages (source TEXT NOT NULL, file_path TEXT NOT NULL, event_index INTEGER NOT NULL);
+`);
     database.close();
 
     // Machine caches are read without migrating.
@@ -330,12 +335,14 @@ describe('schema v5 migration', () => {
         usageEvent('a'),
         usageEvent('b'),
       ]);
+      writeFile(store, '/logs/b.jsonl', [toolCall()]);
     } finally {
       closeEventStore(store);
     }
 
     await expect(readEventStoreSummary(storePath)).resolves.toMatchObject({
-      eventCount: 2,
+      eventCount: 3,
+      toolCallCount: 1,
       schemaVersion: '5',
     });
   });
