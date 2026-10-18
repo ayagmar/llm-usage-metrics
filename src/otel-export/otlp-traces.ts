@@ -13,6 +13,7 @@ import {
   OTLP_SCHEMA_URL,
   OTLP_SCOPE,
   toAgentName,
+  toolCallBoundsMs,
   toOtlpAttributes,
   toUnixNanos,
   type OtlpKeyValue,
@@ -130,24 +131,13 @@ function chatSpan(
   };
 }
 
-function toolEndMs(call: ToolCallEvent, startMs: number): number {
-  const endMs =
-    call.completedAt === undefined
-      ? startMs + (call.durationMs ?? 0)
-      : Date.parse(call.completedAt);
-
-  // A result logged before its call (clock changes between records) ends at the start.
-  return Math.max(startMs, endMs);
-}
-
 function toolSpan(
   call: ToolCallEvent,
   ordinal: number,
   traceId: string,
   parentSpanId: string,
 ): TimedSpan {
-  const startMs = Date.parse(call.timestamp);
-  const endMs = toolEndMs(call, startMs);
+  const { startMs, endMs } = toolCallBoundsMs(call);
   const key = call.toolCallId === undefined ? `#${ordinal}` : `id:${call.toolCallId}`;
 
   return {
@@ -161,7 +151,10 @@ function toolSpan(
       kind: SPAN_KIND_INTERNAL,
       startTimeUnixNano: toUnixNanos(startMs),
       endTimeUnixNano: toUnixNanos(endMs),
-      attributes: toOtlpAttributes(toolCallAttributes(call)),
+      attributes: toOtlpAttributes({
+        ...toolCallAttributes(call),
+        'gen_ai.agent.name': toAgentName(call.source),
+      }),
       ...(call.status === 'error' ? { status: { code: STATUS_CODE_ERROR } } : {}),
     },
   };

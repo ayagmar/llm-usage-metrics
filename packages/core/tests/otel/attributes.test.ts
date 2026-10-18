@@ -56,7 +56,7 @@ describe('SEMCONV_GENAI_REF', () => {
   it('pins the commit and schema URL the names were checked against', () => {
     expect(SEMCONV_GENAI_REF).toEqual({
       repository: 'open-telemetry/semantic-conventions-genai',
-      commit: 'f3c6d0c9bb66ebd474668a3a0be25c61226f02c2',
+      commit: 'f49da22056925ae9ba78ec5dd7fe1fa559adce05',
       schemaUrl: 'https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev',
     });
     expect(Object.isFrozen(SEMCONV_GENAI_REF)).toBe(true);
@@ -114,6 +114,27 @@ describe('usageRecordAttributes mapping', () => {
       'gen_ai.response.id',
       'llm_usage.cost_usd',
       'llm_usage.cost_mode',
+    ]) {
+      expect(keys).not.toContain(key);
+    }
+  });
+
+  it('omits the reasoning and cache counts when they are zero', () => {
+    const keys = Object.keys(
+      usageRecordAttributes({
+        ...usage,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      }),
+    );
+
+    expect(keys).toContain('gen_ai.usage.input_tokens');
+    expect(keys).toContain('gen_ai.usage.output_tokens');
+    for (const key of [
+      'gen_ai.usage.reasoning.output_tokens',
+      'gen_ai.usage.cache_read.input_tokens',
+      'gen_ai.usage.cache_write.input_tokens',
     ]) {
       expect(keys).not.toContain(key);
     }
