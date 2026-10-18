@@ -53,6 +53,6 @@ Prune shares its classification logic (`classifyDepartedFiles`) with the history
 
 ## Operational notes
 
-- The store runs in WAL journal mode, so `events.db-wal` and `events.db-shm` appear alongside `events.db`; opens use a 2-second busy timeout. A run's commits stay in the WAL until it closes the store, which checkpoints them into `events.db` once. To back up the ledger, copy all three files while no report is running.
+- The store runs in WAL journal mode, so `events.db-wal` and `events.db-shm` appear alongside `events.db`; opens use a 2-second busy timeout. A run's commits stay in the WAL until it reaches about 40 MB or the run closes the store, which checkpoints them into `events.db`, so a cold run over a large corpus keeps a WAL of up to about 40 MB beside the store while it runs. A run killed before it closes leaves its commits in the WAL, and the next open recovers them. To back up the ledger, copy all three files while no report is running.
 - `LLM_USAGE_EVENT_STORE=0` and `LLM_USAGE_EVENT_STORE_PATH` are the per-run env overrides; the persistent equivalents are the `eventStore.enabled` and `eventStore.path` config keys.
 - [Caching](/llm-usage-metrics/caching/) covers the user-facing tuning view of the store; [Configuration](/llm-usage-metrics/configuration/) documents the config keys.

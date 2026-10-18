@@ -1688,6 +1688,34 @@ describe('event-store', () => {
     }
   });
 
+  it('keeps a long run’s WAL bounded while it writes', async () => {
+    const store = await createTempStore('event-store-wal-bound-');
+    let largestWal = 0;
+
+    try {
+      // A cold run over a large corpus commits batch after batch before it closes the store.
+      for (let batch = 0; batch < 80; batch += 1) {
+        replaceFilesEvents(
+          store,
+          Array.from({ length: 50 }, (_, index) => ({
+            source: 'codex',
+            filePath: `/tmp/${String(batch)}-${String(index)}.jsonl`,
+            fingerprint: createFingerprint(),
+            events: Array.from({ length: 100 }, () => createEvent()),
+            skippedRows: 0,
+            now: 1_000,
+          })),
+        );
+        largestWal = Math.max(largestWal, (await stat(`${store.filePath}-wal`)).size);
+      }
+    } finally {
+      closeEventStore(store);
+    }
+
+    // The cap, about 40 MB, plus the batch that crossed it.
+    expect(largestWal).toBeLessThan(48_000_000);
+  }, 20_000);
+
   it('writes several files in one transaction', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-batch-transaction-'));
     tempDirs.push(tempDir);
