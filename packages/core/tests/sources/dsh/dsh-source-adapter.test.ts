@@ -267,6 +267,24 @@ describe('DshSourceAdapter', () => {
     });
   });
 
+  it('reads a time logged in epoch seconds as seconds', async () => {
+    const root = await createTempRoot('dsh-epoch-seconds-');
+    const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-seconds'));
+
+    await writeDshSessionLog({
+      filePath: logPath,
+      frames: 'plain',
+      lines: [
+        sessionHeaderLine(),
+        usageLine({ seq: 1, time: 1_789_137_046, inputTokens: 10, outputTokens: 5 }),
+      ],
+    });
+
+    const result = await collectFile(new DshSourceAdapter(), logPath.replace(/\.zstd$/u, ''));
+
+    expect(result.events.map((event) => event.timestamp)).toEqual(['2026-09-11T14:30:46.000Z']);
+  });
+
   it('falls back to the session directory name and title request route', async () => {
     const root = await createTempRoot('dsh-fallback-');
     const sessionId = 'session-fallback-0000';

@@ -10,6 +10,7 @@ import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js
 import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
+  normalizeTimestampCandidate,
   resolveUsageTotalTokens,
   toNumberLike,
 } from '../parsing-utils.js';
@@ -122,21 +123,14 @@ function extractUsage(usage: Record<string, unknown>): DshUsageExtract | undefin
 }
 
 function resolveTimestamp(line: Record<string, unknown>): string | undefined {
-  const time = line.time;
-
-  if (typeof time !== 'number' || !Number.isFinite(time)) {
-    return undefined;
-  }
-
-  const date = new Date(time);
-
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  // dsh logs epoch milliseconds; a value in the seconds range reads as seconds.
+  return typeof line.time === 'number' ? normalizeTimestampCandidate(line.time) : undefined;
 }
 
 /** DeepSeek Harness session logs (JSONL, plain or zstd), from `getDefaultDshSessionsDir`. */
 export class DshSourceAdapter implements SourceAdapter {
   public readonly id = 'dsh' as const;
-  public readonly parserVersion = 4;
+  public readonly parserVersion = 5;
   public readonly capabilities = { eventsPrecedeFileMtime: true, kinds: ['usage'] } as const;
 
   private readonly rootDirs: readonly string[];

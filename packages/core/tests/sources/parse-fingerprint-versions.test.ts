@@ -28,7 +28,7 @@ const EXPECTED_PARSER_VERSIONS: Record<string, string> = {
   roocode: 'n3.p3',
   kilocode: 'n3.p3',
   antigravity: 'n3.p2',
-  dsh: 'n3.p4',
+  dsh: 'n3.p5',
 };
 
 let rootDir = '';
