@@ -5,6 +5,9 @@ import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { readEnvPath, type SourceContext } from '../source-context.js';
 
 const CHANNEL_DB_FILE_PATTERN = /^opencode-.+\.db$/u;
+// The pre-release V2 database. OpenCode 2 imports it into opencode.db, so reading it too
+// would count its sessions twice.
+const PRE_RELEASE_V2_DB_FILE_NAME = 'opencode-next.db';
 
 function deduplicate(paths: string[]): string[] {
   return [...new Set(paths)];
@@ -21,7 +24,10 @@ function listChannelDbFileNames(directory: string): string[] {
   }
 
   return fileNames
-    .filter((fileName) => CHANNEL_DB_FILE_PATTERN.test(fileName))
+    .filter(
+      (fileName) =>
+        CHANNEL_DB_FILE_PATTERN.test(fileName) && fileName !== PRE_RELEASE_V2_DB_FILE_NAME,
+    )
     .sort(compareByCodePoint);
 }
 

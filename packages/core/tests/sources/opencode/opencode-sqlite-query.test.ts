@@ -169,11 +169,17 @@ describe('opencode sqlite query', () => {
     );
   });
 
-  it('throws schema drift for session_message without session_v2', () => {
+  it('points the pre-release V2 database (session_message beside session) at opencode.db', () => {
     expect(() =>
       queryOpenCodeMessageRows(
         createFakeDatabase({ tables: ['project', 'session', 'session_message'] }),
       ),
+    ).toThrow('Read opencode.db instead');
+  });
+
+  it('throws schema drift for session_message without a session table', () => {
+    expect(() =>
+      queryOpenCodeMessageRows(createFakeDatabase({ tables: ['session_message'] })),
     ).toThrow('OpenCode schema drift');
   });
 

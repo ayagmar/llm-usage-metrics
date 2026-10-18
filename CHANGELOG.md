@@ -61,6 +61,8 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 
 - A forked Codex session no longer counts the parent's usage again on the day of the fork. The lines Codex copies from the parent are skipped, and the fork counts only its own turns. Codex 0.152 and later mark where the copy ends. For older forks the copy ends at the last running total that matches the parent rollout, which must still be under the sessions directory; without it they count as before. Every fork, old ones included, is now reported as its own session rather than under the parent's id.
 - OpenCode V2 databases parse, one event per model step, instead of failing with a schema drift error. A V1 database that OpenCode V2 migrated in place counts each message once.
+- OpenCode V1 messages with several model steps count the tokens of every step, summed from their `step-finish` parts. They counted only the last step's tokens while their cost covered all steps.
+- OpenCode discovery skips `opencode-next.db`, the pre-release V2 database that OpenCode 2 imports into `opencode.db`. It failed with a schema drift error and would have counted those sessions twice.
 - Goose and Antigravity retry a database that is busy when a read starts, instead of failing the source.
 - A timestamp with no offset (`2026-01-02T03:04:05`) reads as UTC instead of in the machine's time zone, so a file gives the same events on every machine. Every source's files are parsed again once after upgrading.
 - A usage row with a token count above 10¹² is skipped and counted among the skipped rows instead of swamping the totals.
