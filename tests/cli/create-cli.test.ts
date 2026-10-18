@@ -625,6 +625,24 @@ describe('createCli', () => {
     expect(output.trim()).toBe('1.2.3');
   });
 
+  it('reads --version only before the command word', async () => {
+    const cli = createCli({ version: '1.2.3' });
+    let output = '';
+    const capture = (command: Command): void => {
+      command.exitOverride().configureOutput({
+        writeOut: (chunk) => (output += chunk),
+        writeErr: (chunk) => (output += chunk),
+      });
+      command.commands.forEach(capture);
+    };
+    capture(cli);
+
+    await expect(cli.parseAsync(['daily', '--version'], { from: 'user' })).rejects.toMatchObject({
+      code: 'commander.unknownOption',
+    });
+    expect(output).toContain("unknown option '--version'");
+  });
+
   function captureOutput(cli: ReturnType<typeof createCli>): { text: () => string } {
     let output = '';
     cli.exitOverride();
