@@ -1,4 +1,5 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
@@ -7,11 +8,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildSummaryData } from '../../src/cli/build-summary-data.js';
 import {
+  acquireStatuslineLock,
   buildStatusline,
   buildStatuslineData,
   formatStatusline,
   parseClaudeCodeSession,
   runStatusline,
+  STATUSLINE_EMPTY_STORE_HINT,
 } from '../../src/cli/run-statusline.js';
 import type {
   SummaryDataResult,
@@ -299,6 +302,56 @@ describe('buildStatusline', () => {
   });
 });
 
+describe('acquireStatuslineLock', () => {
+  async function withLockPath(run: (lockPath: string) => Promise<void>): Promise<void> {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-lock-'));
+
+    try {
+      await run(path.join(dir, 'store', 'events.sqlite.statusline.lock'));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('lets one tick hold the lock until it releases it', async () => {
+    await withLockPath(async (lockPath) => {
+      const release = await acquireStatuslineLock(lockPath, 0);
+      expect(release).toBeTypeOf('function');
+      await expect(acquireStatuslineLock(lockPath, 100)).resolves.toBeUndefined();
+
+      await release?.();
+      const next = await acquireStatuslineLock(lockPath, 0);
+      expect(next).toBeTypeOf('function');
+      await next?.();
+    });
+  });
+
+  it('takes over a lock left by an exited process or held too long', async () => {
+    await withLockPath(async (lockPath) => {
+      const exited = spawnSync(process.execPath, ['-e', '']);
+      await acquireStatuslineLock(lockPath, 0);
+      await writeFile(lockPath, String(exited.pid));
+      const afterExit = await acquireStatuslineLock(lockPath, 0);
+      expect(afterExit).toBeTypeOf('function');
+      await expect(readFile(lockPath, 'utf8')).resolves.toBe(String(process.pid));
+
+      // Still this process's lock, but ten minutes old.
+      const longAgo = new Date(Date.now() - 600_000);
+      await utimes(lockPath, longAgo, longAgo);
+      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toBeTypeOf('function');
+    });
+  });
+
+  it('leaves a lock another tick took over in place on release', async () => {
+    await withLockPath(async (lockPath) => {
+      const release = await acquireStatuslineLock(lockPath, 0);
+      await writeFile(lockPath, '1');
+      await release?.();
+      await expect(readFile(lockPath, 'utf8')).resolves.toBe('1');
+    });
+  });
+});
+
 describe('runStatusline', () => {
   it('prints one line on stdout and silences stderr diagnostics', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'statusline-run-'));
@@ -366,6 +419,53 @@ describe('runStatusline', () => {
       logSpy.mockRestore();
       errorSpy.mockRestore();
       await rm(emptyDir, { recursive: true, force: true });
+    }
+  });
+
+  it('prints a warming-up line while another tick holds the lock', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-locked-'));
+    const storePath = path.join(dir, 'events.sqlite');
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', storePath);
+    const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+
+    try {
+      await runStatusline(
+        { source: 'codex', codexDir: dir, timezone: 'UTC' },
+        { stdin: Readable.from([Buffer.from(claudeCodeInput)]) },
+      );
+
+      expect(logSpy.mock.calls).toEqual([['$1.23 session · 42% context · warming up…']]);
+    } finally {
+      await release?.();
+      vi.unstubAllEnvs();
+      setLogLevel('info');
+      logSpy.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('hints once per event store on stderr when there is no usage at all', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-empty-'));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(dir, 'events.sqlite'));
+
+    try {
+      const options = { source: 'codex', codexDir: dir, timezone: 'UTC' };
+      await runStatusline(options, { stdin: Readable.from([]) });
+      await runStatusline(options, { stdin: Readable.from([]) });
+
+      expect(stderrSpy.mock.calls).toEqual([[`${STATUSLINE_EMPTY_STORE_HINT}\n`]]);
+      expect(logSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllEnvs();
+      setLogLevel('info');
+      logSpy.mockRestore();
+      stderrSpy.mockRestore();
+      await rm(dir, { recursive: true, force: true });
     }
   });
 });

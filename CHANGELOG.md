@@ -51,6 +51,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - **Claude tool results**: reading Claude tool calls and turns skips the text of tool results, which nothing reads, instead of decoding and parsing it, so that first run takes less time and memory.
 - **Projects** are described as the working directory the tool recorded, not the repository root, in help, docs and schemas.
 - **`--version`** is read only before the command word: `llm-usage daily --version` fails with an unknown-option error, and `llm-usage --version` prints the version.
+- **`statusline` ticks that overlap** share a lock next to the event store: while one tick parses a cold store, the others wait up to a second and then print `warming up…` instead of each parsing every file. The first tick that finds no usage logs prints a one-time hint on stderr.
 - **Update check** is skipped for `config`, `completion` and `--help-all` too, as it already was for `statusline`, `machine export`, `help`, `--help` and `--version`.
 - **Messages**: `projects --top` now says "must be a positive integer" and `optimize --top` rejects leading zeros, as the other reports do.
 
