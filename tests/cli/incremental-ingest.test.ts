@@ -459,4 +459,28 @@ describe('incremental ingest', () => {
       await dumpFreshStore(adapter, tempDir, 'fresh-raced'),
     );
   });
+  it('reads a file again in full, store on, when its stored fingerprint does not parse', async () => {
+    const tempDir = await createTempDir();
+    const sessionsDir = path.join(tempDir, 'sessions');
+    const filePath = path.join(sessionsDir, 'work', 'session.jsonl');
+    const adapter = new PiSourceAdapter({ dir: sessionsDir });
+    const ingest = await growLineByLine(adapter, tempDir, filePath, PI_LINES.slice(0, 4));
+    const store = await openEventStore(ingest.storePath);
+
+    try {
+      store.database.prepare("UPDATE files SET fingerprint = '{'").run();
+    } finally {
+      closeEventStore(store);
+    }
+
+    await appendFile(filePath, `${PI_LINES[4] ?? ''}\n`);
+    await setTime(filePath, 1_700_001_000);
+    const { warnings } = await ingest.run();
+
+    expect(warnings).toEqual([]);
+    expect(ingest.writes.at(-1)?.append).toBeUndefined();
+    expect(await dumpStore(ingest.storePath)).toEqual(
+      await dumpFreshStore(adapter, tempDir, 'fresh-unparsed'),
+    );
+  });
 });

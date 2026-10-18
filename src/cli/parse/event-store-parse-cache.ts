@@ -222,30 +222,29 @@ export type StoredResumePoint = ParseFileDiagnostics & {
 };
 
 /**
- * Whether only the file itself changed since `storedFingerprint`: the same parser
+ * Whether only the file itself changed since the stored version: the same parser
  * version, stored kinds and dependencies. A changed dependency (a fork's parent) can
  * change how the lines before the cursor parse, so it needs a whole read.
  */
 function isOnlyFileChanged(
-  storedFingerprint: string,
+  storedEntry: EventStoreFileEntry,
   fingerprint: EventStoreFileFingerprint,
 ): boolean {
   const [file, ...dependencies] = fingerprint.dependencies;
-  const storedDependencies: unknown = asRecord(JSON.parse(storedFingerprint))?.dependencies;
   // The serialized list is sorted by path, so the file is not always first.
-  const storedFile = Array.isArray(storedDependencies)
-    ? storedDependencies.map(asRecord).find((dependency) => dependency?.path === file.path)
-    : undefined;
+  const storedFile = parseStoredFileFingerprint(storedEntry)?.dependencies.find(
+    (dependency) => dependency.path === file.path,
+  );
   const size = storedFile?.size;
   const mtimeMs = storedFile?.mtimeMs;
 
   return (
-    typeof size === 'number' &&
-    typeof mtimeMs === 'number' &&
+    size !== undefined &&
+    mtimeMs !== undefined &&
     serializeEventStoreFingerprint({
       ...fingerprint,
       dependencies: [{ ...file, size, mtimeMs }, ...dependencies],
-    }) === storedFingerprint
+    }) === storedEntry.fingerprint
   );
 }
 
@@ -276,7 +275,7 @@ export function readFileGrowth(
     try {
       const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
 
-      if (!storedEntry || !isOnlyFileChanged(storedEntry.fingerprint, params.fingerprint)) {
+      if (!storedEntry || !isOnlyFileChanged(storedEntry, params.fingerprint)) {
         return undefined;
       }
 
