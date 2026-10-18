@@ -79,11 +79,11 @@ function formatParserSkew(machine: MergedMachineEvents): string | undefined {
   // The versions come from the machine's export.
   const skews = machine.skews.map(({ source, version, servedBy, servedVersion }) =>
     toTerminalLine(
-      `${source} ${version} there, ${servedVersion} on ${servedBy === LOCAL_MACHINE_NAME ? 'this machine' : servedBy}`,
+      `${source} ${version ?? 'unrecorded'} there, ${servedVersion ?? 'unrecorded'} on ${servedBy === LOCAL_MACHINE_NAME ? 'this machine' : servedBy}`,
     ),
   );
 
-  return `${machine.name} parses with other parser versions (${skews.join('; ')}): left out ${pluralize(machine.skewDroppedCount, 'event')} of sessions already counted, matched by timestamp; update llm-usage on both machines`;
+  return `${machine.name} parses with other parser versions (${skews.join('; ')}): left out ${pluralize(machine.skewDroppedCount, 'event')} of sessions already counted, matched by timestamp and model; update llm-usage on both machines`;
 }
 
 /**

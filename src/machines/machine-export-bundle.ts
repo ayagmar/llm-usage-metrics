@@ -158,6 +158,15 @@ export type ParsedMachineExport = {
   eventCount: number;
 };
 
+function isJson(line: string): boolean {
+  try {
+    JSON.parse(line);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function parseBundleLine(line: string, lineNumber: number): Record<string, unknown> {
   let parsed: unknown;
 
@@ -437,7 +446,12 @@ export async function readMachineExport(
     }
 
     if (end) {
-      throw new Error(`line ${lineNumber} follows the end line`);
+      // A shell logout file may print text after the command's own output.
+      if (isJson(line)) {
+        throw new Error(`line ${lineNumber} follows the end line`);
+      }
+
+      continue;
     }
 
     if (!header) {
