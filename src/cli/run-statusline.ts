@@ -1,11 +1,23 @@
+import { mkdir, open, readFile, rm, stat } from 'node:fs/promises';
+import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
+
 import {
   calculateCurrentStreak,
   sumDailyTotals,
   type DailyActivity,
 } from '../aggregate/daily-activity.js';
-import { getParsingRuntimeConfig } from '../config/runtime-overrides.js';
+import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
+import { loadUserConfig } from '../config/user-config.js';
+import {
+  closeEventStore,
+  countEvents,
+  openEventStore,
+  readEventStoreMeta,
+  writeEventStoreMeta,
+} from '../persistence/event-store.js';
 import { formatApproxUsd, formatStatuslineCompact, formatUsd } from '../render/format-number.js';
-import { asRecord } from '@ayagmar/agent-sessions/internal';
+import { asRecord, hasErrorCode } from '@ayagmar/agent-sessions/internal';
 import { setLogLevel } from '../utils/logger.js';
 import {
   buildSummaryDataset,
@@ -109,7 +121,11 @@ export type StatuslineSummary = {
   activity: Pick<DailyActivity, 'currentStreak'>;
 };
 
-export type StatuslineData = StatuslineSummary & { diagnostics: UsageDiagnostics };
+export type StatuslineData = StatuslineSummary & {
+  diagnostics: UsageDiagnostics;
+  /** No local session file and no event in the year read, other machines' included. */
+  foundNoUsage: boolean;
+};
 
 function findPeriod(
   summary: StatuslineSummary,
@@ -170,17 +186,19 @@ export function formatStatusline(summary: StatuslineSummary, session?: ClaudeCod
   return parts.join(SEPARATOR);
 }
 
+/** What a tick prints while another tick holds the lock and is still parsing. */
+const STATUSLINE_WARMING_UP = 'warming up…';
+
+function formatWarmingUpStatusline(session?: ClaudeCodeSession): string {
+  return [...formatSession(session), STATUSLINE_WARMING_UP].join(SEPARATOR);
+}
+
 /**
  * The summary's line without the rest of the summary. It reads the summary's year of events,
  * which the streak needs, but prices only month to date: pricing maps each event to one
  * priced event (`applyPricingToEvents`), so the line's totals do not change. Prices load
  * when the year's events need them, as for the summary, so a load failure does not change.
  */
-// A cold tick (empty event store) on large logs parses on the worker pool, and each worker
-// holds its own heap. On real logs (M12 Q), four workers took about 16% longer than eight
-// and peaked about 40% lower (0.8 GB against 1.3 GB); two workers took about 50% longer.
-const STATUSLINE_AUTO_PARSE_WORKERS = 4;
-
 export async function buildStatuslineData(
   options: StatuslineCommandOptions,
   deps: BuildSummaryDataDeps,
@@ -188,15 +206,7 @@ export async function buildStatuslineData(
   // A status line refreshes often: cached or bundled prices and other machines' cached
   // usage only, never a network fetch or an ssh connection.
   const { userConfigResolution, timezone, windows, today, since, dataset } =
-    await buildSummaryDataset(
-      { ...options, pricingOffline: true, sync: false },
-      {
-        ...deps,
-        getParsingRuntimeConfig:
-          deps.getParsingRuntimeConfig ??
-          ((env, config) => getParsingRuntimeConfig(env, config, STATUSLINE_AUTO_PARSE_WORKERS)),
-      },
-    );
+    await buildSummaryDataset({ ...options, pricingOffline: true, sync: false }, deps);
   // Today, the last 7 days, then month to date (resolveSummaryWindows).
   const [todayWindow, , monthToDateWindow] = windows;
   const monthToDateEvents = dataset.filteredEvents.filter(
@@ -241,6 +251,7 @@ export async function buildStatuslineData(
     periods,
     monthEnd: resolveMonthEnd(today, periods[1], resolveMonthlyBudgetUsd(userConfigResolution)),
     activity: { currentStreak },
+    foundNoUsage: dataset.parsedFiles.length === 0 && dataset.filteredEvents.length === 0,
     diagnostics: buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,
       successfulParseResults: dataset.successfulParseResults,
@@ -265,6 +276,115 @@ export async function buildStatusline(
   return formatStatusline(await buildStatuslineData(options, deps));
 }
 
+/**
+ * Overlapping ticks share one lock next to the event store, so a cold store is parsed
+ * once rather than by every tick that starts before the first one finishes. A tick waits
+ * this long for the holder, which a warm tick releases in well under a second.
+ */
+const STATUSLINE_LOCK_WAIT_MS = 1_000;
+const STATUSLINE_LOCK_RETRY_MS = 50;
+/** A lock older than this is taken over, as is one whose process has exited. */
+const STATUSLINE_LOCK_STALE_MS = 120_000;
+
+function isRunningProcess(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to another user.
+    return hasErrorCode(error, 'EPERM');
+  }
+}
+
+async function isStaleLock(lockPath: string, now: number): Promise<boolean> {
+  try {
+    const [content, stats] = await Promise.all([readFile(lockPath, 'utf8'), stat(lockPath)]);
+    const pid = Number.parseInt(content, 10);
+
+    return (
+      now - stats.mtimeMs > STATUSLINE_LOCK_STALE_MS ||
+      (Number.isInteger(pid) && pid > 0 && !isRunningProcess(pid))
+    );
+  } catch {
+    // Released while we looked: the next attempt takes it.
+    return false;
+  }
+}
+
+/**
+ * Takes the tick lock and returns its release, or `undefined` when another tick still
+ * holds it after the wait. A lock that cannot be created (an unwritable directory) does
+ * not stop the line: the tick runs unlocked, as it did before the lock existed.
+ */
+export async function acquireStatuslineLock(
+  lockPath: string,
+  waitMs = STATUSLINE_LOCK_WAIT_MS,
+): Promise<(() => Promise<void>) | undefined> {
+  const token = String(process.pid);
+  const release = async () => {
+    // A lock taken over after it went stale is the other tick's to remove.
+    if ((await readFile(lockPath, 'utf8').catch(() => undefined)) === token) {
+      await rm(lockPath, { force: true });
+    }
+  };
+  const deadline = Date.now() + waitMs;
+
+  try {
+    await mkdir(path.dirname(lockPath), { recursive: true, mode: 0o700 });
+
+    for (;;) {
+      try {
+        const handle = await open(lockPath, 'wx', 0o600);
+        await handle.writeFile(token);
+        await handle.close();
+        return release;
+      } catch (error) {
+        if (!hasErrorCode(error, 'EEXIST')) {
+          throw error;
+        }
+      }
+
+      if (await isStaleLock(lockPath, Date.now())) {
+        await rm(lockPath, { force: true });
+      } else if (Date.now() >= deadline) {
+        return undefined;
+      } else {
+        await sleep(STATUSLINE_LOCK_RETRY_MS);
+      }
+    }
+  } catch {
+    return async () => undefined;
+  }
+}
+
+/** Printed once per event store, on `stderr`, when a tick finds no usage at all. */
+export const STATUSLINE_EMPTY_STORE_HINT =
+  'llm-usage statusline: no usage logs found yet, so the line shows $0.00. Run `llm-usage doctor` to see where it looks.';
+const EMPTY_STORE_HINT_META_KEY = 'statuslineEmptyStoreHintShown';
+
+/** Shows the empty-store hint unless this store showed it before or holds events. */
+async function emitEmptyStoreHint(storePath: string): Promise<void> {
+  try {
+    const store = await openEventStore(storePath);
+
+    try {
+      if (readEventStoreMeta(store, EMPTY_STORE_HINT_META_KEY) !== undefined) {
+        return;
+      }
+
+      if (countEvents(store) === 0) {
+        process.stderr.write(`${STATUSLINE_EMPTY_STORE_HINT}\n`);
+      }
+
+      writeEventStoreMeta(store, { [EMPTY_STORE_HINT_META_KEY]: new Date().toISOString() });
+    } finally {
+      closeEventStore(store);
+    }
+  } catch {
+    // A hint is not worth failing the line over; the run already reported store failures.
+  }
+}
+
 export async function runStatusline(
   options: StatuslineCommandOptions,
   deps: { stdin?: StatuslineStdin } = {},
@@ -277,7 +397,29 @@ export async function runStatusline(
 
   // Read while the summary builds, so waiting on stdin adds no time.
   const input = readPipedInput(deps.stdin ?? process.stdin);
-  const summary = await buildStatuslineData(options, {});
+  const loadedConfig = await loadUserConfig();
+  const eventStore = getEventStoreRuntimeConfig(process.env, loadedConfig.config);
+  const releaseLock = eventStore.enabled
+    ? await acquireStatuslineLock(`${eventStore.path}.statusline.lock`)
+    : async () => undefined;
+
+  if (!releaseLock) {
+    console.log(formatWarmingUpStatusline(parseClaudeCodeSession(await input)));
+    return;
+  }
+
+  let summary: StatuslineData;
+
+  try {
+    summary = await buildStatuslineData(options, { loadUserConfig: async () => loadedConfig });
+
+    if (eventStore.enabled && summary.foundNoUsage) {
+      await emitEmptyStoreHint(eventStore.path);
+    }
+  } finally {
+    await releaseLock();
+  }
+
   const session = parseClaudeCodeSession(await input);
 
   if (options.verbose) {
