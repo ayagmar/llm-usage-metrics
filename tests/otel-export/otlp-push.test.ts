@@ -4,10 +4,19 @@ import { parseOtlpHeaders } from '../../src/otel-export/otlp-push.js';
 
 describe('parseOtlpHeaders', () => {
   it('reads k=v pairs, trims around them and percent-decodes values', () => {
-    expect(parseOtlpHeaders(' api-key = a%3Db%2Cc ,Authorization=Bearer%20x,')).toEqual({
+    expect(parseOtlpHeaders(' api-key = a%3Db%2Cc ,authorization=Bearer%20x,')).toEqual({
       'api-key': 'a=b,c',
-      Authorization: 'Bearer x',
+      authorization: 'Bearer x',
     });
+  });
+
+  it('compares names case-insensitively, the later entry winning', () => {
+    expect(parseOtlpHeaders('Authorization=old,AUTHORIZATION=new,Content-Type=text/plain')).toEqual(
+      {
+        authorization: 'new',
+        'content-type': 'text/plain',
+      },
+    );
   });
 
   it('keeps a raw = inside a value', () => {
