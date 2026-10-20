@@ -10,7 +10,7 @@ Each adapter owns discovery and source-specific parsing. After parsing, every ad
 | Source                                                 | Local format  | Default location                                           | Real logs |
 | ------------------------------------------------------ | ------------- | ---------------------------------------------------------- | --------- |
 | [pi](/llm-usage-metrics/sources/pi/)                   | JSONL         | `~/.pi/agent/sessions` and `~/.omp/agent/sessions`         | checked |
-| [codex](/llm-usage-metrics/sources/codex/)             | JSONL         | `~/.codex/sessions` (or `$CODEX_HOME/sessions`)            | checked |
+| [codex](/llm-usage-metrics/sources/codex/)             | JSONL + zstd  | `~/.codex/sessions` (or `$CODEX_HOME/sessions`)            | checked |
 | [Gemini CLI](/llm-usage-metrics/sources/gemini/)       | JSON          | `~/.gemini/tmp/*/chats`                                    | checked |
 | [Droid CLI](/llm-usage-metrics/sources/droid/)         | settings JSON | `~/.factory/sessions`                                      | not yet |
 | [OpenCode](/llm-usage-metrics/sources/opencode/)       | SQLite        | platform data directory, including `opencode-<channel>.db` | checked |

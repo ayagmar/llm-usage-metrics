@@ -47,7 +47,6 @@ export default defineConfig({
         'src/cli/usage-data-contracts.ts',
         'src/domain/usage-report-row.ts',
         'src/optimize/optimize-row.ts',
-        'src/pricing/types.ts',
         'src/trends/trends-series.ts',
         'src/wrapped/wrapped-recap.ts',
         // Types only.

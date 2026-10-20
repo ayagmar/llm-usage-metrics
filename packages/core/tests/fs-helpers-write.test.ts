@@ -10,7 +10,7 @@ import {
   pathExists,
   readRegularTextFile,
   writeFileAtomic,
-} from '../../src/utils/fs-helpers.js';
+} from '../src/utils/fs-helpers.js';
 
 const tempDirs: string[] = [];
 

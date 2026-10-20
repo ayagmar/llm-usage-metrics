@@ -193,9 +193,32 @@ describe('prune report e2e', () => {
     expect(await readStoredEvents(liveFilePath)).toHaveLength(2);
   });
 
-  it('rejects prune without a selector', async () => {
-    await expect(buildPruneReport({ source: 'claude', claudeDir })).rejects.toThrow(
-      'prune requires at least one selector: --suppressed or --departed-before',
+  it('counts what each selector would pick when run without one', async () => {
+    await seedStore();
+
+    const result = await buildPruneReport({ source: 'claude', claudeDir });
+
+    expect(result).toMatchObject({
+      candidates: [],
+      summary: {
+        applied: false,
+        departedFiles: {
+          fileCount: 1,
+          eventCount: 2,
+          suppressedFileCount: 1,
+          suppressedEventCount: 2,
+        },
+      },
+    });
+    expect(await readStoredEvents(departedFilePath)).toHaveLength(2);
+  });
+
+  it('rejects --apply without a selector', async () => {
+    await seedStore();
+
+    await expect(buildPruneReport({ source: 'claude', claudeDir, apply: true })).rejects.toThrow(
+      'prune --apply requires a selector: --suppressed or --departed-before',
     );
+    expect(await readStoredEvents(departedFilePath)).toHaveLength(2);
   });
 });

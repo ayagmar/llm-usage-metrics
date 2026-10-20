@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { LiteLLMPricingFetcher } from '../../src/pricing/litellm-pricing-fetcher.js';
+import { noNetworkFetch } from '../helpers/no-network.js';
 
 // Real model names as harnesses report them, resolved against the bundled snapshot and
 // retired pricing. Any change here alters which price a user's events receive: when the
@@ -68,6 +69,7 @@ describe('model resolution reference', () => {
   const fetcher = new LiteLLMPricingFetcher({
     offline: true,
     cacheFilePath: '/nonexistent/llm-usage-metrics-reference-cache.json',
+    fetchImpl: noNetworkFetch,
   });
 
   beforeAll(async () => {

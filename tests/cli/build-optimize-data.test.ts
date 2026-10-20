@@ -7,7 +7,7 @@ import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import {
   createDefaultOpenAiPricingSource,
   StaticPricingSource,
-} from '../helpers/static-pricing-source.js';
+} from '../../packages/core/tests/helpers/static-pricing-source.js';
 import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
@@ -158,7 +158,38 @@ describe('buildOptimizeData', () => {
     expect(allCandidate).toMatchObject({ hypotheticalCostUsd: 0.155, savingsUsd: 0 });
   });
 
-  it('fails on multiple providers after filtering and before pricing load', async () => {
+  it("scopes a multi-provider run to the candidates' provider as --provider would", async () => {
+    // gpt-5 names a model exactly only in the copilot usage, so with --provider openai the
+    // model rule falls back to a substring match and keeps gpt-5-codex.
+    const adapters = [
+      createAdapter('pi', {
+        '/tmp/codex.jsonl': [
+          createBaseEvent({ model: 'gpt-5-codex' }),
+          createBaseEvent({ model: 'o3', inputTokens: 20, totalTokens: 25 }),
+        ],
+        '/tmp/copilot.jsonl': [
+          createBaseEvent({ provider: 'github-copilot', model: 'gpt-5', totalTokens: 1_000 }),
+        ],
+      }),
+    ];
+    const options = { candidateModel: ['gpt-4.1'], model: ['gpt-5', 'o3'], timezone: 'UTC' };
+
+    const inferred = await buildOptimizeData('daily', options, runtimeDeps({ adapters }));
+    const explicit = await buildOptimizeData(
+      'daily',
+      { ...options, provider: 'openai' },
+      runtimeDeps({ adapters }),
+    );
+
+    expect(inferred.diagnostics).toMatchObject({ provider: 'openai', inferredProvider: 'openai' });
+    expect(explicit.diagnostics.inferredProvider).toBeUndefined();
+    expect(inferred.rows).toEqual(explicit.rows);
+    expect(
+      inferred.rows.find((row) => row.rowType === 'baseline' && row.periodKey === 'ALL'),
+    ).toMatchObject({ totalTokens: 40 });
+  });
+
+  it('fails on multiple providers before pricing load when the candidates span several', async () => {
     const pricingLoaderSpy = vi.fn(async () => ({
       source: createDefaultOpenAiPricingSource(),
       origin: 'cache' as const,
@@ -167,9 +198,7 @@ describe('buildOptimizeData', () => {
     await expect(
       buildOptimizeData(
         'daily',
-        {
-          candidateModel: ['gpt-4.1'],
-        },
+        { candidateModel: ['gpt-4.1', 'claude-sonnet-4-5'] },
         runtimeDeps({
           adapters: [
             createAdapter('pi', {
@@ -181,13 +210,45 @@ describe('buildOptimizeData', () => {
         }),
       ),
     ).rejects.toThrow(
-      'Optimize requires a single provider; found providers: anthropic, openai. Narrow with --provider openai.',
+      'Optimize requires a single provider; found providers: anthropic, openai. Narrow with --provider.',
     );
 
     expect(pricingLoaderSpy).not.toHaveBeenCalled();
   });
 
-  it('does not suggest a --provider value that would match several providers', async () => {
+  it('does not infer a provider that a source named with --source cannot have', async () => {
+    const fixedTo = (adapter: SourceAdapter, root: string): SourceAdapter => ({
+      ...adapter,
+      capabilities: { fixedProviderRoots: [root] },
+    });
+
+    await expect(
+      buildOptimizeData(
+        'daily',
+        { candidateModel: ['gpt-4.1'], source: ['codex', 'gemini'] },
+        runtimeDeps({
+          adapters: [
+            fixedTo(
+              createAdapter('codex', {
+                '/tmp/codex.jsonl': [createBaseEvent({ source: 'codex' })],
+              }),
+              'openai',
+            ),
+            fixedTo(
+              createAdapter('gemini', {
+                '/tmp/gemini.json': [createBaseEvent({ source: 'gemini', provider: 'google' })],
+              }),
+              'google',
+            ),
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      'Optimize requires a single provider; found providers: google, openai. Narrow with --provider.',
+    );
+  });
+
+  it('does not infer a provider that would match several providers', async () => {
     await expect(
       buildOptimizeData(
         'daily',
@@ -206,7 +267,7 @@ describe('buildOptimizeData', () => {
     );
   });
 
-  it('does not suggest a provider that is absent from the data', async () => {
+  it('does not infer a provider that is absent from the data', async () => {
     await expect(
       buildOptimizeData(
         'daily',
@@ -254,7 +315,7 @@ describe('buildOptimizeData', () => {
       buildOptimizeData(
         'daily',
         {
-          // Its provider is not among the detected ones, so no provider is suggested.
+          // Its provider is not among the detected ones, so none is inferred.
           candidateModel: ['claude-sonnet-4-5'],
         },
         runtimeDeps({

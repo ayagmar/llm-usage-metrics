@@ -1,6 +1,5 @@
-import type { UsageEvent } from '../domain/usage-event.js';
 import { resolveRatesForEvent, usesPerRequestRates, type PricingPolicy } from './cost-engine.js';
-import type { PricingSource } from './types.js';
+import type { PricedUsageEvent, PricingSource } from './types.js';
 
 const ONE_MILLION = 1_000_000;
 
@@ -9,7 +8,7 @@ const ONE_MILLION = 1_000_000;
  *  only events whose model has both rates contribute. Single-request events
  *  use their long-context tier rates, as pricing does. */
 export function estimateCacheSavingsUsd(
-  events: readonly UsageEvent[],
+  events: readonly PricedUsageEvent[],
   pricingSource: PricingSource,
   policy: Pick<PricingPolicy, 'perRequestRates'>,
 ): number | undefined {

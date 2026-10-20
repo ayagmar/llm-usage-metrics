@@ -9,7 +9,7 @@ import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { createDefaultOpenAiPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 import { readFrom } from '../helpers/fake-read.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import {

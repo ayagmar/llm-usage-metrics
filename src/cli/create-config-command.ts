@@ -15,7 +15,7 @@ import {
 } from '../config/runtime-overrides.js';
 import { resolveUserConfigPath, USER_CONFIG_SOURCE_DIR_KEYS } from '../config/user-config.js';
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
-import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.js';
+import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/pricing';
 import { ensureDirectory } from '../utils/fs-helpers.js';
 import { logger } from '../utils/logger.js';
 import { renderConfigReportText } from '../render/render-config-report.js';

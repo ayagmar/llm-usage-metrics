@@ -1,5 +1,6 @@
 import type {
   PruneCandidate,
+  PruneDepartedFileCounts,
   PruneReportResult,
   PruneSummary,
   StoreSizeSnapshot,
@@ -41,9 +42,8 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
     headerCells: ['Source', 'Path', 'Events', 'Newest timestamp', 'Reason'],
     bodyRows: wrappedRows,
     measureHeaderCells: ['Source', 'Path', 'Events', 'Newest timestamp', 'Reason'],
-    measureBodyRows: wrappedRows,
+    measureBodyRows: bodyRows,
     rowMetas: createRowMetas(candidates),
-    layout: 'top_aligned',
     columnKinds: ['text', 'text', 'measure', 'text', 'text'],
     multilineColumnIndex: 1,
     multilineColumnWidth: 56,
@@ -53,7 +53,7 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
 
 function renderSummary(summary: PruneSummary): string {
   if (!summary.applied) {
-    return `Would delete ${pluralize(summary.candidateFileCount, 'file')} / ${pluralize(summary.candidateEventCount, 'event')}. Re-run with --apply.`;
+    return `Would delete ${describeFiles(summary.candidateFileCount, summary.candidateEventCount)}. Re-run with --apply.`;
   }
 
   const sizeSuffix =
@@ -61,17 +61,31 @@ function renderSummary(summary: PruneSummary): string {
       ? ` Reclaimed ${formatByteSize(summary.reclaimedBytes)} (${formatStoreSize(summary.sizeBefore)} before; ${formatStoreSize(summary.sizeAfter)} after).`
       : '';
 
-  return `Deleted ${pluralize(summary.deletedFileCount ?? 0, 'file')} / ${pluralize(summary.deletedEventCount ?? 0, 'event')}.${sizeSuffix}`;
+  return `Deleted ${describeFiles(summary.deletedFileCount ?? 0, summary.deletedEventCount ?? 0)}.${sizeSuffix}`;
+}
+
+function describeFiles(fileCount: number, eventCount: number): string {
+  return `${pluralize(fileCount, 'file')} / ${pluralize(eventCount, 'event')}`;
+}
+
+// A run without a selector: what each selector would pick.
+function renderDepartedFileCounts(counts: PruneDepartedFileCounts): string[] {
+  if (counts.fileCount === 0) {
+    return ['No departed files in the event store.'];
+  }
+
+  return [
+    `Departed: ${describeFiles(counts.fileCount, counts.eventCount)}; suppressed by --history: ${describeFiles(counts.suppressedFileCount, counts.suppressedEventCount)}.`,
+    'Preview with --suppressed or --departed-before YYYY-MM-DD, then add --apply to delete.',
+  ];
 }
 
 export function renderPruneReport(result: PruneReportResult): string {
-  const lines: string[] = [
-    renderReportHeader({ title: 'Event Store Prune', useColor: false }),
-    '',
-    renderCandidateTable(result.candidates),
-    '',
-    renderSummary(result.summary),
-  ];
+  const header = renderReportHeader({ title: 'Event Store Prune', useColor: false });
+  const departedFiles = result.summary.departedFiles;
+  const lines: string[] = departedFiles
+    ? [header, '', ...renderDepartedFileCounts(departedFiles)]
+    : [header, '', renderCandidateTable(result.candidates), '', renderSummary(result.summary)];
 
   return lines.join('\n');
 }

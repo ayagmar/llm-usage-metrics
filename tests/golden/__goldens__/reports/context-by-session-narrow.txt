@@ -1,0 +1,14 @@
+┌─────────────────────────┐
+│ Context Pressure Report │
+└─────────────────────────┘
+
+╭───────────────┬────────┬──────────┬──────┬───────┬────────────╮
+│ Session       │ Source │ Requests │ Peak │ >200k │ >80% limit │
+├───────────────┼────────┼──────────┼──────┼───────┼────────────┤
+│ …x-gemini-big │ gemini │        2 │ 250K │     1 │          0 │
+│ …-claude-long │ claude │        2 │ 175K │     0 │          1 │
+│ …aude-unknown │ claude │        1 │   9K │     0 │          - │
+╰───────────────┴────────┴──────────┴──────┴───────┴────────────╯
+
+Aggregated, not per request: codex (1 record). Their records sum several
+requests, so they have no peak or tier counts.

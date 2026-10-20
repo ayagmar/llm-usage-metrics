@@ -8,13 +8,15 @@ import {
   applyPricingToEvents,
   createPricingRunStats,
   DEFAULT_PRICING_POLICY,
+  loadPricingOverrides,
+  PricingOverrideSource,
+  type ModelPricing,
   type PricingCostMode,
   type PricingPolicy,
   type PricingRunStats,
-} from '../pricing/cost-engine.js';
-import { PricingOverrideSource, loadPricingOverrides } from '../pricing/pricing-override-source.js';
-import type { ModelPricing, PricingSource } from '../pricing/types.js';
-import { LiteLLMPricingFetcher } from '../pricing/litellm-pricing-fetcher.js';
+  type PricingSource,
+} from '@ayagmar/agent-sessions/pricing';
+import { createLiteLLMPricingFetcher } from '../pricing/cli-pricing-fetcher.js';
 
 import type {
   PricingLoadResult,
@@ -56,7 +58,7 @@ export async function resolvePricingSource(
     }
   }
 
-  const litellmPricingFetcher = new LiteLLMPricingFetcher({
+  const litellmPricingFetcher = createLiteLLMPricingFetcher({
     sourceUrl: options.pricingUrl,
     offline: options.pricingOffline,
     cacheTtlMs: runtimeConfig.cacheTtlMs,

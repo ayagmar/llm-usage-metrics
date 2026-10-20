@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveAndApplyPricingToEvents } from '../../src/cli/build-usage-data-pricing.js';
 import { withPricingNotes } from '../../src/cli/build-usage-event-dataset.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { StaticPricingSource } from '../helpers/static-pricing-source.js';
+import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 
 function loggedZeroEvent(source: string) {
   return createUsageEvent({

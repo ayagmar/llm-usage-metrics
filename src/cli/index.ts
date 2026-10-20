@@ -6,7 +6,12 @@ import { isMainThread, workerData } from 'node:worker_threads';
 
 import { getUpdateNotifierRuntimeConfig } from '../config/runtime-overrides.js';
 import { loadUserConfig, type UserConfig } from '../config/user-config.js';
-import { checkForUpdates, waitForUpdateHintBeforeExit } from '../update/update-notifier.js';
+import {
+  checkForUpdates,
+  readBackgroundRefreshRequest,
+  runBackgroundRefresh,
+  waitForUpdateHintBeforeExit,
+} from '../update/update-notifier.js';
 import { logger, setLogLevel } from '../utils/logger.js';
 import { exitQuietlyOnBrokenPipe } from '../utils/stdout-pipe-errors.js';
 import { createCli } from './create-cli.js';
@@ -54,8 +59,16 @@ async function runCli(): Promise<void> {
 
 const currentWorkerData: unknown = workerData;
 
+const backgroundRefreshRequest = isMainThread
+  ? readBackgroundRefreshRequest(process.env)
+  : undefined;
+
 const mainPromise =
-  !isMainThread && isParseWorkerRequest(currentWorkerData) ? runParseWorker() : runCli();
+  !isMainThread && isParseWorkerRequest(currentWorkerData)
+    ? runParseWorker()
+    : backgroundRefreshRequest
+      ? runBackgroundRefresh(backgroundRefreshRequest)
+      : runCli();
 
 mainPromise.catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);

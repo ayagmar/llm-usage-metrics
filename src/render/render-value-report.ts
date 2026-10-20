@@ -240,7 +240,6 @@ function renderTerminalValueReport(
         measureHeaderCells: headerCells,
         measureBodyRows: bodyRows,
         rowMetas: rows.map((row) => row.meta),
-        layout: 'top_aligned',
         columnKinds: columns.map((column) =>
           column === 'month' || column === 'projects' ? 'text' : 'measure',
         ),

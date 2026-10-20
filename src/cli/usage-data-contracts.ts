@@ -13,8 +13,7 @@ import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js'
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
-import type { PricingCostMode } from '../pricing/cost-engine.js';
-import type { PricingSource } from '../pricing/types.js';
+import type { PricingCostMode, PricingSource } from '@ayagmar/agent-sessions/pricing';
 import type {
   EventStoreHistoryResult,
   LoadHistoryEventsInput,
@@ -392,6 +391,8 @@ export type EfficiencyDataResult = {
 
 export type OptimizeDiagnostics = UsageDiagnostics & {
   provider: string;
+  /** Set when, with no --provider, the candidates' provider scoped a multi-provider run. */
+  inferredProvider?: string;
   baselineCostIncomplete: boolean;
   candidatesWithMissingPricing: string[];
   warning?: string;

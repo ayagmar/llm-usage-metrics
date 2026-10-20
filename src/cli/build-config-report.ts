@@ -11,11 +11,11 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import { hasConfigPathOverride } from '../config/user-config.js';
+import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/pricing';
 import {
-  DEFAULT_LITELLM_PRICING_URL,
+  createLiteLLMPricingFetcher,
   getDefaultLiteLLMPricingCachePath,
-  LiteLLMPricingFetcher,
-} from '../pricing/litellm-pricing-fetcher.js';
+} from '../pricing/cli-pricing-fetcher.js';
 import {
   collectRuntimeConfigEntries,
   hasEnvOverride,
@@ -197,7 +197,7 @@ async function inspectPricing(
   deps: BuildConfigReportDeps,
 ): Promise<Pick<ConfigReportData['pricing'], 'cache' | 'pricesFrom' | 'pricesFetchedAt'>> {
   const cachePath = getDefaultLiteLLMPricingCachePath();
-  const fetcher = new LiteLLMPricingFetcher({
+  const fetcher = createLiteLLMPricingFetcher({
     sourceUrl: pricingUrl,
     offline: true,
     cacheTtlMs,

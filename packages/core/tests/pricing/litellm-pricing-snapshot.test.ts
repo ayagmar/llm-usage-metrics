@@ -17,6 +17,7 @@ import {
 import snapshotPayload from '../../src/pricing/litellm-pricing-snapshot.json' with { type: 'json' };
 import retiredPricingPayload from '../../src/pricing/litellm-retired-pricing.json' with { type: 'json' };
 import type { ModelPricing, PricingTier } from '../../src/pricing/types.js';
+import { noNetworkFetch } from '../helpers/no-network.js';
 
 const tempDirs: string[] = [];
 
@@ -89,6 +90,7 @@ describe('LiteLLM pricing snapshot', () => {
     const fetcher = new LiteLLMPricingFetcher({
       offline: true,
       cacheFilePath: '/nonexistent/llm-usage-metrics-snapshot-tiers-cache.json',
+      fetchImpl: noNetworkFetch,
     });
     await fetcher.load();
 
@@ -110,6 +112,7 @@ describe('LiteLLM pricing snapshot', () => {
     const fetcher = new LiteLLMPricingFetcher({
       offline: true,
       cacheFilePath: '/nonexistent/llm-usage-metrics-snapshot-priority-cache.json',
+      fetchImpl: noNetworkFetch,
     });
     await fetcher.load();
 

@@ -63,6 +63,34 @@
       "required": ["databaseBytes", "walBytes", "shmBytes", "totalBytes"],
       "additionalProperties": false
     },
+    "departedFiles": {
+      "description": "Departed files each selector would pick; runs without a selector only, which select nothing.",
+      "type": "object",
+      "properties": {
+        "fileCount": {
+          "description": "Every departed file in the store.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventCount": {
+          "description": "Events inside every departed file.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppressedFileCount": {
+          "description": "Departed files --suppressed selects.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppressedEventCount": {
+          "description": "Events inside the files --suppressed selects.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["fileCount", "eventCount", "suppressedFileCount", "suppressedEventCount"],
+      "additionalProperties": false
+    },
     "summary": {
       "description": "Counts and size effects of the (dry or applied) run.",
       "type": "object",
@@ -98,7 +126,8 @@
           "description": "Bytes reclaimed by the applied run's vacuum.",
           "type": "integer",
           "minimum": 0
-        }
+        },
+        "departedFiles": { "$ref": "#/$defs/departedFiles" }
       },
       "required": ["storePath", "applied", "candidateFileCount", "candidateEventCount"],
       "additionalProperties": false

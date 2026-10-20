@@ -28,6 +28,7 @@ On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache
 
 - read cached npm version if still fresh
 - otherwise perform a bounded fetch (default 1s timeout) for the latest version so the update hint stays consistent across commands
+- a command that finishes before the fetch waits at most 50 ms for it, then hands the refresh to a detached background process and exits; the next run reads the refreshed cache. About one background refresh starts per cache TTL, and none in CI (`CI` set) or with `update.cacheTtlMs = 0`
 - on fetch failure, fallback to previous cached version when available
 - optional session-scoped mode creates a per-shell cache file
 - skipped entirely for `--help`, `--version`, `npx`, and direct source/development runs
@@ -73,9 +74,10 @@ Relevant options/config:
 - deleting the database file deletes retained local history and starts a new ledger on the next run; a ledger once copied from the old cache-directory location is not copied again (a `legacy-ledger-copied` marker beside the ledger records the copy), so delete that old file yourself to reclaim its space
 - legacy JSON cache shards are ignored and safe to delete manually
 
-Prune is dry-run by default:
+Prune is dry-run by default. Without a selector, it counts the departed files each selector would pick and selects nothing:
 
 ```bash
+llm-usage prune
 llm-usage prune --suppressed
 ```
 

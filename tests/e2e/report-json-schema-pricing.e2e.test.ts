@@ -11,7 +11,7 @@ import {
   validateReportOutput,
 } from '../helpers/report-schema-validation.js';
 
-const overridesPath = path.resolve('tests/fixtures/pricing/explain-overrides.json');
+const overridesPath = path.resolve('packages/core/tests/fixtures/pricing/explain-overrides.json');
 
 describe('pricing --json schema', () => {
   useIsolatedEnvironment();

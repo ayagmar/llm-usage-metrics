@@ -143,7 +143,7 @@ llm-usage events --since 2026-06-01 | jq '.totalTokens'
 | Source                 | Local format  | Real logs |
 | ---------------------- | ------------- | --------- |
 | pi                     | JSONL         | checked   |
-| codex                  | JSONL         | checked   |
+| codex                  | JSONL + zstd  | checked   |
 | Gemini CLI             | JSON          | checked   |
 | Droid CLI              | settings JSON | not yet   |
 | OpenCode               | SQLite        | checked   |
@@ -217,9 +217,10 @@ A SQLite event ledger stores normalized events and parse diagnostics. Unchanged 
 llm-usage monthly --no-history
 ```
 
-`prune` is a dry run unless you pass `--apply`:
+`prune` is a dry run unless you pass `--apply`. Run it without a selector to count what each selector would pick:
 
 ```bash
+llm-usage prune
 llm-usage prune --suppressed
 llm-usage prune --departed-before 2026-01-01 --apply
 ```
