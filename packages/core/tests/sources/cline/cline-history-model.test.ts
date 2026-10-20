@@ -1,10 +1,10 @@
 import type * as fsPromises from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { loadHistoryModel } from '../../../src/sources/cline/cline-history-model.js';
 import { asTrimmedText } from '../../../src/sources/parsing-utils.js';
@@ -104,15 +104,9 @@ function findFirstTaggedText(
   return end === -1 ? undefined : content.slice(start + openTag.length, end);
 }
 
-async function loadHistoryModelWhole(historyPath: string): Promise<string | undefined> {
-  let content: string;
-
-  try {
-    content = await readFile(historyPath, 'utf8');
-  } catch {
-    return undefined;
-  }
-
+// The original read the file with `readFile(historyPath, 'utf8')`; decoding the generated
+// bytes the same way skips that read.
+function loadHistoryModelWhole(content: string): string | undefined {
   const lastEnvironmentDetails = findLastTaggedBlock(
     content,
     ENVIRONMENT_DETAILS_OPEN_TAG,
@@ -197,32 +191,62 @@ function randomHistory(random: Random): Buffer {
   return Buffer.concat(pieces);
 }
 
-describe('loadHistoryModel', () => {
-  it('matches the whole-file scan on generated histories at every chunk size', async () => {
-    const tempDir = await createTempDir();
-    const historyPath = path.join(tempDir, 'api_conversation_history.json');
+interface GeneratedHistory {
+  path: string;
+  bytes: Buffer;
+  expected: string | undefined;
+}
+
+const GENERATED_HISTORY_COUNT = 600;
+
+describe('loadHistoryModel on generated histories', () => {
+  let generatedDir: string;
+  const histories: GeneratedHistory[] = [];
+
+  // Each history is written once and read back at every chunk size.
+  beforeAll(async () => {
+    generatedDir = await mkdtemp(path.join(os.tmpdir(), 'cline-history-model-generated-'));
     const random = mulberry32(0x0c11_7e5d);
-    let modelsFound = 0;
 
-    for (let iteration = 0; iteration < 600; iteration += 1) {
+    for (let index = 0; index < GENERATED_HISTORY_COUNT; index += 1) {
       const bytes = randomHistory(random);
-      await writeFile(historyPath, bytes);
-      const expected = await loadHistoryModelWhole(historyPath);
-      modelsFound += expected === undefined ? 0 : 1;
-
-      for (const chunkSize of CHUNK_SIZES) {
-        expect(
-          await loadHistoryModel(historyPath, chunkSize),
-          `chunk ${String(chunkSize)}: ${JSON.stringify(bytes.toString('latin1'))}`,
-        ).toBe(expected);
-      }
+      const historyPath = path.join(generatedDir, `history-${String(index)}.json`);
+      histories.push({
+        path: historyPath,
+        bytes,
+        expected: loadHistoryModelWhole(bytes.toString('utf8')),
+      });
     }
 
-    // Enough histories have a model that a scanner returning nothing could not pass.
-    expect(modelsFound).toBeGreaterThan(150);
-    // 600 generated histories at every chunk size exceed the 5 s default under load.
-  }, 30_000);
+    await Promise.all(histories.map((history) => writeFile(history.path, history.bytes)));
+  });
 
+  afterAll(async () => {
+    await rm(generatedDir, { recursive: true, force: true });
+  });
+
+  it('finds a model in enough histories that a scanner returning nothing could not pass', () => {
+    const modelsFound = histories.filter((history) => history.expected !== undefined).length;
+    expect(modelsFound).toBeGreaterThan(150);
+  });
+
+  // One test per chunk size, so each gets its own timeout: chunk size 1 reads one byte per
+  // call and takes the longest, several times longer on Windows CI than on Linux.
+  it.each(CHUNK_SIZES)(
+    'matches the whole-file scan at chunk size %s',
+    async (chunkSize) => {
+      for (const history of histories) {
+        expect(
+          await loadHistoryModel(history.path, chunkSize),
+          JSON.stringify(history.bytes.toString('latin1')),
+        ).toBe(history.expected);
+      }
+    },
+    30_000,
+  );
+});
+
+describe('loadHistoryModel', () => {
   it('returns the last complete block model, ignoring an unclosed block after it', async () => {
     const tempDir = await createTempDir();
     const historyPath = path.join(tempDir, 'api_conversation_history.json');
