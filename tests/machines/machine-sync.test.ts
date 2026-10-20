@@ -125,7 +125,8 @@ describe('machine add, sync, list and remove', () => {
 
     expect(printed).toEqual([
       expect.stringMatching(/^✓ laptop: up to date; 1 file, 2 events cached/),
-      'laptop  me@laptop  synced 5 min ago, 1 file, 2 events',
+      'Machine  SSH target  Status',
+      'laptop   me@laptop   synced 5 min ago, 1 file, 2 events',
     ]);
   });
 

@@ -444,12 +444,20 @@ describe('reports with other machines', () => {
       },
     );
 
+    // An ssh target equal to the name is not repeated after the machine:<name> id.
+    const configPath = path.join(rootDir, 'local', 'config.toml');
+    await writeFile(
+      configPath,
+      `${await readFile(configPath, 'utf8')}[machines.vps]\nssh = "vps"\n`,
+    );
+
     const results = await buildDoctorResults({});
 
     const machineRows = results.filter((result) => result.format === 'ssh');
 
     expect(machineRows).toMatchObject([
       { id: 'machine:laptop', format: 'ssh', status: 'error', itemsFound: 4 },
+      { id: 'machine:vps', format: 'ssh', status: 'ok', detail: 'never synced' },
     ]);
     expect(machineRows[0].error).toMatch(
       /^me@laptop: synced just now, 2 files, 4 events; last attempt failed just now: ssh failed/,
