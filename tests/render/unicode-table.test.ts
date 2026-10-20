@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { visibleWidth, wrapTableColumn } from '../../src/render/table-text-layout.js';
-import { renderUnicodeTable, type TableRowMeta } from '../../src/render/unicode-table.js';
+import {
+  renderUnicodeTable,
+  renderUnicodeTableWithFit,
+  type TableRowMeta,
+} from '../../src/render/unicode-table.js';
 
 function createRowMeta(overrides: Partial<TableRowMeta> = {}): TableRowMeta {
   return {
@@ -207,7 +211,11 @@ describe('renderUnicodeTable', () => {
     const abbreviatedRows = [[tool, '1,250', '1.23M', 'llm-usage-metrics']];
 
     function renderAt(terminalWidth: number | undefined): string {
-      return renderUnicodeTable({
+      return renderWithFitAt(terminalWidth).output;
+    }
+
+    function renderWithFitAt(terminalWidth: number | undefined) {
+      return renderUnicodeTableWithFit({
         headerCells: headers,
         bodyRows: fullRows,
         measureHeaderCells: headers,
@@ -256,6 +264,25 @@ describe('renderUnicodeTable', () => {
         '  Tokens       1,234,567',
         '  Top Project  llm-usage-metrics',
       ]);
+    });
+
+    it('reports the step it took, naming hidden columns by header', () => {
+      expect(renderWithFitAt(76).fit).toEqual({
+        abbreviatedTokens: false,
+        hiddenHeaders: [],
+        stacked: false,
+      });
+      expect(renderWithFitAt(75).fit).toMatchObject({ abbreviatedTokens: true, hiddenHeaders: [] });
+      expect(renderWithFitAt(52).fit).toMatchObject({
+        abbreviatedTokens: true,
+        hiddenHeaders: ['Top Project', 'Calls'],
+      });
+      // A list shows every column in full, so it reports no other change.
+      expect(renderWithFitAt(44).fit).toEqual({
+        abbreviatedTokens: false,
+        hiddenHeaders: [],
+        stacked: true,
+      });
     });
 
     it('never renders a boxed line wider than the terminal', () => {
