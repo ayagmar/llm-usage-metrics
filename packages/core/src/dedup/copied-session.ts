@@ -102,69 +102,83 @@ function findEventsOtherSessionsHold<E extends UsageEvent>(events: readonly E[])
   return candidates;
 }
 
-// The identity each candidate is counted under: its usage and request ids. Candidates
-// without ids, stored or exported before events carried them, take the request keys of
-// the candidates with the same usage in sorted order, one key per event of their session
-// and the last key again when they run out, so such a copy still matches its original.
-// Keys the session's events with ids already hold come last: an event without ids in the
-// same session is another request.
-// Which of several distinct requests an id-less event stands for cannot be known; it can
-// take the key of another session's distinct request, which then counts as the copy.
+// The identity each candidate is counted under: its usage and a request slot. Copies of
+// a request take the same slot, and repeats of a request key within a session take
+// successive slots, so each slot counts once. A candidate without ids, stored or exported
+// before events carried them, takes a slot its session does not hold yet: first the slots
+// of other sessions' events with ids, in sorted order, then anonymous ones. A usage group
+// thus counts the slots with ids or the events of its largest session, whichever is more:
+// the fewest requests its sessions can be copies of. Which request an id-less event stands
+// for cannot be known; it can take the slot of another session's distinct request, which
+// then counts as the copy.
 function getCopyIdentities<E extends UsageEvent>(candidates: ReadonlySet<E>): Map<E, string> {
-  const keysByUsage = new Map<string, Set<string>>();
-  const sessionKeysBySessionUsage = new Map<string, Set<string>>();
-
-  for (const event of candidates) {
-    const key = getRequestKey(event);
-
-    if (key !== undefined) {
-      const usageIdentity = getUsageIdentity(event);
-      const sessionUsage = `${event.sessionId}\0${usageIdentity}`;
-      const keys = keysByUsage.get(usageIdentity) ?? new Set<string>();
-      const sessionKeys = sessionKeysBySessionUsage.get(sessionUsage) ?? new Set<string>();
-      keys.add(key);
-      sessionKeys.add(key);
-      keysByUsage.set(usageIdentity, keys);
-      sessionKeysBySessionUsage.set(sessionUsage, sessionKeys);
-    }
-  }
-
-  const sortedKeysByUsage = new Map(
-    [...keysByUsage].map(([usageIdentity, keys]) => [
-      usageIdentity,
-      [...keys].sort(compareByCodePoint),
-    ]),
-  );
-  const idlessKeysBySessionUsage = new Map<string, string[]>();
-  const idlessSeen = new Map<string, number>();
-  const identities = new Map<E, string>();
+  const sessionsByUsage = new Map<string, Map<string, E[]>>();
 
   for (const event of candidates) {
     const usageIdentity = getUsageIdentity(event);
-    let key = getRequestKey(event);
+    const sessions = sessionsByUsage.get(usageIdentity) ?? new Map<string, E[]>();
+    const sessionEvents = sessions.get(event.sessionId) ?? [];
+    sessionEvents.push(event);
+    sessions.set(event.sessionId, sessionEvents);
+    sessionsByUsage.set(usageIdentity, sessions);
+  }
 
-    if (key === undefined) {
-      const sessionUsage = `${event.sessionId}\0${usageIdentity}`;
-      let keys = idlessKeysBySessionUsage.get(sessionUsage);
+  const identities = new Map<E, string>();
 
-      if (keys === undefined) {
-        const sessionKeys = sessionKeysBySessionUsage.get(sessionUsage);
-        const sortedKeys = sortedKeysByUsage.get(usageIdentity) ?? [];
-        keys = sessionKeys
-          ? [
-              ...sortedKeys.filter((candidate) => !sessionKeys.has(candidate)),
-              ...sortedKeys.filter((candidate) => sessionKeys.has(candidate)),
-            ]
-          : sortedKeys;
-        idlessKeysBySessionUsage.set(sessionUsage, keys);
+  for (const [usageIdentity, sessions] of sessionsByUsage) {
+    // Each request key has as many slots as the most events one session holds with it.
+    const slotCounts = new Map<string, number>();
+
+    for (const events of sessions.values()) {
+      const sessionCounts = new Map<string, number>();
+
+      for (const event of events) {
+        const key = getRequestKey(event);
+
+        if (key !== undefined) {
+          const count = (sessionCounts.get(key) ?? 0) + 1;
+          sessionCounts.set(key, count);
+          slotCounts.set(key, Math.max(count, slotCounts.get(key) ?? 0));
+        }
       }
-
-      const seen = idlessSeen.get(sessionUsage) ?? 0;
-      idlessSeen.set(sessionUsage, seen + 1);
-      key = keys[Math.min(seen, keys.length - 1)] ?? '';
     }
 
-    identities.set(event, `${usageIdentity}\0${key}`);
+    const sortedKeys = [...slotCounts.keys()].sort(compareByCodePoint);
+
+    for (const events of sessions.values()) {
+      const heldSlots = new Map<string, number>();
+      const idlessEvents: E[] = [];
+
+      for (const event of events) {
+        const key = getRequestKey(event);
+
+        if (key === undefined) {
+          idlessEvents.push(event);
+          continue;
+        }
+
+        const slot = heldSlots.get(key) ?? 0;
+        heldSlots.set(key, slot + 1);
+        identities.set(event, `${usageIdentity}\0${key}\0${slot}`);
+      }
+
+      if (idlessEvents.length === 0) {
+        continue;
+      }
+
+      const freeSlots = sortedKeys.flatMap((key) =>
+        Array.from(
+          { length: (slotCounts.get(key) ?? 0) - (heldSlots.get(key) ?? 0) },
+          (_, index) => `${key}\0${(heldSlots.get(key) ?? 0) + index}`,
+        ),
+      );
+
+      // A request key is never empty, so an anonymous slot is never a slot with ids.
+      for (const [index, event] of idlessEvents.entries()) {
+        const slot = freeSlots[index] ?? `\0${index - freeSlots.length}`;
+        identities.set(event, `${usageIdentity}\0${slot}`);
+      }
+    }
   }
 
   return identities;
