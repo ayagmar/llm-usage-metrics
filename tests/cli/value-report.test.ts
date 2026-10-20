@@ -13,6 +13,7 @@ import {
   renderValueReport,
   renderValueReportWithNotes,
 } from '../../src/render/render-value-report.js';
+import { visibleWidth } from '../../src/render/table-text-layout.js';
 import type { ValueCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { ValueReportData } from '../../src/value/build-value-report.js';
@@ -349,6 +350,23 @@ describe('value report', () => {
     // One line for May's project, four for June's, never two projects on a line.
     expect(projectLines).toHaveLength(5);
     expect(projectLines.every((line) => line.split('•').length === 2)).toBe(true);
+  });
+
+  it('wraps the notes under the tables to the terminal width', async () => {
+    const { data } = await buildValueData(baseOptions, deps);
+
+    for (const terminalWidth of [120, 80]) {
+      const output = renderValueReport(data, 'terminal', { useColor: false, terminalWidth });
+      const notes = output
+        .slice(output.lastIndexOf('╯') + 1)
+        .trim()
+        .split('\n');
+
+      expect(notes.join(' ')).toContain('(positive: the plan cost less)');
+      for (const line of notes) {
+        expect(visibleWidth(line)).toBeLessThanOrEqual(terminalWidth);
+      }
+    }
   });
 
   it('says on stderr, not in the report, that a narrow terminal listed the rows', async () => {

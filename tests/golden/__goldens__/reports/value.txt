@@ -31,5 +31,7 @@ chatgpt-plus: $20.00/month list price as of 2026-10-15, sources: codex
 ╰──────────┴─────────────────────────────────┴────────┴──────────┴────────┴────────────┴────────────╯
 
 Months marked * are partial: the window does not cover all of the month, or it is the current month (not prorated)
-API Cost is the estimated pay-as-you-go price of the same usage; Difference = API Cost - Plan (positive: the plan cost less)
-Plan prices as of 2026-10-15, USD per month excluding tax; check current prices at https://claude.com/pricing, https://chatgpt.com/pricing, https://developers.openai.com/codex/pricing
+API Cost is the estimated pay-as-you-go price of the same usage; Difference = API Cost - Plan (positive: the plan cost
+less)
+Plan prices as of 2026-10-15, USD per month excluding tax; check current prices at https://claude.com/pricing,
+https://chatgpt.com/pricing, https://developers.openai.com/codex/pricing

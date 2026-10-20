@@ -20,7 +20,9 @@ import {
   padEndVisible,
   padStartVisible,
   resolveTtyColumns,
+  splitCellLines,
   visibleWidth,
+  wrapProse,
 } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import {
@@ -235,6 +237,7 @@ function renderTerminalValueReport(
 
   const fits: TableFitChanges[] = [];
   const roles = createColorRoles(useColor);
+  const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
 
   for (const plan of data.plans) {
     const rows = toTableRows(plan, { ...options, useColor, align: true });
@@ -255,14 +258,17 @@ function renderTerminalValueReport(
       multilineColumnIndex: 1,
       // Narrow terminals list each project on its own line, not in the month's title.
       stackedTitleColumnCount: 1,
-      terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
+      terminalWidth,
     });
 
     lines.push(output, '');
     fits.push(fit);
   }
 
-  const footerLines = buildFooterLines(data, options);
+  // Dim each line on its own, so no style carries across a wrapped line.
+  const footerLines = buildFooterLines(data, options).flatMap((line) =>
+    splitCellLines(wrapProse(line, terminalWidth)),
+  );
   lines.push(...(useColor ? footerLines.map((line) => pc.dim(line)) : footerLines));
 
   const fitNote = describeTableFit(...fits);
