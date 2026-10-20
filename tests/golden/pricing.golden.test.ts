@@ -33,7 +33,7 @@ export const PRICING_GOLDEN_MODELS: readonly string[] = [
   '  GPT-5.5  ',
 ];
 
-const overridesPath = path.resolve('tests/fixtures/pricing/explain-overrides.json');
+const overridesPath = path.resolve('packages/core/tests/fixtures/pricing/explain-overrides.json');
 
 const TERMINAL_COLUMNS = 120;
 

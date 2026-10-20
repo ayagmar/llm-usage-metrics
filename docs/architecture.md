@@ -109,7 +109,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 ### Pricing
 
-`runPricingReport(models, options)` loads the pricing source like a report does and runs `explainModelPricing(...)` (`src/pricing/explain-model-pricing.ts`) for each model name: the matched key and rule, overrides, where the prices came from, rates and tiers. It never reads usage.
+`runPricingReport(models, options)` loads the pricing source like a report does and runs `explainModelPricing(...)` (`packages/core/src/pricing/explain-model-pricing.ts`) for each model name: the matched key and rule, overrides, where the prices came from, rates and tiers. It never reads usage.
 
 ### Efficiency
 
@@ -301,8 +301,10 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`) and `readSources`, which reads and dedupes whole sources for library users (the CLI does not use it), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
 - `src/domain`
   The CLI's usage event and report row contracts
+- `packages/core/src/pricing`
+  LiteLLM pricing loader, cache file, model matching, cost engine, long-context tiers, and `explain-model-pricing.ts` for the `pricing` command; the CLI imports it as `@ayagmar/agent-sessions/pricing`, a path the core package does not export yet
 - `src/pricing`
-  LiteLLM pricing loader, cache, model matching, cost engine, long-context tiers, and `explain-model-pricing.ts` for the `pricing` command
+  `createLiteLLMPricingFetcher`: the core fetcher with the user cache path and the global `fetch`
 - `src/persistence`
   SQLite event-store ledger, schema migrations, history suppression
 - `src/machines`

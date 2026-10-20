@@ -171,6 +171,10 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'isJsonlReadCursor',
     // M7-G
     'toSqliteDbReadError',
+    // pricing step 1: the CLI's file writers, shared with the pricing fetcher
+    'ensureDirectory',
+    'readRegularTextFile',
+    'writeFileAtomic',
   ],
   './otel': [
     // T-otel

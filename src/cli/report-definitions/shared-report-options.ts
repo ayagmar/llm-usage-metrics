@@ -2,7 +2,7 @@ import { type Command, Option } from 'commander';
 
 import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 import { getSourceOverrideOptions } from '../source-cli-options.js';
-import type { PricingCostMode } from '../../pricing/cost-engine.js';
+import type { PricingCostMode } from '@ayagmar/agent-sessions/pricing';
 import type { SharedOptionProfile } from './report-definition-types.js';
 
 const COST_MODES = ['explicit', 'estimated', 'both'] as const satisfies readonly PricingCostMode[];

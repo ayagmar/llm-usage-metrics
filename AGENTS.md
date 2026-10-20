@@ -34,14 +34,14 @@ Before opening a PR:
 - `src/cli`: command wiring and report orchestration
 - `packages/core/src/sources`: source adapters + discovery/parsing (package `@ayagmar/agent-sessions`; registry in `packages/core/src/registry`)
 - `src/domain`: normalized data contracts
-- `src/pricing`: pricing source + cost engine
+- `packages/core/src/pricing`: pricing source + cost engine (`src/pricing` only adds the CLI's cache path and `fetch`)
 - `src/aggregate`: usage bucketing/totals
 - `src/render`: terminal/markdown/json output formatting
 - `src/update`: startup update notifier
 - `src/config`: runtime override/env-var resolution
 - `src/utils`: shared fs/discovery/time/logging helpers
 
-Keep source-specific parsing logic inside adapters. Keep pricing logic in `src/pricing`. Keep rendering concerns in `src/render`.
+Keep source-specific parsing logic inside adapters. Keep pricing logic in `packages/core/src/pricing`. Keep rendering concerns in `src/render`.
 
 ## Coding Style
 
@@ -66,7 +66,7 @@ Keep source-specific parsing logic inside adapters. Keep pricing logic in `src/p
   `reasoningTokens` as a breakdown. When `reasoningTokens > 0`, pass `totalTokens`
   explicitly: `createUsageEvent` adds reasoning to a computed total. Check new sources
   against real logs, not only fixtures.
-- Pricing: `tests/pricing/model-resolution-reference.test.ts` pins how real model names
+- Pricing: `packages/core/tests/pricing/model-resolution-reference.test.ts` pins how real model names
   resolve. When the matcher, model map, or snapshot changes, review every moved row and
   update it deliberately. A snapshot refresh lists models removed upstream; review that
   list, since those prices move to `litellm-retired-pricing.json` unless a live key
@@ -92,7 +92,7 @@ Keep source-specific parsing logic inside adapters. Keep pricing logic in `src/p
 - Place tests by area:
   - `tests/cli`
   - `packages/core/tests/sources`
-  - `tests/pricing`
+  - `packages/core/tests/pricing`
   - `tests/render`
   - `tests/e2e`
 - For new sources, add fixture-based parser tests and adapter wiring tests.

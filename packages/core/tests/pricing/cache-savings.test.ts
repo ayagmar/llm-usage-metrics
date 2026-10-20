@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
+import {
+  createPricedUsageEvent,
+  type PricedUsageEventInput,
+} from '../helpers/priced-usage-event.js';
 import { estimateCacheSavingsUsd } from '../../src/pricing/cache-savings.js';
 import { DEFAULT_PRICING_POLICY } from '../../src/pricing/cost-engine.js';
 import type { ModelPricing, PricingSource } from '../../src/pricing/types.js';
 
-function event(overrides: Partial<UsageEventInput> = {}) {
-  return createUsageEvent({
+function event(overrides: Partial<PricedUsageEventInput> = {}) {
+  return createPricedUsageEvent({
     source: 'codex',
     sessionId: 'cache-savings-session',
     timestamp: '2026-02-01T10:00:00.000Z',

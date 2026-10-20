@@ -29,7 +29,7 @@ The main entry also exports these helpers:
 
 ## Security posture
 
-- **Read-only.** Adapters open files and databases for reading only. SQLite databases are opened with `readOnly: true`; SQLite itself may still update a WAL database's `-shm` index, as any reader does. The core writes no data to an agent's store and no files of its own.
+- **Read-only.** Adapters open files and databases for reading only. SQLite databases are opened with `readOnly: true`; SQLite itself may still update a WAL database's `-shm` index, as any reader does. The core writes no data to an agent's store and no files of its own. `./internal` also ships the CLI's file-writing helpers (`ensureDirectory`, `writeFileAtomic`), which no published entry calls yet.
 - **No network.** The core imports no network module and calls no network API; lint enforces both.
 - **Nothing read at import.** Importing any entry reads no file, environment variable or home directory. Host state comes from a `SourceContext`, filled when you call `createSourceContext()` or build an adapter.
 - **Private text is opt-in.** Message text and session titles are set only with `text: true`, and the parsed source record only with `raw: true`. Without them, events carry counts, ids, models, timestamps, `cwd`, `repoRoot` and `gitBranch`. See [Privacy](#privacy).

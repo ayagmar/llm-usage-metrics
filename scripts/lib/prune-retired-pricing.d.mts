@@ -1,4 +1,4 @@
-import type { ModelPricing } from '../../src/pricing/types.js';
+import type { ModelPricing } from '../../packages/core/src/pricing/types.js';
 
 export function pricingProbeNames(modelName: string): string[];
 

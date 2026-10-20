@@ -39,7 +39,7 @@ Main directories:
 - `src/cli`: command wiring and report orchestration
 - `packages/core/src/sources`: source adapters (`pi`, `codex`, etc.), in the `@ayagmar/agent-sessions` package
 - `src/domain`: normalized event/report types
-- `src/pricing`: pricing loaders + cost engine
+- `packages/core/src/pricing`: pricing loaders + cost engine
 - `src/persistence`: SQLite event store, migrations, and departed-file history
 - `src/machines`: other machines' usage: `machine export`, ssh sync, and per-machine caches
 - `src/aggregate`: period aggregation
@@ -106,7 +106,7 @@ llm-usage daily --source <new-source-id>
 
 ## Adding/changing pricing behavior
 
-- Implement or adjust a `PricingSource` in `src/pricing`.
+- Implement or adjust a `PricingSource` in `packages/core/src/pricing`.
 - Keep explicit cost untouched.
 - Keep estimation logic deterministic.
 - Add tests for missing pricing, aliasing, and edge values.
@@ -148,5 +148,5 @@ Then:
 
 - Review the full diff with fresh eyes, or have someone (or a review agent) do it, before pushing.
 - Keep the PR to one concern.
-- If the change touches pricing, check `tests/pricing/model-resolution-reference.test.ts`. Update any row whose resolution moves, and only on purpose.
+- If the change touches pricing, check `packages/core/tests/pricing/model-resolution-reference.test.ts`. Update any row whose resolution moves, and only on purpose.
 - If an adapter's output changes, bump its `parserVersion` (see `AGENTS.md`, Correctness Guardrails).

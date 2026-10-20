@@ -4,7 +4,7 @@ import type {
   ExplainedModelPricing,
   ExplainedTier,
   PricingReportData,
-} from '../pricing/explain-model-pricing.js';
+} from '@ayagmar/agent-sessions/pricing';
 import { formatInteger } from './format-number.js';
 import { toMarkdownSafeCell, toMarkdownSafeCodeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
