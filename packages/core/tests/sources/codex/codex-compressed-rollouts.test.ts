@@ -147,6 +147,17 @@ describe('CodexSourceAdapter over compressed rollouts', () => {
     await expect(collectFile(adapter, emptyPath)).rejects.toThrow();
   });
 
+  it('fails a rollout of several zstd frames instead of reading only the first', async () => {
+    const root = await createTempDir();
+    const filePath = path.join(root, 'frames.jsonl.zst');
+    const frame = zstdCompressSync(Buffer.from(largeRollout(10)));
+    await writeFile(filePath, Buffer.concat([frame, frame]));
+
+    await expect(collectFile(new CodexSourceAdapter({ dir: root }), filePath)).rejects.toThrow(
+      /after its first frame/u,
+    );
+  });
+
   it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
     const root = await createTempDir();
     const compressedPath = await writeCompressed(path.join(root, ROLLOUT), largeRollout(3000));

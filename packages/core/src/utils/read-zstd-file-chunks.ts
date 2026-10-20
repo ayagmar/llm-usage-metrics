@@ -3,7 +3,7 @@ import { open } from 'node:fs/promises';
 import { createZstdDecompress } from 'node:zlib';
 
 /** Zstandard frame magic number, little-endian encoding of `0xFD2FB528`. */
-const ZSTD_FRAME_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
+export const ZSTD_FRAME_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
 
 /** Magic, descriptor, window descriptor, a 4-byte dictionary id and an 8-byte content size. */
 const MAX_FRAME_HEADER_BYTES = 18;
@@ -47,7 +47,8 @@ function readFrameContentSize(header: Buffer, filePath: string): number | undefi
  * Yields a zstd file's decompressed bytes as they decode, so memory stays bounded by a
  * chunk, and closes the file before a return or throw finishes. Node 22 and Bun end a
  * truncated stream without an error, so a decode shorter than the size the first frame
- * declares throws here, as Node 24 does.
+ * declares throws here, as Node 24 does. A file of several frames throws on Node, which
+ * would decode only the first; Codex writes one.
  */
 export async function* readZstdFileChunks(
   filePath: string,
@@ -71,6 +72,11 @@ export async function* readZstdFileChunks(
 
     if (contentSize !== undefined && decodedBytes < contentSize) {
       throw new Error(`Zstd file is truncated: ${filePath}`);
+    }
+
+    // Node decodes only the first frame and ignores what follows it.
+    if (decompress.bytesWritten < compressed.bytesRead) {
+      throw new Error(`Zstd file has data after its first frame: ${filePath}`);
     }
   } finally {
     compressed?.destroy();

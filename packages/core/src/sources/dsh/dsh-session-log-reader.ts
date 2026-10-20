@@ -5,6 +5,7 @@ import { createZstdDecompress } from 'node:zlib';
 
 import { asRecord } from '../../utils/as-record.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { ZSTD_FRAME_MAGIC } from '../../utils/read-zstd-file-chunks.js';
 
 export type DshSessionLogReadOptions = {
   shouldParseLine: (lineText: string) => boolean;
@@ -20,9 +21,6 @@ export class DshSessionLogUnreadableError extends Error {
     this.name = 'DshSessionLogUnreadableError';
   }
 }
-
-/** Zstandard frame magic number, little-endian encoding of `0xFD2FB528`. */
-const ZSTD_FRAME_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
 
 const UNDECODABLE_FRAME_REASON = 'undecodable_jsonl_frame';
 
