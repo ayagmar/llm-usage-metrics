@@ -46,6 +46,8 @@ The terminal report is a boxed **Session Usage Report** table with `Session`, `S
 Showing top 20 of 1,653 sessions by cost. Use --top 0 for all.
 ```
 
+On a terminal too narrow for the table, `Total` is abbreviated (`1.07B`), then columns are hidden: Models, Duration, Last Activity and Source (Sources and Last Activity with `--by-repo`), and a note on `stderr` says what was left out. Each row is listed as labelled values only when even that table does not fit. `--json` and `--markdown` always carry every column.
+
 <TerminalShot src={termSession} label="llm-usage session --top 5 output" alt="Terminal output of llm-usage session --top 5: the five costliest sessions with their source, project, last activity, duration, total tokens, cost, and models" />
 
 `--by-repo` replaces the per-session rows with one row per project, the working directory the tool recorded (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a recorded directory are grouped under `(unattributed)`.
@@ -63,16 +65,17 @@ The `--id` value must match exactly one session in the window. When it matches s
 Pass more of the session id to --id, or narrow with --source.
 ```
 
-Requests come from the same data as every other report, history included. Between them, the timeline shows the session's tool calls and its user and assistant turns (Claude Code, Codex and pi log them; other sources show requests only). They come from the event store, or from the session file with the store off. The store keeps a turn's role, ids, model and text length, never its text. A departed file that history serves keeps its tool calls and turns. Another machine's session has them from its last sync, once that machine runs this version too, and a note on `stderr` says what was read. A resumed or forked session can copy its parent's history: copied tool calls stay with the parent, as [`tools`](/llm-usage-metrics/tools/) counts them, but copied turns carry no id to match them by, so they show in both sessions. To match those copies, the timeline reads the tool calls of every file of the session's source in the window; with the store off, that reads every one of those files from disk, which on large logs takes a few seconds. The terminal and Markdown tables fold everything between two requests into one line, such as `1 user turn · 12 tool calls: Bash ×7, Read ×5, 1 error`. No rows are cut: a long session prints every request.
+Requests come from the same data as every other report, history included. Between them, the timeline shows the session's tool calls and its user and assistant turns (Claude Code, Codex and pi log them; other sources show requests only). They come from the event store, or from the session file with the store off. The store keeps a turn's role, ids, model and text length, never its text. A departed file that history serves keeps its tool calls and turns. Another machine's session has them from its last sync, once that machine runs this version too, and a note on `stderr` says what was read. A resumed or forked session can copy its parent's history: copied tool calls stay with the parent, as [`tools`](/llm-usage-metrics/tools/) counts them, but copied turns carry no id to match them by, so they show in both sessions. To match those copies, the timeline reads the tool calls of every file of the session's source in the window; with the store off, that reads every one of those files from disk, which on large logs takes a few seconds. The terminal and Markdown tables fold everything between two requests into one line, such as `1 user turn · 12 tool calls: Bash ×7, Read ×5, 1 error`. No rows are cut: a long session prints every request. On a narrow terminal the timeline abbreviates token counts, then hides Cache Write, Running, Input and Cache Read, lists rows only when even that does not fit, and says so on `stderr`.
 
 ## JSON shape
 
-Default `--json` returns an array of session rows under `data`:
+Default `--json` returns an array of session rows under `data`, and `rowCount`, the number of rows before `--top`, beside it:
 
 ```json
 {
   "schemaVersion": 1,
   "report": "session",
+  "rowCount": 1653,
   "data": [
     {
       "rowType": "session",
@@ -114,6 +117,6 @@ Session rows in `--json` also carry what the tables leave out:
 - `filePaths`: the absolute paths of the local files this run counted whose stored usage carries the session id, departed files included. The list is not narrowed to the date window. It comes from the event store, so it is omitted with the store off and for a session only another machine logged; a file the store could not fingerprint is left out.
 - `toolCalls` and `toolErrors`: the session's tool calls in the date window, and those whose result records an error, deduplicated as [`tools`](/llm-usage-metrics/tools/) deduplicates them: a call a resumed or forked session copied counts once, for the session whose file is read first. They come from the event store, or from the session files with the store off, which on large logs takes a few seconds, and only Claude Code, Codex and pi log them: sessions of other sources have neither field. Neither is there for a source whose files, or another machine's cache, could not be read, so a failed read never shows as 0; a warning on `stderr` names the failed reads, and a note says where the calls came from, as `tools` does. Another machine's sessions get them from its last sync: until that machine syncs from this version, they count 0.
 
-`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `lastActivity`, `sources`, and the same token and cost totals). The `(unattributed)` row has no `repoRoot`. `--timeline --json` returns an object under `data`: `session`, the matched session row with the same fields, and `rows` in time order. Each row has a `kind`: `usage` rows carry `timestamp`, `model`, the token buckets, `costUsd`, `runningCostUsd`, and `runningCostIncomplete` when this or an earlier request has no price; `tool_call` rows carry `timestamp`, `name` and `status` (`ok`, `error`, or `unknown` when the file has no result); `message` rows carry `timestamp` and `role`, never the text. JSON rows are not folded.
+`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `lastActivity`, `sources`, and the same token and cost totals), with `rowCount` beside it as well. The `(unattributed)` row has no `repoRoot`. `--timeline --json` returns an object under `data`: `session`, the matched session row with the same fields, and `rows` in time order. Each row has a `kind`: `usage` rows carry `timestamp`, `model`, the token buckets, `costUsd`, `runningCostUsd`, and `runningCostIncomplete` when this or an earlier request has no price; `tool_call` rows carry `timestamp`, `name` and `status` (`ok`, `error`, or `unknown` when the file has no result); `message` rows carry `timestamp` and `role`, never the text. JSON rows are not folded.
 
 The full contract is [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json).

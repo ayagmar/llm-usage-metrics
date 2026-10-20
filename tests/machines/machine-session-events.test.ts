@@ -194,6 +194,32 @@ describe('tool calls and turns of other machines', () => {
     expect((await tools(local, ['laptop'])).data).toEqual((await tools(remote)).data);
   });
 
+  it('gets the request ids a reader without them dropped once the reader upgrades', async () => {
+    // The laptop already exports ids; a reader that predates them stored its revisions
+    // without them, and marked the cache as keeping only tool calls and messages.
+    await sync((bundle) => bundle.replaceAll(/,"(?:messageId|requestId)":"[^"]*"/gu, ''));
+    const stale = await openMachineCache('laptop');
+    stale.database.prepare("UPDATE meta SET value = '1' WHERE key = 'sessionEventsKept'").run();
+    closeEventStore(stale);
+
+    const { spawnSsh } = createInProcessRemote(remote);
+    const outcome = await syncMachine('laptop', { ssh: 'me@laptop' }, { spawnSsh });
+
+    expect(outcome).toMatchObject({ ok: true, result: { receivedFileCount: 3 } });
+    const cache = await openMachineCache('laptop');
+
+    try {
+      const claudeEvents = listStoredFileFingerprints(cache)
+        .filter((file) => file.source === 'claude')
+        .flatMap((file) => readFileEvents(cache, file.source, file.filePath) ?? []);
+
+      expect(claudeEvents.length).toBeGreaterThan(0);
+      expect(claudeEvents.every((event) => event.messageId !== undefined)).toBe(true);
+    } finally {
+      closeEventStore(cache);
+    }
+  });
+
   it('reads no tool calls from a cache last synced before the store kept them', async () => {
     await sync();
     // As a sync by 0.11.0 left it: schema v4, without the tables; reports never migrate it.

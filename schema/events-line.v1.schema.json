@@ -56,6 +56,14 @@
     "singleRequest": {
       "description": "Present when the event records exactly one model request, so long-context tier rates can apply to it. Absent when it can sum several requests, and from events written by versions before 0.12.",
       "const": true
+    },
+    "messageId": {
+      "description": "The response id the source logged for the request (claude). A copy of the request in another session keeps it. Absent for other sources and from events written by versions up to 0.12.1.",
+      "type": "string"
+    },
+    "requestId": {
+      "description": "The API request id the source logged (claude). Absent when the source logged none, for other sources, and from events written by versions up to 0.12.1.",
+      "type": "string"
     }
   },
   "required": ["source", "sessionId", "timestamp", "costMode"],

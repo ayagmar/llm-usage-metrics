@@ -8,7 +8,11 @@ import {
   mergeMachineSessionEvents,
   type ParserVersions,
 } from '../../src/machines/merge-machine-events.js';
-import { createMessageEvent, createToolCallEvent } from '@ayagmar/agent-sessions';
+import {
+  createMessageEvent,
+  createToolCallEvent,
+  dedupeCopiedSessions,
+} from '@ayagmar/agent-sessions';
 
 function event(sessionId: string, minute: number): UsageEvent {
   return createUsageEvent({
@@ -73,6 +77,111 @@ describe('mergeMachineEvents', () => {
 
     expect(laptop).toMatchObject({ events: [event('shared', 0)], duplicateCount: 1 });
     expect(vps).toMatchObject({ events: [event('vps', 0)], duplicateCount: 2 });
+  });
+
+  it('counts a request once when a session stored without ids continues with ids', () => {
+    // Two requests in the same millisecond with the same usage, in session a and in b, its
+    // continuation. This machine stored a's msg_2 before events had ids.
+    function request(sessionId: string, messageId?: string): UsageEvent {
+      return createUsageEvent({ ...event(sessionId, 0), messageId });
+    }
+
+    const local = [request('a')];
+    const [laptop] = mergeMachineEvents(
+      local,
+      [
+        {
+          name: 'laptop',
+          events: [
+            request('a', 'msg_2'),
+            request('a', 'msg_1'),
+            request('b', 'msg_2'),
+            request('b', 'msg_1'),
+          ],
+          parserVersions: versions,
+        },
+      ],
+      versions,
+    );
+
+    expect(dedupeCopiedSessions([...local, ...laptop.events])).toEqual([
+      request('a'),
+      request('a', 'msg_1'),
+    ]);
+  });
+
+  it('counts each request once when several sessions hold some of them without ids', () => {
+    // Three requests in the same millisecond with the same usage. This machine stored
+    // msg_2 and msg_3 of session a before events had ids; the laptop has all of a and c's
+    // copies of msg_1 and msg_2; an older vps holds b's copies of all three without ids.
+    function request(sessionId: string, messageId?: string): UsageEvent {
+      return createUsageEvent({ ...event(sessionId, 0), messageId });
+    }
+
+    const local = [request('a'), request('a')];
+    const [laptop, vps] = mergeMachineEvents(
+      local,
+      [
+        {
+          name: 'laptop',
+          events: [
+            request('a', 'msg_2'),
+            request('a', 'msg_3'),
+            request('a', 'msg_1'),
+            request('c', 'msg_1'),
+            request('c', 'msg_2'),
+          ],
+          parserVersions: versions,
+        },
+        {
+          name: 'vps',
+          events: [request('b'), request('b'), request('b')],
+          parserVersions: versions,
+        },
+      ],
+      versions,
+    );
+
+    expect(dedupeCopiedSessions([...local, ...laptop.events, ...vps.events])).toEqual([
+      request('a'),
+      request('a'),
+      request('a', 'msg_1'),
+    ]);
+  });
+
+  it('matches a request by its ids before taking an event stored without them for it', () => {
+    // Three requests in the same millisecond with the same usage. This machine stored a's
+    // msg_3 before events had ids; the laptop and the vps hold more of a, and b continues a.
+    function request(sessionId: string, messageId?: string): UsageEvent {
+      return createUsageEvent({ ...event(sessionId, 0), messageId });
+    }
+
+    const local = [request('a')];
+    const [laptop, vps] = mergeMachineEvents(
+      local,
+      [
+        {
+          name: 'laptop',
+          events: [request('a', 'msg_1'), request('a', 'msg_3')],
+          parserVersions: versions,
+        },
+        {
+          name: 'vps',
+          events: [
+            request('a', 'msg_1'),
+            request('a', 'msg_2'),
+            request('a', 'msg_3'),
+            request('b', 'msg_1'),
+            request('b', 'msg_2'),
+          ],
+          parserVersions: versions,
+        },
+      ],
+      versions,
+    );
+    const counted = dedupeCopiedSessions([...local, ...laptop.events, ...vps.events]);
+
+    expect(counted.map((event) => event.sessionId)).toEqual(['a', 'a', 'a']);
   });
 });
 

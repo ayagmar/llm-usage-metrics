@@ -6,6 +6,7 @@ import {
   visibleWidth,
   wrapTableColumn,
 } from './table-text-layout.js';
+import type { TableFitChanges } from './table-fit-note.js';
 import type { TextStyler } from './terminal-style-policy.js';
 
 type TableAlignment = 'left' | 'right';
@@ -451,7 +452,44 @@ function renderStackedRows(options: {
   return records.join('\n\n');
 }
 
+/** Names a column by its uncolored header, on one line. */
+function describeHiddenColumns(
+  options: RenderUnicodeTableOptions,
+  hiddenColumns: readonly number[] = [],
+): string[] {
+  return hiddenColumns.map((columnIndex) =>
+    joinCellLines(options.measureHeaderCells[columnIndex] ?? ''),
+  );
+}
+
+/** Whether a step's abbreviated cells differ from the full ones in a column it shows. */
+function abbreviatesVisibleCells(options: RenderUnicodeTableOptions, step: FitStep): boolean {
+  const abbreviatedRows = step.measureBodyRows ?? step.bodyRows;
+
+  if (abbreviatedRows === undefined) {
+    return false;
+  }
+
+  const hiddenColumns = new Set(step.hiddenColumns);
+
+  return abbreviatedRows.some((row, rowIndex) =>
+    row.some(
+      (cell, columnIndex) =>
+        !hiddenColumns.has(columnIndex) &&
+        cell !== options.measureBodyRows[rowIndex]?.[columnIndex],
+    ),
+  );
+}
+
 export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
+  return renderUnicodeTableWithFit(options).output;
+}
+
+/** Renders the table and says which fit step it took, for `describeTableFit`. */
+export function renderUnicodeTableWithFit(options: RenderUnicodeTableOptions): {
+  output: string;
+  fit: TableFitChanges;
+} {
   const rowOrder = resolveRowOrder(options);
   const rowMetas = rowOrder.map((rowIndex) => options.rowMetas[rowIndex]);
   const steps = resolveFitSteps(options.fit);
@@ -459,15 +497,15 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
   const { terminalWidth } = options;
   const fitted = findFittingStep(
     steps,
-    prepare,
-    (table) => terminalWidth === undefined || measureBoxedTableWidth(table.widths) <= terminalWidth,
+    (step) => ({ step, table: prepare(step) }),
+    ({ table }) =>
+      terminalWidth === undefined || measureBoxedTableWidth(table.widths) <= terminalWidth,
   );
 
   if (terminalWidth !== undefined && !fitted.fits) {
     // A list has no column budget, so it shows every column in full detail.
-    const fullTable = steps.length === 1 ? fitted.prepared : prepare(steps[0]);
-
-    return renderStackedRows({
+    const fullTable = steps.length === 1 ? fitted.prepared.table : prepare(steps[0]);
+    const output = renderStackedRows({
       headerCells: fullTable.headerRow,
       measureHeaderCells: fullTable.measureHeaderRow,
       bodyRows: fullTable.bodyRows,
@@ -477,9 +515,11 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
       columnKinds: fullTable.columnKinds,
       labelStyler: options.labelStyler,
     });
+
+    return { output, fit: { abbreviatedTokens: false, hiddenHeaders: [], stacked: true } };
   }
 
-  const { headerRow, bodyRows, columnKinds, widths } = fitted.prepared;
+  const { headerRow, bodyRows, columnKinds, widths } = fitted.prepared.table;
   const outputLines: string[] = [];
 
   outputLines.push(
@@ -530,5 +570,12 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     }),
   );
 
-  return outputLines.join('\n');
+  return {
+    output: outputLines.join('\n'),
+    fit: {
+      abbreviatedTokens: abbreviatesVisibleCells(options, fitted.prepared.step),
+      hiddenHeaders: describeHiddenColumns(options, fitted.prepared.step.hiddenColumns),
+      stacked: false,
+    },
+  };
 }

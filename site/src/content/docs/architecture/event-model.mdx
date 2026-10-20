@@ -27,7 +27,7 @@ Message text is optional: `text` is set only when the read asks for it, and is k
 - `adapter.read(filePath)` yields plain `UsageEvent` objects: the usage fields without `kind`. This is what the CLI uses for every report.
 - `readEvents(adapter, filePath, options)` yields `SessionEvent` objects. The claude, codex, and pi adapters implement it and can yield all four kinds; for any other adapter it wraps `read()` and yields `kind: 'usage'` records. `capabilities.kinds` lists what an adapter can yield; unset means usage only.
 
-A `usage` record from `readEvents` can also carry `messageId`, `requestId`, and `rawProvider` (the provider as logged, unset when the adapter inferred it). The [library guide](/llm-usage-metrics/library/guide/) shows both reads.
+A `usage` record from `readEvents` can also carry `messageId`, `requestId`, and `rawProvider` (the provider as logged, unset when the adapter inferred it). claude's `read` events carry `messageId` and `requestId` too, which tell a request copied into another session from a distinct request with the same usage. The [library guide](/llm-usage-metrics/library/guide/) shows both reads.
 
 ## Token semantics
 
@@ -47,7 +47,7 @@ The constructors (`createUsageEvent`, `createUsageRecord`, `createMessageEvent`,
 - Token counts become non-negative integers; a missing or non-finite count becomes 0. A usage count above 10¹² throws, and the adapter skips the row and counts it among the skipped rows.
 - `model` is trimmed, lowercased, and capped at 256 characters. Text fields lose control characters.
 - `provider` is normalized to the billing entity: `openai-codex` and any `openai-` or `openai/` prefix become `openai`, `github-copilot` becomes `github`. When a source logs no provider, adapters infer one from the model name (`gpt-`, `o1`/`o3`/`o4` → `openai`, `claude` → `anthropic`, `gemini` → `google`).
-- `createUsageEvent` always sets `repoRoot`, `provider`, `model`, and `costUsd`, to `undefined` when unknown, so `Object.hasOwn(event, 'costUsd')` can be true with no cost. The other constructors leave undefined keys out, as does `createUsageRecord` for the `messageId`, `requestId`, `rawProvider`, and `raw` it adds. `JSON.stringify` drops undefined values, so serialized events of every kind hold only the fields that are set.
+- `createUsageEvent` always sets `repoRoot`, `provider`, `model`, and `costUsd`, to `undefined` when unknown, so `Object.hasOwn(event, 'costUsd')` can be true with no cost. It leaves out unknown `messageId` and `requestId`, the other constructors leave undefined keys out, and so does `createUsageRecord` for the `rawProvider` and `raw` it adds. `JSON.stringify` drops undefined values, so serialized events of every kind hold only the fields that are set.
 
 `USAGE_EVENT_NORMALIZATION_VERSION` (currently 3) is part of every parser version. Changing normalization changes it, which re-reads every stored file; see [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/).
 

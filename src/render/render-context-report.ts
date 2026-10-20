@@ -16,18 +16,20 @@ import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './f
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportJson } from './report-json.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
-import { formatModels, MODELS_COLUMN_WIDTH, truncateSessionId } from './render-session-report.js';
-import {
-  measureCellWidth,
-  resolveTtyColumns,
-  wrapProse,
-  wrapTableColumn,
-} from './table-text-layout.js';
+import { formatModels, toListTableRows, truncateSessionId } from './render-session-report.js';
+import { describeTableFit } from './table-fit-note.js';
+import { resolveTtyColumns, splitCellLines, wrapProse } from './table-text-layout.js';
 import { createColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
+import { columnKindsFromAlign, renderUnicodeTableWithFit } from './unicode-table.js';
 
 export type ContextReportFormat = 'terminal' | 'markdown' | 'json';
+
+export type RenderedContextReport = {
+  output: string;
+  /** stderr notes about what a narrow terminal left out of the table. */
+  notes: string[];
+};
 
 export type RenderContextReportOptions = {
   useColor?: boolean;
@@ -36,9 +38,9 @@ export type RenderContextReportOptions = {
 };
 
 const LONG_CONTEXT_HEADER = `>${String(LONG_CONTEXT_PROMPT_TOKENS / 1000)}k`;
-const NEAR_LIMIT_HEADER = `>${String(NEAR_LIMIT_SHARE * 100)}% limit`;
+const NEAR_LIMIT_HEADER = `>${String(NEAR_LIMIT_SHARE * 100)}% Limit`;
 
-const pressureHeaders = ['Requests', 'Peak', LONG_CONTEXT_HEADER, 'Tier extra'];
+const pressureHeaders = ['Requests', 'Peak', LONG_CONTEXT_HEADER, 'Tier Extra'];
 
 type ContextTable = {
   headers: string[];
@@ -85,7 +87,7 @@ function buildModelTable(
     align: ['l', 'r', 'r', 'r', 'r', 'r', 'r'],
     wrapColumnIndex: 0,
     titleColumnCount: 1,
-    hideableColumns: ['Tier extra', 'Limit'].map((header) => headers.indexOf(header)),
+    hideableColumns: ['Tier Extra', 'Limit'].map((header) => headers.indexOf(header)),
   };
 }
 
@@ -109,7 +111,7 @@ function buildSessionTable(
     align: ['l', 'l', 'l', 'r', 'r', 'r', 'r', 'r', 'l'],
     wrapColumnIndex: 8,
     titleColumnCount: 1,
-    hideableColumns: ['Models', 'Tier extra', 'Project'].map((header) => headers.indexOf(header)),
+    hideableColumns: ['Models', 'Tier Extra', 'Project'].map((header) => headers.indexOf(header)),
   };
 }
 
@@ -139,59 +141,64 @@ function formatAggregatedSourcesLine(
 function renderTerminalContextReport(
   data: ContextDataResult,
   options: RenderContextReportOptions,
-): string {
+): RenderedContextReport {
   const useColor = options.useColor ?? shouldUseColorByDefault();
+  const roles = createColorRoles(useColor);
   const terminalWidth = resolveTtyColumns(process.stdout);
-  const lines = [renderReportHeader({ title: 'Context Pressure Report', useColor }), ''];
+  const lines = [
+    renderReportHeader({ title: 'Context Pressure Report', useColor, terminalWidth }),
+    '',
+  ];
   const aggregatedLine = formatAggregatedSourcesLine(data.aggregatedSources);
   const table = buildTable(data);
+  const notes: string[] = [];
 
   if (table.bodyRows.length === 0 && !aggregatedLine) {
     lines.push(formatNoUsageMessage(options.filtered ?? false));
-    return lines.join('\n');
+    return { output: lines.join('\n'), notes };
   }
 
   if (table.bodyRows.length > 0) {
-    const wrapRows = (rows: string[][]) =>
-      wrapTableColumn(rows, { columnIndex: table.wrapColumnIndex, width: MODELS_COLUMN_WIDTH });
-    const wrappedRows = wrapRows(table.bodyRows);
-    const abbreviatedRows = buildTable(data, formatAbbreviatedTokenCount).bodyRows;
-    // Measured unwrapped, so a listed row's title reads whole; the wrap sets the width.
-    const wrapColumnWidth = [table.headers, ...wrappedRows].reduce(
-      (width, row) => Math.max(width, measureCellWidth(row[table.wrapColumnIndex])),
-      0,
+    const listOptions = { moneyHeaders: ['Tier Extra'], wrapColumnIndex: table.wrapColumnIndex };
+    const full = toListTableRows(table.headers, table.bodyRows, roles, listOptions);
+    const abbreviated = toListTableRows(
+      table.headers,
+      buildTable(data, formatAbbreviatedTokenCount).bodyRows,
+      roles,
+      listOptions,
     );
+    const { output, fit } = renderUnicodeTableWithFit({
+      labelStyler: roles.label,
+      headerCells: table.headers.map((header) => roles.header(header)),
+      bodyRows: full.bodyRows,
+      measureHeaderCells: table.headers,
+      measureBodyRows: full.measureBodyRows,
+      rowMetas: table.bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
+      columnKinds: columnKindsFromAlign(table.align),
+      multilineColumnIndex: table.wrapColumnIndex,
+      multilineColumnWidth: full.wrapColumnWidth,
+      terminalWidth,
+      fit: {
+        abbreviatedBodyRows: abbreviated.bodyRows,
+        abbreviatedMeasureBodyRows: abbreviated.measureBodyRows,
+        hideableColumns: table.hideableColumns,
+      },
+      stackedTitleColumnCount: table.titleColumnCount,
+    });
+    const fitNote = describeTableFit(fit);
 
-    lines.push(
-      renderUnicodeTable({
-        labelStyler: createColorRoles(useColor).label,
-        headerCells: table.headers,
-        bodyRows: wrappedRows,
-        measureHeaderCells: table.headers,
-        measureBodyRows: table.bodyRows,
-        rowMetas: wrappedRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
-        columnKinds: columnKindsFromAlign(table.align),
-        multilineColumnIndex: table.wrapColumnIndex,
-        multilineColumnWidth: wrapColumnWidth,
-        terminalWidth,
-        fit: {
-          abbreviatedBodyRows: wrapRows(abbreviatedRows),
-          abbreviatedMeasureBodyRows: abbreviatedRows,
-          hideableColumns: table.hideableColumns,
-        },
-        stackedTitleColumnCount: table.titleColumnCount,
-      }),
-    );
+    lines.push(output);
+    notes.push(...(fitNote ? [fitNote] : []));
   }
 
   if (aggregatedLine) {
     lines.push(
       ...(table.bodyRows.length > 0 ? [''] : []),
-      wrapProse(aggregatedLine, terminalWidth),
+      splitCellLines(wrapProse(aggregatedLine, terminalWidth)).map(roles.dim).join('\n'),
     );
   }
 
-  return lines.join('\n');
+  return { output: lines.join('\n'), notes };
 }
 
 function renderMarkdownContextReport(data: ContextDataResult): string {
@@ -238,18 +245,21 @@ export function renderContextReport(
   data: ContextDataResult,
   format: ContextReportFormat,
   options: RenderContextReportOptions = {},
-): string {
+): RenderedContextReport {
   switch (format) {
     case 'json':
-      return renderReportJson('context', {
-        grouping: data.grouping,
-        longContextPromptTokens: LONG_CONTEXT_PROMPT_TOKENS,
-        nearLimitShare: NEAR_LIMIT_SHARE,
-        rows: toJsonRows(data),
-        aggregatedSources: data.aggregatedSources,
-      });
+      return {
+        output: renderReportJson('context', {
+          grouping: data.grouping,
+          longContextPromptTokens: LONG_CONTEXT_PROMPT_TOKENS,
+          nearLimitShare: NEAR_LIMIT_SHARE,
+          rows: toJsonRows(data),
+          aggregatedSources: data.aggregatedSources,
+        }),
+        notes: [],
+      };
     case 'markdown':
-      return renderMarkdownContextReport(data);
+      return { output: renderMarkdownContextReport(data), notes: [] };
     case 'terminal':
       return renderTerminalContextReport(data, options);
   }

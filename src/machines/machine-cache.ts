@@ -42,9 +42,11 @@ const REVISION_PREFIX = 'machine-export:';
 /**
  * Set by every sync of a version that stores tool calls and messages. A cache without it
  * may hold revisions whose tool calls an older version dropped, so it is not trusted.
- * Change its value ('1') when the reader starts keeping more (a new status, role or kind).
+ * Change its value when the reader starts keeping more (a new status, role or kind):
+ * '2' also keeps usage events' message and request ids.
  */
 const SESSION_EVENTS_KEPT_KEY = 'sessionEventsKept';
+const SESSION_EVENTS_KEPT_VALUE = '2';
 
 export type MachineSyncState = {
   hostname?: string;
@@ -132,7 +134,9 @@ function readCachedFiles(cache: EventStore): MachineExportFileKey[] {
  * the cache, so the next sync sends every file once with its tool calls and messages.
  */
 export function readKnownFiles(cache: EventStore): MachineExportFileKey[] {
-  return readEventStoreMeta(cache, SESSION_EVENTS_KEPT_KEY) === '1' ? readCachedFiles(cache) : [];
+  return readEventStoreMeta(cache, SESSION_EVENTS_KEPT_KEY) === SESSION_EVENTS_KEPT_VALUE
+    ? readCachedFiles(cache)
+    : [];
 }
 
 /**
@@ -201,7 +205,7 @@ export function applyMachineExport(
       syncedAt: String(now),
       attemptedAt: String(now),
       lastError: undefined,
-      [SESSION_EVENTS_KEPT_KEY]: '1',
+      [SESSION_EVENTS_KEPT_KEY]: SESSION_EVENTS_KEPT_VALUE,
     });
 
     return {

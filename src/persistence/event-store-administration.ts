@@ -26,6 +26,7 @@ import {
   normalizeStoredEventTuple,
   selectSingleRequestBeforeFlagSql,
   STORED_EVENT_COLUMNS,
+  STORED_EVENT_COLUMNS_WITHOUT_IDS,
   type StoredEventTuple,
 } from './event-store-codec.js';
 import {
@@ -42,6 +43,7 @@ import {
 import {
   assertSupportedSchemaVersion,
   EventStoreSchemaVersionError,
+  hasEventIdColumns,
   hasSchemaVersion,
   initializeSchema,
   readSchemaVersion,
@@ -642,9 +644,12 @@ function isWideWindow(
   return (toNonNegativeInteger(row?.count) ?? 0) >= threshold;
 }
 
-function selectWindowEventsSql(wideWindow: boolean): string {
+function selectWindowEventsSql(wideWindow: boolean, hasIdColumns: boolean): string {
   return [
-    `SELECT ${STORED_EVENT_COLUMNS}`,
+    // A read-only open cannot add the id columns to a store that predates them.
+    hasIdColumns
+      ? `SELECT ${STORED_EVENT_COLUMNS}`
+      : `SELECT ${STORED_EVENT_COLUMNS_WITHOUT_IDS}, NULL AS message_id, NULL AS request_id`,
     // A wide window walks the files in key order and each file's rows in event order.
     wideWindow
       ? 'FROM files CROSS JOIN events ON events.file_id = files.id'
@@ -669,7 +674,8 @@ function selectPreV5WindowEventsSql(
     'SELECT source, session_id, timestamp, model, provider, repo_root,',
     '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
     `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode,`,
-    `  ${selectSingleRequestBeforeFlagSql('source')} AS single_request`,
+    `  ${selectSingleRequestBeforeFlagSql('source')} AS single_request,`,
+    '  NULL AS message_id, NULL AS request_id',
     wideWindow ? 'FROM events INDEXED BY events_file' : 'FROM events',
     'WHERE timestamp >= ? AND timestamp < ?',
     'ORDER BY source, file_path, event_index',
@@ -710,7 +716,7 @@ export async function readEventStoreEvents(
     const wideWindow = isWideWindow(database, fromTimestamp, toTimestamp);
     const statement = database.prepare(
       hasSchemaVersion(schemaVersion, 5)
-        ? selectWindowEventsSql(wideWindow)
+        ? selectWindowEventsSql(wideWindow, hasEventIdColumns(database))
         : selectPreV5WindowEventsSql(schemaVersion, wideWindow),
     );
     statement.setReturnArrays(true);
@@ -1160,8 +1166,8 @@ export function replaceFilesEvents(
       '  file_id, event_index, session_id, timestamp, model, provider, repo_root,',
       '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
       '  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd,',
-      '  cost_mode, single_request',
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      '  cost_mode, single_request, message_id, request_id',
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ].join('\n'),
   ));
   const upsertFile = (store.statements.upsertFile ??= store.database.prepare(
@@ -1256,6 +1262,8 @@ export function replaceFilesEvents(
           event.costUsd ?? null,
           event.costMode,
           event.singleRequest === true ? 1 : 0,
+          event.messageId ?? null,
+          event.requestId ?? null,
         );
       });
       insertFileSessionEvents(

@@ -343,3 +343,15 @@ export function resolveTerminalWidth(override: number | undefined): number | und
 export function measureCellWidth(cell: string): number {
   return splitCellLines(cell).reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
 }
+
+/** The widest line of the wrapped column, its header included. */
+export function measureWrappedColumnWidth(
+  headers: readonly string[],
+  wrappedRows: readonly (readonly string[])[],
+  columnIndex: number,
+): number {
+  return [headers, ...wrappedRows].reduce(
+    (width, row) => Math.max(width, measureCellWidth(row[columnIndex] ?? '')),
+    0,
+  );
+}

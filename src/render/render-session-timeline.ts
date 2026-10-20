@@ -10,12 +10,24 @@ import type {
 import { compareByCodePoint, pluralize } from '@ayagmar/agent-sessions/internal';
 import { formatDuration } from './format-duration.js';
 import { formatLocalDateTime, formatLocalDateTimeSpan } from './format-local-date-time.js';
-import { formatApproxUsd, formatInteger, formatUsd } from './format-number.js';
+import {
+  formatAbbreviatedTokenCount,
+  formatApproxUsd,
+  formatInteger,
+  formatUsd,
+} from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
-import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
-import { createColorRoles } from './terminal-style-policy.js';
-import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
+import { describeTableFit } from './table-fit-note.js';
+import {
+  measureWrappedColumnWidth,
+  resolveTtyColumns,
+  splitCellLines,
+  wrapProse,
+  wrapTableColumn,
+} from './table-text-layout.js';
+import { createColorRoles, type ColorRoles } from './terminal-style-policy.js';
+import { columnKindsFromAlign, renderUnicodeTableWithFit } from './unicode-table.js';
 
 export type RenderSessionTimelineOptions = {
   timezone: string;
@@ -38,6 +50,11 @@ const timelineHeaders = [
 ] as const;
 
 const timelineAlign: ('l' | 'r')[] = ['l', 'l', 'r', 'r', 'r', 'r', 'r', 'r'];
+
+const MONEY_COLUMN_INDEXES = [timelineHeaders.indexOf('Cost'), timelineHeaders.indexOf('Running')];
+
+/** Columns a narrow terminal hides, least useful first, so a long timeline stays a table. */
+const HIDEABLE_HEADERS = ['Cache Write', 'Running', 'Input', 'Cache Read'] as const;
 
 type LiveRow = TimelineToolCallRow | TimelineMessageRow;
 
@@ -114,7 +131,9 @@ function formatFoldedRows(rows: readonly LiveRow[]): string {
   return parts.join(' · ');
 }
 
-function toTableCells(row: DisplayRow, time: string): string[] {
+type FormatNumber = (value: number) => string;
+
+function toTableCells(row: DisplayRow, time: string, formatTokens: FormatNumber): string[] {
   if (row.kind === 'folded') {
     return [time, formatFoldedRows(row.rows), '', '', '', '', '', ''];
   }
@@ -122,10 +141,10 @@ function toTableCells(row: DisplayRow, time: string): string[] {
   return [
     time,
     row.model ?? '-',
-    formatInteger(row.inputTokens),
-    formatInteger(row.cacheReadTokens),
-    formatInteger(row.cacheWriteTokens),
-    formatInteger(row.outputTokens),
+    formatTokens(row.inputTokens),
+    formatTokens(row.cacheReadTokens),
+    formatTokens(row.cacheWriteTokens),
+    formatTokens(row.outputTokens),
     formatUsd(row.costUsd),
     formatApproxUsd(row.runningCostUsd, row.runningCostIncomplete),
   ];
@@ -139,7 +158,8 @@ function buildBodyRows(
   session: SessionRow,
   rows: readonly SessionTimelineRow[],
   timezone: string,
-): string[][] {
+  formatTokens: FormatNumber = formatInteger,
+): { kind: DisplayRow['kind']; cells: string[] }[] {
   let previousDay = formatLocalDateTime(session.firstActivity, timezone).slice(0, 10);
 
   return foldLiveRows(rows).map((row) => {
@@ -149,8 +169,39 @@ function buildBodyRows(
     const time = day === previousDay ? dateTime.slice(11) : dateTime;
 
     previousDay = day;
-    return toTableCells(row, time);
+    return { kind: row.kind, cells: toTableCells(row, time, formatTokens) };
   });
+}
+
+/**
+ * The cells in their role colors with the Event column wrapped, and the plain cells
+ * unwrapped, so a listed row reads its event whole. Folded tool calls and turns are
+ * secondary to the requests, and both cost columns are money.
+ */
+function toTerminalRows(
+  rows: readonly { kind: DisplayRow['kind']; cells: string[] }[],
+  roles: ColorRoles,
+): { bodyRows: string[][]; measureBodyRows: string[][]; eventColumnWidth: number } {
+  const measureBodyRows = rows.map((row) => row.cells);
+  const wrappedRows = wrapTableColumn(measureBodyRows, {
+    columnIndex: EVENT_COLUMN_INDEX,
+    width: EVENT_COLUMN_WIDTH,
+  });
+  const bodyRows = wrappedRows.map((cells, rowIndex) =>
+    cells.map((cell, columnIndex) => {
+      if (columnIndex === EVENT_COLUMN_INDEX && rows[rowIndex].kind === 'folded') {
+        return splitCellLines(cell).map(roles.dim).join('\n');
+      }
+
+      return MONEY_COLUMN_INDEXES.includes(columnIndex) && cell !== '' ? roles.money(cell) : cell;
+    }),
+  );
+
+  return {
+    bodyRows,
+    measureBodyRows,
+    eventColumnWidth: measureWrappedColumnWidth(timelineHeaders, wrappedRows, EVENT_COLUMN_INDEX),
+  };
 }
 
 /** `claude · <id> · <project>` and the span, request count and cost. */
@@ -175,31 +226,44 @@ export function renderTerminalSessionTimeline(
   session: SessionRow,
   rows: readonly SessionTimelineRow[],
   options: RenderSessionTimelineOptions,
-): string {
-  const bodyRows = wrapTableColumn(buildBodyRows(session, rows, options.timezone), {
-    columnIndex: EVENT_COLUMN_INDEX,
-    width: EVENT_COLUMN_WIDTH,
+): { output: string; notes: string[] } {
+  const roles = createColorRoles(options.useColor);
+  const terminalWidth = resolveTtyColumns(process.stdout);
+  const full = toTerminalRows(buildBodyRows(session, rows, options.timezone), roles);
+  const abbreviated = toTerminalRows(
+    buildBodyRows(session, rows, options.timezone, formatAbbreviatedTokenCount),
+    roles,
+  );
+  const { output, fit } = renderUnicodeTableWithFit({
+    labelStyler: roles.label,
+    headerCells: timelineHeaders.map((header) => roles.header(header)),
+    bodyRows: full.bodyRows,
+    measureHeaderCells: timelineHeaders,
+    measureBodyRows: full.measureBodyRows,
+    rowMetas: full.bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
+    columnKinds: columnKindsFromAlign(timelineAlign),
+    multilineColumnIndex: EVENT_COLUMN_INDEX,
+    multilineColumnWidth: full.eventColumnWidth,
+    terminalWidth,
+    fit: {
+      abbreviatedBodyRows: abbreviated.bodyRows,
+      abbreviatedMeasureBodyRows: abbreviated.measureBodyRows,
+      hideableColumns: HIDEABLE_HEADERS.map((header) => timelineHeaders.indexOf(header)),
+    },
+    stackedTitleColumnCount: 1,
   });
+  const fitNote = describeTableFit(fit);
 
-  return [
-    renderReportHeader({ title: 'Session Timeline', useColor: options.useColor }),
-    '',
-    ...formatSessionLines(session, options),
-    '',
-    renderUnicodeTable({
-      labelStyler: createColorRoles(options.useColor).label,
-      headerCells: timelineHeaders,
-      bodyRows,
-      measureHeaderCells: timelineHeaders,
-      measureBodyRows: bodyRows,
-      rowMetas: bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
-      columnKinds: columnKindsFromAlign(timelineAlign),
-      multilineColumnIndex: EVENT_COLUMN_INDEX,
-      multilineColumnWidth: EVENT_COLUMN_WIDTH,
-      terminalWidth: resolveTtyColumns(process.stdout),
-      stackedTitleColumnCount: 1,
-    }),
-  ].join('\n');
+  return {
+    output: [
+      renderReportHeader({ title: 'Session Timeline', useColor: options.useColor, terminalWidth }),
+      '',
+      ...formatSessionLines(session, options).map((line) => wrapProse(line, terminalWidth)),
+      '',
+      output,
+    ].join('\n'),
+    notes: fitNote ? [fitNote] : [],
+  };
 }
 
 export function renderMarkdownSessionTimeline(
@@ -207,7 +271,9 @@ export function renderMarkdownSessionTimeline(
   rows: readonly SessionTimelineRow[],
   timezone: string,
 ): string {
-  const bodyRows = buildBodyRows(session, rows, timezone).map((row) => row.map(toMarkdownSafeCell));
+  const bodyRows = buildBodyRows(session, rows, timezone).map((row) =>
+    row.cells.map(toMarkdownSafeCell),
+  );
 
   return markdownTable([[...timelineHeaders], ...bodyRows], { align: timelineAlign });
 }

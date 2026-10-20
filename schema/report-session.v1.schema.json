@@ -13,6 +13,11 @@
     "report": {
       "const": "session"
     },
+    "rowCount": {
+      "description": "Session or repo rows before --top; absent with --timeline.",
+      "type": "integer",
+      "minimum": 0
+    },
     "data": {
       "oneOf": [
         {

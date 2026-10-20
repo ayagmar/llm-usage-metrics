@@ -158,6 +158,7 @@ export async function buildSessionData(
     return {
       grouping: 'repo',
       rows: limited.rows,
+      rowCount: repoRows.length,
       projectLabels,
       limitNote: limited.limitNote,
       diagnostics: buildDiagnostics(
@@ -227,6 +228,7 @@ export async function buildSessionData(
     return {
       grouping: 'session',
       rows: limited.rows,
+      rowCount: sessionRows.length,
       projectLabels,
       limitNote: limited.limitNote,
       diagnostics: buildDiagnostics(shownEvents),
@@ -263,6 +265,7 @@ export async function buildSessionData(
   return {
     grouping: 'session',
     rows: details.rows,
+    rowCount: sessionRows.length,
     projectLabels,
     limitNote: limited.limitNote,
     diagnostics: buildDiagnostics(

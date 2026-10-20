@@ -22,7 +22,9 @@ import { getErrorReason } from '../utils/get-error-reason.js';
  *
  * A file line's `sessionEvents` (tool calls and messages, never their text) were added to
  * version 1 without a version bump: readers that predate them ignore the key, and the
- * end line's `eventCount` still counts usage events only.
+ * end line's `eventCount` still counts usage events only. Events' `messageId` and
+ * `requestId` were added the same way: readers that predate them drop them, and an event
+ * without them can still be counted as a copy of one with them.
  */
 export const MACHINE_EXPORT_FORMAT = 'llm-usage-metrics.machine-export';
 export const MACHINE_EXPORT_VERSION = 1;
@@ -303,6 +305,8 @@ function toUsageEventInput(value: unknown, singleRequestFlag: boolean): UsageEve
     singleRequest: singleRequestFlag
       ? singleRequest
       : SINGLE_REQUEST_SOURCES_BEFORE_FLAG.includes(source),
+    messageId: optionalText(record, 'messageId'),
+    requestId: optionalText(record, 'requestId'),
   };
 }
 
