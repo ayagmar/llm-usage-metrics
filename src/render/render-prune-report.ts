@@ -131,8 +131,7 @@ function renderCandidateTable(
 
 function renderSummary(summary: PruneSummary): string {
   if (!summary.applied) {
-    const applyHint = summary.candidateFileCount > 0 ? ' Re-run with --apply.' : '';
-    return `Would delete ${pluralize(summary.candidateFileCount, 'file')} / ${pluralize(summary.candidateEventCount, 'event')}.${applyHint}`;
+    return `Would delete ${pluralize(summary.candidateFileCount, 'file')} / ${pluralize(summary.candidateEventCount, 'event')}. Re-run with --apply.`;
   }
 
   const sizeSuffix =
@@ -156,9 +155,12 @@ export function renderPruneReport(
     result.candidates.length === 0
       ? 'No files to prune.'
       : renderCandidateTable(result.candidates, roles, terminalWidth),
-    '',
-    wrapProse(renderSummary(result.summary), terminalWidth),
   ];
+
+  // With nothing found, a dry run has nothing to add to that line.
+  if (result.candidates.length > 0 || result.summary.applied) {
+    lines.push('', wrapProse(renderSummary(result.summary), terminalWidth));
+  }
 
   return lines.join('\n');
 }

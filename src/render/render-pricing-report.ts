@@ -11,7 +11,6 @@ import { renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import { resolveTtyColumns, splitCellLines, visibleWidth, wrapProse } from './table-text-layout.js';
 import { createColorRoles, type TerminalStylePalette } from './terminal-style-policy.js';
-import { wrapAtNameBreaks } from './unicode-table.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 
 export type PricingReportFormat = 'terminal' | 'markdown' | 'json';
@@ -164,7 +163,7 @@ function describeNotes(data: PricingReportData): string[] {
   ];
 }
 
-/** Wraps between words; a word wider than a line, such as the pricing URL, breaks between its parts. */
+/** Wraps between words. A word wider than a line, such as the pricing URL, stays whole to copy. */
 function wrapFieldValue(value: string, width: number): string[] {
   const lines: string[] = [];
 
@@ -174,7 +173,7 @@ function wrapFieldValue(value: string, width: number): string[] {
     if (lastLine !== undefined && visibleWidth(`${lastLine} ${word}`) <= width) {
       lines[lines.length - 1] = `${lastLine} ${word}`;
     } else {
-      lines.push(...(visibleWidth(word) > width ? wrapAtNameBreaks(word, width) : [word]));
+      lines.push(word);
     }
   }
 

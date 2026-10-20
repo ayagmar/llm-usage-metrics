@@ -914,7 +914,7 @@ describe('run-prune-report', () => {
     }
 
     expect(stdout.getOutput()).toContain('Event Store Prune');
-    expect(stdout.getOutput()).toContain('Would delete 0 files / 0 events');
+    expect(stdout.getOutput()).toContain('No files to prune.');
   });
 
   it('surfaces the Active config block and unknown-key warnings on prune', async () => {

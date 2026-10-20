@@ -4,7 +4,7 @@ import type { PruneCandidate } from '../../src/cli/run-prune-report.js';
 import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { markerPalette } from '../helpers/marker-palette.js';
-import { overrideStdoutTty } from '../helpers/stdout.js';
+import { overrideStdoutProperty, overrideStdoutTty } from '../helpers/stdout.js';
 
 let restoreStdout: (() => void) | undefined;
 
@@ -59,10 +59,16 @@ describe('renderPruneReport', () => {
     expect(output.split('\n').some((line) => line.includes(`│ ${longPath} │`))).toBe(true);
   });
 
-  it('keeps piped paths whole and does not pad short ones to a fixed width', () => {
-    const output = render([createCandidate('/tmp/old.jsonl')]);
+  it('keeps piped paths whole', () => {
+    restoreStdout = overrideStdoutProperty('isTTY', false);
 
-    expect(output).toContain('│ /tmp/old.jsonl │');
+    expect(render([createCandidate(longPath)])).toContain(`│ ${longPath} │`);
+  });
+
+  it('sizes the path column to its paths rather than a fixed width', () => {
+    expect(render([createCandidate('/tmp/old.jsonl')], { terminalWidth: 120 })).toContain(
+      '│ /tmp/old.jsonl │',
+    );
   });
 
   it('hides the timestamp column before it wraps a path', () => {
@@ -99,7 +105,7 @@ describe('renderPruneReport', () => {
 
     expect(output).toContain('No files to prune.');
     expect(output).not.toContain('╭');
-    expect(output).not.toContain('--apply');
+    expect(output).not.toContain('Would delete');
   });
 
   it('colors the source with its hue and the header bold', () => {

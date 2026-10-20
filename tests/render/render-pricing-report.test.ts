@@ -5,6 +5,7 @@ import type { ExplainedModelPricing } from '@ayagmar/agent-sessions/pricing';
 import { renderPricingReport } from '../../src/render/render-pricing-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { markerPalette } from '../helpers/marker-palette.js';
+import { overrideStdoutProperty } from '../helpers/stdout.js';
 
 const pricingUrl =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
@@ -51,25 +52,23 @@ function render(terminalWidth: number | undefined, useColor = false): string {
 }
 
 describe('renderPricingReport', () => {
-  it.each([44, 80, 120])('keeps every line within %i columns', (terminalWidth) => {
+  // The pricing URL is the one exception: it stays whole, to click or copy.
+  it.each([44, 80, 120])('keeps every line but the URL within %i columns', (terminalWidth) => {
     const lines = render(terminalWidth).split('\n');
+    const tooWide = lines.filter((line) => visibleWidth(line) > terminalWidth);
 
-    expect(lines.filter((line) => visibleWidth(line) > terminalWidth)).toEqual([]);
+    expect(tooWide.map((line) => line.trim())).toEqual(
+      terminalWidth < 120 ? [`(${pricingUrl})`] : [],
+    );
   });
 
-  it('continues a wrapped value under its first line, so the label column stays clear', () => {
+  it('continues a wrapped value under its first line, keeping the URL whole', () => {
     const lines = render(80).split('\n');
     const pricesFromIndex = lines.findIndex((line) => line.startsWith('  Prices from'));
     const valueColumn = lines[pricesFromIndex].indexOf('LiteLLM cache');
-    const continuationLines = lines
-      .slice(pricesFromIndex + 1)
-      .filter((line) => !line.trimStart().startsWith('Input'))
-      .slice(0, 2);
 
-    expect(continuationLines.map((line) => line.slice(0, valueColumn).trim())).toEqual(['', '']);
-    expect(continuationLines.map((line) => line.slice(valueColumn)).join('')).toBe(
-      `(${pricingUrl})`,
-    );
+    expect(lines[pricesFromIndex]).toBe(`  Prices from     LiteLLM cache from 2026-10-15`);
+    expect(lines[pricesFromIndex + 1]).toBe(`${' '.repeat(valueColumn)}(${pricingUrl})`);
   });
 
   it('wraps the "Above N" note to the terminal width', () => {
@@ -80,7 +79,13 @@ describe('renderPricingReport', () => {
   });
 
   it('leaves piped output unwrapped', () => {
-    expect(render(undefined)).toContain(`LiteLLM cache from 2026-10-15 (${pricingUrl})`);
+    const restoreStdout = overrideStdoutProperty('isTTY', false);
+
+    try {
+      expect(render(undefined)).toContain(`LiteLLM cache from 2026-10-15 (${pricingUrl})`);
+    } finally {
+      restoreStdout();
+    }
   });
 
   it('colors rates as money and leaves rates that are not listed uncolored', () => {
