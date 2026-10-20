@@ -73,9 +73,10 @@ Relevant options/config:
 - deleting the database file deletes retained local history and starts a new ledger on the next run; a ledger once copied from the old cache-directory location is not copied again (a `legacy-ledger-copied` marker beside the ledger records the copy), so delete that old file yourself to reclaim its space
 - legacy JSON cache shards are ignored and safe to delete manually
 
-Prune is dry-run by default:
+Prune is dry-run by default. Without a selector, it counts the departed files each selector would pick and selects nothing:
 
 ```bash
+llm-usage prune
 llm-usage prune --suppressed
 ```
 

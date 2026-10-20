@@ -65,6 +65,16 @@ export type PruneCandidate = {
   reasons: PruneCandidateReason[];
 };
 
+/** The departed files each selector would pick; reported by a run without a selector. */
+export type PruneDepartedFileCounts = {
+  /** Every departed file in the store. */
+  fileCount: number;
+  eventCount: number;
+  /** Departed files --suppressed picks. */
+  suppressedFileCount: number;
+  suppressedEventCount: number;
+};
+
 export type PruneSummary = {
   storePath: string;
   applied: boolean;
@@ -75,6 +85,7 @@ export type PruneSummary = {
   sizeBefore?: StoreSizeSnapshot;
   sizeAfter?: StoreSizeSnapshot;
   reclaimedBytes?: number;
+  departedFiles?: PruneDepartedFileCounts;
 };
 
 export type PruneReportResult = {
@@ -82,12 +93,8 @@ export type PruneReportResult = {
   summary: PruneSummary;
 };
 
-function assertHasSelector(options: PruneCommandOptions): void {
-  if (options.suppressed || options.departedBefore !== undefined) {
-    return;
-  }
-
-  throw new Error('prune requires at least one selector: --suppressed or --departed-before');
+function hasSelector(options: PruneCommandOptions): boolean {
+  return Boolean(options.suppressed) || options.departedBefore !== undefined;
 }
 
 function parseDepartedBefore(value: string | undefined): number | undefined {
@@ -299,8 +306,19 @@ function buildCandidates(
   return candidates;
 }
 
-function countCandidateEvents(candidates: readonly PruneCandidate[]): number {
-  return candidates.reduce((sum, candidate) => sum + candidate.eventCount, 0);
+function countEvents(files: readonly { eventCount: number }[]): number {
+  return files.reduce((sum, file) => sum + file.eventCount, 0);
+}
+
+function countDepartedFiles(files: readonly ClassifiedDepartedFile[]): PruneDepartedFileCounts {
+  const suppressedFiles = files.filter((file) => file.suppressed);
+
+  return {
+    fileCount: files.length,
+    eventCount: countEvents(files),
+    suppressedFileCount: suppressedFiles.length,
+    suppressedEventCount: countEvents(suppressedFiles),
+  };
 }
 
 function toDeleteResult(applied: boolean): DeleteStoredFilesResult | undefined {
@@ -334,7 +352,13 @@ export async function buildPruneReport(
   options: PruneCommandOptions,
   deps: PruneDeps = {},
 ): Promise<PruneReportResult> {
-  assertHasSelector(options);
+  // Without a selector, a dry run counts what each selector would pick; deleting needs one.
+  const countsBySelector = !hasSelector(options);
+
+  if (countsBySelector && options.apply) {
+    throw new Error('prune --apply requires a selector: --suppressed or --departed-before');
+  }
+
   const departedBeforeTimestamp = parseDepartedBefore(options.departedBefore);
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = {
@@ -376,6 +400,7 @@ export async function buildPruneReport(
         candidateFileCount: 0,
         candidateEventCount: 0,
         ...toDeleteResult(Boolean(options.apply)),
+        ...(countsBySelector ? { departedFiles: countDepartedFiles([]) } : {}),
       },
     };
   }
@@ -406,19 +431,34 @@ export async function buildPruneReport(
     );
     // Rechecked on every selection, so the apply decides on the files as they are under
     // the write lock, as reports would count them.
-    const selectCandidates = () => {
+    const classifyFiles = () => {
       const { counted, uncounted } = splitLiveFilesByCurrentEntry(store, fingerprintedFiles);
 
-      return buildCandidates(
-        classifyDepartedFiles(store, {
-          selectedSources,
-          discoveredFiles: counted,
-          presentFiles: [...uncounted, ...undiscoveredPresentFiles],
-          repeatingSources: getRepeatingSourceIds(adapters),
-        }),
-        { includeSuppressed: Boolean(options.suppressed), departedBeforeTimestamp },
-      );
+      return classifyDepartedFiles(store, {
+        selectedSources,
+        discoveredFiles: counted,
+        presentFiles: [...uncounted, ...undiscoveredPresentFiles],
+        repeatingSources: getRepeatingSourceIds(adapters),
+      });
     };
+    const selectCandidates = () =>
+      buildCandidates(classifyFiles(), {
+        includeSuppressed: Boolean(options.suppressed),
+        departedBeforeTimestamp,
+      });
+
+    if (countsBySelector) {
+      return {
+        candidates: [],
+        summary: {
+          storePath,
+          applied: false,
+          candidateFileCount: 0,
+          candidateEventCount: 0,
+          departedFiles: countDepartedFiles(classifyFiles()),
+        },
+      };
+    }
 
     if (!options.apply) {
       const candidates = selectCandidates();
@@ -429,7 +469,7 @@ export async function buildPruneReport(
           storePath,
           applied: false,
           candidateFileCount: candidates.length,
-          candidateEventCount: countCandidateEvents(candidates),
+          candidateEventCount: countEvents(candidates),
         },
       };
     }
@@ -441,7 +481,7 @@ export async function buildPruneReport(
       const selected = selectCandidates().filter((candidate) => isStillMissing(candidate.filePath));
       return { candidates: selected, deleteResult: deleteStoredFiles(store, selected) };
     });
-    const candidateEventCount = countCandidateEvents(candidates);
+    const candidateEventCount = countEvents(candidates);
     vacuumEventStore(store);
     store.database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
     const sizeAfter = await readStoreSizeSnapshot(storePath, statFile);
