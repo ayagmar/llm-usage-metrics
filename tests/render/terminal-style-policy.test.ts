@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   applyRowTypeStyle,
   colorizeUsageBodyRows,
+  createColorRoles,
   resolveSourceStyler,
+  styleDeltaCell,
   type TerminalStylePalette,
 } from '../../src/render/terminal-style-policy.js';
 import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
@@ -14,22 +16,65 @@ const testPalette: TerminalStylePalette = {
   blue: (text) => `<blue>${text}</blue>`,
   yellow: (text) => `<yellow>${text}</yellow>`,
   green: (text) => `<green>${text}</green>`,
+  red: (text) => `<red>${text}</red>`,
   white: (text) => `<white>${text}</white>`,
   bold: (text) => `<bold>${text}</bold>`,
   dim: (text) => `<dim>${text}</dim>`,
 };
 
 describe('terminal-style-policy', () => {
-  it('resolves source stylers for known sources and fallback', () => {
-    expect(resolveSourceStyler('pi', testPalette)('pi')).toBe('<cyan>pi</cyan>');
-    expect(resolveSourceStyler('codex', testPalette)('codex')).toBe('<magenta>codex</magenta>');
-    expect(resolveSourceStyler('gemini', testPalette)('gemini')).toBe('<yellow>gemini</yellow>');
-    expect(resolveSourceStyler('droid', testPalette)('droid')).toBe('<green>droid</green>');
-    expect(resolveSourceStyler('opencode', testPalette)('opencode')).toBe('<blue>opencode</blue>');
-    expect(resolveSourceStyler('claude', testPalette)('claude')).toBe('<cyan>claude</cyan>');
+  it('gives pi, codex and claude their own hues, clear of the money and good/bad colors', () => {
+    const sources = ['pi', 'codex', 'claude'];
+    const hues = sources.map((source) => resolveSourceStyler(source, testPalette)('x'));
+
+    expect(new Set(hues).size).toBe(sources.length);
+    for (const hue of hues) {
+      expect(hue).not.toBe('x');
+      expect(hue).not.toMatch(/<(?:yellow|green|red)>/u);
+    }
+    expect(resolveSourceStyler('gemini', testPalette)('gemini')).toBe('gemini');
     expect(resolveSourceStyler('combined', testPalette)('combined')).toBe('combined');
     expect(resolveSourceStyler('TOTAL', testPalette)('TOTAL')).toBe('TOTAL');
     expect(resolveSourceStyler('other', testPalette)('other')).toBe('other');
+  });
+
+  it('returns every role unchanged without color', () => {
+    const roles = createColorRoles(false, testPalette);
+    const { source, ...textRoles } = roles;
+
+    for (const styler of Object.values(textRoles)) {
+      expect(styler('$1.00')).toBe('$1.00');
+    }
+    expect(source('pi')('pi')).toBe('pi');
+  });
+
+  it('styles headers bold, money yellow, and good/bad green/red with color', () => {
+    const roles = createColorRoles(true, testPalette);
+
+    expect(roles.header('Cost')).toBe('<bold>Cost</bold>');
+    expect(roles.money('$1.00')).toBe('<yellow>$1.00</yellow>');
+    expect(roles.moneyTotal('$9.00')).toBe('<bold><yellow>$9.00</yellow></bold>');
+    expect(roles.value('1,024')).toBe('1,024');
+    expect(roles.positive('-$2.00')).toBe('<green>-$2.00</green>');
+    expect(roles.negative('+$2.00')).toBe('<red>+$2.00</red>');
+    expect(roles.source('pi')('pi')).toBe('<cyan>pi</cyan>');
+  });
+
+  it('colors a cost increase red and a decrease green when lower is better', () => {
+    const options = { lowerIsBetter: true, palette: testPalette };
+
+    expect(styleDeltaCell(5, '+$5.00', true, options)).toBe('<red>+$5.00</red>');
+    expect(styleDeltaCell(-5, '-$5.00', true, options)).toBe('<green>-$5.00</green>');
+    expect(styleDeltaCell(0, '$0.00', true, options)).toBe('<dim>$0.00</dim>');
+    expect(styleDeltaCell(5, '+$5.00', false, options)).toBe('+$5.00');
+  });
+
+  it('colors savings green and losses red by default', () => {
+    const options = { palette: testPalette };
+
+    expect(styleDeltaCell(3, '$3.00', true, options)).toBe('<green>$3.00</green>');
+    expect(styleDeltaCell(-3, '-$3.00', true, options)).toBe('<red>-$3.00</red>');
+    expect(styleDeltaCell(undefined, '-', true, options)).toBe('-');
   });
 
   it('applies row-type style policy for period_source rows', () => {

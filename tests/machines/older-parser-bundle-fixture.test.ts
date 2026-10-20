@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../src/cli/build-usage-data.js';
+import type { ReportNote } from '../../src/cli/usage-data-contracts.js';
 import { loadMachineUsage } from '../../src/machines/load-machine-usage.js';
 import { openMachineCache, recordMachineSyncFailure } from '../../src/machines/machine-cache.js';
 import { closeEventStore } from '../../src/persistence/event-store.js';
@@ -13,6 +14,10 @@ import { canonicalTmpdir } from '../helpers/tmp.js';
 
 // A machine bundle whose events an older codex parser made (KI-3): same session and
 // timestamps as the local file, a different token split.
+function verboseNotes(notes: readonly ReportNote[] = []): string[] {
+  return notes.flatMap((note) => (typeof note === 'string' ? [] : [note.verbose]));
+}
+
 const bundlePath = path.resolve('tests/fixtures/golden/_machines/older-parser-bundle.jsonl');
 const FIXED_NOW = new Date('2026-06-21T12:00:00.000Z');
 
@@ -101,7 +106,7 @@ describe('machine bundle from an older parser version', () => {
       ),
     );
     // Those events count toward what the machines note says was left out.
-    expect(usageData.diagnostics.notes).toContainEqual(
+    expect(verboseNotes(usageData.diagnostics.notes)).toContainEqual(
       expect.stringMatching(/^Machines: laptop .*; left out 2 events already counted\.$/),
     );
   });
@@ -132,7 +137,7 @@ describe('machine bundle from an older parser version', () => {
     ]);
   });
 
-  it('matches by timestamp, with a note, for an export that records no parser versions', async () => {
+  it('matches by timestamp, with a --verbose note, for an export that records no parser versions', async () => {
     // A sync that recorded versions first, so the older export must clear them.
     await syncAndReport(() => bundleText);
     const usageData = await syncAndReport(() =>
@@ -143,8 +148,11 @@ describe('machine bundle from an older parser version', () => {
     // version to compare, its parser may differ, so the copies counted here win.
     expect(usageData.events).toHaveLength(2);
     expect(usageData.events.map((event) => event.machine ?? 'local')).toEqual(['local', 'local']);
-    expect(usageData.diagnostics.notes).toContain(
-      'sync laptop after updating llm-usage on it to record its parser versions',
+    // The machines note says once how to fix it.
+    expect(verboseNotes(usageData.diagnostics.notes)).toContainEqual(
+      expect.stringContaining(
+        'shared sessions are matched by timestamp until it is synced after updating llm-usage',
+      ),
     );
     expect(usageData.diagnostics.warnings).toContainEqual(
       expect.stringMatching(

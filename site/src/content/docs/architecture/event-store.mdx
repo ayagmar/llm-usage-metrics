@@ -43,7 +43,7 @@ When `--history` classifies a departed file, it compares that file's multiset of
 
 A departed file's tool calls and messages follow its usage: `tools` and `session --timeline` read those of the files history serves and skip those of suppressed files. A departed file with tool calls but no usage rows has no hashes to compare, so it is suppressed, and its tool calls are not served.
 
-History reads never mutate the ledger: the classification writes only connection-local SQLite `TEMP` tables. Each history run reports its outcome as a diagnostic: `History: included N events from M departed files (K suppressed as moved or duplicated).`
+History reads never mutate the ledger: the classification writes only connection-local SQLite `TEMP` tables. Each history run that serves events reports its outcome as a `--verbose` diagnostic, and an explicit `--history` always prints it: `History: included N events from M departed files (K suppressed as moved or duplicated).`
 
 ## Prune
 

@@ -57,3 +57,8 @@ updates:
     labels:
       - dependencies
       - security
+    groups:
+      # CodeQL fails when init and analyze run different versions, so bump them together.
+      codeql-action:
+        patterns:
+          - 'github/codeql-action/*'
