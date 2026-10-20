@@ -51,8 +51,7 @@ const optimizeTableHeadersWithoutNotes = [
 ] as const;
 
 const HYPOTHETICAL_COST_COLUMN_INDEX = 2;
-const NOTES_COLUMN_INDEX = 6;
-// Note codes run long when several apply; they wrap between codes to this width.
+// Note codes run long when several apply; on a terminal they wrap between codes to this width.
 const NOTES_COLUMN_WIDTH = 28;
 
 function getReportTitle(granularity: ReportGranularity): string {
@@ -66,8 +65,10 @@ function getReportTitle(granularity: ReportGranularity): string {
   }
 }
 
+/** A signed ratio; one that rounds to zero prints without a sign. */
 function formatPercent(value: number | undefined): string {
-  return formatSharePercent(value ?? null);
+  const formatted = formatSharePercent(value ?? null);
+  return formatted === '-0.0%' ? '0.0%' : formatted;
 }
 
 function formatNotes(notes: string[] | undefined): string {
@@ -256,26 +257,36 @@ function resolveIncludeNotesColumn(optimizeData: OptimizeDataResult): boolean {
   );
 }
 
-/**
- * Costs stay exact, so the table fits by leaving columns out. Hypothetical Cost goes first
- * when every row still shows it as Baseline Cost minus Savings; the notes, already wrapped
- * to a fixed width, go last.
- */
-function resolveHideableColumns(
-  optimizeData: OptimizeDataResult,
-  includeNotesColumn: boolean,
-): number[] {
-  const hypotheticalCostIsDerivable = optimizeData.rows.every(
-    (row) =>
-      row.rowType === 'baseline' ||
-      row.savingsUsd !== undefined ||
-      row.hypotheticalCostUsd === undefined,
-  );
+function toCents(usd: number): number {
+  return Math.round(usd * 100);
+}
 
-  return [
-    ...(hypotheticalCostIsDerivable ? [HYPOTHETICAL_COST_COLUMN_INDEX] : []),
-    ...(includeNotesColumn ? [NOTES_COLUMN_INDEX] : []),
-  ];
+/**
+ * Costs stay exact, so the table fits by leaving out Hypothetical Cost, and only when every
+ * row still shows it to the cent as Baseline Cost minus Savings. Notes carry pricing caveats
+ * found nowhere else, so they are never left out: the rows are listed instead.
+ */
+function resolveHideableColumns(optimizeData: OptimizeDataResult): number[] {
+  const baselineByPeriod = new Map(
+    optimizeData.rows
+      .filter((row) => row.rowType === 'baseline')
+      .map((row) => [row.periodKey, row.baselineCostUsd]),
+  );
+  const hypotheticalCostIsDerivable = optimizeData.rows.every((row) => {
+    if (row.rowType === 'baseline' || row.hypotheticalCostUsd === undefined) {
+      return true;
+    }
+
+    const baselineCostUsd = baselineByPeriod.get(row.periodKey);
+
+    return (
+      row.savingsUsd !== undefined &&
+      baselineCostUsd !== undefined &&
+      toCents(baselineCostUsd) - toCents(row.savingsUsd) === toCents(row.hypotheticalCostUsd)
+    );
+  });
+
+  return hypotheticalCostIsDerivable ? [HYPOTHETICAL_COST_COLUMN_INDEX] : [];
 }
 
 /** As the optimize builder decides which periods have usage. */
@@ -311,7 +322,10 @@ function renderTerminalOptimizeReport(
   }
 
   const includeNotesColumn = resolveIncludeNotesColumn(optimizeData);
-  const cellOptions = { includeNotesColumn, notesColumnWidth: NOTES_COLUMN_WIDTH };
+  const cellOptions = {
+    includeNotesColumn,
+    notesColumnWidth: terminalWidth === undefined ? undefined : NOTES_COLUMN_WIDTH,
+  };
   const tableCells = toTableCells(optimizeData, { ...cellOptions, useColor });
   const measureCells = toTableCells(optimizeData, { ...cellOptions, useColor: false });
   const headerCells = includeNotesColumn
@@ -335,7 +349,7 @@ function renderTerminalOptimizeReport(
       multilineColumnIndex: 1,
       multilineColumnWidth: resolveCandidateColumnWidth(measureCells),
       terminalWidth,
-      fit: { hideableColumns: resolveHideableColumns(optimizeData, includeNotesColumn) },
+      fit: { hideableColumns: resolveHideableColumns(optimizeData) },
     }),
   ].join('\n');
 }

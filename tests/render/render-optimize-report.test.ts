@@ -12,14 +12,31 @@ function stripAnsi(value: string): string {
   return stripVTControlCharacters(value);
 }
 
-function renderTerminalAtWidth(data: OptimizeDataResult, columns: number): string {
+function renderTerminalAtWidth(
+  data: OptimizeDataResult,
+  columns: number,
+  useColor = false,
+): string {
   const restoreStdout = overrideStdoutTty(columns);
 
   try {
-    return renderOptimizeReport(data, 'terminal', { granularity: 'daily', useColor: false });
+    return renderOptimizeReport(data, 'terminal', { granularity: 'daily', useColor });
   } finally {
     restoreStdout();
   }
+}
+
+function withoutNotes(data: OptimizeDataResult): OptimizeDataResult {
+  return {
+    ...data,
+    rows: data.rows.map((row) =>
+      row.rowType === 'candidate' ? { ...row, notes: undefined } : row,
+    ),
+  };
+}
+
+function maxLineWidth(output: string): number {
+  return Math.max(...output.split('\n').map((line) => visibleWidth(line)));
 }
 
 function createOptimizeDataResult(): OptimizeDataResult {
@@ -329,26 +346,49 @@ describe('renderOptimizeReport', () => {
     expect(output).toContain('│ Hypothetical Cost');
     expect(output).toContain('│ Notes');
     expect(output).toContain('│     12.0% │');
-    expect(Math.max(...output.split('\n').map((line) => visibleWidth(line)))).toBeLessThanOrEqual(
-      120,
-    );
+    expect(maxLineWidth(output)).toBeLessThanOrEqual(120);
   });
 
-  it('leaves out Hypothetical Cost, then Notes, before listing rows on an 80-column terminal', () => {
+  it('leaves out Hypothetical Cost to fit an 80-column terminal', () => {
+    for (const useColor of [false, true]) {
+      const output = renderTerminalAtWidth(withoutNotes(createOptimizeDataResult()), 80, useColor);
+      const lines = output.split('\n');
+      const tableLines = lines.slice(lines.findIndex((line) => stripAnsi(line).startsWith('╭')));
+      const boxWidths = new Set(tableLines.map((line) => visibleWidth(line)));
+
+      expect(stripAnsi(output)).toContain('╭');
+      expect(output).not.toContain('Hypothetical Cost');
+      expect(stripAnsi(output)).toContain('│ Baseline Cost');
+      expect(stripAnsi(output)).toContain('│ Savings %');
+      expect(maxLineWidth(output)).toBeLessThanOrEqual(80);
+      expect(boxWidths.size).toBe(1);
+    }
+  });
+
+  it('lists rows rather than leave out the notes', () => {
     const output = renderTerminalAtWidth(createOptimizeDataResult(), 80);
 
-    expect(output).toContain('╭');
-    expect(output).not.toContain('Hypothetical Cost');
-    expect(output).not.toContain('│ Notes');
-    expect(output).toContain('│ Baseline Cost');
-    expect(output).toContain('│ Savings %');
-    expect(Math.max(...output.split('\n').map((line) => visibleWidth(line)))).toBeLessThanOrEqual(
-      80,
+    expect(output).not.toContain('╭');
+    expect(output).toContain('Notes              baseline_incomplete');
+    expect(maxLineWidth(output)).toBeLessThanOrEqual(80);
+  });
+
+  it('wraps notes on a terminal but keeps them on one line when piped', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate' && row.notes
+        ? { ...row, notes: ['baseline_incomplete', 'cache_write_priced_as_input'] }
+        : row,
     );
+
+    expect(renderTerminalAtWidth(data, 160)).toContain('│ baseline_incomplete,        │');
+    expect(
+      renderOptimizeReport(data, 'terminal', { granularity: 'daily', useColor: false }),
+    ).toContain('│ baseline_incomplete, cache_write_priced_as_input │');
   });
 
   it('keeps Hypothetical Cost when an incomplete baseline leaves out the savings', () => {
-    const data = createOptimizeDataResult();
+    const data = withoutNotes(createOptimizeDataResult());
     data.rows = data.rows.map((row) =>
       row.rowType === 'candidate' && row.periodKey !== 'ALL'
         ? { ...row, savingsUsd: undefined, savingsRatio: undefined }
@@ -359,7 +399,39 @@ describe('renderOptimizeReport', () => {
 
     expect(output).toContain('│ Hypothetical Cost');
     expect(output).toContain('│ gpt-4.1   │             $1.10 │');
-    expect(output).not.toContain('│ Notes');
+  });
+
+  it('keeps Hypothetical Cost when Baseline Cost minus Savings is a cent off after rounding', () => {
+    const data = withoutNotes(createOptimizeDataResult());
+    data.rows = data.rows.map((row) => {
+      if (row.periodKey !== 'ALL') {
+        return row;
+      }
+
+      return row.rowType === 'baseline'
+        ? { ...row, baselineCostUsd: 1.004 }
+        : { ...row, hypotheticalCostUsd: 0.005, savingsUsd: 0.999, savingsRatio: 0.995 };
+    });
+
+    const output = renderTerminalAtWidth(data, 90);
+
+    expect(output).toContain('│ Hypothetical Cost');
+    expect(output).toContain('$0.01');
+  });
+
+  it('prints a cost increase that rounds to zero percent without a sign', () => {
+    const data = withoutNotes(createOptimizeDataResult());
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate'
+        ? { ...row, hypotheticalCostUsd: 1.25005, savingsUsd: -0.00005, savingsRatio: -0.00004 }
+        : row,
+    );
+
+    const output = renderTerminalAtWidth(data, 120);
+
+    expect(output).not.toContain('-0.0%');
+    expect(output).toContain('(0.0%)');
+    expect(output).toContain('│      0.0% │');
   });
 
   it('lists rows and wraps the context lines on a 44-column terminal', () => {
@@ -371,9 +443,7 @@ describe('renderOptimizeReport', () => {
     expect(output).toContain(
       'Savings = Baseline - Hypothetical (positive\nmeans cheaper candidate)',
     );
-    expect(Math.max(...output.split('\n').map((line) => visibleWidth(line)))).toBeLessThanOrEqual(
-      44,
-    );
+    expect(maxLineWidth(output)).toBeLessThanOrEqual(44);
   });
 
   it('colors costs as money and savings by direction', () => {
