@@ -82,11 +82,19 @@ export async function getEventStoreFileFingerprint(
   return fingerprint && storedKinds.length > 0 ? { ...fingerprint, storedKinds } : fingerprint;
 }
 
-function toUsageEvent(record: UsageRecord): UsageEvent {
-  // The keys readEvents adds to the event `read` yields; the rest keep its order.
+function toUsageEvent(record: UsageRecord, readReportsIds: boolean): UsageEvent {
+  // The keys readEvents adds to the event `read` yields; the rest keep its order. Only an
+  // adapter whose sessions copy events reports the ids in `read` too.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { kind, messageId, requestId, rawProvider, raw, ...event } = record;
-  return event;
+  const { kind, rawProvider, raw, ...event } = record;
+
+  if (readReportsIds) {
+    return event;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { messageId, requestId, ...withoutIds } = event;
+  return withoutIds;
 }
 
 /**
@@ -111,6 +119,7 @@ export async function collectFileForEventStore(
   }
 
   const diagnostics = createReadDiagnostics();
+  const readReportsIds = adapter.capabilities?.sessionsCopyEvents === true;
   const events: UsageEvent[] = [];
   const sessionEvents: StoredSessionEvent[] = [];
   const resumable: ResumableRead = {};
@@ -133,7 +142,7 @@ export async function collectFileForEventStore(
       : undefined,
   })) {
     if (event.kind === 'usage') {
-      events.push(toUsageEvent(event));
+      events.push(toUsageEvent(event, readReportsIds));
     } else if (event.kind === 'tool_call' || event.kind === 'message') {
       sessionEvents.push(event);
     }

@@ -871,6 +871,75 @@ describe('event-store', () => {
     }
   });
 
+  it('keeps the message and request ids an event was stored with', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-ids-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const event = createEvent({ source: 'claude', messageId: 'msg_1', requestId: 'req_1' });
+    const store = await openEventStore(dbPath);
+
+    try {
+      replaceFileEvents(store, {
+        source: 'claude',
+        filePath: '/tmp/claude.jsonl',
+        fingerprint: createFingerprint(),
+        events: [event],
+        skippedRows: 0,
+        now: 1_000,
+      });
+
+      expect(readFileEvents(store, 'claude', '/tmp/claude.jsonl')).toEqual([event]);
+    } finally {
+      closeEventStore(store);
+    }
+
+    expect((await readEventStoreEvents(dbPath)).events).toEqual([event]);
+  });
+
+  it('reads a store that predates the id columns, and adds them when opened for writes', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-before-ids-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const event = createEvent({ source: 'claude' });
+    const store = await openEventStore(dbPath);
+
+    try {
+      replaceFileEvents(store, {
+        source: 'claude',
+        filePath: '/tmp/claude.jsonl',
+        fingerprint: createFingerprint(),
+        events: [event],
+        skippedRows: 0,
+        now: 1_000,
+      });
+      store.database.exec('ALTER TABLE events DROP COLUMN message_id');
+      store.database.exec('ALTER TABLE events DROP COLUMN request_id');
+    } finally {
+      closeEventStore(store);
+    }
+
+    // A machine cache no sync has opened since the upgrade is read read-only.
+    expect((await readEventStoreEvents(dbPath)).events).toEqual([event]);
+
+    const reopened = await openEventStore(dbPath);
+
+    try {
+      expect(readFileEvents(reopened, 'claude', '/tmp/claude.jsonl')).toEqual([event]);
+      const withIds = createEvent({ source: 'claude', messageId: 'msg_1', requestId: 'req_1' });
+      replaceFileEvents(reopened, {
+        source: 'claude',
+        filePath: '/tmp/claude.jsonl',
+        fingerprint: createFingerprint(),
+        events: [withIds],
+        skippedRows: 0,
+        now: 2_000,
+      });
+      expect(readFileEvents(reopened, 'claude', '/tmp/claude.jsonl')).toEqual([withIds]);
+    } finally {
+      closeEventStore(reopened);
+    }
+  });
+
   it('reads a v3 store opened read-only without migrating it', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v3-read-only-'));
     tempDirs.push(tempDir);

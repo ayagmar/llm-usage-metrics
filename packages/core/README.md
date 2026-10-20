@@ -142,7 +142,7 @@ Most sources hold one line, frame, array element or row at a time. Some keep sta
 A stage is a function from one async iterable to another (`Stage<In, Out>`), and `pipe(source, ...stages)` runs a source through up to six of them. The dedup steps have stage forms next to their array functions:
 
 - `repeatedAcrossFiles()` takes one batch of events per file, in file order, and drops events an earlier file already yielded. Use it for sources with `capabilities.eventsRepeatAcrossFiles` (pi forks copy their parent's entries). It keeps only a count per content hash.
-- `copiedSessions()` drops events a continued session copied from the session it continues (`capabilities.sessionsCopyEvents`, claude). It buffers its whole input, since which session keeps a copy depends on every session's first event.
+- `copiedSessions()` drops events a continued session copied from the session it continues (`capabilities.sessionsCopyEvents`, claude). A copy keeps the timestamp, model, usage, `messageId` and `requestId`; events with different ids all count. It buffers its whole input, since which session keeps a copy depends on every session's first event.
 
 ```ts
 import { collect, pipe, repeatedAcrossFiles } from '@ayagmar/agent-sessions';
@@ -247,7 +247,7 @@ A usage event with `singleRequest: true` records exactly one model request, so p
 
 | `kind`         | Type               | Other fields                                                                                                         |
 | -------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `usage`        | `UsageRecord`      | every `UsageEvent` field, then `messageId`, `requestId` and `rawProvider` when known                                 |
+| `usage`        | `UsageRecord`      | every `UsageEvent` field, with `messageId` and `requestId` when known, then `rawProvider`                            |
 | `message`      | `MessageEvent`     | `role` (`user`, `assistant` or `system`), `textLength`, and optionally `messageId`, `model` (assistant) and `text`   |
 | `tool_call`    | `ToolCallEvent`    | `name`, `status` (`ok`, `error` or `unknown`), and optionally `toolCallId`, `completedAt`, `durationMs`, `messageId` |
 | `session_meta` | `SessionMetaEvent` | any of `cwd`, `title`, `gitBranch`, `agentVersion`, `parentSessionId`, `model`, `rawProvider`                        |
@@ -313,7 +313,7 @@ The core never sends data anywhere: it makes no network calls and writes nothing
 | codex  | `token_usage_record.payload.response_id`; files with only `token_count` have none | `session_meta.payload.model_provider`                                          | messages: the `response_item` `id`; tool calls: none |
 | pi     | `message.responseId`                                                              | the provider logged on the line, the message or the last `model_change`        | `message.responseId` of the assistant message        |
 
-Sources that only declare `['usage']` carry no ids and no `rawProvider`.
+Sources that only declare `['usage']` carry no ids and no `rawProvider`. claude's `read` events carry the usage ids too; codex and pi add them only to `readEvents` records.
 
 ### session_meta
 

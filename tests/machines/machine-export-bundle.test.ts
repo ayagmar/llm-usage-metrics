@@ -230,6 +230,27 @@ describe('readMachineExport', () => {
     expect(bundle.sentFiles.map((file) => file.events[0].singleRequest)).toEqual([true, undefined]);
   });
 
+  it("keeps a claude event's message and request ids through an export", async () => {
+    const claudeEvent = createUsageEvent({
+      ...event,
+      source: 'claude',
+      messageId: 'msg_1',
+      requestId: 'req_1',
+    });
+    const lines = buildMachineExportLines(header, [
+      {
+        source: 'claude',
+        filePath: '/c.jsonl',
+        revision: 'r1',
+        events: [claudeEvent],
+        sessionEvents: [],
+      },
+    ]);
+    const bundle = await readMachineExport(linesOf(...lines.map((line) => JSON.stringify(line))));
+
+    expect(bundle.sentFiles[0].events).toEqual([claudeEvent]);
+  });
+
   it('flags the events of an export that predates the flag from their source', async () => {
     const claudeEvent = createUsageEvent({ ...event, source: 'claude' });
     const bundle = await readMachineExport(

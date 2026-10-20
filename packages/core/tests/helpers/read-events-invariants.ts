@@ -29,8 +29,10 @@ export type ReadEventsInvariantOptions = {
   deriveSessionId: (event: SessionEvent) => string;
 };
 
-// The keys readEvents adds to a usage event that read yields.
-const USAGE_RECORD_KEYS = new Set(['kind', 'messageId', 'requestId', 'rawProvider', 'raw']);
+// The keys readEvents adds to a usage event that read yields. The ids are added only by an
+// adapter whose read leaves them out: one whose sessions copy events reports them in read.
+const USAGE_RECORD_KEYS = new Set(['kind', 'rawProvider', 'raw']);
+const USAGE_ID_KEYS = new Set(['messageId', 'requestId']);
 
 function summarize(diagnostics: ReturnType<typeof createReadDiagnostics>): ReadDiagnosticsSummary {
   return {
@@ -76,9 +78,13 @@ function recreate(event: SessionEvent): SessionEvent {
   }
 }
 
-function withoutRecordKeys(event: SessionEvent): string {
+function withoutRecordKeys(event: SessionEvent, readReportsIds: boolean): string {
   return JSON.stringify(
-    Object.fromEntries(Object.entries(event).filter(([key]) => !USAGE_RECORD_KEYS.has(key))),
+    Object.fromEntries(
+      Object.entries(event).filter(
+        ([key]) => !USAGE_RECORD_KEYS.has(key) && (readReportsIds || !USAGE_ID_KEYS.has(key)),
+      ),
+    ),
   );
 }
 
@@ -103,7 +109,9 @@ export async function assertReadEventsInvariants(
     'I1: a usage-only read yields only usage',
   ).toEqual(read.events.map(() => 'usage'));
   expect(
-    usageOnly.events.map(withoutRecordKeys),
+    usageOnly.events.map((event) =>
+      withoutRecordKeys(event, adapter.capabilities?.sessionsCopyEvents === true),
+    ),
     'I1: usage records without the record keys are read events, in order',
   ).toEqual(read.events.map((event) => JSON.stringify(event)));
   expect(usageOnly.diagnostics, 'I1: a usage-only read records what read records').toEqual(

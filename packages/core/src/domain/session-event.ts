@@ -34,13 +34,9 @@ type EventBase = {
 
 /**
  * A usage event as a `SessionEvent` (`kind: 'usage'`): the `UsageEvent` fields, in the same
- * order, followed by the ids and the logged provider when the source has them.
+ * order, with the ids set when the source has them, followed by the logged provider.
  */
 export type UsageRecord = EventBase & { kind: 'usage' } & Omit<UsageEvent, keyof EventBase> & {
-    /** The provider's response or message id, as logged. */
-    messageId?: string;
-    /** The API request id, as logged. */
-    requestId?: string;
     /** The provider as logged; undefined when the adapter inferred it. */
     rawProvider?: string;
   };
@@ -107,10 +103,8 @@ type EventBaseInput = {
   raw?: unknown;
 };
 
-/** What `createUsageRecord` takes: a `UsageEventInput` plus the optional ids and raw record. */
+/** What `createUsageRecord` takes: a `UsageEventInput` plus the logged provider and raw record. */
 export type UsageRecordInput = UsageEventInput & {
-  messageId?: string;
-  requestId?: string;
   rawProvider?: string;
   raw?: unknown;
 };
@@ -220,13 +214,11 @@ export function normalizeSessionMetaFields(fields: SessionMetaFields): SessionMe
   );
 }
 
-/** A usage event as `read` yields it, then the ids and raw provider when defined. */
+/** A usage event, ids included, then the raw provider and raw record when defined. */
 export function createUsageRecord(input: UsageRecordInput): UsageRecord {
   return assignDefined<UsageRecord>(
     { kind: 'usage', ...createUsageEvent(input) },
     {
-      messageId: normalizeOptionalText(input.messageId),
-      requestId: normalizeOptionalText(input.requestId),
       rawProvider: normalizeOptionalText(input.rawProvider),
       raw: input.raw,
     },

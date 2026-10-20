@@ -4,9 +4,9 @@ import { collect } from '../stream/collect.js';
 import type { Stage } from '../stream/pipe.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 
-// Everything but the session: a copied event keeps its timestamp, model and usage.
-// Keep in step with isCopyOf.
-function getCopyIdentity(event: UsageEvent): string {
+// Everything but the session and the request ids: a copied event keeps its timestamp,
+// model and usage. Keep in step with isSameUsage.
+function getUsageIdentity(event: UsageEvent): string {
   return [
     event.timestamp,
     event.provider ?? '',
@@ -21,7 +21,13 @@ function getCopyIdentity(event: UsageEvent): string {
   ].join('\0');
 }
 
-function isCopyOf(left: UsageEvent, right: UsageEvent): boolean {
+// A copy also keeps the logged message and request ids. An event stored or exported before
+// events carried them has none.
+function getRequestKey(event: UsageEvent): string | undefined {
+  return event.messageId === undefined ? undefined : `${event.messageId}\0${event.requestId ?? ''}`;
+}
+
+function isSameUsage(left: UsageEvent, right: UsageEvent): boolean {
   return (
     left.totalTokens === right.totalTokens &&
     left.timestamp === right.timestamp &&
@@ -33,6 +39,18 @@ function isCopyOf(left: UsageEvent, right: UsageEvent): boolean {
     left.cacheReadTokens === right.cacheReadTokens &&
     left.cacheWriteTokens === right.cacheWriteTokens &&
     left.cacheWrite1hTokens === right.cacheWrite1hTokens
+  );
+}
+
+// Two requests with different ids are distinct however alike their usage; an event
+// without ids can be a copy of any event with the same usage.
+function isCopyOf(left: UsageEvent, right: UsageEvent): boolean {
+  const leftKey = getRequestKey(left);
+  const rightKey = getRequestKey(right);
+
+  return (
+    (leftKey === undefined || rightKey === undefined || leftKey === rightKey) &&
+    isSameUsage(left, right)
   );
 }
 
@@ -79,13 +97,41 @@ function findEventsOtherSessionsHold<E extends UsageEvent>(events: readonly E[])
   return candidates;
 }
 
+// The identity each candidate is counted under: its usage and request ids. A candidate
+// without ids takes the lowest request key among the candidates with the same usage, so
+// a copy stored before events carried ids still matches its original.
+function getCopyIdentities<E extends UsageEvent>(candidates: ReadonlySet<E>): Map<E, string> {
+  const lowestKeys = new Map<string, string>();
+
+  for (const event of candidates) {
+    const usageIdentity = getUsageIdentity(event);
+    const key = getRequestKey(event);
+    const lowest = lowestKeys.get(usageIdentity);
+
+    if (key !== undefined && (lowest === undefined || compareByCodePoint(key, lowest) < 0)) {
+      lowestKeys.set(usageIdentity, key);
+    }
+  }
+
+  const identities = new Map<E, string>();
+
+  for (const event of candidates) {
+    const usageIdentity = getUsageIdentity(event);
+    const key = getRequestKey(event) ?? lowestKeys.get(usageIdentity) ?? '';
+    identities.set(event, `${usageIdentity}\0${key}`);
+  }
+
+  return identities;
+}
+
 /**
  * Counts once the events a session copied from another session under its own session id
  * (a Claude Desktop session "continued in new session" repeats the rows since the last
- * compaction). Sessions are visited oldest first, so the session whose first event is
- * earlier keeps a copied event (on a tie, the lower session id); within one session,
- * identical events all count, as they would without copies. Kept events stay in their
- * input order.
+ * compaction). A copy keeps the timestamp, model, usage and logged message and request
+ * ids; events whose ids differ are distinct requests and all count. Sessions are visited
+ * oldest first, so the session whose first event is earlier keeps a copied event (on a
+ * tie, the lower session id); within one session, identical events all count, as they
+ * would without copies. Kept events stay in their input order.
  */
 export function dedupeCopiedSessions<E extends UsageEvent | SessionEvent>(
   events: readonly E[],
@@ -121,6 +167,7 @@ export function dedupeCopiedSessions<E extends UsageEvent | SessionEvent>(
       compareByCodePoint(sessionStarts.get(left) ?? '', sessionStarts.get(right) ?? '') ||
       compareByCodePoint(left, right),
   );
+  const identities = getCopyIdentities(candidates);
   const countedIdentities = new Map<string, number>();
   const copies = new Set<E & UsageEvent>();
 
@@ -128,7 +175,7 @@ export function dedupeCopiedSessions<E extends UsageEvent | SessionEvent>(
     const sessionCounts = new Map<string, number>();
 
     for (const event of candidatesBySession.get(sessionId) ?? []) {
-      const identity = getCopyIdentity(event);
+      const identity = identities.get(event) ?? '';
       const seen = (sessionCounts.get(identity) ?? 0) + 1;
       sessionCounts.set(identity, seen);
 

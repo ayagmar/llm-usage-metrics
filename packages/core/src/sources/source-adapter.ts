@@ -41,7 +41,9 @@ export type SourceCapabilities = {
   /**
    * A session can copy another session's events under its own session id (a Claude
    * session continued in a new session repeats the rows it continues), so an event that
-   * several sessions hold with the same timestamp, model and usage is counted once.
+   * several sessions hold with the same timestamp, model, usage and ids is counted once.
+   * `read` reports the logged `messageId` and `requestId`, which a copy keeps and a
+   * distinct request with the same usage does not.
    */
   sessionsCopyEvents?: boolean;
   /**

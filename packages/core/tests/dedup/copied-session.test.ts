@@ -8,6 +8,7 @@ function createEvent(
   timestamp: string,
   outputTokens = 5,
   model = 'claude-sonnet-4-5',
+  ids: { messageId?: string; requestId?: string } = {},
 ) {
   return createUsageEvent({
     source: 'claude',
@@ -18,6 +19,14 @@ function createEvent(
     inputTokens: 10,
     outputTokens,
     cacheReadTokens: 100,
+    ...ids,
+  });
+}
+
+function createRequest(sessionId: string, messageId: string, requestId?: string) {
+  return createEvent(sessionId, '2026-10-09T10:00:00.000Z', 5, 'claude-sonnet-4-5', {
+    messageId,
+    requestId,
   });
 }
 
@@ -54,5 +63,41 @@ describe('dedupeCopiedSessions', () => {
     const branch = [createEvent('branch', '2026-10-09T10:00:00.000Z')];
 
     expect(dedupeCopiedSessions([...original, ...branch])).toEqual(original);
+  });
+
+  it('keeps requests of different sessions with the same usage but different ids', () => {
+    const events = [
+      createRequest('first', 'msg_1', 'req_1'),
+      createRequest('second', 'msg_2', 'req_2'),
+      // A retry reuses the message id under a fresh request id.
+      createRequest('third', 'msg_1', 'req_3'),
+    ];
+
+    expect(dedupeCopiedSessions(events)).toEqual(events);
+  });
+
+  it('counts a copy that keeps its ids once', () => {
+    const original = [
+      createEvent('original', '2026-10-09T09:00:00.000Z'),
+      createRequest('original', 'msg_1', 'req_1'),
+    ];
+    const continued = [createRequest('continued', 'msg_1', 'req_1')];
+
+    expect(dedupeCopiedSessions([...continued, ...original])).toEqual(original);
+  });
+
+  it('counts an event stored without ids once with a copy that has them', () => {
+    // The original's file is gone, and history serves it as stored before events had ids.
+    const original = [
+      createEvent('original', '2026-10-09T09:00:00.000Z'),
+      createEvent('original', '2026-10-09T10:00:00.000Z'),
+    ];
+    const continued = [createRequest('continued', 'msg_1', 'req_1')];
+    const distinct = createRequest('other', 'msg_2', 'req_2');
+
+    expect(dedupeCopiedSessions([...original, ...continued, distinct])).toEqual([
+      ...original,
+      distinct,
+    ]);
   });
 });
