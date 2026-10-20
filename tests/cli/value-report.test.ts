@@ -106,7 +106,9 @@ describe('value report', () => {
     const note =
       'no --plan given; comparing with chatgpt-pro-200, since --source leaves out every source of claude-max-20x (claude)';
     const notesOf = async (options: ValueCommandOptions) =>
-      (await buildValueData({ ...baseOptions, ...options }, deps)).diagnostics.notes ?? [];
+      ((await buildValueData({ ...baseOptions, ...options }, deps)).diagnostics.notes ?? []).map(
+        (line) => (typeof line === 'string' ? line : line.verbose),
+      );
 
     expect(await notesOf({ source: 'codex' })).toContain(note);
     expect(await notesOf({ source: 'codex', planPrice: '50' })).toContain(note);

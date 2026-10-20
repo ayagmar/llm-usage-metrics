@@ -132,12 +132,7 @@ export async function loadMachineUsage(params: {
   );
   const notes: string[] = [];
 
-  readable.forEach(({ name, usage }, index) => {
-    // A machine never synced has its own note.
-    if (usage?.state.syncedAt !== undefined && usage.state.parserVersions === undefined) {
-      notes.push(`sync ${name} after updating llm-usage on it to record its parser versions`);
-    }
-
+  readable.forEach(({ name }, index) => {
     const skewWarning = formatParserSkew(merged[index]);
 
     if (skewWarning) {

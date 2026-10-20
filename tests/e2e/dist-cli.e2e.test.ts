@@ -111,6 +111,7 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
         distCliPath,
         'monthly',
         '--json',
+        '--verbose',
         '--timezone',
         'UTC',
         '--source',
