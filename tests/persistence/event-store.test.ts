@@ -875,7 +875,11 @@ describe('event-store', () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-ids-'));
     tempDirs.push(tempDir);
     const dbPath = path.join(tempDir, 'events.db');
-    const event = createEvent({ source: 'claude', messageId: 'msg_1', requestId: 'req_1' });
+    const events = [
+      createEvent({ source: 'claude', messageId: 'msg_1', requestId: 'req_1' }),
+      // A row that logged no request id.
+      createEvent({ source: 'claude', messageId: 'msg_2' }),
+    ];
     const store = await openEventStore(dbPath);
 
     try {
@@ -883,17 +887,22 @@ describe('event-store', () => {
         source: 'claude',
         filePath: '/tmp/claude.jsonl',
         fingerprint: createFingerprint(),
-        events: [event],
+        events,
         skippedRows: 0,
         now: 1_000,
       });
 
-      expect(readFileEvents(store, 'claude', '/tmp/claude.jsonl')).toEqual([event]);
+      // Same keys in the same order as createUsageEvent sets them.
+      expect(JSON.stringify(readFileEvents(store, 'claude', '/tmp/claude.jsonl'))).toBe(
+        JSON.stringify(events),
+      );
     } finally {
       closeEventStore(store);
     }
 
-    expect((await readEventStoreEvents(dbPath)).events).toEqual([event]);
+    expect(JSON.stringify((await readEventStoreEvents(dbPath)).events)).toBe(
+      JSON.stringify(events),
+    );
   });
 
   it('reads a store that predates the id columns, and adds them when opened for writes', async () => {

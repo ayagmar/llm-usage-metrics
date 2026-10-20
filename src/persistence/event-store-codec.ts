@@ -227,6 +227,31 @@ function materializeStoredEvent(
     return undefined;
   }
 
+  // createUsageEvent sets the ids before the cost mode, and leaves out an unknown one.
+  // Claude logs both, so that common case is one literal too.
+  if (messageId !== undefined && requestId !== undefined) {
+    return {
+      source,
+      sessionId,
+      timestamp,
+      repoRoot,
+      provider,
+      model,
+      inputTokens,
+      outputTokens,
+      reasoningTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      cacheWrite1hTokens,
+      totalTokens,
+      singleRequest: singleRequestValue === 1 ? true : undefined,
+      costUsd,
+      messageId,
+      requestId,
+      costMode,
+    };
+  }
+
   const event: UsageEvent = {
     source,
     sessionId,
@@ -250,7 +275,6 @@ function materializeStoredEvent(
     return event;
   }
 
-  // createUsageEvent sets the ids before the cost mode, and leaves out an unknown one.
   const { costMode: storedCostMode, ...usage } = event;
   return {
     ...usage,
