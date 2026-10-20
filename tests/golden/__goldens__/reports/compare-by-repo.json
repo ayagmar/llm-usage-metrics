@@ -68,7 +68,7 @@
       },
       {
         "key": "cacheReadTokens",
-        "label": "Cache read",
+        "label": "Cache Read",
         "valueType": "integer",
         "current": 12000,
         "baseline": 0,
@@ -76,7 +76,7 @@
       },
       {
         "key": "cacheWriteTokens",
-        "label": "Cache write",
+        "label": "Cache Write",
         "valueType": "integer",
         "current": 0,
         "baseline": 0,
@@ -85,7 +85,7 @@
       },
       {
         "key": "totalTokens",
-        "label": "Total tokens",
+        "label": "Total Tokens",
         "valueType": "integer",
         "current": 33740,
         "baseline": 2750,
@@ -112,7 +112,7 @@
       },
       {
         "key": "activeDays",
-        "label": "Active days",
+        "label": "Active Days",
         "valueType": "integer",
         "current": 1,
         "baseline": 2,

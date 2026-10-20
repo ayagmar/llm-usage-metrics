@@ -175,6 +175,8 @@ export type ReportCommandOptions = SharedOptionsForProfile<'usage'> &
     compact?: boolean;
     /** One row per source and machine instead of per source. */
     byMachine?: boolean;
+    /** With --by-repo: projects shown per period (default 20; 0 shows all). */
+    top?: string;
   };
 
 export type HourlyCommandOptions = SharedOptionsForProfile<'hourly'> &
@@ -187,6 +189,8 @@ export type HourlyCommandOptions = SharedOptionsForProfile<'hourly'> &
     all?: boolean;
     /** One row per source and machine instead of per source. */
     byMachine?: boolean;
+    /** With --by-repo: projects shown per hour (default 20; 0 shows all). */
+    top?: string;
   };
 
 /** Shared by projects, blocks and value: the window flags and the table display flags. */
@@ -280,6 +284,8 @@ export type CompareCommandOptions = SharedOptionsForProfile<'compare'> &
   ByRepoOption & {
     vsSince?: string;
     vsUntil?: string;
+    /** With --by-repo: projects shown (default 20; 0 shows all). */
+    top?: string;
   };
 
 export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
@@ -332,6 +338,12 @@ export type UsageSkippedRowsStat = {
 export type UsagePricingOrigin =
   'cache' | 'network' | 'offline-cache' | 'bundled-snapshot' | 'none';
 
+/**
+ * A stderr note. A plain string prints by default; a `verbose` note is routine detail
+ * (scan counts, history, machines, re-estimated costs) that prints only under `--verbose`.
+ */
+export type ReportNote = string | { verbose: string };
+
 export type UsageDiagnostics = {
   sessionStats: UsageSessionStats[];
   sourceFailures: UsageSourceFailure[];
@@ -339,8 +351,8 @@ export type UsageDiagnostics = {
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   warnings?: string[];
-  /** Informational lines the user asked for (e.g. --history totals); not problems. */
-  notes?: string[];
+  /** Informational lines; not problems. */
+  notes?: ReportNote[];
   activeEnvOverrides: EnvVarOverride[];
   activeConfig?: ActiveConfig;
   timezone: string;
@@ -351,6 +363,8 @@ export type UsageDataResult = {
   events: UsageEvent[];
   rows: UsageReportRow[];
   diagnostics: UsageDiagnostics;
+  /** With --by-repo: names the projects that --top folded into "other projects" rows. */
+  limitNote?: string;
   /** Set when `daily` ran without dates and so covered only its default recent window. */
   defaultWindowSince?: string;
 };
@@ -363,6 +377,8 @@ export type EfficiencyDiagnostics = UsageDiagnostics & {
   gitLinesDeleted: number;
   gitMalformedCommitLines: number;
   repoMatchedUsageEvents: number;
+  /** Days with token or cost usage in the repository; commits are only counted on these. */
+  repoUsageDays: number;
   repoExcludedUsageEvents: number;
   repoUnattributedUsageEvents: number;
   scopeNote?: string;

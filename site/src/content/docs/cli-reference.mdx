@@ -237,6 +237,11 @@ Options:
                                  came from
   --by-repo                      Split each source row by project (the working
                                  directory the tool recorded)
+  --top <n>                      With --by-repo, show the top N projects of each
+                                 hour by cost (by tokens when a cost is
+                                 incomplete or with --no-cost) and fold the rest
+                                 into one "other projects" row per source
+                                 (default 20; 0 shows all)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -339,8 +344,7 @@ Options:
                                  machines machine-N and local or path-shaped
                                  models model-N
   --all                          Report every day instead of the last 7 days
-  --last <n>                     Report the last N days, counting the current
-                                 day
+  --last <n>                     Report the last N days, counting today
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
   --no-cost                      Leave cost out of the table and share report,
@@ -349,6 +353,11 @@ Options:
                                  came from
   --by-repo                      Split each source row by project (the working
                                  directory the tool recorded)
+  --top <n>                      With --by-repo, show the top N projects of each
+                                 day by cost (by tokens when a cost is
+                                 incomplete or with --no-cost) and fold the rest
+                                 into one "other projects" row per source
+                                 (default 20; 0 shows all)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -462,6 +471,11 @@ Options:
                                  came from
   --by-repo                      Split each source row by project (the working
                                  directory the tool recorded)
+  --top <n>                      With --by-repo, show the top N projects of each
+                                 week by cost (by tokens when a cost is
+                                 incomplete or with --no-cost) and fold the rest
+                                 into one "other projects" row per source
+                                 (default 20; 0 shows all)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -575,6 +589,11 @@ Options:
                                  came from
   --by-repo                      Split each source row by project (the working
                                  directory the tool recorded)
+  --top <n>                      With --by-repo, show the top N projects of each
+                                 month by cost (by tokens when a cost is
+                                 incomplete or with --no-cost) and fold the rest
+                                 into one "other projects" row per source
+                                 (default 20; 0 shows all)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -786,6 +805,9 @@ Options:
                                  window
   --by-repo                      Also compare each project (the working
                                  directory the tool recorded)
+  --top <n>                      With --by-repo, show the top N projects by cost
+                                 change and fold the rest into one "other
+                                 projects" row (default 20; 0 shows all)
   --all                          No effect: compare reads its two windows from
                                  the date flags
   --repo <project>               Count only these projects (repeatable or
@@ -1004,7 +1026,7 @@ Options:
   --candidate-model <name>       Candidate model for counterfactual pricing
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
-                                 (positive integer)
+                                 (default: all; 0 shows all)
   --all                          Report the full history (the default without
                                  date flags)
   --repo <project>               Count only these projects (repeatable or
@@ -1401,8 +1423,7 @@ Options:
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
   --all                          Report every day instead of the last 7 days
-  --last <n>                     Report the last N days, counting the current
-                                 day
+  --last <n>                     Report the last N days, counting today
   --by-session                   One row per session instead of per model,
                                  largest peak prompt first
   --top <n>                      With --by-session, show only the top N sessions
@@ -1501,9 +1522,10 @@ Options:
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
-  --top <n>                      Show only the top N blocks across sources by
-                                 cost, or by tokens when a cost is incomplete or
-                                 with --no-cost (positive integer)
+  --top <n>                      Show the top N blocks across sources by cost,
+                                 or by tokens when a cost is incomplete or with
+                                 --no-cost (default: the 20 most recent; 0 shows
+                                 all)
   --last <n>                     Report the last N days, counting today (default
                                  7)
   --all                          Report every block instead of the last 7 days
@@ -2302,7 +2324,7 @@ Search across root and command help. See Command help above to check which flags
 | `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--known` | - | `<path>` | Leave out files already held at the same revision, as listed in this JSON file \(- for stdin\) \(machine only\) |
-| `--last` | - | `<n>` | hourly: Report the last N days hour by hour \(1-31\), counting today; daily, context: Report the last N days, counting the current day; weekly: Report the last N weeks, counting the current week; monthly, projects, value: Report the last N months, counting the current month; trends: Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided; tools, blocks: Report the last N days, counting today \(default 7\); events: Export the last N days, counting today |
+| `--last` | - | `<n>` | hourly: Report the last N days hour by hour \(1-31\), counting today; daily, context: Report the last N days, counting today; weekly: Report the last N weeks, counting the current week; monthly, projects, value: Report the last N months, counting the current month; trends: Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided; tools, blocks: Report the last N days, counting today \(default 7\); events: Export the last N days, counting today |
 | `--list` | - | - | List available schema names \(the default without a name\) \(schema only\) |
 | `--machine` | - | `<name>` | Count only these machines \(repeatable or comma-separated; local is this one; default: all\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, pricing only\) |
@@ -2337,7 +2359,7 @@ Search across root and command help. See Command help above to check which flags
 | `--suppressed` | - | - | Select departed files that --history already suppresses \(prune only\) |
 | `--timeline` | - | - | With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns \(session only\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, config only\) |
-| `--top` | - | `<n>` | projects: Show only the top N projects by cost \(default 10; 0 shows all\); optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\); tools: Show only the top N tools by calls \(default 20; 0 shows all\); context: With --by-session, show only the top N sessions \(default 20; 0 shows all\); blocks: Show only the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost \(positive integer\); value: List only the top N projects of each month by cost \(default 10; 0 lists all\) |
+| `--top` | - | `<n>` | hourly: With --by-repo, show the top N projects of each hour by cost \(by tokens when a cost is incomplete or with --no-cost\) and fold the rest into one "other projects" row per source \(default 20; 0 shows all\); daily: With --by-repo, show the top N projects of each day by cost \(by tokens when a cost is incomplete or with --no-cost\) and fold the rest into one "other projects" row per source \(default 20; 0 shows all\); weekly: With --by-repo, show the top N projects of each week by cost \(by tokens when a cost is incomplete or with --no-cost\) and fold the rest into one "other projects" row per source \(default 20; 0 shows all\); monthly: With --by-repo, show the top N projects of each month by cost \(by tokens when a cost is incomplete or with --no-cost\) and fold the rest into one "other projects" row per source \(default 20; 0 shows all\); projects: Show only the top N projects by cost \(default 10; 0 shows all\); compare: With --by-repo, show the top N projects by cost change and fold the rest into one "other projects" row \(default 20; 0 shows all\); optimize: Show only the top N cheapest candidates \(default: all; 0 shows all\); session: Show only the top N rows by cost \(default 20; 0 shows all\); tools: Show only the top N tools by calls \(default 20; 0 shows all\); context: With --by-session, show only the top N sessions \(default 20; 0 shows all\); blocks: Show the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost \(default: the 20 most recent; 0 shows all\); value: List only the top N projects of each month by cost \(default 10; 0 lists all\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, events only\) |
 | `--verbose` | - | - | Print detailed diagnostics on stderr \(per-source counts, routine skips, config, env\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, machine only\) |
 | `--vs-since` | - | `<date>` | Inclusive start date for the baseline comparison window \(compare only\) |

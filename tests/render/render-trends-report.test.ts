@@ -480,7 +480,7 @@ describe('renderTrendsReport', () => {
     });
 
     expect(output).toContain('Daily Token Usage Trend (30 days)');
-    expect(output).toContain('Compressed 10 empty days before first activity (Mar 01-Mar 10).');
+    expect(output).toContain('Compressed 10 empty days before first activity (Mar 01 to Mar 10).');
     expect(output).toContain('Mar 11');
     expect(output).toContain('Mar 25');
   });
@@ -556,5 +556,145 @@ describe('renderTrendsReport', () => {
       'Spend spikes (3× or more the median active day of the 28 days before, $1.00 minimum): 2026-03-06 ~$2.50',
     );
     expect(renderTrendsReport(createTrendsDataResult(), 'terminal')).not.toContain('spike');
+  });
+
+  it('names only the five largest spike days, in date order, and counts the rest', () => {
+    const data = createTrendsDataResult();
+    const spikeValues = [10, 70, 20, 60, 50, 30, 40];
+    data.totalSeries.buckets = spikeValues.map((value, index) => ({
+      date: `2026-03-0${index + 1}`,
+      value,
+      observed: true,
+      spike: true,
+    }));
+    data.totalSeries.summary = {
+      total: 280,
+      average: 40,
+      peak: { date: '2026-03-02', value: 70 },
+      incomplete: false,
+      observedDayCount: 7,
+    };
+    const legend =
+      'Spend spikes (3× or more the median active day of the 28 days before, $1.00 minimum): ';
+
+    expect(
+      renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth: 80 })
+        .split('\n')
+        .at(-1),
+    ).toBe(
+      `${legend}Mar 02 $70.00, Mar 04 $60.00, Mar 05 $50.00, Mar 06 $30.00, Mar 07 $40.00, +2 more`,
+    );
+    expect(renderTrendsReport(data, 'markdown').split('\n').at(-1)).toBe(
+      `${legend}2026-03-02 $70.00, 2026-03-04 $60.00, 2026-03-05 $50.00, 2026-03-06 $30.00, 2026-03-07 $40.00, +2 more`,
+    );
+  });
+
+  it('labels dates with their year when the range crosses a year', () => {
+    const data = createTrendsDataResult();
+    data.totalSeries.buckets = [
+      { date: '2025-12-30', value: 1, observed: true },
+      { date: '2025-12-31', value: 0, observed: false },
+      { date: '2026-01-01', value: 0, observed: false },
+      { date: '2026-01-02', value: 9, observed: true, spike: true },
+    ];
+    data.totalSeries.summary = {
+      total: 10,
+      average: 2.5,
+      peak: { date: '2026-01-02', value: 9 },
+      incomplete: false,
+      observedDayCount: 2,
+    };
+
+    const lines = renderTrendsReport(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 80,
+    }).split('\n');
+
+    expect(lines.find((line) => line.includes('2025-12-30'))?.trim()).toMatch(
+      /^2025-12-30 +2026-01-02$/,
+    );
+    expect(lines).toContain('Total: $10.00  |  Avg: $2.50/day  |  Peak: $9.00 (2026-01-02)');
+    expect(lines.at(-1)).toMatch(/: 2026-01-02 \$9\.00$/);
+  });
+
+  it('draws each day of a short range several columns wide on a wide terminal', () => {
+    const data = createTrendsDataResult();
+    data.totalSeries.buckets = Array.from({ length: 30 }, (_, index) => ({
+      date: `2026-03-${String(index + 1).padStart(2, '0')}`,
+      value: index + 1,
+      observed: true,
+    }));
+    data.totalSeries.summary = {
+      total: 465,
+      average: 15.5,
+      peak: { date: '2026-03-30', value: 30 },
+      incomplete: false,
+      observedDayCount: 30,
+    };
+    const axisWidth = (terminalWidth: number) => {
+      const axis = renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth })
+        .split('\n')
+        .find((line) => line.includes('┼'));
+      return axis?.split('┼')[1]?.length;
+    };
+
+    expect(axisWidth(80)).toBe(60);
+    expect(axisWidth(200)).toBe(120);
+  });
+
+  it('orders by-source rows by total, highest first, and leaves JSON in source order', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'tokens';
+    const sourceSeries = (source: string, total: number) => ({
+      source,
+      buckets: [{ date: '2026-03-04', value: total, observed: true }],
+      summary: {
+        total,
+        average: total,
+        peak: { date: '2026-03-04', value: total },
+        incomplete: false,
+        observedDayCount: 1,
+      },
+    });
+    data.sourceSeries = [sourceSeries('pi', 10), sourceSeries('codex', 300)];
+
+    const rowLabels = renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth: 80 })
+      .split('\n')
+      .filter((line) => line.startsWith('pi') || line.startsWith('codex'))
+      .map((line) => line.split(' ')[0]);
+    const markdownLines = renderTrendsReport(data, 'markdown').split('\n');
+    const markdownHeader = markdownLines[0];
+    const json = JSON.parse(renderTrendsReport(data, 'json')) as {
+      data: { sourceSeries: { source: string }[] };
+    };
+
+    expect(rowLabels).toEqual(['codex', 'pi']);
+    expect(markdownHeader.indexOf('codex')).toBeLessThan(markdownHeader.indexOf('pi'));
+    expect(markdownLines.find((line) => line.includes('2026-03-04'))?.replace(/ +/g, ' ')).toMatch(
+      /\| 300 \| 10 \|$/,
+    );
+    expect(json.data.sourceSeries.map((series) => series.source)).toEqual(['pi', 'codex']);
+  });
+
+  it('labels the zero of the active-hours axis 0h', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'active-hours';
+    data.totalSeries.buckets = [
+      { date: '2026-03-04', value: 3_600_000, observed: true },
+      { date: '2026-03-05', value: 0, observed: false },
+    ];
+    data.totalSeries.summary = {
+      total: 3_600_000,
+      average: 1_800_000,
+      peak: { date: '2026-03-04', value: 3_600_000 },
+      incomplete: false,
+      observedDayCount: 1,
+    };
+
+    const axis = renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth: 80 })
+      .split('\n')
+      .find((line) => line.includes('┼'));
+
+    expect(axis?.trimStart().startsWith('0h ┼')).toBe(true);
   });
 });

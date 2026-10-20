@@ -403,7 +403,7 @@ export async function acquireStatuslineLock(
 
 /** Printed once per event store, on `stderr`, when a tick finds no usage at all. */
 export const STATUSLINE_EMPTY_STORE_HINT =
-  'llm-usage statusline: no usage logs found yet, so the line shows $0.00. Run `llm-usage doctor` to see where it looks.';
+  'llm-usage statusline: no usage logs found yet, so the line shows $0.00. Run `llm-usage doctor --verbose` to see where it looks.';
 const EMPTY_STORE_HINT_META_KEY = 'statuslineEmptyStoreHintShown';
 
 /** Shows the empty-store hint unless this store showed it before or holds events. */

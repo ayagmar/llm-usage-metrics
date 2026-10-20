@@ -37,7 +37,7 @@
           "type": ["string", "null"]
         },
         "top": {
-          "description": "With --top: the number of blocks asked for and what ranked them; null otherwise.",
+          "description": "With --top N (N > 0): the number of blocks asked for and what ranked them; null otherwise.",
           "oneOf": [
             { "type": "null" },
             {
@@ -52,12 +52,12 @@
           ]
         },
         "blockCount": {
-          "description": "Blocks in the window before --top.",
+          "description": "Blocks in the window, before the default limit or --top.",
           "type": "integer",
           "minimum": 0
         },
         "blocks": {
-          "description": "Blocks in time order, or by rank with --top.",
+          "description": "Without --top, the 20 most recent blocks in time order; with --top N, the top N by rank; with --top 0, every block in time order.",
           "type": "array",
           "items": { "$ref": "#/$defs/block" }
         },

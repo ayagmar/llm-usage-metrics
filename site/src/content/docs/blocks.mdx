@@ -45,7 +45,7 @@ llm-usage blocks --all --top 5 --json
 
 To find where a block running into the window started, the CLI also reads the 7 days before it. A block that ends at or before the start of the window is left out; one that started earlier and runs into the window is kept whole. A window that ended before today has no active block.
 
-`--top N` keeps the N largest blocks across all sources, ranked by cost, or by tokens when any block's cost is incomplete or with `--no-cost`.
+Without `--top`, the report shows the 20 most recent blocks in time order, and a note on `stderr` says how many older ones were left out. `--top N` keeps the N largest blocks across all sources instead, ranked by cost, or by tokens when any block's cost is incomplete or with `--no-cost`; `--top 0` shows every block in time order. The limit applies to `--json` as well.
 
 ## Filters keep the account's windows
 
@@ -117,4 +117,4 @@ llm-usage blocks --source claude --model opus
 }
 ```
 
-The sample keeps one of the eight blocks and leaves `activeBlocks` empty to save space. `blocks` holds the shown blocks, in time order or by rank with `--top`; `blockCount` counts the window's blocks before `--top`. `activeBlocks` repeats the blocks that contain the current time, whether or not `--top` shows them. `active` is `null` on every other block. The full contract is [report-blocks.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-blocks.v1.schema.json).
+The sample keeps one of the eight blocks and leaves `activeBlocks` empty to save space. `blocks` holds the shown blocks: the 20 most recent in time order, by rank with `--top N`, or all in time order with `--top 0`; `blockCount` counts the window's blocks before that limit. `activeBlocks` repeats the blocks that contain the current time, whether or not `--top` shows them. `active` is `null` on every other block. The full contract is [report-blocks.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-blocks.v1.schema.json).

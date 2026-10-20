@@ -36,6 +36,22 @@ describe('toProjectKey', () => {
       '/w/node_modules_cache/app',
     );
   });
+
+  it('counts a Claude Code worktree, or a directory inside one, as its repository', () => {
+    expect(toProjectKey('/w/app/.claude/worktrees/fix-login')).toBe('/w/app');
+    expect(toProjectKey('/w/app/.claude/worktrees/fix-login/')).toBe('/w/app');
+    expect(toProjectKey('/w/app/.claude/worktrees/fix-login/src/cli')).toBe('/w/app');
+    expect(toProjectKey('C:\\src\\app\\.claude\\worktrees\\fix\\src')).toBe('C:\\src\\app');
+    expect(toProjectKey('/w/app/.claude/worktrees/fix/node_modules/dep')).toBe('/w/app');
+    expect(toProjectKey('/.claude/worktrees/fix')).toBe('/');
+    expect(toProjectKey('/w/app//.claude/worktrees/fix')).toBe('/w/app');
+    expect(toProjectKey('/w/app//node_modules/dep')).toBe('/w/app');
+    expect(toProjectKey('/w/app/.claude/worktrees')).toBe('/w/app/.claude/worktrees');
+    expect(toProjectKey('/w/app/.claude/worktrees/')).toBe('/w/app/.claude/worktrees');
+    expect(toProjectKey('/w/app/worktrees/fix')).toBe('/w/app/worktrees/fix');
+    expect(toProjectKey('/w/app/.git/worktrees/fix')).toBe('/w/app/.git/worktrees/fix');
+    expect(toProjectKey('/w/app/my.claude/worktrees/fix')).toBe('/w/app/my.claude/worktrees/fix');
+  });
 });
 
 describe('buildProjectLabels', () => {

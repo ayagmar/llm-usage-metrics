@@ -18,6 +18,7 @@ vi.mock('../../src/cli/build-efficiency-data.js', () => ({
       gitLinesDeleted: 0,
       gitMalformedCommitLines: 0,
       repoMatchedUsageEvents: 0,
+      repoUsageDays: 0,
       repoExcludedUsageEvents: 0,
       repoUnattributedUsageEvents: 0,
       scopeNote: undefined,
