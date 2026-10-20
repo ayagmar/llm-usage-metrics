@@ -115,4 +115,52 @@ describe('dedupeCopiedSessions', () => {
 
     expect(dedupeCopiedSessions([...original, ...continued])).toEqual(original);
   });
+
+  it('keeps requests logged with only a request id when the ids differ', () => {
+    const events = [
+      createEvent('first', '2026-10-09T10:00:00.000Z', 5, 'claude-sonnet-4-5', {
+        requestId: 'req_1',
+      }),
+      createEvent('second', '2026-10-09T10:00:00.000Z', 5, 'claude-sonnet-4-5', {
+        requestId: 'req_2',
+      }),
+    ];
+
+    expect(dedupeCopiedSessions(events)).toEqual(events);
+  });
+
+  it('counts a copy logged with only a request id once', () => {
+    const original = [
+      createEvent('original', '2026-10-09T09:00:00.000Z'),
+      createEvent('original', '2026-10-09T10:00:00.000Z', 5, 'claude-sonnet-4-5', {
+        requestId: 'req_1',
+      }),
+    ];
+    const continued = [
+      createEvent('continued', '2026-10-09T10:00:00.000Z', 5, 'claude-sonnet-4-5', {
+        requestId: 'req_1',
+      }),
+    ];
+
+    expect(dedupeCopiedSessions([...continued, ...original])).toEqual(original);
+  });
+
+  it('keeps a request with only a message id apart from one with only that request id', () => {
+    const original = [
+      createEvent('original', '2026-10-09T09:00:00.000Z'),
+      createRequest('original', 'msg_1'),
+    ];
+    const copy = createRequest('continued', 'msg_1');
+    const distinct = [
+      createRequest('other', 'msg_2'),
+      createEvent('another', '2026-10-09T10:00:00.000Z', 5, 'claude-sonnet-4-5', {
+        requestId: 'msg_1',
+      }),
+    ];
+
+    expect(dedupeCopiedSessions([...original, copy, ...distinct])).toEqual([
+      ...original,
+      ...distinct,
+    ]);
+  });
 });

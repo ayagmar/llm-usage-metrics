@@ -8,7 +8,11 @@ import {
   mergeMachineSessionEvents,
   type ParserVersions,
 } from '../../src/machines/merge-machine-events.js';
-import { createMessageEvent, createToolCallEvent } from '@ayagmar/agent-sessions';
+import {
+  createMessageEvent,
+  createToolCallEvent,
+  dedupeCopiedSessions,
+} from '@ayagmar/agent-sessions';
 
 function event(sessionId: string, minute: number): UsageEvent {
   return createUsageEvent({
@@ -73,6 +77,37 @@ describe('mergeMachineEvents', () => {
 
     expect(laptop).toMatchObject({ events: [event('shared', 0)], duplicateCount: 1 });
     expect(vps).toMatchObject({ events: [event('vps', 0)], duplicateCount: 2 });
+  });
+
+  it('counts a request once when a session stored without ids continues with ids', () => {
+    // Two requests in the same millisecond with the same usage, in session a and in b, its
+    // continuation. This machine stored a's msg_2 before events had ids.
+    function request(sessionId: string, messageId?: string): UsageEvent {
+      return createUsageEvent({ ...event(sessionId, 0), messageId });
+    }
+
+    const local = [request('a')];
+    const [laptop] = mergeMachineEvents(
+      local,
+      [
+        {
+          name: 'laptop',
+          events: [
+            request('a', 'msg_2'),
+            request('a', 'msg_1'),
+            request('b', 'msg_2'),
+            request('b', 'msg_1'),
+          ],
+          parserVersions: versions,
+        },
+      ],
+      versions,
+    );
+
+    expect(dedupeCopiedSessions([...local, ...laptop.events])).toEqual([
+      request('a'),
+      request('a', 'msg_1'),
+    ]);
   });
 });
 

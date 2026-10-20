@@ -22,9 +22,11 @@ function getUsageIdentity(event: UsageEvent): string {
 }
 
 // A copy also keeps the logged message and request ids. An event stored or exported before
-// events carried them has none.
+// events carried them has neither; a row can log only one of them.
 function getRequestKey(event: UsageEvent): string | undefined {
-  return event.messageId === undefined ? undefined : `${event.messageId}\0${event.requestId ?? ''}`;
+  return event.messageId === undefined && event.requestId === undefined
+    ? undefined
+    : JSON.stringify([event.messageId ?? null, event.requestId ?? null]);
 }
 
 function isSameUsage(left: UsageEvent, right: UsageEvent): boolean {
@@ -101,19 +103,26 @@ function findEventsOtherSessionsHold<E extends UsageEvent>(events: readonly E[])
 // without ids, stored or exported before events carried them, take the request keys of
 // the candidates with the same usage in sorted order, one key per event of their session
 // and the last key again when they run out, so such a copy still matches its original.
+// Keys the session's events with ids already hold come last: an event without ids in the
+// same session is another request.
 // Which of several distinct requests an id-less event stands for cannot be known; it can
 // take the key of another session's distinct request, which then counts as the copy.
 function getCopyIdentities<E extends UsageEvent>(candidates: ReadonlySet<E>): Map<E, string> {
   const keysByUsage = new Map<string, Set<string>>();
+  const sessionKeysBySessionUsage = new Map<string, Set<string>>();
 
   for (const event of candidates) {
     const key = getRequestKey(event);
 
     if (key !== undefined) {
       const usageIdentity = getUsageIdentity(event);
+      const sessionUsage = `${event.sessionId}\0${usageIdentity}`;
       const keys = keysByUsage.get(usageIdentity) ?? new Set<string>();
+      const sessionKeys = sessionKeysBySessionUsage.get(sessionUsage) ?? new Set<string>();
       keys.add(key);
+      sessionKeys.add(key);
       keysByUsage.set(usageIdentity, keys);
+      sessionKeysBySessionUsage.set(sessionUsage, sessionKeys);
     }
   }
 
@@ -123,6 +132,7 @@ function getCopyIdentities<E extends UsageEvent>(candidates: ReadonlySet<E>): Ma
       [...keys].sort(compareByCodePoint),
     ]),
   );
+  const idlessKeysBySessionUsage = new Map<string, string[]>();
   const idlessSeen = new Map<string, number>();
   const identities = new Map<E, string>();
 
@@ -131,8 +141,21 @@ function getCopyIdentities<E extends UsageEvent>(candidates: ReadonlySet<E>): Ma
     let key = getRequestKey(event);
 
     if (key === undefined) {
-      const keys = sortedKeysByUsage.get(usageIdentity) ?? [];
       const sessionUsage = `${event.sessionId}\0${usageIdentity}`;
+      let keys = idlessKeysBySessionUsage.get(sessionUsage);
+
+      if (keys === undefined) {
+        const sessionKeys = sessionKeysBySessionUsage.get(sessionUsage);
+        const sortedKeys = sortedKeysByUsage.get(usageIdentity) ?? [];
+        keys = sessionKeys
+          ? [
+              ...sortedKeys.filter((candidate) => !sessionKeys.has(candidate)),
+              ...sortedKeys.filter((candidate) => sessionKeys.has(candidate)),
+            ]
+          : sortedKeys;
+        idlessKeysBySessionUsage.set(sessionUsage, keys);
+      }
+
       const seen = idlessSeen.get(sessionUsage) ?? 0;
       idlessSeen.set(sessionUsage, seen + 1);
       key = keys[Math.min(seen, keys.length - 1)] ?? '';
