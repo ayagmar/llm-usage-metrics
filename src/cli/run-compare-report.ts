@@ -1,6 +1,7 @@
 import { renderCompareReport, type CompareReportFormat } from '../render/render-compare-report.js';
 import { buildCompareData } from './build-compare-data.js';
 import {
+  emitLimitNote,
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
@@ -20,7 +21,10 @@ async function prepareCompareReport(
     commandOptions: options,
     supportedFormats: compareReportFormats,
     buildData: () => buildCompareData(options, deps),
-    getDiagnostics: (compareData) => compareData.diagnostics,
+    getDiagnostics: (compareData) => ({
+      ...compareData.diagnostics,
+      limitNote: compareData.limitNote,
+    }),
     runtimeProfile: deps.runtimeProfile,
     buildShare: async (compareData, { runtimeProfile }) => {
       const { current, baseline } = compareData;
@@ -64,5 +68,5 @@ export async function runCompareReport(options: CompareCommandOptions): Promise<
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareCompareReport(options, { runtimeProfile });
 
-  await runStandardPreparedReport({ preparedReport });
+  await runStandardPreparedReport({ preparedReport, emitReportDiagnostics: emitLimitNote });
 }

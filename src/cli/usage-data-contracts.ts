@@ -175,6 +175,8 @@ export type ReportCommandOptions = SharedOptionsForProfile<'usage'> &
     compact?: boolean;
     /** One row per source and machine instead of per source. */
     byMachine?: boolean;
+    /** With --by-repo: projects shown per period (default 20; 0 shows all). */
+    top?: string;
   };
 
 export type HourlyCommandOptions = SharedOptionsForProfile<'hourly'> &
@@ -187,6 +189,8 @@ export type HourlyCommandOptions = SharedOptionsForProfile<'hourly'> &
     all?: boolean;
     /** One row per source and machine instead of per source. */
     byMachine?: boolean;
+    /** With --by-repo: projects shown per hour (default 20; 0 shows all). */
+    top?: string;
   };
 
 /** Shared by projects, blocks and value: the window flags and the table display flags. */
@@ -280,6 +284,8 @@ export type CompareCommandOptions = SharedOptionsForProfile<'compare'> &
   ByRepoOption & {
     vsSince?: string;
     vsUntil?: string;
+    /** With --by-repo: projects shown (default 20; 0 shows all). */
+    top?: string;
   };
 
 export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
@@ -351,6 +357,8 @@ export type UsageDataResult = {
   events: UsageEvent[];
   rows: UsageReportRow[];
   diagnostics: UsageDiagnostics;
+  /** With --by-repo: names the projects that --top folded into "other projects" rows. */
+  limitNote?: string;
   /** Set when `daily` ran without dates and so covered only its default recent window. */
   defaultWindowSince?: string;
 };

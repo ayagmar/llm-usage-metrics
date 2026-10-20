@@ -97,6 +97,8 @@ A period has a row for each contributing source. A `combined` row appears when m
 
 `--by-repo` splits each source row by project (`claude · api`), and `--by-machine` by the machine the usage came from; the two can be combined. In `--json`, the split rows carry `repoRoot` and `machine`.
 
+With `--by-repo`, each period keeps its 20 costliest projects (by tokens with `--no-cost`, or in a period where a project's cost is incomplete) and folds the rest, when there are at least two, into one row per source, such as `claude · 12 other projects`; a note on `stderr` says so. `--top N` keeps N projects per period, and `--top 0` keeps them all. The limit applies to `--json` as well: the folded row has `otherProjects`, the number of projects it holds, and no `repoRoot`.
+
 Token columns preserve the normalized buckets provided by each adapter: input, output, reasoning, cache read, cache write, and total. Reasoning can be included in output for some sources, so adding every displayed bucket is not a reliable way to reconstruct total tokens. Check the [source guide](/llm-usage-metrics/sources/) for token semantics.
 
 Cost is in USD:

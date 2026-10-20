@@ -43,13 +43,17 @@ Options:
   --redact                       With --share, label projects project-N, machines machine-N and
                                  local or path-shaped models model-N
   --all                          Report every day instead of the last 7 days
-  --last <n>                     Report the last N days, counting the current day
+  --last <n>                     Report the last N days, counting today
   --compact                      Abbreviate token counts and hide the Reasoning and Cache Write
                                  columns (terminal/markdown)
   --no-cost                      Leave cost out of the table and share report, e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage came from
   --by-repo                      Split each source row by project (the working directory the tool
                                  recorded)
+  --top <n>                      With --by-repo, show the top N projects of each day by cost (by
+                                 tokens when a cost is incomplete or with --no-cost) and fold the
+                                 rest into one "other projects" row per source (default 20; 0 shows
+                                 all)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
                                  this machine) matches that project directory and the projects under

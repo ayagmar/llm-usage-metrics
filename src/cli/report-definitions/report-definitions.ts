@@ -156,7 +156,7 @@ function addPeriodWindowOptions(command: Command, granularity: ReportGranularity
 
   return command.option(
     '--last <n>',
-    `Report the last N ${period}s, counting the current ${period}`,
+    `Report the last N ${period}s, counting ${period === 'day' ? 'today' : `the current ${period}`}`,
   );
 }
 
@@ -182,6 +182,11 @@ function addTableDisplayOptions(
 
 const BY_MACHINE_DESCRIPTION = 'Split each source row by the machine its usage came from';
 const BY_REPO_ROW_DESCRIPTION = `Split each source row by ${PROJECT_DESCRIPTION}`;
+
+/** `--top` of the usage reports, which limits only the --by-repo rows. */
+function describeByRepoTop(period: string): string {
+  return `With --by-repo, show the top N projects of each ${period} by cost (by tokens when a cost is incomplete or with --no-cost) and fold the rest into one "other projects" row per source (default 20; 0 shows all)`;
+}
 
 const MAX_COMMAND_HELP_EXAMPLES = 4;
 
@@ -406,7 +411,8 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       addPeriodWindowOptions(command, granularity);
       addTableDisplayOptions(command, 'the table and share report')
         .option('--by-machine', BY_MACHINE_DESCRIPTION)
-        .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
+        .option('--by-repo', BY_REPO_ROW_DESCRIPTION)
+        .option('--top <n>', describeByRepoTop(getReportPeriodName(granularity)));
       addRepoFilterOption(command);
 
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));
@@ -512,6 +518,10 @@ const compareReportDefinition: ReportRuntimeDefinition = {
       .option('--vs-since <date>', 'Inclusive start date for the baseline comparison window')
       .option('--vs-until <date>', 'Inclusive end date for the baseline comparison window')
       .option('--by-repo', `Also compare each ${PROJECT_DESCRIPTION}`)
+      .option(
+        '--top <n>',
+        'With --by-repo, show the top N projects by cost change and fold the rest into one "other projects" row (default 20; 0 shows all)',
+      )
       .option('--all', 'No effect: compare reads its two windows from the date flags');
     addRepoFilterOption(command).action((options: CompareCommandOptions) =>
       runCompareReport(options),
@@ -549,7 +559,7 @@ const optimizeReportDefinition: ReportRuntimeDefinition = {
         'Candidate model for counterfactual pricing (repeatable or comma-separated)',
         collectRepeatedOption,
       )
-      .option('--top <n>', 'Show only the top N cheapest candidates (positive integer)');
+      .option('--top <n>', 'Show only the top N cheapest candidates (default: all; 0 shows all)');
     addFullHistoryOption(command);
     addRepoFilterOption(command).action(
       (granularity: ReportGranularity, options: OptimizeCommandOptions) =>
@@ -909,7 +919,8 @@ const hourlyReportDefinition: ReportRuntimeDefinition = {
       .option('--all', 'Report every hour instead of today');
     addTableDisplayOptions(command, 'the table')
       .option('--by-machine', BY_MACHINE_DESCRIPTION)
-      .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
+      .option('--by-repo', BY_REPO_ROW_DESCRIPTION)
+      .option('--top <n>', describeByRepoTop('hour'));
     addRepoFilterOption(command).action((options: HourlyCommandOptions) =>
       runHourlyReport(options),
     );
@@ -1039,7 +1050,7 @@ const blocksReportDefinition: ReportRuntimeDefinition = {
     command
       .option(
         '--top <n>',
-        'Show only the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost (positive integer)',
+        'Show the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost (default: the 20 most recent; 0 shows all)',
       )
       .option(
         '--last <n>',

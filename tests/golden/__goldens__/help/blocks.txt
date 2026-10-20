@@ -37,8 +37,9 @@ Options:
                                  this one; default: all)
   --no-sync                      Use other machines' cached usage without refreshing it over ssh
   --markdown                     Render output as markdown table
-  --top <n>                      Show only the top N blocks across sources by cost, or by tokens
-                                 when a cost is incomplete or with --no-cost (positive integer)
+  --top <n>                      Show the top N blocks across sources by cost, or by tokens when a
+                                 cost is incomplete or with --no-cost (default: the 20 most recent;
+                                 0 shows all)
   --last <n>                     Report the last N days, counting today (default 7)
   --all                          Report every block instead of the last 7 days
   --compact                      Abbreviate token counts and leave out minor columns

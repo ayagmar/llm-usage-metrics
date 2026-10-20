@@ -72,6 +72,8 @@ llm-usage compare --by-repo
 
 `--by-repo` adds a **By project (cost)** table under the source table: each project's cost in both windows, the delta, and the percentage change, ordered by the size of the change. A project keeps one label in both windows. In `--json`, the rows are under `data.projects`, each with `repoRoot`, `project`, and `current`, `baseline`, `delta`, and `deltaRatio` totals.
 
+The table shows the 20 projects whose cost changed most (then whose tokens changed most), then one `N other projects` row with the rest; a note on `stderr` says so. `--top N` shows N projects, and `--top 0` shows them all. The limit applies to `--json` as well: the last row has `otherProjects`, the number of projects it holds, and no `repoRoot`.
+
 ## Export
 
 ```bash
