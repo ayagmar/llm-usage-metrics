@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildEfficiencyReport, runEfficiencyReport } from '../../src/cli/run-efficiency-report.js';
+import { toMarkdownSafeCell } from '../../src/render/markdown-safe-cell.js';
 import { readSharePayload } from '../helpers/share-html.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
@@ -101,7 +102,7 @@ describe('buildEfficiencyReport', () => {
     ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
-  it('prints the same no-usage line in markdown as in the terminal', async () => {
+  it('prints the terminal no-usage line, Markdown-escaped, in markdown', async () => {
     const repoDir = await createGitRepoWithCommit('2026-02-14T10:00:00Z');
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-markdown-sessions-'));
     tempDirs.push(emptyDir);
@@ -119,7 +120,8 @@ describe('buildEfficiencyReport', () => {
     const terminal = await buildEfficiencyReport('monthly', options);
 
     expect(markdown).not.toContain('| ALL');
-    expect(terminal.split('\n').at(-1)).toBe(markdown);
+    // The line embeds the repo path, whose `_`, `\` or `~` (macOS and Windows temp dirs) need escaping.
+    expect(markdown).toBe(toMarkdownSafeCell(terminal.split('\n').at(-1) ?? ''));
   });
 });
 

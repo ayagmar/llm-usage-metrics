@@ -7,6 +7,7 @@ import { afterAll, expect, vi } from 'vitest';
 
 import type { EventsCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
+import { toMarkdownSafeCell } from '../../src/render/markdown-safe-cell.js';
 import {
   createAntigravityFixtureDb,
   E2E_ANTIGRAVITY_FIXTURE,
@@ -158,9 +159,17 @@ export function useGoldenUpdateCheck(expected: readonly string[] = []): void {
 }
 
 function replacePath(text: string, absolutePath: string, placeholder: string): string {
-  const jsonEscaped = JSON.stringify(absolutePath).slice(1, -1);
-  const replaced = text.replaceAll(absolutePath, placeholder);
-  return jsonEscaped === absolutePath ? replaced : replaced.replaceAll(jsonEscaped, placeholder);
+  const escapedForms = [
+    JSON.stringify(absolutePath).slice(1, -1),
+    toMarkdownSafeCell(absolutePath),
+  ].filter((form) => form !== absolutePath);
+  let replaced = text.replaceAll(absolutePath, placeholder);
+
+  for (const form of escapedForms) {
+    replaced = replaced.replaceAll(form, placeholder);
+  }
+
+  return replaced;
 }
 
 function pathForms(absolutePath: string): string[] {
@@ -170,7 +179,7 @@ function pathForms(absolutePath: string): string[] {
 
 /**
  * Replaces the per-file temp root with `<tmp>` and the fixture root with `<fixtures>`,
- * raw and JSON-escaped. Nothing else is normalized.
+ * raw, JSON-escaped and Markdown-escaped. Nothing else is normalized.
  */
 export function normalizePaths(text: string, tempRoot: string): string {
   let normalized = text;
