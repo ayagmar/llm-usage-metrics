@@ -746,6 +746,7 @@ describe('update-notifier', () => {
       nowValue: number;
       fetchImpl: typeof fetch;
       env?: NodeJS.ProcessEnv;
+      cacheTtlMs?: number;
     }) {
       const startBackgroundRefresh = vi.fn<(request: BackgroundRefreshRequest) => void>();
       const abortController = new AbortController();
@@ -754,7 +755,7 @@ describe('update-notifier', () => {
           packageName: 'llm-usage-metrics',
           currentVersion: '0.1.0',
           cacheFilePath: options.cacheFilePath,
-          cacheTtlMs,
+          cacheTtlMs: options.cacheTtlMs ?? cacheTtlMs,
           fetchImpl: options.fetchImpl,
           now: () => options.nowValue,
           signal: abortController.signal,
@@ -863,6 +864,19 @@ describe('update-notifier', () => {
       });
 
       expect(run.hint).toBeUndefined();
+      expect(run.startBackgroundRefresh).not.toHaveBeenCalled();
+    });
+
+    it('starts no background process when the cache TTL is zero', async () => {
+      const cacheFilePath = await createTempCachePath('update-background-zero-ttl-');
+
+      const run = await runShortCommand({
+        cacheFilePath,
+        nowValue: 10_000_000,
+        fetchImpl: createSlowRegistryFetch(),
+        cacheTtlMs: 0,
+      });
+
       expect(run.startBackgroundRefresh).not.toHaveBeenCalled();
     });
   });

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import path from 'node:path';
 
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 import {
@@ -147,6 +148,8 @@ function spawnBackgroundRefresh(request: BackgroundRefreshRequest): void {
   // The same CLI entry, told by the env var to refresh the cache and exit. Detached and
   // unref'd, so this process exits as soon as its own command is done.
   const child = spawn(process.execPath, [entryPath], {
+    // Away from the user's directory, which Windows would keep locked while it runs.
+    cwd: path.dirname(request.cacheFilePath),
     detached: true,
     stdio: 'ignore',
     windowsHide: true,
@@ -267,10 +270,12 @@ export async function checkForUpdates(options: UpdateNotifierOptions): Promise<s
 
     // The exit grace aborted the check, usually a registry fetch slower than a short
     // command. Refresh the cache from a detached process instead, so the next run reads a
-    // fresh cache rather than paying the grace again. CI runs leave no process behind.
+    // fresh cache rather than paying the grace again. CI runs leave no process behind, and
+    // a zero TTL (check every run) would start one per run for a cache that is stale at once.
     if (options.signal?.aborted) {
       if (
         !isTruthyEnvFlag(env.CI) &&
+        (options.cacheTtlMs === undefined || options.cacheTtlMs > 0) &&
         (await claimBackgroundRefresh(
           resolveOptions.cacheFilePath,
           options.cacheTtlMs,
