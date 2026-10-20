@@ -23,10 +23,14 @@ function getUsageIdentity(event: UsageEvent): string {
 
 // A copy also keeps the logged message and request ids. An event stored or exported before
 // events carried them has neither; a row can log only one of them.
+function hasRequestIds(event: UsageEvent): boolean {
+  return event.messageId !== undefined || event.requestId !== undefined;
+}
+
 function getRequestKey(event: UsageEvent): string | undefined {
-  return event.messageId === undefined && event.requestId === undefined
-    ? undefined
-    : JSON.stringify([event.messageId ?? null, event.requestId ?? null]);
+  return hasRequestIds(event)
+    ? JSON.stringify([event.messageId ?? null, event.requestId ?? null])
+    : undefined;
 }
 
 function isSameUsage(left: UsageEvent, right: UsageEvent): boolean {
@@ -47,12 +51,11 @@ function isSameUsage(left: UsageEvent, right: UsageEvent): boolean {
 // Two requests with different ids are distinct however alike their usage; an event
 // without ids can be a copy of any event with the same usage.
 function isCopyOf(left: UsageEvent, right: UsageEvent): boolean {
-  const leftKey = getRequestKey(left);
-  const rightKey = getRequestKey(right);
-
   return (
-    (leftKey === undefined || rightKey === undefined || leftKey === rightKey) &&
-    isSameUsage(left, right)
+    isSameUsage(left, right) &&
+    (!hasRequestIds(left) ||
+      !hasRequestIds(right) ||
+      (left.messageId === right.messageId && left.requestId === right.requestId))
   );
 }
 

@@ -877,8 +877,9 @@ describe('event-store', () => {
     const dbPath = path.join(tempDir, 'events.db');
     const events = [
       createEvent({ source: 'claude', messageId: 'msg_1', requestId: 'req_1' }),
-      // A row that logged no request id.
+      // Rows that logged only one of the ids.
       createEvent({ source: 'claude', messageId: 'msg_2' }),
+      createEvent({ source: 'claude', requestId: 'req_3' }),
     ];
     const store = await openEventStore(dbPath);
 
