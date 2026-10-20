@@ -10,6 +10,8 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
+import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
+import { discoverFiles } from '../../utils/discover-files.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { hasErrorCode } from '../../utils/error-code.js';
@@ -366,8 +368,30 @@ function createLastUsageOnlyKey(timestamp: string, usage: CodexUsage): string {
   return `${timestamp}:${createUsageKey(usage)}`;
 }
 
+const COMPRESSED_ROLLOUT_SUFFIX = '.zst';
+
+/** A rollout's file name without `.jsonl` or `.jsonl.zst`. */
+function getRolloutStem(filePath: string): string {
+  return path.basename(path.basename(filePath, COMPRESSED_ROLLOUT_SUFFIX), '.jsonl');
+}
+
+/**
+ * Codex compresses rollouts it no longer writes to `<name>.jsonl.zst`, and decompresses one
+ * back to `<name>.jsonl` to append to it. While both exist, the plain file is the rollout,
+ * as Codex reads it, so a session is never read twice.
+ */
+async function discoverRollouts(rootDir: string): Promise<string[]> {
+  const plainFiles = await discoverJsonlFiles(rootDir);
+  const plainFileSet = new Set(plainFiles);
+  const compressedFiles = (
+    await discoverFiles(rootDir, { extension: `.jsonl${COMPRESSED_ROLLOUT_SUFFIX}` })
+  ).filter((filePath) => !plainFileSet.has(filePath.slice(0, -COMPRESSED_ROLLOUT_SUFFIX.length)));
+
+  return [...plainFiles, ...compressedFiles].sort(compareByCodePoint);
+}
+
 function getFallbackSessionId(filePath: string): string {
-  return path.basename(filePath, '.jsonl');
+  return getRolloutStem(filePath);
 }
 
 // Newer Codex writes one `token_usage_record` per API response before the cumulative
@@ -494,9 +518,12 @@ function getCopySignature(line: Record<string, unknown>): string | undefined {
   return info && `total:${totalUsage ? createUsageKey(totalUsage) : ''}`;
 }
 
-/** Codex names a rollout `rollout-<time>-<thread id>.jsonl`; the id is a 36-character UUID. */
+/**
+ * Codex names a rollout `rollout-<time>-<thread id>.jsonl` (`.jsonl.zst` once compressed);
+ * the id is a 36-character UUID.
+ */
 function getRolloutThreadId(filePath: string): string | undefined {
-  const name = path.basename(filePath, '.jsonl');
+  const name = getRolloutStem(filePath);
   return name.length > 37 && name[name.length - 37] === '-' ? name.slice(-36) : undefined;
 }
 
@@ -911,7 +938,7 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
     }
 
-    return discoverJsonlFiles(normalizedSessionsDir);
+    return discoverRollouts(normalizedSessionsDir);
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {
@@ -952,11 +979,11 @@ export class CodexSourceAdapter implements SourceAdapter {
 
   private async indexRollouts(): Promise<Map<string, string>> {
     const sessionsDir = this.sessionsDir.trim();
-    const files = await discoverJsonlFiles(sessionsDir);
+    const files = await discoverRollouts(sessionsDir);
 
     if (path.basename(sessionsDir) === 'sessions') {
       files.push(
-        ...(await discoverJsonlFiles(path.join(path.dirname(sessionsDir), 'archived_sessions'))),
+        ...(await discoverRollouts(path.join(path.dirname(sessionsDir), 'archived_sessions'))),
       );
     }
 

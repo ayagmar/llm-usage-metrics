@@ -143,7 +143,7 @@ llm-usage events --since 2026-06-01 | jq '.totalTokens'
 | Source                 | Local format  | Real logs |
 | ---------------------- | ------------- | --------- |
 | pi                     | JSONL         | checked   |
-| codex                  | JSONL         | checked   |
+| codex                  | JSONL + zstd  | checked   |
 | Gemini CLI             | JSON          | checked   |
 | Droid CLI              | settings JSON | not yet   |
 | OpenCode               | SQLite        | checked   |
