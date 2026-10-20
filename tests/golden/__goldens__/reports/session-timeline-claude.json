@@ -21,7 +21,10 @@
       "cacheReadTokens": 12,
       "cacheWriteTokens": 8,
       "totalTokens": 112,
-      "costUsd": 0.0009336
+      "costUsd": 0.0009336,
+      "costEstimatedUsd": 0.0009336,
+      "toolCalls": 3,
+      "toolErrors": 1
     },
     "rows": [
       {

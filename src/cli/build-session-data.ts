@@ -7,6 +7,11 @@ import { getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import {
+  addSessionDetails,
+  getToolCallSources,
+  listSessionSourceFilePaths,
+} from './build-session-details.js';
+import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
   withPricingNotes,
@@ -26,6 +31,7 @@ import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.
 
 const MAX_LISTED_TIMELINE_MATCHES = 10;
 const LIVE_TIMELINE_SUBJECT = 'Tool calls and turns';
+const LIVE_TOOL_CALLS_SUBJECT = 'Tool calls';
 
 function normalizeSessionIdFilters(id: string[] | undefined): string[] | undefined {
   if (!id || id.length === 0) {
@@ -177,11 +183,7 @@ export async function buildSessionData(
     const live = await measureRuntimeProfileStage(deps.runtimeProfile, 'session.read_live', () =>
       readLiveSessionEvents(dataset, {
         kinds: ['tool_call', 'message'],
-        filePaths: new Set(
-          [...dataset.parsedFiles, ...(dataset.ledger?.historyFiles ?? [])]
-            .filter((file) => file.source === session.source)
-            .map((file) => file.filePath),
-        ),
+        filePaths: listSessionSourceFilePaths(dataset, [session]),
       }),
     );
     const toolCalls = dedupeToolCalls(
@@ -193,13 +195,20 @@ export async function buildSessionData(
       (event) => event.kind === 'message' && getEventSessionKey(event) === sessionKey,
     );
 
+    const details = options.json
+      ? await addSessionDetails(dataset, [session], toolCalls, getToolCallSources(dataset))
+      : { rows: [session], warnings: [] };
+
     return {
       grouping: 'timeline',
-      session,
+      session: details.rows[0],
       rows: buildSessionTimeline(sessionEvents, [...toolCalls, ...messages]),
       projectLabels,
       diagnostics: buildDiagnostics(sessionEvents, {
-        warnings: formatFailedLiveReads(LIVE_TIMELINE_SUBJECT, live.failedFilePaths),
+        warnings: [
+          ...formatFailedLiveReads(LIVE_TIMELINE_SUBJECT, live.failedFilePaths),
+          ...details.warnings,
+        ],
         notes: [formatLiveEventsNote(LIVE_TIMELINE_SUBJECT, dataset)],
       }),
     };
@@ -207,14 +216,52 @@ export async function buildSessionData(
 
   const limited = limitRows(sessionRows, limit, 'sessions');
   const shownSessions = new Set(limited.rows.map((row) => getEventSessionKey(row)));
+  const shownEvents = pricedEvents.filter((event) => shownSessions.has(getEventSessionKey(event)));
+
+  if (!options.json) {
+    return {
+      grouping: 'session',
+      rows: limited.rows,
+      projectLabels,
+      limitNote: limited.limitNote,
+      diagnostics: buildDiagnostics(shownEvents),
+    };
+  }
+
+  // Only --json shows the files and tool call counts, so only it reads them.
+  const toolCallSources = getToolCallSources(dataset);
+  const toolCallRows = limited.rows.filter((row) => toolCallSources.has(row.source));
+  // Tool calls come from every file of the shown sessions' sources, as `tools` reads them,
+  // so a call a resumed or forked transcript copied from its parent stays its parent's.
+  const live =
+    toolCallRows.length === 0
+      ? undefined
+      : await measureRuntimeProfileStage(deps.runtimeProfile, 'session.read_live', () =>
+          readLiveSessionEvents(dataset, {
+            kinds: ['tool_call'],
+            filePaths: listSessionSourceFilePaths(dataset, toolCallRows),
+          }),
+        );
+  const details = await measureRuntimeProfileStage(deps.runtimeProfile, 'session.details', () =>
+    addSessionDetails(dataset, limited.rows, dedupeToolCalls(live?.events ?? []), toolCallSources),
+  );
 
   return {
     grouping: 'session',
-    rows: limited.rows,
+    rows: details.rows,
     projectLabels,
     limitNote: limited.limitNote,
     diagnostics: buildDiagnostics(
-      pricedEvents.filter((event) => shownSessions.has(getEventSessionKey(event))),
+      shownEvents,
+      live
+        ? {
+            warnings: [
+              ...formatFailedLiveReads(LIVE_TOOL_CALLS_SUBJECT, live.failedFilePaths),
+              ...details.warnings,
+            ],
+            notes: [formatLiveEventsNote(LIVE_TOOL_CALLS_SUBJECT, dataset)],
+          }
+        : { warnings: details.warnings, notes: [] },
     ),
   };
 }

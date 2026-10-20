@@ -91,7 +91,13 @@ Default `--json` returns an array of session rows under `data`:
       "cacheReadTokens": 40000,
       "cacheWriteTokens": 0,
       "totalTokens": 168000,
-      "costUsd": 1.23
+      "costUsd": 1.23,
+      "costEstimatedUsd": 1.23,
+      "filePaths": [
+        "/home/me/.codex/sessions/2026/03/05/rollout-2026-03-05T10-00-00-486c3261-d87e-4971-8813-904c9e5a9009.jsonl"
+      ],
+      "toolCalls": 57,
+      "toolErrors": 2
     }
   ]
 }
@@ -101,6 +107,13 @@ Default `--json` returns an array of session rows under `data`:
 
 `repoRoot` is omitted when the session has no project.
 
-`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `lastActivity`, `sources`, and the same token and cost totals). The `(unattributed)` row has no `repoRoot`. `--timeline --json` returns an object under `data`: `session`, the matched session row, and `rows` in time order. Each row has a `kind`: `usage` rows carry `timestamp`, `model`, the token buckets, `costUsd`, `runningCostUsd`, and `runningCostIncomplete` when this or an earlier request has no price; `tool_call` rows carry `timestamp`, `name` and `status` (`ok`, `error`, or `unknown` when the file has no result); `message` rows carry `timestamp` and `role`, never the text. JSON rows are not folded.
+`costExplicitUsd` and `costEstimatedUsd` split `costUsd` into the cost the source logged and the cost priced from tokens; each is omitted when no event of that kind has a cost.
+
+Session rows in `--json` also carry what the tables leave out:
+
+- `filePaths`: the absolute paths of the local files holding the session's usage, among the files this run counted, departed files included. They come from the event store, so they are omitted with the store off, and for a session only another machine logged.
+- `toolCalls` and `toolErrors`: the session's tool calls, and those whose result records an error, counted as [`tools`](/llm-usage-metrics/tools/) counts them, inside the same date window. They come from the event store, or from the session files with the store off, and only Claude Code, Codex and pi log them: sessions of other sources have neither field. Reading them adds a note on `stderr`, as `tools` does.
+
+`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `lastActivity`, `sources`, and the same token and cost totals). The `(unattributed)` row has no `repoRoot`. `--timeline --json` returns an object under `data`: `session`, the matched session row with the same fields, and `rows` in time order. Each row has a `kind`: `usage` rows carry `timestamp`, `model`, the token buckets, `costUsd`, `runningCostUsd`, and `runningCostIncomplete` when this or an earlier request has no price; `tool_call` rows carry `timestamp`, `name` and `status` (`ok`, `error`, or `unknown` when the file has no result); `message` rows carry `timestamp` and `role`, never the text. JSON rows are not folded.
 
 The full contract is [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json).

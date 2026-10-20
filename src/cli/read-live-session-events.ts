@@ -51,6 +51,47 @@ type FileToRead = {
 
 const MAX_CONCURRENT_FILE_READS = 8;
 
+export type CountedLocalFile = {
+  source: string;
+  filePath: string;
+  /** Held by the event store as parsed; otherwise only the file on disk has its events. */
+  stored: boolean;
+};
+
+/**
+ * The local files whose events the dataset counts, in its order: those its usage parse
+ * counted, less the ones last modified before the window, then the departed files history
+ * served. None when `--machine` leaves out `local`.
+ */
+export function listCountedLocalFiles(dataset: UsageEventDataset): CountedLocalFile[] {
+  const { machineFilter } = dataset.normalizedInputs;
+
+  if (machineFilter && !machineFilter.has(LOCAL_MACHINE_NAME)) {
+    return [];
+  }
+
+  const ledger = dataset.ledger;
+
+  return [
+    ...dataset.parsedFiles.flatMap((file) =>
+      file.beforeWindow
+        ? []
+        : [
+            {
+              source: file.source,
+              filePath: file.filePath,
+              stored: ledger !== undefined && !file.unstored,
+            },
+          ],
+    ),
+    ...(ledger?.historyFiles ?? []).map((file) => ({
+      source: file.source,
+      filePath: file.filePath,
+      stored: true,
+    })),
+  ];
+}
+
 /** The stderr note of a report built on these reads, naming what they cannot see. */
 export function formatLiveEventsNote(subject: string, dataset: UsageEventDataset): string {
   const machines =
@@ -150,9 +191,7 @@ export async function readLiveSessionEvents<K extends LiveEventKind>(
   dataset: UsageEventDataset,
   options: ReadLiveSessionEventsOptions<K>,
 ): Promise<LiveSessionEvents<K>> {
-  const { machineFilter, repoFilter, timezone } = dataset.normalizedInputs;
-  const includeLocal = !machineFilter || machineFilter.has(LOCAL_MACHINE_NAME);
-
+  const { repoFilter, timezone } = dataset.normalizedInputs;
   const requestedKinds: ReadonlySet<LiveEventKind> = new Set(options.kinds);
   const kinds: ReadonlySet<string> = requestedKinds;
   const adapters = new Map(
@@ -161,23 +200,12 @@ export async function readLiveSessionEvents<K extends LiveEventKind>(
       .map((adapter) => [adapter.id, adapter]),
   );
   const ledger = dataset.ledger;
-  const toFileToRead = (
-    file: { source: string; filePath: string },
-    stored: boolean,
-  ): FileToRead[] => {
+  const files = listCountedLocalFiles(dataset).flatMap((file): FileToRead[] => {
     const adapter = adapters.get(file.source);
     return adapter && (options.filePaths?.has(file.filePath) ?? true)
-      ? [{ adapter, filePath: file.filePath, stored }]
+      ? [{ adapter, filePath: file.filePath, stored: file.stored }]
       : [];
-  };
-  const files = includeLocal
-    ? [
-        ...dataset.parsedFiles.flatMap((file) =>
-          file.beforeWindow ? [] : toFileToRead(file, ledger !== undefined && !file.unstored),
-        ),
-        ...(ledger?.historyFiles ?? []).flatMap((file) => toFileToRead(file, true)),
-      ]
-    : [];
+  });
   const repoSessions =
     repoFilter === undefined
       ? undefined
