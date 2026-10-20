@@ -332,6 +332,12 @@ export type UsageSkippedRowsStat = {
 export type UsagePricingOrigin =
   'cache' | 'network' | 'offline-cache' | 'bundled-snapshot' | 'none';
 
+/**
+ * A stderr note. A plain string prints by default; a `verbose` note is routine detail
+ * (scan counts, history, machines, re-estimated costs) that prints only under `--verbose`.
+ */
+export type ReportNote = string | { verbose: string };
+
 export type UsageDiagnostics = {
   sessionStats: UsageSessionStats[];
   sourceFailures: UsageSourceFailure[];
@@ -339,8 +345,8 @@ export type UsageDiagnostics = {
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   warnings?: string[];
-  /** Informational lines the user asked for (e.g. --history totals); not problems. */
-  notes?: string[];
+  /** Informational lines; not problems. */
+  notes?: ReportNote[];
   activeEnvOverrides: EnvVarOverride[];
   activeConfig?: ActiveConfig;
   timezone: string;

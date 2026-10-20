@@ -26,6 +26,13 @@ export function stripTrailingSeparators(value: string): string {
   return value.slice(0, end);
 }
 
+/** `value` up to `cut`, keeping the separator of a bare root (`/x`, `C:\x`). */
+function cutAt(value: string, cut: number): string {
+  return cut < value.length && isBareRoot(value.slice(0, cut + 1))
+    ? value.slice(0, cut + 1)
+    : value.slice(0, cut);
+}
+
 /** The directory above the first `node_modules` segment, or `value` without one. */
 function stripDependencyPath(value: string): string {
   let cut = value.length;
@@ -44,20 +51,38 @@ function stripDependencyPath(value: string): string {
   }
 
   // `/node_modules/x` and `C:\node_modules\x` keep their root's separator.
-  return cut < value.length && isBareRoot(value.slice(0, cut + 1))
-    ? value.slice(0, cut + 1)
-    : value.slice(0, cut);
+  return cutAt(value, cut);
+}
+
+/**
+ * The repository above the first Claude Code worktree (`<repo>/.claude/worktrees/<name>`,
+ * or a directory inside one), or `value` without one.
+ */
+function stripClaudeWorktreePath(value: string): string {
+  for (const separator of ['/', '\\']) {
+    const needle = `${separator}.claude${separator}worktrees${separator}`;
+    const index = value.indexOf(needle);
+    const name = index + needle.length;
+
+    if (index >= 0 && name < value.length && !isSeparator(value[name])) {
+      return cutAt(value, index);
+    }
+  }
+
+  return value;
 }
 
 /**
  * The project key of an event: its `repoRoot` without trailing separators. A directory
  * inside `node_modules`, where a session can `cd` into a dependency, counts as the project
- * that holds it.
+ * that holds it, and a Claude Code worktree counts as the repository it belongs to.
  */
 export function toProjectKey(repoRoot: string | undefined): string | undefined {
   return repoRoot === undefined
     ? undefined
-    : stripDependencyPath(stripTrailingSeparators(repoRoot));
+    : stripTrailingSeparators(
+        stripClaudeWorktreePath(stripDependencyPath(stripTrailingSeparators(repoRoot))),
+      );
 }
 
 /** The label `labels` gives the event's project; `(unattributed)` without one. */

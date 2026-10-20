@@ -23,10 +23,6 @@ import type { BuildOptimizeDataDeps } from './build-optimize-data.js';
 
 const optimizeReportFormats = STANDARD_REPORT_FORMATS satisfies readonly OptimizeReportFormat[];
 
-type OptimizePreparedDiagnostics = OptimizeDiagnostics & {
-  candidateCount: number;
-};
-
 async function prepareOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
@@ -38,17 +34,9 @@ async function prepareOptimizeReport(
     buildData: async () => {
       const optimizeData = await buildOptimizeData(granularity, options, deps);
 
-      return {
-        optimizeData,
-        candidateCount: optimizeData.rows.filter(
-          (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
-        ).length,
-      };
+      return { optimizeData };
     },
-    getDiagnostics: (bundle): OptimizePreparedDiagnostics => ({
-      ...bundle.optimizeData.diagnostics,
-      candidateCount: bundle.candidateCount,
-    }),
+    getDiagnostics: (bundle) => bundle.optimizeData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
     buildShare: async (bundle, { runtimeProfile }) => {
       const window = toShareDateRange(options.since, options.until);
@@ -76,11 +64,7 @@ async function prepareOptimizeReport(
   });
 }
 
-function emitOptimizeReportDiagnostics(diagnostics: OptimizePreparedDiagnostics): void {
-  logger.info(
-    `Optimize provider scope: ${diagnostics.provider}; candidate(s): ${diagnostics.candidateCount}`,
-  );
-
+function emitOptimizeReportDiagnostics(diagnostics: OptimizeDiagnostics): void {
   if (diagnostics.candidatesWithMissingPricing.length > 0) {
     logger.warn(
       `Missing pricing for candidate model(s): ${diagnostics.candidatesWithMissingPricing.join(', ')}`,

@@ -163,7 +163,8 @@ describe('run-optimize-report', () => {
 
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('No session files found'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Optimize provider scope'))).toBe(true);
+    // stdout names the provider scope; stderr does not repeat it.
+    expect(stderrLines.some((line) => line.includes('provider scope'))).toBe(false);
     expect(
       stderrLines.some((line) => line.includes('Missing pricing for candidate model(s)')),
     ).toBe(true);

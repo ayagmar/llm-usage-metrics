@@ -104,13 +104,24 @@ export function renderMachineList(entries: readonly MachineListEntry[], now: num
     return ['No machines configured.', 'Add one with: llm-usage machine add <name> [user@host]'];
   }
 
-  const nameWidth = Math.max(...entries.map((entry) => visibleWidth(entry.name)));
-  const sshWidth = Math.max(...entries.map((entry) => visibleWidth(entry.machine.ssh)));
-
-  return entries.map(
-    (entry) =>
-      `${padEndVisible(entry.name, nameWidth)}  ${padEndVisible(entry.machine.ssh, sshWidth)}  ${describeMachineStatus(entry, now)}`,
+  const header = { name: 'Machine', ssh: 'SSH target', status: 'Status' };
+  const nameWidth = Math.max(
+    visibleWidth(header.name),
+    ...entries.map((entry) => visibleWidth(entry.name)),
   );
+  const sshWidth = Math.max(
+    visibleWidth(header.ssh),
+    ...entries.map((entry) => visibleWidth(entry.machine.ssh)),
+  );
+  const formatRow = (name: string, ssh: string, status: string): string =>
+    `${padEndVisible(name, nameWidth)}  ${padEndVisible(ssh, sshWidth)}  ${status}`;
+
+  return [
+    formatRow(header.name, header.ssh, header.status),
+    ...entries.map((entry) =>
+      formatRow(entry.name, entry.machine.ssh, describeMachineStatus(entry, now)),
+    ),
+  ];
 }
 
 function describeIncludedMachine(
@@ -201,7 +212,8 @@ export function formatRefreshFailure(
 
 /**
  * Describes a failed sync a report did not retry (it was recent, or --no-sync), from the
- * machine's stored state, with the same note/warning split as a refresh failure.
+ * machine's stored state, with the same note/warning split as a refresh failure. A machine
+ * never synced gets a note too, since the report counts none of its usage.
  */
 export function formatStoredSyncFailure(
   machine: MachineUsageSummary,
@@ -209,8 +221,17 @@ export function formatStoredSyncFailure(
 ): { text: string; stale: boolean } | undefined {
   const { state } = machine;
 
-  if (!machine.enabled || state?.lastError === undefined) {
+  if (!machine.enabled) {
     return undefined;
+  }
+
+  if (state?.lastError === undefined) {
+    return state?.syncedAt === undefined
+      ? {
+          text: `${machine.name}: never synced. Run llm-usage sync ${machine.name} to count its usage.`,
+          stale: false,
+        }
+      : undefined;
   }
 
   if (state.syncedAt === undefined) {

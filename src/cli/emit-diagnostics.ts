@@ -168,8 +168,9 @@ function formatSettingsParts(diagnostics: UsageDiagnostics): string[] {
 }
 
 /**
- * Report diagnostics on stderr: one summary line by default, warnings only for real
- * problems, and the per-source and skipped-row breakdowns under `--verbose` (debug).
+ * Report diagnostics on stderr: warnings for real problems and the notes that explain the
+ * numbers by default; the scan summary, per-source and skipped-row breakdowns and routine
+ * notes under `--verbose` (debug).
  */
 export function emitDiagnostics(
   diagnostics: UsageDiagnostics,
@@ -180,12 +181,12 @@ export function emitDiagnostics(
   const hasEvents = diagnostics.sessionStats.some((session) => session.eventsParsed > 0);
 
   if (totalFiles > 0 || hasEvents) {
-    diagnosticsLogger.info(formatSummaryLine(diagnostics, totalFiles));
+    diagnosticsLogger.debug(formatSummaryLine(diagnostics, totalFiles));
   } else {
     const settings = formatSettingsParts(diagnostics);
     const settingsNote = settings.length > 0 ? ` (with ${settings.join(', ')})` : '';
     diagnosticsLogger.warn(
-      `No session files found${settingsNote}. Run \`llm-usage doctor\` to see where each source is searched.`,
+      `No session files found${settingsNote}. Run \`llm-usage doctor --verbose\` to see where each source is searched.`,
     );
   }
 
@@ -234,6 +235,10 @@ export function emitDiagnostics(
   }
 
   for (const note of diagnostics.notes ?? []) {
-    diagnosticsLogger.info(note);
+    if (typeof note === 'string') {
+      diagnosticsLogger.info(note);
+    } else {
+      diagnosticsLogger.debug(note.verbose);
+    }
   }
 }

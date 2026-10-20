@@ -762,9 +762,10 @@ describe('buildEfficiencyData', () => {
       },
     );
 
-    expect(result.diagnostics.notes).toContain(
-      '1 event logged $0 by pi was estimated from LiteLLM; use --cost-mode explicit to keep $0',
-    );
+    expect(result.diagnostics.notes).toContainEqual({
+      verbose:
+        '1 event logged $0 by pi was estimated from LiteLLM; use --cost-mode explicit to keep $0',
+    });
   });
 
   it('rejects blank --repo-dir values before building usage or running git outcomes', async () => {
