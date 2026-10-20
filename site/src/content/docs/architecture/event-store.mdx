@@ -47,7 +47,7 @@ History reads never mutate the ledger: the classification writes only connection
 
 ## Prune
 
-`llm-usage prune` deletes departed-file rows from the ledger. It requires at least one selector and is a dry run by default — without `--apply` it prints the candidate table and `Would delete N files / M events. Re-run with --apply.`
+`llm-usage prune` deletes departed-file rows from the ledger. It is a dry run by default — without `--apply` it prints the candidate table and `Would delete N files / M events. Re-run with --apply.` Without a selector it selects nothing and counts the departed files, and those `--suppressed` would pick; `--apply` needs a selector.
 
 - `--suppressed` selects departed files that history already suppresses as moved or duplicated — applying it never changes report output.
 - `--departed-before YYYY-MM-DD` selects departed files whose newest event timestamp is strictly older than that UTC date.

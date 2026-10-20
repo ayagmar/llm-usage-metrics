@@ -367,6 +367,38 @@ function toRowMetas(rows: UsageReportRow[]): TableRowMeta[] {
   }));
 }
 
+/** Colors usage cells (one usage row per cell row) and renders the step's visible columns. */
+function renderUsageCells(
+  rows: UsageReportRow[],
+  cells: string[][],
+  prepared: PreparedFitStep,
+  options: {
+    useColor: boolean;
+    headerCells?: string[];
+    multilineColumnIndex: number;
+    multilineColumnWidth?: number;
+    stackedTitleColumnCount?: number;
+    terminalWidth: number | undefined;
+  },
+): string {
+  const headerCells = options.headerCells ?? prepared.headerCells;
+  const columns = prepared.visibleColumnIndexes;
+  const coloredCells = colorizeUsageBodyRows(cells, rows, { useColor: options.useColor });
+
+  return renderUnicodeTable({
+    headerCells: selectColumns(colorizeHeader(headerCells, options.useColor), columns),
+    bodyRows: coloredCells.map((row) => selectColumns(row, columns)),
+    measureHeaderCells: selectColumns(headerCells, columns),
+    measureBodyRows: cells.map((row) => selectColumns(row, columns)),
+    rowMetas: toRowMetas(rows),
+    columnKinds: selectColumns(usageTableColumnKinds, columns),
+    multilineColumnIndex: options.multilineColumnIndex,
+    multilineColumnWidth: options.multilineColumnWidth,
+    stackedTitleColumnCount: options.stackedTitleColumnCount,
+    terminalWidth: options.terminalWidth,
+  });
+}
+
 function renderPreparedTable(
   rows: UsageReportRow[],
   prepared: PreparedFitStep,
@@ -397,15 +429,9 @@ function renderPreparedTable(
   const truncatedModelNames = preparedRows.some(
     (row, index) => row[modelsColumnIndex] !== laidOutRows[index][modelsColumnIndex],
   );
-  const coloredRows = colorizeUsageBodyRows(preparedRows, rows, { useColor: options.useColor });
   const columns = prepared.visibleColumnIndexes;
-  const output = renderUnicodeTable({
-    headerCells: selectColumns(colorizeHeader(prepared.headerCells, options.useColor), columns),
-    bodyRows: coloredRows.map((row) => selectColumns(row, columns)),
-    measureHeaderCells: selectColumns(prepared.headerCells, columns),
-    measureBodyRows: preparedRows.map((row) => selectColumns(row, columns)),
-    rowMetas: toRowMetas(rows),
-    columnKinds: selectColumns(usageTableColumnKinds, columns),
+  const output = renderUsageCells(rows, preparedRows, prepared, {
+    useColor: options.useColor,
     multilineColumnIndex: prepared.showsModels
       ? columns.indexOf(modelsColumnIndex)
       : columns.indexOf(sourceColumnIndex),
@@ -414,6 +440,68 @@ function renderPreparedTable(
   });
 
   return { output, truncatedModelNames };
+}
+
+/**
+ * A list has no column budget, so it keeps Input and Output. Compact rows drop their model
+ * lists; per-model rows keep them, one record per model.
+ */
+function resolveListStep(
+  steps: readonly TableFitStep[],
+  tableLayout: UsageTableLayout,
+): TableFitStep | undefined {
+  const droppedColumn: UsageTableColumnId = tableLayout === 'compact' ? 'models' : 'cacheWrite';
+
+  return steps.find((step) => step.hiddenColumns.includes(droppedColumn));
+}
+
+/**
+ * Lists a per-model table with one record per model, titled by period and source, so each
+ * model's numbers stay with its name on a terminal too narrow for any table step.
+ */
+function renderPerModelList(
+  rows: UsageReportRow[],
+  prepared: PreparedFitStep,
+  options: { useColor: boolean; terminalWidth: number | undefined },
+): string {
+  const listRows: UsageReportRow[] = [];
+  const listCells: string[][] = [];
+
+  prepared.uncoloredBodyRows.forEach((cells, rowIndex) => {
+    const cellLines = cells.map((cell) => splitCellLines(cell));
+    const modelLines = cellLines[modelsColumnIndex];
+    // Without a per-model breakdown the metrics are row totals: keep the row whole.
+    const hasModelMetrics = cellLines.every(
+      (lines, columnIndex) =>
+        usageTableColumnKinds[columnIndex] === 'text' || lines.length === modelLines.length,
+    );
+    const records = hasModelMetrics
+      ? modelLines.map((modelLine, lineIndex) =>
+          cellLines.map((lines, columnIndex) =>
+            columnIndex === modelsColumnIndex
+              ? modelLine.replace(/^• /u, '')
+              : (lines[lineIndex] ?? lines[0]),
+          ),
+        )
+      : [cells];
+
+    for (const record of records) {
+      listRows.push(rows[rowIndex]);
+      listCells.push(record);
+    }
+  });
+
+  const modelsIndex = prepared.visibleColumnIndexes.indexOf(modelsColumnIndex);
+
+  return renderUsageCells(listRows, listCells, prepared, {
+    useColor: options.useColor,
+    headerCells: prepared.headerCells.map((header, columnIndex) =>
+      columnIndex === modelsColumnIndex ? 'Model' : header,
+    ),
+    multilineColumnIndex: modelsIndex,
+    stackedTitleColumnCount: modelsIndex,
+    terminalWidth: options.terminalWidth,
+  });
 }
 
 /**
@@ -436,25 +524,29 @@ export function renderTerminalTableWithFit(
   );
   let { prepared } = fitted;
 
-  // Per-model metric lines only line up with their model names inside the table.
-  const stacked = tableLayout === 'compact' && !fitted.fits;
+  const stacked = !fitted.fits;
 
   if (stacked) {
-    // A list has no column budget: keep Input and Output, drop only the model lists.
-    const listStep = steps.find((step) => step.hiddenColumns.includes('models'));
+    const listStep = resolveListStep(steps, tableLayout);
 
     if (listStep) {
       prepared = prepareFitStep(rows, tableLayout, listStep);
     }
   }
-  const modelsColumnWidth = resolveModelsColumnWidth(prepared, tableLayout, terminalWidth);
-  const { output, truncatedModelNames } = renderPreparedTable(rows, prepared, {
-    tableLayout,
-    useColor,
-    modelsColumnWidth,
-    packModels: terminalWidth !== undefined,
-    stackedWidth: stacked ? terminalWidth : undefined,
-  });
+
+  const { output, truncatedModelNames } =
+    stacked && tableLayout === 'per_model_columns'
+      ? {
+          output: renderPerModelList(rows, prepared, { useColor, terminalWidth }),
+          truncatedModelNames: false,
+        }
+      : renderPreparedTable(rows, prepared, {
+          tableLayout,
+          useColor,
+          modelsColumnWidth: resolveModelsColumnWidth(prepared, tableLayout, terminalWidth),
+          packModels: terminalWidth !== undefined,
+          stackedWidth: stacked ? terminalWidth : undefined,
+        });
 
   if (hasExplicitTerminalWidth && terminalWidth !== undefined) {
     const renderedTableWidth = measureTableWidth(output);

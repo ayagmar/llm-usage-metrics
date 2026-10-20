@@ -1,12 +1,16 @@
 import { markdownTable } from 'markdown-table';
-import pc from 'picocolors';
 
 import type { CompareProjectRow, CompareReportData } from '../cli/build-compare-data.js';
-import type { CompareMetricRow, CompareSourceRow } from '../cli/usage-data-contracts.js';
-import { formatInteger, formatUsd } from './format-number.js';
+import type {
+  CompareMetricKey,
+  CompareMetricRow,
+  CompareSourceRow,
+} from '../cli/usage-data-contracts.js';
+import { formatAbbreviatedTokenCount, formatInteger, formatUsd } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
-import { resolveTtyColumns } from './table-text-layout.js';
+import { resolveTerminalWidth, truncateMiddle } from './table-text-layout.js';
+import { createColorRoles, styleDeltaCell } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
@@ -17,6 +21,18 @@ export type RenderCompareReportOptions = {
   useColor?: boolean;
   /** Whether the command line narrowed the report; names the filters in the empty message. */
   filtered?: boolean;
+  /** Defaults to the stdout TTY width. */
+  terminalWidth?: number;
+};
+
+/**
+ * How a row's cells are written: colored or not, token counts abbreviated (a fitted
+ * table), and the name cut to a width (the terminal; Markdown keeps names whole).
+ */
+type CellFormat = {
+  useColor: boolean;
+  abbreviate?: boolean;
+  nameWidth?: number;
 };
 
 const percentFormatter = new Intl.NumberFormat('en-US', {
@@ -29,17 +45,36 @@ const compareTableHeaders = ['Metric', 'Current', 'Baseline', 'Δ', 'Δ%'] as co
 const sourceTableHeaders = ['Source', 'Current', 'Baseline', 'Δ', 'Δ%'] as const;
 const projectTableHeaders = ['Project', 'Current', 'Baseline', 'Δ', 'Δ%'] as const;
 
-function formatDeltaInteger(value: number | undefined, options: { signed?: boolean } = {}): string {
+/** Project and source names longer than this are shortened in the middle in the terminal. */
+const NAME_COLUMN_MAX_WIDTH = 28;
+/** A table too wide for the terminal hides Baseline, then Δ%: Current and Δ tell the change. */
+const HIDEABLE_COLUMNS = [2, 4];
+
+const tokenMetricKeys: ReadonlySet<CompareMetricKey> = new Set([
+  'inputTokens',
+  'outputTokens',
+  'reasoningTokens',
+  'cacheReadTokens',
+  'cacheWriteTokens',
+  'totalTokens',
+]);
+
+function formatDeltaInteger(
+  value: number | undefined,
+  options: { signed?: boolean; abbreviate?: boolean } = {},
+): string {
   if (value === undefined) {
     return '-';
   }
 
+  const format = options.abbreviate ? formatAbbreviatedTokenCount : formatInteger;
+
   if (!options.signed || value === 0) {
-    return formatInteger(value);
+    return format(value);
   }
 
   const sign = value > 0 ? '+' : '-';
-  return `${sign}${formatInteger(Math.abs(value))}`;
+  return `${sign}${format(Math.abs(value))}`;
 }
 
 function formatDeltaUsd(
@@ -68,63 +103,74 @@ function formatPercent(value: number | undefined): string {
   return `${sign}${percentFormatter.format(value)}`;
 }
 
-function colorizeDelta(value: string, numericValue: number | undefined, useColor: boolean): string {
-  if (!useColor || numericValue === undefined || numericValue === 0) {
-    return value;
-  }
+/** Cost cells are money; a cost change is good when it falls. Token changes stay uncolored. */
+function styleCostDelta(text: string, value: number | undefined, useColor: boolean): string {
+  return styleDeltaCell(value, text, useColor, { lowerIsBetter: true });
+}
 
-  return numericValue > 0 ? pc.green(value) : pc.red(value);
+function toNameCell(name: string, format: CellFormat): string {
+  return format.nameWidth === undefined ? name : truncateMiddle(name, format.nameWidth);
 }
 
 function formatMetricValue(
   row: CompareMetricRow,
   value: number | undefined,
   approximate: boolean | undefined,
+  format: CellFormat,
 ): string {
   if (row.valueType === 'usd') {
-    return formatDeltaUsd(value, { approximate });
+    return createColorRoles(format.useColor).money(formatDeltaUsd(value, { approximate }));
   }
 
-  return formatDeltaInteger(value);
+  return formatDeltaInteger(value, {
+    abbreviate: format.abbreviate && tokenMetricKeys.has(row.key),
+  });
 }
 
-function formatMetricDelta(row: CompareMetricRow): string {
+function toMetricTableRow(row: CompareMetricRow, format: CellFormat): string[] {
+  const deltaRatio = formatPercent(row.deltaRatio);
+  const cells = [
+    row.label,
+    formatMetricValue(row, row.current, row.currentCostIncomplete, format),
+    formatMetricValue(row, row.baseline, row.baselineCostIncomplete, format),
+  ];
+
   if (row.valueType === 'usd') {
-    return formatDeltaUsd(row.delta, {
+    const delta = formatDeltaUsd(row.delta, {
       approximate: row.deltaCostIncomplete,
       signed: true,
     });
+
+    return [
+      ...cells,
+      styleCostDelta(delta, row.delta, format.useColor),
+      styleCostDelta(deltaRatio, row.deltaRatio, format.useColor),
+    ];
   }
 
-  return formatDeltaInteger(row.delta, { signed: true });
+  const delta = formatDeltaInteger(row.delta, {
+    signed: true,
+    abbreviate: format.abbreviate && tokenMetricKeys.has(row.key),
+  });
+
+  return [...cells, delta, deltaRatio];
 }
 
-function toMetricTableRow(row: CompareMetricRow, useColor: boolean): string[] {
-  const delta = formatMetricDelta(row);
-  const deltaRatio = formatPercent(row.deltaRatio);
-
-  return [
-    row.label,
-    formatMetricValue(row, row.current, row.currentCostIncomplete),
-    formatMetricValue(row, row.baseline, row.baselineCostIncomplete),
-    colorizeDelta(delta, row.delta, useColor),
-    colorizeDelta(deltaRatio, row.deltaRatio, useColor),
-  ];
+function toSourceTableRow(row: CompareSourceRow, format: CellFormat): string[] {
+  const name = createColorRoles(format.useColor).source(row.source)(toNameCell(row.source, format));
+  return toCostTableRow(name, row, format);
 }
 
-function toSourceTableRow(row: CompareSourceRow, useColor: boolean): string[] {
-  return toCostTableRow(row.source, row, useColor);
-}
-
-function toProjectTableRow(row: CompareProjectRow, useColor: boolean): string[] {
-  return toCostTableRow(row.project, row, useColor);
+function toProjectTableRow(row: CompareProjectRow, format: CellFormat): string[] {
+  return toCostTableRow(toNameCell(row.project, format), row, format);
 }
 
 function toCostTableRow(
   name: string,
   row: Omit<CompareSourceRow, 'source'>,
-  useColor: boolean,
+  format: CellFormat,
 ): string[] {
+  const { money } = createColorRoles(format.useColor);
   const delta = formatDeltaUsd(row.delta.costUsd, {
     approximate: row.delta.costIncomplete,
     signed: true,
@@ -133,10 +179,10 @@ function toCostTableRow(
 
   return [
     name,
-    formatDeltaUsd(row.current.costUsd, { approximate: row.current.costIncomplete }),
-    formatDeltaUsd(row.baseline.costUsd, { approximate: row.baseline.costIncomplete }),
-    colorizeDelta(delta, row.delta.costUsd, useColor),
-    colorizeDelta(deltaRatio, row.deltaRatio.costUsd, useColor),
+    money(formatDeltaUsd(row.current.costUsd, { approximate: row.current.costIncomplete })),
+    money(formatDeltaUsd(row.baseline.costUsd, { approximate: row.baseline.costIncomplete })),
+    styleCostDelta(delta, row.delta.costUsd, format.useColor),
+    styleCostDelta(deltaRatio, row.deltaRatio.costUsd, format.useColor),
   ];
 }
 
@@ -147,21 +193,37 @@ function createRowMetas(rowCount: number): TableRowMeta[] {
   }));
 }
 
-function renderTerminalTable(options: {
+/**
+ * A boxed table fitted to the terminal: token counts abbreviated, then Baseline and Δ%
+ * hidden, then listed rows. Names are capped at `NAME_COLUMN_MAX_WIDTH` at every step.
+ */
+function renderTerminalTable<Row>(options: {
   headerCells: readonly string[];
-  bodyRows: string[][];
-  firstColumnWidth: number;
+  rows: readonly Row[];
+  toCells: (row: Row, format: CellFormat) => string[];
+  useColor: boolean;
+  terminalWidth: number | undefined;
 }): string {
+  const { header } = createColorRoles(options.useColor);
+  const cells = (format: Omit<CellFormat, 'nameWidth'>) =>
+    options.rows.map((row) =>
+      options.toCells(row, { ...format, nameWidth: NAME_COLUMN_MAX_WIDTH }),
+    );
+
   return renderUnicodeTable({
-    headerCells: options.headerCells,
-    bodyRows: options.bodyRows,
+    headerCells: options.headerCells.map((cell) => header(cell)),
+    bodyRows: cells({ useColor: options.useColor }),
     measureHeaderCells: options.headerCells,
-    measureBodyRows: options.bodyRows,
-    rowMetas: createRowMetas(options.bodyRows.length),
+    measureBodyRows: cells({ useColor: false }),
+    rowMetas: createRowMetas(options.rows.length),
     columnKinds: options.headerCells.map((_, index) => (index === 0 ? 'text' : 'measure')),
     multilineColumnIndex: 0,
-    multilineColumnWidth: options.firstColumnWidth,
-    terminalWidth: resolveTtyColumns(process.stdout),
+    terminalWidth: options.terminalWidth,
+    fit: {
+      abbreviatedBodyRows: cells({ useColor: options.useColor, abbreviate: true }),
+      abbreviatedMeasureBodyRows: cells({ useColor: false, abbreviate: true }),
+      hideableColumns: HIDEABLE_COLUMNS,
+    },
   });
 }
 
@@ -174,12 +236,14 @@ function renderTerminalCompareReport(
   options: RenderCompareReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
+  const terminalWidth = resolveTerminalWidth(options.terminalWidth);
   const lines: string[] = [];
 
   lines.push(
     renderReportHeader({
       title: `Compare: ${compareData.current.window.label} vs ${compareData.baseline.window.label}`,
       useColor,
+      terminalWidth,
     }),
   );
   lines.push('');
@@ -192,8 +256,10 @@ function renderTerminalCompareReport(
   lines.push(
     renderTerminalTable({
       headerCells: compareTableHeaders,
-      bodyRows: compareData.totals.map((row) => toMetricTableRow(row, useColor)),
-      firstColumnWidth: 14,
+      rows: compareData.totals,
+      toCells: toMetricTableRow,
+      useColor,
+      terminalWidth,
     }),
   );
   lines.push('');
@@ -201,8 +267,10 @@ function renderTerminalCompareReport(
   lines.push(
     renderTerminalTable({
       headerCells: sourceTableHeaders,
-      bodyRows: compareData.sources.map((row) => toSourceTableRow(row, useColor)),
-      firstColumnWidth: 14,
+      rows: compareData.sources,
+      toCells: toSourceTableRow,
+      useColor,
+      terminalWidth,
     }),
   );
 
@@ -212,8 +280,10 @@ function renderTerminalCompareReport(
     lines.push(
       renderTerminalTable({
         headerCells: projectTableHeaders,
-        bodyRows: compareData.projects.map((row) => toProjectTableRow(row, useColor)),
-        firstColumnWidth: 14,
+        rows: compareData.projects,
+        toCells: toProjectTableRow,
+        useColor,
+        terminalWidth,
       }),
     );
   }
@@ -236,7 +306,7 @@ function renderMarkdownCompareReport(compareData: CompareReportData): string {
         '',
         renderMarkdownRows(
           projectTableHeaders,
-          compareData.projects.map((row) => toProjectTableRow(row, false)),
+          compareData.projects.map((row) => toProjectTableRow(row, { useColor: false })),
         ),
       ]
     : [];
@@ -248,14 +318,14 @@ function renderMarkdownCompareReport(compareData: CompareReportData): string {
     '',
     renderMarkdownRows(
       compareTableHeaders,
-      compareData.totals.map((row) => toMetricTableRow(row, false)),
+      compareData.totals.map((row) => toMetricTableRow(row, { useColor: false })),
     ),
     '',
     '### By source (cost)',
     '',
     renderMarkdownRows(
       sourceTableHeaders,
-      compareData.sources.map((row) => toSourceTableRow(row, false)),
+      compareData.sources.map((row) => toSourceTableRow(row, { useColor: false })),
     ),
     ...projectSection,
   ].join('\n');

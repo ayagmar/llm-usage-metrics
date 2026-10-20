@@ -12,14 +12,16 @@ import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import { pluralize } from '@ayagmar/agent-sessions/internal';
 import {
+  formatAbbreviatedTokenCount,
   formatApproxUsd,
   formatInteger,
-  formatStatuslineCompact,
   formatUsd,
 } from './format-number.js';
-import { resolveTtyColumns } from './table-text-layout.js';
+import { resolveTerminalWidth, wrapProse } from './table-text-layout.js';
 import {
+  createColorRoles,
   defaultTerminalStylePalette,
+  type ColorRoles,
   type TerminalStylePalette,
   type TextStyler,
 } from './terminal-style-policy.js';
@@ -31,13 +33,16 @@ export type SummaryReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderSummaryReportOptions = {
   useColor?: boolean;
   palette?: TerminalStylePalette;
-  /** Overrides the TTY width the activity heatmap is fitted to. */
+  /** Overrides the TTY width the table, notes, and activity heatmap are fitted to. */
   terminalWidth?: number;
   /** Whether the command line narrowed the report; names the filters in the empty message. */
   filtered?: boolean;
 };
 
 const summaryTableHeaders = ['Period', 'Cost', 'Tokens', 'Top source'] as const;
+const TOP_SOURCE_COLUMN = 3;
+// `~$110,334.21`: the best day's widest word, so it wraps between words, not inside one.
+const MIN_WRAPPED_VALUE_WIDTH = 12;
 
 function formatCost(period: SummaryPeriod): string {
   // A `~` marks totals that leave out events whose model has no known price.
@@ -56,22 +61,35 @@ function formatCostShare(period: SummaryPeriod, costUsd: number | undefined): st
   return `${period.totals.costIncomplete ? '~' : ''}${String(Math.round((costUsd / totalCost) * 100))}%`;
 }
 
-function formatTopSource(period: SummaryPeriod): string {
+function formatTopSource(period: SummaryPeriod, styleSource: (source: string) => string): string {
   if (period.sources.length === 0) {
     return '-';
   }
 
   const topSource = period.sources[0];
   const share = formatCostShare(period, topSource.costUsd);
-  return share === undefined ? topSource.source : `${topSource.source} (${share})`;
+  const source = styleSource(topSource.source);
+  return share === undefined ? source : `${source} (${share})`;
 }
 
-function toTableRow(period: SummaryPeriod): string[] {
+type SummaryRowStyle = {
+  formatTokens: (tokens: number) => string;
+  money: TextStyler;
+  source: (source: string) => string;
+};
+
+const plainRowStyle: SummaryRowStyle = {
+  formatTokens: formatInteger,
+  money: (text) => text,
+  source: (source) => source,
+};
+
+function toTableRow(period: SummaryPeriod, style: SummaryRowStyle = plainRowStyle): string[] {
   return [
     period.label,
-    formatCost(period),
-    formatInteger(period.totals.totalTokens),
-    formatTopSource(period),
+    style.money(formatCost(period)),
+    style.formatTokens(period.totals.totalTokens),
+    formatTopSource(period, style.source),
   ];
 }
 
@@ -116,7 +134,7 @@ function formatBestDay(activity: SummaryDataResult['activity']): string {
     bestDay.costUsd === undefined
       ? ''
       : ` · ${formatApproxUsd(bestDay.costUsd, bestDay.costIncomplete)}`;
-  return `${bestDay.date}${cost} · ${formatStatuslineCompact(bestDay.totalTokens)} tokens`;
+  return `${bestDay.date}${cost} · ${formatAbbreviatedTokenCount(bestDay.totalTokens)} tokens`;
 }
 
 function toActivityStats(activity: SummaryDataResult['activity']): [string, string][] {
@@ -130,23 +148,23 @@ function toActivityStats(activity: SummaryDataResult['activity']): [string, stri
 
 function renderTerminalActivity(
   activity: SummaryDataResult['activity'],
-  options: RenderSummaryReportOptions,
-  useColor: boolean,
+  options: { roles: ColorRoles; palette: TerminalStylePalette; useColor: boolean },
+  terminalWidth: number | undefined,
 ): string[] {
-  const palette = options.palette ?? defaultTerminalStylePalette;
+  const { roles, palette, useColor } = options;
   const paint =
     (styler: TextStyler): TextStyler =>
     (text) =>
       useColor ? styler(text) : text;
-  const dim = paint(palette.dim);
+  const dim = roles.dim;
   const stats = toActivityStats(activity);
   const labelWidth = Math.max(...stats.map(([label]) => label.length));
-  const valueStylers = [
-    paint((text) => palette.bold(palette.yellow(text))),
-    paint(palette.yellow),
-    paint(palette.white),
-    paint(palette.white),
-  ];
+  const valueIndent = ' '.repeat(labelWidth + 2);
+  // Too little room to wrap into; such a line overflows rather than breaking every word.
+  const valueWidth =
+    terminalWidth === undefined || terminalWidth - valueIndent.length < MIN_WRAPPED_VALUE_WIDTH
+      ? undefined
+      : terminalWidth - valueIndent.length;
   const heatmap = renderActivityHeatmap(
     activity.days,
     {
@@ -158,14 +176,19 @@ function renderTerminalActivity(
             ? paint((text) => palette.bold(palette.green(text)))
             : paint(palette.green),
     },
-    options.terminalWidth ?? resolveTtyColumns(process.stdout),
+    terminalWidth,
   );
 
   return [
     '',
     `Activity ${dim(`since ${activity.from}`)}`,
-    ...stats.map(
-      ([label, value], index) => `${dim(label.padEnd(labelWidth))}  ${valueStylers[index](value)}`,
+    // A value too long for the line (the best day, on a phone) continues under itself.
+    ...stats.flatMap(([label, value]) =>
+      wrapProse(value, valueWidth)
+        .split('\n')
+        .map((line, index) =>
+          index === 0 ? `${roles.label(label.padEnd(labelWidth))}  ${line}` : valueIndent + line,
+        ),
     ),
     ...(heatmap.length > 0 ? ['', ...heatmap] : []),
   ];
@@ -195,7 +218,7 @@ function formatMachinesNote(monthToDate: SummaryPeriod | undefined): string | un
   const parts = monthToDate.machines.map((machine) => {
     if (!byCost) {
       const share = formatTokenShare(machine.totalTokens, monthToDate.totals.totalTokens);
-      return `${machine.machine} ${formatStatuslineCompact(machine.totalTokens)} tokens (${share})`;
+      return `${machine.machine} ${formatAbbreviatedTokenCount(machine.totalTokens)} tokens (${share})`;
     }
 
     const cost = formatApproxUsd(machine.costUsd, machine.costIncomplete);
@@ -291,8 +314,20 @@ function renderTerminalSummaryReport(
   options: RenderSummaryReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
-  const bodyRows = summaryData.periods.map(toTableRow);
-  const rowMetas: TableRowMeta[] = bodyRows.map(() => ({
+  const palette = options.palette ?? defaultTerminalStylePalette;
+  const roles = createColorRoles(useColor, palette);
+  const terminalWidth = resolveTerminalWidth(options.terminalWidth);
+  const toRows = (formatTokens: SummaryRowStyle['formatTokens'], colored: boolean) =>
+    summaryData.periods.map((period) =>
+      toTableRow(
+        period,
+        colored
+          ? { formatTokens, money: roles.money, source: (source) => roles.source(source)(source) }
+          : { ...plainRowStyle, formatTokens },
+      ),
+    );
+  const measureBodyRows = toRows(formatInteger, false);
+  const rowMetas: TableRowMeta[] = measureBodyRows.map(() => ({
     periodKey: 'summary',
     rowKind: 'detail',
   }));
@@ -300,39 +335,59 @@ function renderTerminalSummaryReport(
     renderReportHeader({
       title: getTitle(summaryData),
       useColor,
-      terminalWidth: options.terminalWidth,
+      terminalWidth,
     }),
     '',
   ];
 
   if (!hasAnyUsage(summaryData)) {
-    lines.push(toNoRecentUsageMessage(summaryData, options.filtered ?? false), '');
+    lines.push(
+      wrapProse(toNoRecentUsageMessage(summaryData, options.filtered ?? false), terminalWidth),
+      '',
+    );
   }
 
   lines.push(
     renderUnicodeTable({
-      headerCells: summaryTableHeaders,
-      bodyRows,
+      headerCells: summaryTableHeaders.map((header) => roles.header(header)),
+      bodyRows: toRows(formatInteger, true),
       measureHeaderCells: summaryTableHeaders,
-      measureBodyRows: bodyRows,
+      measureBodyRows,
       rowMetas,
       multilineColumnIndex: 0,
       columnKinds: ['text', 'measure', 'measure', 'text'],
       multilineColumnWidth: 13,
-      terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
+      terminalWidth,
+      fit: {
+        abbreviatedBodyRows: toRows(formatAbbreviatedTokenCount, true),
+        abbreviatedMeasureBodyRows: toRows(formatAbbreviatedTokenCount, false),
+        hideableColumns: [TOP_SOURCE_COLUMN],
+      },
     }),
   );
 
   const notes = toSummaryNotes(summaryData, keepName);
 
   if (notes.length > 0) {
-    const palette = options.palette ?? defaultTerminalStylePalette;
-    const warn = (text: string) => (useColor ? palette.yellow(text) : text);
-    lines.push('', ...notes.map((note) => (note.warning ? warn(`⚠ ${note.text}`) : note.text)));
+    // Wrapped before coloring, so escape codes do not count toward the width.
+    const styleLines = (text: string, styler: TextStyler) =>
+      wrapProse(text, terminalWidth)
+        .split('\n')
+        .map((line) => styler(line));
+    lines.push(
+      '',
+      ...notes.flatMap((note) =>
+        note.warning
+          ? styleLines(`⚠ ${note.text}`, roles.warning)
+          : styleLines(note.text, roles.dim),
+      ),
+    );
   }
 
   if (summaryData.activity.activeDays > 0) {
-    lines.push(...renderTerminalActivity(summaryData.activity, options, useColor));
+    lines.push(
+      ...renderTerminalActivity(summaryData.activity, { roles, palette, useColor }, terminalWidth),
+    );
   }
 
   return lines.join('\n');

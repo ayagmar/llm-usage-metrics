@@ -446,7 +446,9 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 
       expect(cachedVersion).toBe('99.0.0');
     } finally {
-      await rm(tempDir, { recursive: true, force: true });
+      // The detached refresh runs with the cache directory as its cwd and can outlive its
+      // cache write by a moment; Windows refuses to remove that directory until it exits.
+      await rm(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
     }
   });
 });
