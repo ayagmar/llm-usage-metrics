@@ -51,6 +51,14 @@ describe('runEfficiencyReport diagnostics', () => {
     vi.restoreAllMocks();
   });
 
+  it('prints the git line counts with thousands separators', async () => {
+    const stderr = await runStderr(
+      efficiencyData({ gitCommitCount: 1016, gitLinesAdded: 204452, gitLinesDeleted: 42668 }),
+    );
+
+    expect(stderr).toContain('1,016 commits, +204,452/-42,668 lines (repo)');
+  });
+
   it('says whether merge commits count and warns about filters that narrow commit days', async () => {
     const stderr = await runStderr(
       efficiencyData({ includeMergeCommits: true, scopeNote: 'Usage filters (--model) narrow.' }),

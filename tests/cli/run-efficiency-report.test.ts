@@ -171,9 +171,7 @@ describe('runEfficiencyReport', () => {
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
     const outputLines = String(consoleLogSpy.mock.calls[0][0]).split('\n');
     expect(outputLines.some((line) => line.includes('╭'))).toBe(false);
-    expect(outputLines.at(-1)).toBe(
-      'No usage data found in periods with commits for the selected filters.',
-    );
+    expect(outputLines.at(-1)).toBe(`No usage data found in ${repoDir} for the selected filters.`);
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('Report table is wider than terminal'))).toBe(
       false,

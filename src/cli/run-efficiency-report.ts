@@ -93,7 +93,7 @@ function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): vo
     : 'excluding merge commits';
 
   logger.info(
-    `Git outcomes (${mergeModeLabel}): ${pluralize(diagnostics.gitCommitCount, 'commit')}, +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
+    `Git outcomes (${mergeModeLabel}): ${pluralize(diagnostics.gitCommitCount, 'commit')}, +${formatInteger(diagnostics.gitLinesAdded)}/-${formatInteger(diagnostics.gitLinesDeleted)} lines (${diagnostics.repoDir})`,
   );
   logger.info(
     `Repo-attributed usage events: ${formatInteger(diagnostics.repoMatchedUsageEvents)} matched, ${formatInteger(diagnostics.repoExcludedUsageEvents)} excluded, ${formatInteger(diagnostics.repoUnattributedUsageEvents)} unattributed`,
@@ -105,7 +105,7 @@ function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): vo
 
   if (diagnostics.gitMalformedCommitLines > 0) {
     logger.warn(
-      `Skipped ${diagnostics.gitMalformedCommitLines} malformed git commit boundar${
+      `Skipped ${formatInteger(diagnostics.gitMalformedCommitLines)} malformed git commit boundar${
         diagnostics.gitMalformedCommitLines === 1 ? 'y' : 'ies'
       }`,
     );

@@ -166,6 +166,35 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('|         - |');
   });
 
+  it('prints churn, cost ratios in cents and whole tokens per commit', () => {
+    const output = renderEfficiencyReport(createEfficiencyDataResult(), 'markdown', {
+      granularity: 'daily',
+    });
+    const [header, , , totalRow] = output
+      .split('\n')
+      .map((line) => line.split('|').map((cell) => cell.trim()));
+    const totals = Object.fromEntries(header.map((label, index) => [label, totalRow[index]]));
+
+    expect(totals).toMatchObject({
+      Churn: '28',
+      // Markdown escapes the partial-pricing `~`.
+      '$/Commit': '\\~$1.25',
+      '$/1k Lines': '\\~$89.29',
+      'Tokens/Commit': '63',
+    });
+  });
+
+  it('escapes the repository path in the Markdown empty message', () => {
+    const data = createEfficiencyDataResult();
+    data.rows = data.rows.filter((row) => row.rowType === 'grand_total');
+    data.diagnostics.repoMatchedUsageEvents = 0;
+    data.diagnostics.repoDir = '/home/me/my_repo_x';
+
+    const output = renderEfficiencyReport(data, 'markdown', { granularity: 'monthly' });
+
+    expect(output).toBe('No usage data found in /home/me/my\\_repo\\_x.');
+  });
+
   it('renders markdown by-source rows with usage cells and undefined outcome cells', () => {
     const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'markdown', {
       granularity: 'daily',
@@ -211,9 +240,11 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('│ ALL');
   });
 
-  it('prints the no-usage message instead of a table of zeros when no period qualifies', () => {
+  it('says the repository had no usage instead of printing a table of zeros', () => {
     const data = createEfficiencyDataResult();
     data.rows = data.rows.filter((row) => row.rowType === 'grand_total');
+    data.diagnostics.repoMatchedUsageEvents = 0;
+    data.diagnostics.gitCommitCount = 0;
 
     const output = renderEfficiencyReport(data, 'terminal', {
       granularity: 'monthly',
@@ -221,7 +252,25 @@ describe('renderEfficiencyReport', () => {
     });
 
     expect(output).not.toContain('╭');
-    expect(output.split('\n').at(-1)).toBe('No usage data found in periods with commits.');
+    expect(output.split('\n').at(-1)).toBe('No usage data found in /tmp/repo.');
+  });
+
+  it('blames missing commits, not usage, when the repository had usage but no commits by you', () => {
+    const data = createEfficiencyDataResult();
+    data.rows = data.rows.filter((row) => row.rowType === 'grand_total');
+    data.diagnostics.gitCommitCount = 0;
+
+    for (const format of ['terminal', 'markdown'] as const) {
+      const output = renderEfficiencyReport(data, format, {
+        granularity: 'monthly',
+        useColor: false,
+        filtered: true,
+      });
+
+      expect(output.split('\n').at(-1)).toBe(
+        'No commits by you found in /tmp/repo on days with usage for the selected filters.',
+      );
+    }
   });
 
   it('renders terminal by-source rows under the period subtotal', () => {
