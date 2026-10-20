@@ -148,6 +148,41 @@ describe('mergeMachineEvents', () => {
       request('a', 'msg_1'),
     ]);
   });
+
+  it('matches a request by its ids before taking an event stored without them for it', () => {
+    // Three requests in the same millisecond with the same usage. This machine stored a's
+    // msg_3 before events had ids; the laptop and the vps hold more of a, and b continues a.
+    function request(sessionId: string, messageId?: string): UsageEvent {
+      return createUsageEvent({ ...event(sessionId, 0), messageId });
+    }
+
+    const local = [request('a')];
+    const [laptop, vps] = mergeMachineEvents(
+      local,
+      [
+        {
+          name: 'laptop',
+          events: [request('a', 'msg_1'), request('a', 'msg_3')],
+          parserVersions: versions,
+        },
+        {
+          name: 'vps',
+          events: [
+            request('a', 'msg_1'),
+            request('a', 'msg_2'),
+            request('a', 'msg_3'),
+            request('b', 'msg_1'),
+            request('b', 'msg_2'),
+          ],
+          parserVersions: versions,
+        },
+      ],
+      versions,
+    );
+    const counted = dedupeCopiedSessions([...local, ...laptop.events, ...vps.events]);
+
+    expect(counted.map((event) => event.sessionId)).toEqual(['a', 'a', 'a']);
+  });
 });
 
 describe('mergeMachineEvents with parser versions', () => {

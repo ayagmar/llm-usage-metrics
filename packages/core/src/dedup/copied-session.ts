@@ -3,6 +3,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { collect } from '../stream/collect.js';
 import type { Stage } from '../stream/pipe.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { getRequestKey, hasRequestIds } from './request-key.js';
 
 // Everything but the session and the request ids: a copied event keeps its timestamp,
 // model and usage. Keep in step with isSameUsage.
@@ -19,18 +20,6 @@ function getUsageIdentity(event: UsageEvent): string {
     event.cacheWrite1hTokens,
     event.totalTokens,
   ].join('\0');
-}
-
-// A copy also keeps the logged message and request ids. An event stored or exported before
-// events carried them has neither; a row can log only one of them.
-function hasRequestIds(event: UsageEvent): boolean {
-  return event.messageId !== undefined || event.requestId !== undefined;
-}
-
-function getRequestKey(event: UsageEvent): string | undefined {
-  return hasRequestIds(event)
-    ? JSON.stringify([event.messageId ?? null, event.requestId ?? null])
-    : undefined;
 }
 
 function isSameUsage(left: UsageEvent, right: UsageEvent): boolean {
