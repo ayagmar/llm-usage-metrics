@@ -57,9 +57,11 @@ Illustrative output for `llm-usage doctor --source pi,codex,opencode` (counts de
 Sources: 1 found · 1 failed · 1 not installed
 ```
 
+Without `--source` or `--verbose`, sources with no files in their default paths share one line, such as `○ not installed: droid, amp, qwen`, and the summary says `--verbose` shows where they were searched. A source whose path you set (an override or config `sourceDirs`) always gets its own row.
+
 Searched paths reflect overrides, config `sourceDirs`, and tool environment variables such as `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME`. The summary counts only source rows; the `event-store` row reports the ledger's event count (usage events, tool calls and messages), departed-file count, schema version, and on-disk size.
 
-Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `machine:<name>` row (format `ssh`) from its cached usage: when it last synced, how many files and events are cached, and the last error. Doctor never connects to it; a row whose last sync failed is marked `✖`. Without any machine, doctor ends with a tip on adding one.
+Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `machine:<name>` row (format `ssh`) from its cached usage: its ssh target when it differs from the name, when it last synced, how many files and events are cached, and the last error. Doctor never connects to it; a row whose last sync failed is marked `✖`. Without any machine, doctor ends with a tip on adding one.
 
 ## JSON shape
 

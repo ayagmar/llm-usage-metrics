@@ -104,13 +104,24 @@ export function renderMachineList(entries: readonly MachineListEntry[], now: num
     return ['No machines configured.', 'Add one with: llm-usage machine add <name> [user@host]'];
   }
 
-  const nameWidth = Math.max(...entries.map((entry) => visibleWidth(entry.name)));
-  const sshWidth = Math.max(...entries.map((entry) => visibleWidth(entry.machine.ssh)));
-
-  return entries.map(
-    (entry) =>
-      `${padEndVisible(entry.name, nameWidth)}  ${padEndVisible(entry.machine.ssh, sshWidth)}  ${describeMachineStatus(entry, now)}`,
+  const header = { name: 'Machine', ssh: 'SSH target', status: 'Status' };
+  const nameWidth = Math.max(
+    visibleWidth(header.name),
+    ...entries.map((entry) => visibleWidth(entry.name)),
   );
+  const sshWidth = Math.max(
+    visibleWidth(header.ssh),
+    ...entries.map((entry) => visibleWidth(entry.machine.ssh)),
+  );
+  const formatRow = (name: string, ssh: string, status: string): string =>
+    `${padEndVisible(name, nameWidth)}  ${padEndVisible(ssh, sshWidth)}  ${status}`;
+
+  return [
+    formatRow(header.name, header.ssh, header.status),
+    ...entries.map((entry) =>
+      formatRow(entry.name, entry.machine.ssh, describeMachineStatus(entry, now)),
+    ),
+  ];
 }
 
 function describeIncludedMachine(
