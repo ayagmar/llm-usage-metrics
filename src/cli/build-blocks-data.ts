@@ -13,6 +13,7 @@ import {
 } from '../blocks/aggregate-blocks.js';
 import { getLocalDayStartMs } from '../blocks/local-day-start.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
+import { formatInteger } from '../render/format-number.js';
 import { shiftDateKey } from '../utils/date-key.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
@@ -33,10 +34,13 @@ import type {
   ReportCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
-import { parsePositiveTopOption } from './top-option.js';
+import { parseTopRowsOption } from './top-option.js';
 
 /** Days read before `since` to find where the chain of blocks running into it started. */
 export const BLOCKS_LOOKBACK_DAYS = 7;
+
+/** Blocks shown without --top: the most recent ones. */
+const DEFAULT_RECENT_BLOCKS = 20;
 
 /** A block, with its burn rate when it contains now. */
 export type BlockRow = UsageBlock & {
@@ -52,11 +56,11 @@ export type BlocksReportData = {
   since: string | null;
   /** Last day of the window (YYYY-MM-DD); null when open-ended. */
   until: string | null;
-  /** With --top: how many blocks were asked for and what ranked them. */
+  /** With --top N (N > 0): how many blocks were asked for and what ranked them. */
   top: { count: number; rankedBy: BlockRanking } | null;
-  /** Blocks in the window before --top. */
+  /** Blocks in the window, before the default limit or --top. */
   blockCount: number;
-  /** In time order, or by rank with --top. */
+  /** The most recent in time order; by rank with --top N; all in time order with --top 0. */
   blocks: BlockRow[];
   /** Blocks containing now, whether or not --top shows them. */
   activeBlocks: BlockRow[];
@@ -65,6 +69,8 @@ export type BlocksReportData = {
 export type BlocksDataResult = {
   data: BlocksReportData;
   diagnostics: UsageDiagnostics;
+  /** Without --top: names the older blocks the default limit left out. */
+  limitNote?: string;
   /** Set when no window flag was given, for the default-window hint. */
   defaultWindowSince?: string;
 };
@@ -187,7 +193,7 @@ export async function buildBlocksData(
   options: BlocksCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<BlocksDataResult> {
-  const top = parsePositiveTopOption(options.top);
+  const top = parseTopRowsOption(options.top);
   // Without date flags, the last 7 days, as `daily` reports them.
   const windowRequest = await resolveUsageDataRequest('daily', options, deps);
   const userConfigResolution = await resolveUserConfigForOptions(
@@ -238,7 +244,17 @@ export async function buildBlocksData(
   });
   const rows = blocks.map(toRow);
   const rankedBy = resolveBlockRanking(blocks, { hideCost });
-  const shownRows = top === undefined ? rows : selectTopBlocks(rows, top, rankedBy);
+  // Without --top, the most recent blocks in time order; --top N ranks them, --top 0 shows all.
+  const shownRows =
+    top === undefined
+      ? rows.slice(-DEFAULT_RECENT_BLOCKS)
+      : top === 0
+        ? rows
+        : selectTopBlocks(rows, top, rankedBy);
+  const limitNote =
+    top === undefined && rows.length > DEFAULT_RECENT_BLOCKS
+      ? `Showing the ${String(DEFAULT_RECENT_BLOCKS)} most recent of ${formatInteger(rows.length)} blocks. Use --top N for the top N by ${rankedBy}, or --top 0 for all.`
+      : undefined;
 
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
@@ -263,12 +279,13 @@ export async function buildBlocksData(
       timezone,
       since: window.since ?? null,
       until: window.until ?? null,
-      top: top === undefined ? null : { count: top, rankedBy },
+      top: top === undefined || top === 0 ? null : { count: top, rankedBy },
       blockCount: rows.length,
       blocks: shownRows,
       activeBlocks: rows.filter((row) => row.active !== null),
     },
     diagnostics,
+    ...(limitNote ? { limitNote } : {}),
     ...(windowRequest.defaultWindowSince
       ? { defaultWindowSince: windowRequest.defaultWindowSince }
       : {}),

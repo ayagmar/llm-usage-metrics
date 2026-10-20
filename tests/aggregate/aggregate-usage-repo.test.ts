@@ -114,6 +114,12 @@ describe('aggregateUsage by project', () => {
         aggregateUsage(events, { ...base, split: { repo: true }, projectLabels }),
         aggregateUsage(events, { ...base, split: { machine: true, repo: true }, projectLabels }),
         aggregateUsage(events, { ...base, primary: 'repo', projectLabels }),
+        aggregateUsage(events, {
+          ...base,
+          split: { machine: true, repo: true },
+          projectLabels,
+          projectLimit: { count: 1 + randomInt(random, 3), rankedBy: 'cost' },
+        }),
       ];
 
       for (const rows of variants) {
@@ -169,6 +175,84 @@ describe('aggregateUsage by project', () => {
       ['period_source', 'codex', null, '(unattributed)', 5],
       ['period_combined', 'combined', '-', '-', 26],
       ['grand_total', 'combined', '-', '-', 26],
+    ]);
+  });
+
+  it('keeps the costliest projects of each period and folds the others per source', () => {
+    const event = (source: string, day: string, repoRoot: string, costUsd: number) =>
+      usageEvent({
+        source,
+        timestamp: `2026-06-${day}T08:00:00Z`,
+        repoRoot,
+        inputTokens: 1,
+        costUsd,
+      });
+    const events = [
+      // Day 15: big costs most across sources; small and tiny are folded.
+      event('claude', '15', '/r/big', 1),
+      event('codex', '15', '/r/big', 2),
+      event('claude', '15', '/r/small', 2),
+      event('claude', '15', '/r/tiny', 0.5),
+      event('codex', '15', '/r/tiny', 0.5),
+      // Day 16: one project, nothing to fold.
+      event('codex', '16', '/r/tiny', 9),
+    ];
+
+    const rows = aggregateUsage(events, {
+      granularity: 'daily',
+      timezone: 'UTC',
+      sourceOrder: ['claude', 'codex'],
+      split: { repo: true },
+      projectLabels: labelsOf(events),
+      projectLimit: { count: 1, rankedBy: 'cost' },
+    });
+
+    expect(
+      rows.flatMap((row) =>
+        row.rowType === 'period_source'
+          ? [[row.periodKey, row.source, row.project, row.otherProjects, row.costUsd]]
+          : [],
+      ),
+    ).toEqual([
+      ['2026-06-15', 'claude', 'big', undefined, 1],
+      ['2026-06-15', 'claude', '2 other projects', 2, 2.5],
+      ['2026-06-15', 'codex', 'big', undefined, 2],
+      ['2026-06-15', 'codex', '1 other project', 1, 0.5],
+      ['2026-06-16', 'codex', 'tiny', undefined, 9],
+    ]);
+    expect(
+      rows.find((row) => row.rowType === 'period_source' && row.otherProjects),
+    ).not.toHaveProperty('repoRoot');
+  });
+
+  it('ranks a period by tokens when a project has no price, and never folds a lone project', () => {
+    const event = (repoRoot: string, inputTokens: number, costUsd?: number) =>
+      usageEvent({
+        source: 'pi',
+        timestamp: '2026-06-15T08:00:00Z',
+        repoRoot,
+        inputTokens,
+        ...(costUsd === undefined ? {} : { costUsd }),
+      });
+    const projectsOf = (events: UsageEvent[]) =>
+      aggregateUsage(events, {
+        granularity: 'daily',
+        timezone: 'UTC',
+        split: { repo: true },
+        projectLabels: labelsOf(events),
+        projectLimit: { count: 1, rankedBy: 'cost' },
+      }).flatMap((row) => (row.rowType === 'period_source' ? [row.project] : []));
+
+    expect(
+      projectsOf([
+        event('/r/priced', 10, 5),
+        event('/r/unpriced', 10_000),
+        event('/r/cheap', 5, 1),
+      ]),
+    ).toEqual(['unpriced', '2 other projects']);
+    expect(projectsOf([event('/r/priced', 10, 5), event('/r/cheap', 5, 1)])).toEqual([
+      'cheap',
+      'priced',
     ]);
   });
 

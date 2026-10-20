@@ -613,7 +613,7 @@ describe('compare lead', () => {
     expect(view.facts).toEqual([
       { label: 'Cost change', value: '+$0.08', detail: '+655.1% · $0.09 against $0.01' },
       {
-        label: 'Total tokens change',
+        label: 'Total Tokens change',
         value: '+30,990',
         detail: '+1,126.9% · 33,740 against 2,750',
       },
@@ -628,8 +628,8 @@ describe('compare lead', () => {
 
     expect(totals.columns[1].label).toBe('Current (2026-06)');
     expect(row('Input')).toEqual(['Input', '17,800', '2,200', '+15,600', '+709.1%']);
-    expect(row('Cache read')).toEqual(['Cache read', '12,000', '0', '+12,000', '—']);
-    expect(row('Active days')).toEqual(['Active days', '1', '2', '−1', '−50.0%']);
+    expect(row('Cache Read')).toEqual(['Cache Read', '12,000', '0', '+12,000', '—']);
+    expect(row('Active Days')).toEqual(['Active Days', '1', '2', '−1', '−50.0%']);
     expect(row('Cost')).toEqual(['Cost', '$0.09', '$0.01', '+$0.08', '+655.1%']);
   });
 

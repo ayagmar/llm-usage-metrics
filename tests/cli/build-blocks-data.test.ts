@@ -131,6 +131,25 @@ describe('buildBlocksData', () => {
     expect(all.data.blocks.every((block) => !block.startUncertain)).toBe(true);
   });
 
+  it('shows the 20 most recent blocks in time order by default, and all with --top 0', async () => {
+    // One block per 6 hours over 6 days: 24 blocks.
+    const events = Array.from({ length: 24 }, (_, index) =>
+      event(new Date(Date.parse('2026-06-15T13:00:00.000Z') + index * 6 * 3_600_000).toISOString()),
+    );
+    const recent = await build(events);
+    const all = await build(events, { top: '0' });
+
+    expect(all.data.blocks).toHaveLength(24);
+    expect(all.limitNote).toBeUndefined();
+    expect(all.data.top).toBeNull();
+    expect(recent.data.blockCount).toBe(24);
+    expect(recent.data.top).toBeNull();
+    expect(recent.data.blocks).toEqual(all.data.blocks.slice(-20));
+    expect(recent.limitNote).toBe(
+      'Showing the 20 most recent of 24 blocks. Use --top N for the top N by cost, or --top 0 for all.',
+    );
+  });
+
   it('ranks --top by tokens with --no-cost and keeps active blocks listed', async () => {
     const events = [
       event('2026-06-20T01:00:00.000Z'),
@@ -230,8 +249,12 @@ describe('buildBlocksData', () => {
   });
 
   it('rejects invalid and conflicting window flags', async () => {
-    await expect(build([], { top: '0' })).rejects.toThrow('--top must be a positive integer');
-    await expect(build([], { top: '2x' })).rejects.toThrow('--top must be a positive integer');
+    await expect(build([], { top: '-1' })).rejects.toThrow(
+      '--top must be a non-negative integer (0 shows all rows)',
+    );
+    await expect(build([], { top: '2x' })).rejects.toThrow(
+      '--top must be a non-negative integer (0 shows all rows)',
+    );
     await expect(build([], { last: '0' })).rejects.toThrow('--last must be a whole number');
     await expect(build([], { last: '3', since: '2026-06-01' })).rejects.toThrow(
       '--last cannot be combined',

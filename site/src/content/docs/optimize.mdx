@@ -41,7 +41,7 @@ llm-usage optimize monthly \
 - If multiple providers remain, narrow with `--provider`.
 - `--provider` matches canonical billing entities after provider normalization.
 - Provider aliases are normalized to billing roots first (for example, `openai-codex` is treated as `openai`).
-- Candidate ranking is deterministic and based on `ALL` period hypothetical cost; `--top N` keeps the N cheapest candidates.
+- Candidate ranking is deterministic and based on `ALL` period hypothetical cost; every candidate you pass is listed; `--top N` keeps the N cheapest (`--top 0` lists all).
 - Without date flags, the report covers your full history. The shared filters apply, including `--repo` to price only some [projects](/llm-usage-metrics/projects/).
 
 ## Missing pricing and incomplete baselines

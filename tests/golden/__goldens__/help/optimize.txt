@@ -45,7 +45,7 @@ Options:
                                  local or path-shaped models model-N
   --candidate-model <name>       Candidate model for counterfactual pricing (repeatable or
                                  comma-separated)
-  --top <n>                      Show only the top N cheapest candidates (positive integer)
+  --top <n>                      Show only the top N cheapest candidates (default: all; 0 shows all)
   --all                          Report the full history (the default without date flags)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
