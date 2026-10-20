@@ -161,6 +161,7 @@ function renderTerminalToolsReport(
   const fittedRows = buildFittedRows(result, table);
   outputLines.push(
     renderUnicodeTable({
+      labelStyler: roles.label,
       headerCells: table.headers.map((header) => roles.header(header)),
       bodyRows: colorizeRows(table.rows, table, roles),
       measureHeaderCells: table.headers,

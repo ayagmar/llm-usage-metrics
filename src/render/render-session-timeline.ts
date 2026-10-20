@@ -14,6 +14,7 @@ import { formatApproxUsd, formatInteger, formatUsd } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
+import { createColorRoles } from './terminal-style-policy.js';
 import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
 
 export type RenderSessionTimelineOptions = {
@@ -186,6 +187,7 @@ export function renderTerminalSessionTimeline(
     ...formatSessionLines(session, options),
     '',
     renderUnicodeTable({
+      labelStyler: createColorRoles(options.useColor).label,
       headerCells: timelineHeaders,
       bodyRows,
       measureHeaderCells: timelineHeaders,

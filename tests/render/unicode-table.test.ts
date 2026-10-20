@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { visibleWidth, wrapTableColumn } from '../../src/render/table-text-layout.js';
 import { renderUnicodeTable, type TableRowMeta } from '../../src/render/unicode-table.js';
 
+const plainLabel = (text: string): string => text;
+
 function createRowMeta(overrides: Partial<TableRowMeta> = {}): TableRowMeta {
   return {
     periodKey: '2026-02-22',
@@ -16,6 +18,7 @@ describe('renderUnicodeTable', () => {
   it('wraps a listed value between name parts when it is longer than the line', () => {
     const model = 'deepseek/deepseek-v4.1-flash';
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Session', 'Model'],
       bodyRows: [['…3b0277334e93', model]],
       measureHeaderCells: ['Session', 'Model'],
@@ -39,6 +42,7 @@ describe('renderUnicodeTable', () => {
       '\n',
     );
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Month', 'Projects'],
       bodyRows: [['2026-06', cell]],
       measureHeaderCells: ['Month', 'Projects'],
@@ -60,6 +64,7 @@ describe('renderUnicodeTable', () => {
 
   it('lists rows as labelled values when the table is wider than the terminal', () => {
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Session', 'Source', 'Cost', 'Models'],
       bodyRows: [['…3b0277334e93', 'codex', '', 'gpt-5.4\nclaude-opus-4-8']],
       measureHeaderCells: ['Session', 'Source', 'Cost', 'Models'],
@@ -81,6 +86,7 @@ describe('renderUnicodeTable', () => {
 
   it('pads missing body/measure rows when usage row counts are misaligned', () => {
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Period', 'Source'],
       bodyRows: [],
       measureHeaderCells: ['Period', 'Source'],
@@ -97,6 +103,7 @@ describe('renderUnicodeTable', () => {
 
   it('pads short body rows so splitCellLines always receives strings', () => {
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Period', 'Source'],
       bodyRows: [['2026-02-22']],
       measureHeaderCells: ['Period', 'Source'],
@@ -112,6 +119,7 @@ describe('renderUnicodeTable', () => {
 
   it('uses max column count across rows to keep later wider rows aligned', () => {
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Period', 'Source'],
       bodyRows: [
         ['2026-02-22', 'pi'],
@@ -133,6 +141,7 @@ describe('renderUnicodeTable', () => {
 
   it('uses a shared column count when body has more columns than measure rows', () => {
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Period', 'Source'],
       bodyRows: [['2026-02-22', 'opencode', 'extra']],
       measureHeaderCells: ['Period', 'Source'],
@@ -150,6 +159,7 @@ describe('renderUnicodeTable', () => {
 
   it('aligns columns by kind, not by their position after the multiline column', () => {
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Session', 'Total', 'Models', 'Newest'],
       bodyRows: [
         ['a', '5', 'gpt-5', '2026-06-15'],
@@ -177,6 +187,7 @@ describe('renderUnicodeTable', () => {
       ['2026-02', '$12.25', '10', '-'],
     ];
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Period', 'Cost', 'Events', 'Notes'],
       bodyRows: rows,
       measureHeaderCells: ['Period', 'Cost', 'Events', 'Notes'],
@@ -208,6 +219,7 @@ describe('renderUnicodeTable', () => {
 
     function renderAt(terminalWidth: number | undefined): string {
       return renderUnicodeTable({
+        labelStyler: plainLabel,
         headerCells: headers,
         bodyRows: fullRows,
         measureHeaderCells: headers,
@@ -270,27 +282,71 @@ describe('renderUnicodeTable', () => {
     });
   });
 
-  it('titles a listed row with its unwrapped text, so a wrapped path is not split by a space', () => {
+  describe('listed path titles', () => {
     const path = '/home/user/.claude/projects/-home-user-projects-demo/session.jsonl';
-    const wrappedPath = wrapTableColumn([[path]], { columnIndex: 0, width: 24 })[0][0];
-    const rendered = renderUnicodeTable({
-      headerCells: ['Path', 'Events'],
-      bodyRows: [[wrappedPath, '12']],
-      measureHeaderCells: ['Path', 'Events'],
-      measureBodyRows: [[path, '12']],
-      rowMetas: [createRowMeta()],
-      columnKinds: ['text', 'measure'],
-      multilineColumnIndex: 0,
-      multilineColumnWidth: 24,
-      terminalWidth: 20,
+    const reason = 'older than 30 days and superseded by a newer parse';
+
+    function renderPathListAt(terminalWidth: number): string[] {
+      const wrappedPath = wrapTableColumn([[path]], { columnIndex: 0, width: 24 })[0][0];
+
+      return renderUnicodeTable({
+        labelStyler: plainLabel,
+        headerCells: ['Path', 'Events', 'Reason'],
+        bodyRows: [[wrappedPath, '12', reason]],
+        measureHeaderCells: ['Path', 'Events', 'Reason'],
+        measureBodyRows: [[path, '12', reason]],
+        rowMetas: [createRowMeta()],
+        columnKinds: ['text', 'measure', 'text'],
+        multilineColumnIndex: 0,
+        multilineColumnWidth: 24,
+        terminalWidth,
+      }).split('\n');
+    }
+
+    it('keeps a path title whole, with no space where the table wrapped it, when it fits', () => {
+      expect(renderPathListAt(72)[0]).toBe(path);
     });
 
-    expect(rendered.split('\n')[0]).toBe(path);
+    it('wraps a path title wider than the terminal after its slashes and dashes', () => {
+      for (const terminalWidth of [34, 44]) {
+        const lines = renderPathListAt(terminalWidth);
+        const titleLines = lines.slice(
+          0,
+          lines.findIndex((line) => line.startsWith('  ')),
+        );
+
+        expect(titleLines.length).toBeGreaterThan(1);
+        expect(titleLines.join('')).toBe(path);
+        expect(titleLines.slice(0, -1).every((line) => /[/-]$/u.test(line))).toBe(true);
+        expect(Math.max(...lines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(
+          terminalWidth,
+        );
+      }
+    });
+  });
+
+  it('wraps a title wider than the terminal from the text it shows, not its measure cell', () => {
+    const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
+      headerCells: ['Session', 'Source', 'Cost'],
+      bodyRows: [['…abcdef', '\u001B[36mcodex-with-a-long-name\u001B[39m', '$1.00']],
+      measureHeaderCells: ['Session', 'Source', 'Cost'],
+      measureBodyRows: [['0123456789abcdef0123456789abcdef', 'codex-with-a-long-name', '$1.00']],
+      rowMetas: [createRowMeta()],
+      columnKinds: ['text', 'text', 'measure'],
+      multilineColumnIndex: 0,
+      stackedTitleColumnCount: 2,
+      terminalWidth: 20,
+    });
+    const lines = rendered.split('\n');
+
+    expect(lines.slice(0, 3)).toEqual(['…abcdef · codex-', 'with-a-long-name', '  Cost  $1.00']);
   });
 
   it('keeps the fixed multiline width on its column when a column before it is hidden', () => {
     const rows = [['…3b0277334e93', '1,250', 'gpt-5']];
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Session', 'Calls', 'Models'],
       bodyRows: rows,
       measureHeaderCells: ['Session', 'Calls', 'Models'],
@@ -308,6 +364,7 @@ describe('renderUnicodeTable', () => {
 
   it('titles a listed row from its body cell when its measure row is short', () => {
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Name', 'Total'],
       bodyRows: [['alpha\nbeta', '1,234,567']],
       measureHeaderCells: ['Name', 'Total'],
@@ -325,6 +382,7 @@ describe('renderUnicodeTable', () => {
     const models = '• anthropic/claude-sonnet-4-5-20250929-thinking\n• gpt-5';
     const wrappedModels = wrapTableColumn([[models]], { columnIndex: 0, width: 32 })[0][0];
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Session', 'Models'],
       bodyRows: [['…3b0277334e93', wrappedModels]],
       measureHeaderCells: ['Session', 'Models'],
@@ -348,6 +406,7 @@ describe('renderUnicodeTable', () => {
   it('keeps the color of a one-line title when it lists rows', () => {
     const coloredSource = '\u001B[36mpi\u001B[39m';
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Source', 'Total'],
       bodyRows: [[coloredSource, '1,234,567']],
       measureHeaderCells: ['Source', 'Total'],
@@ -368,6 +427,7 @@ describe('renderUnicodeTable', () => {
       ['TOTAL', '3'],
     ];
     const rendered = renderUnicodeTable({
+      labelStyler: plainLabel,
       headerCells: ['Name', 'Count'],
       bodyRows: rows,
       measureHeaderCells: ['Name', 'Count'],

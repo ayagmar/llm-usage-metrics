@@ -9,6 +9,7 @@ import { formatApproxUsd, formatInteger } from './format-number.js';
 import { truncateNames } from './truncate-names.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
+import { createColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
@@ -177,6 +178,7 @@ function renderTerminalSessionReport(
 
   outputLines.push(
     renderUnicodeTable({
+      labelStyler: createColorRoles(useColor).label,
       headerCells: headers,
       bodyRows: wrappedRows,
       measureHeaderCells: headers,

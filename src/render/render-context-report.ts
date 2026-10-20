@@ -23,6 +23,7 @@ import {
   wrapProse,
   wrapTableColumn,
 } from './table-text-layout.js';
+import { createColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
 
@@ -163,6 +164,7 @@ function renderTerminalContextReport(
 
     lines.push(
       renderUnicodeTable({
+        labelStyler: createColorRoles(useColor).label,
         headerCells: table.headers,
         bodyRows: wrappedRows,
         measureHeaderCells: table.headers,

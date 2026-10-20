@@ -283,7 +283,7 @@ This removes unnecessary work and avoids leaking usage-table-specific model meta
 
 That keeps sorting and separator behavior deterministic without coupling the generic table renderer to `UsageReportRow`. A rule separates period groups and sets off the `total` row; rows of one group (and every row of a flat list) share it. Every cell starts on its row's first line.
 
-With a terminal width, a caller's `fit` (abbreviated body rows and an ordered list of hideable columns) gives the table its fit ladder: the full table, then abbreviated values, then those values with one more hideable column left out per step. The first step that fits is boxed. Only when the last step is too wide are rows listed as label/value lines, with every column in full detail; a title cell the table wrapped is taken from its measure cell, so callers pass that text unwrapped. The usage table (`terminal-table.ts`) runs its own steps through the same `findFittingStep` loop.
+With a terminal width, a caller's `fit` (abbreviated body rows and an ordered list of hideable columns) gives the table its fit ladder: the full table, then abbreviated values, then those values with one more hideable column left out per step. The first step that fits is boxed. Only when the last step is too wide are rows listed as label/value lines, with every column in full detail; a title cell the table wrapped is taken from its measure cell, so callers pass that text unwrapped. A title stays on one line, so a path can be copied, unless it is wider than the terminal; then it wraps after spaces, `/`, `-` and `_`. Labels take the caller's `labelStyler` (the dim `label` color role). The usage table (`terminal-table.ts`) runs its own steps through the same `findFittingStep` loop.
 
 ## Module map
 
