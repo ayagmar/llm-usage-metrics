@@ -8,7 +8,7 @@ import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { aggregateProjects, buildProjectsData } from '../../src/cli/build-projects-data.js';
 import { buildProjectsReport } from '../../src/cli/run-projects-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
-import { renderProjectsReport } from '../../src/render/render-projects-report.js';
+import { renderProjectsReportWithNotes } from '../../src/render/render-projects-report.js';
 import { readFrom } from '../helpers/fake-read.js';
 import { freezeDate } from '../golden/golden-harness.js';
 import { createProjectFixtureAdapters } from '../golden/m9-project-fixture.js';
@@ -251,11 +251,14 @@ describe('projects report', () => {
     'bolds the table headers without changing the layout',
     async () => {
       const data = await buildProjectsData(options, deps);
-      const colored = renderProjectsReport(data, 'terminal', {
+      const colored = renderProjectsReportWithNotes(data, 'terminal', {
         useColor: true,
         terminalWidth: 120,
-      });
-      const plain = renderProjectsReport(data, 'terminal', { useColor: false, terminalWidth: 120 });
+      }).output;
+      const plain = renderProjectsReportWithNotes(data, 'terminal', {
+        useColor: false,
+        terminalWidth: 120,
+      }).output;
 
       expect(colored).toContain(`│ ${pc.bold('Project')}`);
       expect(stripVTControlCharacters(colored)).toBe(plain);

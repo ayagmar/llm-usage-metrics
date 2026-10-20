@@ -9,7 +9,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildValueData } from '../../src/cli/build-value-data.js';
 import { buildValueReportOutput, runValueReport } from '../../src/cli/run-value-report.js';
-import { renderValueReport } from '../../src/render/render-value-report.js';
+import {
+  renderValueReport,
+  renderValueReportWithNotes,
+} from '../../src/render/render-value-report.js';
 import type { ValueCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { ValueReportData } from '../../src/value/build-value-report.js';
@@ -346,6 +349,22 @@ describe('value report', () => {
     // One line for May's project, four for June's, never two projects on a line.
     expect(projectLines).toHaveLength(5);
     expect(projectLines.every((line) => line.split('•').length === 2)).toBe(true);
+  });
+
+  it('says on stderr, not in the report, that a narrow terminal listed the rows', async () => {
+    const { data } = await buildValueData(baseOptions, deps);
+    const narrow = renderValueReportWithNotes(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 60,
+    });
+
+    expect(narrow.notes).toEqual([
+      'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
+    ]);
+    expect(narrow.output).not.toContain('Widen the terminal');
+    expect(
+      renderValueReportWithNotes(data, 'terminal', { useColor: false, terminalWidth: 400 }).notes,
+    ).toEqual([]);
   });
 
   it('says there is no usage instead of printing empty tables', async () => {

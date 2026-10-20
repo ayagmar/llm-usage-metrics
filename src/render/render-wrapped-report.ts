@@ -15,7 +15,12 @@ import {
   type TextStyler,
 } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import {
+  describeTableFit,
+  type RenderedReportWithNotes,
+  type TableFitChanges,
+} from './table-fit-note.js';
+import { renderUnicodeTableWithFit, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 import { MONTH_LABELS } from './month-labels.js';
 import { SPARKLINE_GLYPHS, SPARKLINE_TOP_LEVEL, sparklineLevel } from './sparkline.js';
@@ -184,7 +189,7 @@ function renderTopTable(
   headerCells: readonly string[],
   items: readonly WrappedTopItem[],
   options: { roles: ColorRoles; name: TextStyler; terminalWidth: number | undefined },
-): string {
+): { output: string; fit: TableFitChanges } {
   const { roles } = options;
   const toRows = (formatTokens: TopItemRowStyle['formatTokens'], colored: boolean) =>
     toTopItemRows(
@@ -204,7 +209,7 @@ function renderTopTable(
     rowKind: 'detail',
   }));
 
-  return renderUnicodeTable({
+  const { output, fit } = renderUnicodeTableWithFit({
     labelStyler: roles.label,
     headerCells: headerCells.map((header) => roles.header(header)),
     bodyRows: toRows(formatInteger, true),
@@ -221,6 +226,15 @@ function renderTopTable(
       hideableColumns: [TOP_ITEM_RANK_COLUMN],
     },
   });
+
+  // `hid #` would not read as a column name.
+  return {
+    output,
+    fit: {
+      ...fit,
+      hiddenHeaders: fit.hiddenHeaders.map((header) => (header === '#' ? 'Rank' : header)),
+    },
+  };
 }
 
 function toEmptyMessage(recap: WrappedRecap, filtered: boolean): string | undefined {
@@ -234,7 +248,7 @@ function toEmptyMessage(recap: WrappedRecap, filtered: boolean): string | undefi
 function renderWrappedTerminalReport(
   recap: WrappedRecap,
   options: RenderWrappedReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const palette = options.palette ?? defaultTerminalStylePalette;
   const paint: Paint = (styler) => (text) => (useColor ? styler(text) : text);
@@ -251,10 +265,21 @@ function renderWrappedTerminalReport(
   const emptyMessage = toEmptyMessage(recap, options.filtered ?? false);
 
   if (emptyMessage) {
-    return [...heading, wrapProse(emptyMessage, terminalWidth)].join('\n');
+    return { output: [...heading, wrapProse(emptyMessage, terminalWidth)].join('\n'), notes: [] };
   }
 
-  return [
+  const topModels = renderTopTable(TOP_MODELS_HEADERS, recap.topModels, {
+    roles,
+    name: roles.value,
+    terminalWidth,
+  });
+  const topSources = renderTopTable(TOP_SOURCES_HEADERS, recap.topSources, {
+    roles,
+    name: (source) => roles.source(source)(source),
+    terminalWidth,
+  });
+  const fitNote = describeTableFit(topModels.fit, topSources.fit);
+  const output = [
     ...heading,
     renderStatLines(recap, roles),
     '',
@@ -262,19 +287,13 @@ function renderWrappedTerminalReport(
     renderMonthlyStrip(recap, paint, palette, terminalWidth),
     '',
     'Top models',
-    renderTopTable(TOP_MODELS_HEADERS, recap.topModels, {
-      roles,
-      name: roles.value,
-      terminalWidth,
-    }),
+    topModels.output,
     '',
     'Top sources',
-    renderTopTable(TOP_SOURCES_HEADERS, recap.topSources, {
-      roles,
-      name: (source) => roles.source(source)(source),
-      terminalWidth,
-    }),
+    topSources.output,
   ].join('\n');
+
+  return { output, notes: fitNote ? [fitNote] : [] };
 }
 
 function toMarkdownStatRows(recap: WrappedRecap): string[][] {
@@ -334,17 +353,25 @@ function renderMarkdownWrappedReport(recap: WrappedRecap): string {
   ].join('\n');
 }
 
+export function renderWrappedReportWithNotes(
+  recap: WrappedRecap,
+  format: WrappedReportFormat,
+  options: RenderWrappedReportOptions = {},
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return { output: renderReportJson('wrapped', recap), notes: [] };
+    case 'markdown':
+      return { output: renderMarkdownWrappedReport(recap), notes: [] };
+    case 'terminal':
+      return renderWrappedTerminalReport(recap, options);
+  }
+}
+
 export function renderWrappedReport(
   recap: WrappedRecap,
   format: WrappedReportFormat,
   options: RenderWrappedReportOptions = {},
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('wrapped', recap);
-    case 'markdown':
-      return renderMarkdownWrappedReport(recap);
-    case 'terminal':
-      return renderWrappedTerminalReport(recap, options);
-  }
+  return renderWrappedReportWithNotes(recap, format, options).output;
 }

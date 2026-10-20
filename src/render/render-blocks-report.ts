@@ -17,7 +17,8 @@ import {
 } from './table-text-layout.js';
 import { createColorRoles, type ColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
+import { columnKindsFromAlign, renderUnicodeTableWithFit } from './unicode-table.js';
 
 export type BlocksReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -219,7 +220,7 @@ function toColumnAlign(headers: readonly string[]): ('l' | 'r')[] {
 function renderTerminalBlocksReport(
   data: BlocksReportData,
   options: RenderBlocksReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const roles = createColorRoles(useColor);
   const terminalWidth = resolveTtyColumns(process.stdout);
@@ -230,7 +231,7 @@ function renderTerminalBlocksReport(
 
   if (data.blocks.length === 0) {
     outputLines.push(formatNoUsageMessage(options.filtered ?? false));
-    return outputLines.join('\n');
+    return { output: outputLines.join('\n'), notes: [] };
   }
 
   const columns = selectVisibleColumns(options);
@@ -248,33 +249,32 @@ function renderTerminalBlocksReport(
     splitCellLines(wrapProse(line, terminalWidth)).map(roles.dim),
   );
 
-  outputLines.push(
-    renderUnicodeTable({
-      labelStyler: roles.label,
-      headerCells: headers.map(roles.header),
-      bodyRows: styleBodyRows(data, columns, bodyRows, roles),
-      measureHeaderCells: headers,
-      measureBodyRows: bodyRows,
-      rowMetas: bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
-      columnKinds: columnKindsFromAlign(toColumnAlign(headers)),
-      multilineColumnIndex: MODELS_COLUMN_INDEX,
-      terminalWidth,
-      fit: {
-        ...(abbreviatedRows
-          ? {
-              abbreviatedBodyRows: styleBodyRows(data, columns, abbreviatedRows, roles),
-              abbreviatedMeasureBodyRows: abbreviatedRows,
-            }
-          : {}),
-        hideableColumns: resolveHideableColumns(columns),
-      },
-      stackedTitleColumnCount: MODELS_COLUMN_INDEX,
-    }),
-    '',
-    ...footer,
-  );
+  const { output: table, fit } = renderUnicodeTableWithFit({
+    labelStyler: roles.label,
+    headerCells: headers.map(roles.header),
+    bodyRows: styleBodyRows(data, columns, bodyRows, roles),
+    measureHeaderCells: headers,
+    measureBodyRows: bodyRows,
+    rowMetas: bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
+    columnKinds: columnKindsFromAlign(toColumnAlign(headers)),
+    multilineColumnIndex: MODELS_COLUMN_INDEX,
+    terminalWidth,
+    fit: {
+      ...(abbreviatedRows
+        ? {
+            abbreviatedBodyRows: styleBodyRows(data, columns, abbreviatedRows, roles),
+            abbreviatedMeasureBodyRows: abbreviatedRows,
+          }
+        : {}),
+      hideableColumns: resolveHideableColumns(columns),
+    },
+    stackedTitleColumnCount: MODELS_COLUMN_INDEX,
+  });
+  const fitNote = describeTableFit(fit);
 
-  return outputLines.join('\n');
+  outputLines.push(table, '', ...footer);
+
+  return { output: outputLines.join('\n'), notes: fitNote ? [fitNote] : [] };
 }
 
 function renderMarkdownBlocksReport(
@@ -295,17 +295,25 @@ function renderMarkdownBlocksReport(
   return [table, ...buildFooterLines(data, options).map(toMarkdownSafeCell)].join('\n\n');
 }
 
+export function renderBlocksReportWithNotes(
+  data: BlocksReportData,
+  format: BlocksReportFormat,
+  options: RenderBlocksReportOptions = {},
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return { output: renderReportJson('blocks', data), notes: [] };
+    case 'markdown':
+      return { output: renderMarkdownBlocksReport(data, options), notes: [] };
+    case 'terminal':
+      return renderTerminalBlocksReport(data, options);
+  }
+}
+
 export function renderBlocksReport(
   data: BlocksReportData,
   format: BlocksReportFormat,
   options: RenderBlocksReportOptions = {},
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('blocks', data);
-    case 'markdown':
-      return renderMarkdownBlocksReport(data, options);
-    case 'terminal':
-      return renderTerminalBlocksReport(data, options);
-  }
+  return renderBlocksReportWithNotes(data, format, options).output;
 }

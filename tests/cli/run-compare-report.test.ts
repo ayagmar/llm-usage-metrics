@@ -69,6 +69,7 @@ import { buildShareReport } from '../../src/cli/build-share-report-data.js';
 import { buildCompareReport, runCompareReport } from '../../src/cli/run-compare-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
 import { readSharePayload } from '../helpers/share-html.js';
+import { overrideStdoutTty } from '../helpers/stdout.js';
 import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
 
 describe('run-compare-report', () => {
@@ -133,6 +134,34 @@ describe('run-compare-report', () => {
       consoleErrorSpy.mockRestore();
     }
   });
+
+  it.each([
+    { columns: 24, noted: true },
+    { columns: 200, noted: false },
+  ])(
+    'says on stderr, not stdout, how a $columns-column terminal changed the tables',
+    async ({ columns, noted }) => {
+      const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const restoreStdout = overrideStdoutTty(columns);
+      let printed: string;
+      let diagnostics: string;
+
+      try {
+        await runCompareReport({});
+        printed = stdout.mock.calls.map((call) => String(call[0])).join('\n');
+        diagnostics = stderr.mock.calls.map((call) => String(call[0])).join('\n');
+      } finally {
+        restoreStdout();
+        stdout.mockRestore();
+        stderr.mockRestore();
+      }
+
+      expect(printed).toContain('Total tokens');
+      expect(printed).not.toContain('Widen the terminal');
+      expect(diagnostics.includes('Widen the terminal')).toBe(noted);
+    },
+  );
 
   it('writes a compare share report while keeping the report body on stdout', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);

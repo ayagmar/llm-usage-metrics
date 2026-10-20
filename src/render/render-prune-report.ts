@@ -15,7 +15,12 @@ import {
   type TerminalStylePalette,
 } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta, wrapAtNameBreaks } from './unicode-table.js';
+import {
+  describeTableFit,
+  type RenderedReportWithNotes,
+  type TableFitChanges,
+} from './table-fit-note.js';
+import { renderUnicodeTableWithFit, type TableRowMeta, wrapAtNameBreaks } from './unicode-table.js';
 import { measureCellWidth, resolveTtyColumns, wrapProse } from './table-text-layout.js';
 
 export type RenderPruneReportOptions = {
@@ -94,7 +99,7 @@ function renderCandidateTable(
   candidates: readonly PruneCandidate[],
   roles: ColorRoles,
   terminalWidth: number | undefined,
-): string {
+): { output: string; fit: TableFitChanges } {
   const bodyRows = candidates.map((candidate) => [
     candidate.source,
     stripControlCharacters(candidate.filePath),
@@ -114,7 +119,7 @@ function renderCandidateTable(
           ),
         );
 
-  return renderUnicodeTable({
+  return renderUnicodeTableWithFit({
     labelStyler: roles.label,
     headerCells: headerCells.map((cell) => roles.header(cell)),
     bodyRows: wrappedRows.map((row, rowIndex) =>
@@ -160,10 +165,10 @@ function renderDepartedFileCounts(counts: PruneDepartedFileCounts): string[] {
   ];
 }
 
-export function renderPruneReport(
+export function renderPruneReportWithNotes(
   result: PruneReportResult,
   options: RenderPruneReportOptions = {},
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
   const roles = createColorRoles(useColor, options.palette);
@@ -171,25 +176,34 @@ export function renderPruneReport(
   const departedFiles = result.summary.departedFiles;
 
   if (departedFiles) {
-    return [
-      header,
-      '',
-      ...renderDepartedFileCounts(departedFiles).map((line) => wrapProse(line, terminalWidth)),
-    ].join('\n');
+    return {
+      output: [
+        header,
+        '',
+        ...renderDepartedFileCounts(departedFiles).map((line) => wrapProse(line, terminalWidth)),
+      ].join('\n'),
+      notes: [],
+    };
   }
 
-  const lines: string[] = [
-    header,
-    '',
+  const table =
     result.candidates.length === 0
-      ? 'No files to prune.'
-      : renderCandidateTable(result.candidates, roles, terminalWidth),
-  ];
+      ? undefined
+      : renderCandidateTable(result.candidates, roles, terminalWidth);
+  const fitNote = table ? describeTableFit(table.fit) : undefined;
+  const lines: string[] = [header, '', table ? table.output : 'No files to prune.'];
 
   // With nothing found, a dry run has nothing to add to that line.
   if (result.candidates.length > 0 || result.summary.applied) {
     lines.push('', wrapProse(renderSummary(result.summary), terminalWidth));
   }
 
-  return lines.join('\n');
+  return { output: lines.join('\n'), notes: fitNote ? [fitNote] : [] };
+}
+
+export function renderPruneReport(
+  result: PruneReportResult,
+  options: RenderPruneReportOptions = {},
+): string {
+  return renderPruneReportWithNotes(result, options).output;
 }

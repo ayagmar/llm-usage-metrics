@@ -1,4 +1,7 @@
-import { renderValueReport, type ValueReportFormat } from '../render/render-value-report.js';
+import {
+  renderValueReportWithNotes,
+  type ValueReportFormat,
+} from '../render/render-value-report.js';
 import { buildValueData } from './build-value-data.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
@@ -29,12 +32,15 @@ async function prepareValueReport(options: ValueCommandOptions, deps: BuildUsage
       limitNote: valueData.limitNote,
     }),
     runtimeProfile: deps.runtimeProfile,
-    render: (valueData, format) =>
-      renderValueReport(valueData.data, format, {
+    render: (valueData, format) => {
+      const { output, notes } = renderValueReportWithNotes(valueData.data, format, {
         compact: options.compact,
         hideCost,
         filtered: hasCliFilters(options),
-      }),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
   });
 }
 

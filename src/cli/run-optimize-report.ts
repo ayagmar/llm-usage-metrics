@@ -1,5 +1,6 @@
 import {
   renderOptimizeReport,
+  renderOptimizeReportWithNotes,
   type OptimizeReportFormat,
 } from '../render/render-optimize-report.js';
 import { logger } from '../utils/logger.js';
@@ -58,11 +59,14 @@ async function prepareOptimizeReport(
         { ...deps, runtimeProfile },
       );
     },
-    render: (bundle, format) =>
-      renderOptimizeReport(bundle.optimizeData, format, {
+    render: (bundle, format) => {
+      const { output, notes } = renderOptimizeReportWithNotes(bundle.optimizeData, format, {
         granularity,
         filtered: hasCliFilters(options),
-      }),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
   });
 }
 

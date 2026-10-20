@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { PruneCandidate } from '../../src/cli/run-prune-report.js';
-import { renderPruneReport } from '../../src/render/render-prune-report.js';
+import {
+  renderPruneReport,
+  renderPruneReportWithNotes,
+} from '../../src/render/render-prune-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { markerPalette } from '../helpers/marker-palette.js';
 import { overrideStdoutProperty, overrideStdoutTty } from '../helpers/stdout.js';
@@ -123,5 +126,38 @@ describe('renderPruneReport', () => {
 
     expect(output).toContain('│ <blue>claude</blue> │');
     expect(output).toContain('│ <bold>Source</bold> │');
+  });
+});
+
+describe('renderPruneReportWithNotes', () => {
+  const notesAt = (terminalWidth: number) =>
+    renderPruneReportWithNotes(
+      {
+        candidates: [createCandidate(longPath)],
+        summary: {
+          storePath: '/home/user/.cache/llm-usage/events.db',
+          applied: false,
+          candidateFileCount: 1,
+          candidateEventCount: 12,
+        },
+      },
+      { useColor: false, terminalWidth },
+    );
+
+  it('says rows were listed on a narrow terminal, outside stdout', () => {
+    const { output, notes } = notesAt(44);
+
+    expect(notes).toEqual([
+      'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
+    ]);
+    expect(output).not.toContain('╭');
+    expect(output).not.toContain(notes[0]);
+  });
+
+  it('has no note when the table fits', () => {
+    const { output, notes } = notesAt(400);
+
+    expect(output).toContain('╭');
+    expect(notes).toEqual([]);
   });
 });

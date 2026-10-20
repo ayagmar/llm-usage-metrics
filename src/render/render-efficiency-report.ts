@@ -7,7 +7,7 @@ import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
-import { describeTableFit } from './table-fit-note.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
 import { resolveTtyColumns, splitCellLines, visibleWidth } from './table-text-layout.js';
 import { createColorRoles, styleDeltaCell } from './terminal-style-policy.js';
 import { selectColumns, type UsageTokenFormat } from './row-cells.js';
@@ -72,11 +72,7 @@ const efficiencyFitSteps: readonly EfficiencyFitStep[] = [
   },
 ];
 
-export type RenderedEfficiencyReport = {
-  output: string;
-  /** stderr notes, such as what fitting the table to the terminal left out. */
-  notes: string[];
-};
+export type RenderedEfficiencyReport = RenderedReportWithNotes;
 
 type FittedEfficiencyTableCells = {
   headerCells: string[];

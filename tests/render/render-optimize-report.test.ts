@@ -4,7 +4,10 @@ import pc from 'picocolors';
 import { describe, expect, it } from 'vitest';
 
 import type { OptimizeDataResult } from '../../src/cli/usage-data-contracts.js';
-import { renderOptimizeReport } from '../../src/render/render-optimize-report.js';
+import {
+  renderOptimizeReport,
+  renderOptimizeReportWithNotes,
+} from '../../src/render/render-optimize-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
@@ -567,5 +570,58 @@ describe('renderOptimizeReport', () => {
     expect(strippedOutput).toContain('Monthly Optimize Report');
     expect(strippedOutput).toContain('Provider scope: openai');
     expect(strippedOutput).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.0%)');
+  });
+});
+
+describe('renderOptimizeReportWithNotes', () => {
+  const notesAt = (data: OptimizeDataResult, columns: number) => {
+    const restoreStdout = overrideStdoutTty(columns);
+
+    try {
+      return renderOptimizeReportWithNotes(data, 'terminal', {
+        granularity: 'daily',
+        useColor: false,
+      });
+    } finally {
+      restoreStdout();
+    }
+  };
+
+  it('names the column it left out at 80 columns, outside stdout', () => {
+    const { output, notes } = notesAt(withoutNotes(createOptimizeDataResult()), 80);
+
+    expect(notes).toEqual([
+      'Fitted the table to the terminal: hid Hypothetical Cost. Widen the terminal or use --json for full detail.',
+    ]);
+    expect(output).not.toContain('Hypothetical Cost');
+    expect(output).not.toContain(notes[0]);
+  });
+
+  it('says rows were listed at 44 columns', () => {
+    const { output, notes } = notesAt(createOptimizeDataResult(), 44);
+
+    expect(notes).toEqual([
+      'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
+    ]);
+    expect(output).not.toContain('╭');
+    expect(output).not.toContain(notes[0]);
+  });
+
+  it('has no note when the table fits, or for markdown and json', () => {
+    expect(notesAt(createOptimizeDataResult(), 400).notes).toEqual([]);
+
+    const restoreStdout = overrideStdoutTty(44);
+
+    try {
+      for (const format of ['markdown', 'json'] as const) {
+        const options = { granularity: 'daily', useColor: false } as const;
+
+        expect(
+          renderOptimizeReportWithNotes(createOptimizeDataResult(), format, options).notes,
+        ).toEqual([]);
+      }
+    } finally {
+      restoreStdout();
+    }
   });
 });

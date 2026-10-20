@@ -1,4 +1,8 @@
-import { renderSummaryReport, type SummaryReportFormat } from '../render/render-summary-report.js';
+import {
+  renderSummaryReport,
+  renderSummaryReportWithNotes,
+  type SummaryReportFormat,
+} from '../render/render-summary-report.js';
 import { buildSummaryData } from './build-summary-data.js';
 import {
   prepareReport,
@@ -42,8 +46,13 @@ async function prepareSummaryReport(
         { ...deps, runtimeProfile },
       );
     },
-    render: (summaryData, format) =>
-      renderSummaryReport(summaryData, format, { filtered: hasCliFilters(options) }),
+    render: (summaryData, format) => {
+      const { output, notes } = renderSummaryReportWithNotes(summaryData, format, {
+        filtered: hasCliFilters(options),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
     getHintsAfterOutput: (_summaryData, format) =>
       format === 'terminal' ? [SUMMARY_NEXT_STEPS_HINT] : [],
   });
