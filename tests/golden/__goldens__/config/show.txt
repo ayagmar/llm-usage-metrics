@@ -20,7 +20,7 @@ Machines
 Pricing
   url        default  https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
   offline    default  no
-  refresh    default  every 24h 0m
+  refresh    default  every 24h
   cache               <tmp>/cache/llm-usage-metrics/litellm-pricing-cache.json
                       fetched 2026-06-21 (3 h ago), fresh
   prices              from the cache

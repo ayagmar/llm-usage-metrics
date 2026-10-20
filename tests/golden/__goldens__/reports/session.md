@@ -1,10 +1,10 @@
 | Session       | Source      | Project          | Last Activity | Duration | Total |  Cost | Models                     |
 | :------------ | :---------- | :--------------- | :------------ | -------: | ----: | ----: | :------------------------- |
-| …-e2e-session | pi          | \(unattributed\) | 2026-02-01    |  673h 0m |   180 | $0.60 | gpt-4.1                    |
+| …-e2e-session | pi          | \(unattributed\) | 2026-02-01    |     673h |   180 | $0.60 | gpt-4.1                    |
 | …ask-kilocode | kilocode    | \(unattributed\) | 2026-06-15    |        - |    45 | $0.03 | claude-kilocode-e2e        |
 | task-roocode  | roocode     | \(unattributed\) | 2026-06-15    |        - |    55 | $0.02 | gpt-roocode-e2e            |
 | task-cline    | cline       | \(unattributed\) | 2026-06-15    |        - |    45 | $0.01 | claude-sonnet-cline-e2e    |
-| …-e2e-session | codex       | \(unattributed\) | 2026-02-02    |  672h 0m |   390 | $0.00 | gpt-5.2-codex              |
+| …-e2e-session | codex       | \(unattributed\) | 2026-02-02    |     672h |   390 | $0.00 | gpt-5.2-codex              |
 | …-e2e-session | claude      | claude-e2e       | 2026-06-20    |       5m |   220 | $0.00 | claude-sonnet-4-5          |
 | openclaw-e2e  | openclaw    | openclaw-e2e     | 2026-05-01    |        - |    15 | $0.00 | claude-sonnet-4-6          |
 | …-e2e-session | gemini      | gemini-e2e       | 2026-06-03    |      10m |   195 | $0.00 | gemini-2.5-pro             |
