@@ -1,0 +1,4 @@
+interface:
+  display_name: 'LLM Usage Metrics'
+  short_description: 'Report AI coding-tool spend and usage with the llm-usage CLI'
+  default_prompt: 'Use $llm-usage-metrics to report my AI coding-tool spend this month by model and project.'

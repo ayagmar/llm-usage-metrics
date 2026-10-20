@@ -1,0 +1,16 @@
+---
+title: Use with coding agents
+description: Install the llm-usage-metrics skill so Claude Code, Codex, and other agents answer spend and usage questions with the CLI.
+---
+
+The repository ships an agent skill, `llm-usage-metrics`, in [`skills/llm-usage-metrics`](https://github.com/ayagmar/llm-usage-metrics/tree/master/skills/llm-usage-metrics). With it installed, a question such as "how much did I spend on Claude Code this week?" makes the agent run `llm-usage` with `--json` and quote the numbers, instead of guessing. The skill maps common questions to reports, explains the date, source, and project filters, and tells the agent how to read partial costs and estimated 5-hour blocks.
+
+Install it with the [skills CLI](https://github.com/vercel-labs/skills), from the project where you use the agent:
+
+```bash
+npx skills add ayagmar/llm-usage-metrics --skill llm-usage-metrics --agent claude-code
+```
+
+Replace `claude-code` with `codex`, `pi`, `opencode`, `cursor`, or another agent id from the skills CLI's list, and add `-g` to install it for every project instead of the current one. Claude Code reads it from `.claude/skills/`, Codex and Pi from `.agents/skills/`.
+
+The skill runs `llm-usage` when it is installed and `npx --yes llm-usage-metrics@latest` otherwise. It keeps to read-only commands unless you ask for more: it asks before editing your status line settings, and it does not add machines or apply `prune`.
