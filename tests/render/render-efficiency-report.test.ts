@@ -373,6 +373,32 @@ describe('renderEfficiencyReport', () => {
     }
   });
 
+  // picocolors styles only where color is supported, as under CI.
+  it.skipIf(!pc.isColorSupported)(
+    'bolds wrapped headers line by line without changing the layout',
+    () => {
+      const restoreStdout = overrideStdoutTty(120);
+
+      try {
+        const render = (useColor: boolean) =>
+          renderEfficiencyReport(createEfficiencyDataResult(), 'terminal', {
+            granularity: 'monthly',
+            useColor,
+          });
+        const colored = render(true);
+
+        expect(colored).toContain(`│ ${pc.bold('Period')}`);
+        expect(stripAnsi(colored)).toBe(render(false));
+        // A wrapped header closes its bold on every line, so no style leaks into the border.
+        for (const line of colored.split('\n')) {
+          expect(line.split('\u001b[1m').length).toBe(line.split('\u001b[22m').length);
+        }
+      } finally {
+        restoreStdout();
+      }
+    },
+  );
+
   it('lists rows instead of splitting numbers when the table cannot fit', () => {
     const data = createEfficiencyDataResult();
     data.rows = data.rows.map((row) => ({ ...row, totalTokens: 1_433_651_218 }));

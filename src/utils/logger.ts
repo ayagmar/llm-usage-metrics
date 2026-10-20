@@ -1,5 +1,7 @@
 import pc from 'picocolors';
 
+import { resolveTtyColumns, wrapProse } from '../render/table-text-layout.js';
+
 type LogStyle = 'info' | 'warn' | 'dim' | 'debug';
 export type LogLevel = 'silent' | 'warn' | 'info' | 'debug';
 
@@ -43,9 +45,31 @@ export function withLogScrubber<T>(
   }
 }
 
+const iconWidth = 2;
+// Narrower than this, wrapping would leave a word or two per line.
+const minWrapColumns = 20;
+
+/**
+ * Wraps to the width of a terminal stderr, indenting continuation lines under the text
+ * after the icon; piped stderr is left as it is. Words are never split, so a path or
+ * command still copies in one piece.
+ */
+function wrapToStderr(text: string): string {
+  const columns = resolveTtyColumns(process.stderr);
+
+  if (columns === undefined || columns < minWrapColumns) {
+    return text;
+  }
+
+  return wrapProse(text, columns - iconWidth, { breakWords: false }).replaceAll(
+    '\n',
+    `\n${' '.repeat(iconWidth)}`,
+  );
+}
+
 function formatMessage(style: LogStyle, message: string): string {
   const icon = icons[style];
-  return `${icon} ${scrubMessage ? scrubMessage(message) : message}`;
+  return `${icon} ${wrapToStderr(scrubMessage ? scrubMessage(message) : message)}`;
 }
 
 export const logger = {
