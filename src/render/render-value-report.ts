@@ -228,6 +228,8 @@ function renderTerminalValueReport(
     return lines.join('\n');
   }
 
+  const roles = createColorRoles(useColor);
+
   for (const plan of data.plans) {
     const rows = toTableRows(plan, { ...options, useColor, align: true });
     const bodyRows = rows.map((row) => columns.map((column) => row.cells[column]));
@@ -236,8 +238,8 @@ function renderTerminalValueReport(
     lines.push(useColor ? pc.cyan(description) : description);
     lines.push(
       renderUnicodeTable({
-        labelStyler: createColorRoles(useColor).label,
-        headerCells,
+        labelStyler: roles.label,
+        headerCells: headerCells.map((header) => roles.header(header)),
         bodyRows,
         measureHeaderCells: headerCells,
         measureBodyRows: bodyRows,

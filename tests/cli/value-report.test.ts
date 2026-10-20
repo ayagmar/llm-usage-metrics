@@ -1,8 +1,10 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import pc from 'picocolors';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildValueData } from '../../src/cli/build-value-data.js';
@@ -318,6 +320,19 @@ describe('value report', () => {
       );
     }
   });
+
+  // picocolors styles only where color is supported, as under CI.
+  it.skipIf(!pc.isColorSupported)(
+    'bolds the table headers without changing the layout',
+    async () => {
+      const { data } = await buildValueData(baseOptions, deps);
+      const colored = renderValueReport(data, 'terminal', { useColor: true, terminalWidth: 120 });
+      const plain = renderValueReport(data, 'terminal', { useColor: false, terminalWidth: 120 });
+
+      expect(colored).toContain(`│ ${pc.bold('Month')}`);
+      expect(stripVTControlCharacters(colored)).toBe(plain);
+    },
+  );
 
   it('lists each project on its own line in terminals too narrow for the table', async () => {
     const { data } = await buildValueData(baseOptions, deps);
