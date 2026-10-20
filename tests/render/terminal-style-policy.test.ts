@@ -77,7 +77,7 @@ describe('terminal-style-policy', () => {
     expect(styleDeltaCell(undefined, '-', true, options)).toBe('-');
   });
 
-  it('applies row-type style policy for period_source rows', () => {
+  it('keeps token measures in the default color and shows detail-row cost as money', () => {
     const styled = applyRowTypeStyle(
       'period_source',
       ['period', 'pi', 'model', '1', '2', '3', '4', '5', '6', '$7'],
@@ -93,12 +93,12 @@ describe('terminal-style-policy', () => {
       '3',
       '4',
       '5',
-      '<green>6</green>',
-      '<bold><yellow>$7</yellow></bold>',
+      '6',
+      '<yellow>$7</yellow>',
     ]);
   });
 
-  it('applies row-type style policy for period_combined rows', () => {
+  it('bolds the combined label and its cost, without the money color on the label', () => {
     const styled = applyRowTypeStyle(
       'period_combined',
       ['period', 'combined', 'model', '1'],
@@ -106,21 +106,26 @@ describe('terminal-style-policy', () => {
     );
 
     expect(styled).toEqual([
-      '<white>period</white>',
-      '<bold><yellow>combined</yellow></bold>',
+      'period',
+      '<bold>combined</bold>',
       'model',
       '<bold><yellow>1</yellow></bold>',
     ]);
   });
 
-  it('applies row-type style policy for grand_total rows', () => {
-    const styled = applyRowTypeStyle('grand_total', ['ALL', 'TOTAL', 'model', '1'], testPalette);
+  it('bolds every TOTAL row cell and shows its cost as bold money', () => {
+    const styled = applyRowTypeStyle(
+      'grand_total',
+      ['ALL', 'TOTAL', 'model', '2,720', '$1'],
+      testPalette,
+    );
 
     expect(styled).toEqual([
-      '<bold><white>ALL</white></bold>',
-      '<bold><green>TOTAL</green></bold>',
-      '<bold><white>model</white></bold>',
-      '<bold><yellow>1</yellow></bold>',
+      '<bold>ALL</bold>',
+      '<bold>TOTAL</bold>',
+      '<bold>model</bold>',
+      '<bold>2,720</bold>',
+      '<bold><yellow>$1</yellow></bold>',
     ]);
   });
 
@@ -180,7 +185,7 @@ describe('terminal-style-policy', () => {
     );
   });
 
-  it('preserves blank lines and styles Σ TOTAL with the total styler', () => {
+  it('preserves blank lines and styles Σ TOTAL bold', () => {
     const styled = applyRowTypeStyle(
       'period_source',
       [
@@ -199,7 +204,7 @@ describe('terminal-style-policy', () => {
     );
 
     expect(styled[2]).toBe(
-      '<dim>• primary-model</dim>\n\n<bold><green>Σ TOTAL</green></bold>\n<bold><green>summary-continuation</green></bold>',
+      '<dim>• primary-model</dim>\n\n<bold>Σ TOTAL</bold>\n<bold>summary-continuation</bold>',
     );
   });
 
@@ -269,7 +274,7 @@ describe('terminal-style-policy', () => {
     ];
 
     expect(colorizeUsageBodyRows(bodyRows, rows, { useColor: true, palette: testPalette })).toEqual(
-      [['<bold><yellow>$1</yellow></bold>']],
+      [['<yellow>$1</yellow>']],
     );
   });
 
@@ -329,12 +334,7 @@ describe('terminal-style-policy', () => {
       palette: testPalette,
     });
 
-    expect(styledRows[0]).toEqual([
-      '<white>period</white>',
-      'other',
-      'model',
-      '<bold><yellow>$1</yellow></bold>',
-    ]);
+    expect(styledRows[0]).toEqual(['period', 'other', 'model', '<yellow>$1</yellow>']);
   });
 
   it('does not treat period_source labels named combined/TOTAL as summary rows', () => {
@@ -395,6 +395,6 @@ describe('terminal-style-policy', () => {
 
     expect(styledRows[0][1]).toBe('combined');
     expect(styledRows[1][1]).toBe('TOTAL');
-    expect(styledRows[2][1]).toBe('<bold><green>TOTAL</green></bold>');
+    expect(styledRows[2][1]).toBe('<bold>TOTAL</bold>');
   });
 });

@@ -4,7 +4,10 @@ import { resolveTtyColumns, visibleWidth, wrapProse } from './table-text-layout.
 export type ReportHeaderOptions = {
   title: string;
   useColor?: boolean;
-  /** Defaults to the stdout TTY width; a title too wide for the box prints unboxed, wrapped. */
+  /**
+   * Defaults to the stdout TTY width; a title too wide for the box prints unboxed, wrapped
+   * between words when it is wider than the terminal too.
+   */
   terminalWidth?: number;
 };
 
@@ -29,10 +32,8 @@ export function renderReportHeader(options: ReportHeaderOptions): string {
   const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
 
   if (terminalWidth !== undefined && boxWidth > terminalWidth) {
-    return wrapProse(title, terminalWidth)
-      .split('\n')
-      .map((line) => (useColor ? pc.bold(pc.white(line)) : line))
-      .join('\n');
+    const lines = wrapProse(title, terminalWidth).split('\n');
+    return lines.map((line) => (useColor ? pc.bold(pc.white(line)) : line)).join('\n');
   }
 
   const lines: string[] = [];
