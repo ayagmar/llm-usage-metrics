@@ -6,7 +6,7 @@ description: 'Cost, tokens, and activity per recorded working directory.'
 import TerminalShot from '../../components/TerminalShot.astro';
 import termProjects from '../../assets/screenshots/term-projects.webp';
 
-`llm-usage projects` lists every project in your usage, costliest first, with its share of the cost, tokens, events, active days, and top models.
+`llm-usage projects` lists your 10 costliest projects (`--top 0` for all), costliest first, with its share of the cost, tokens, events, active days, and top models.
 
 ```bash
 llm-usage projects
@@ -47,11 +47,11 @@ The label is the last folder name of the path. When two projects end in the same
 Without date flags, `projects` covers your full history. `--last N` covers the last N months, counting the current one; `--since` and `--until` take inclusive dates in the reporting timezone.
 
 ```bash
-llm-usage projects --last 3 --top 10
+llm-usage projects --last 3 --top 0
 llm-usage projects --since 2026-06-01 --until 2026-06-30
 ```
 
-`--top N` keeps the N costliest projects. The `TOTAL` row and the JSON `totals` still count every project in the window, and a note on `stderr` says how many were left out.
+The report lists the 10 costliest projects; `--top N` lists N, and `--top 0` lists every project. The limit applies to `--json` as well. The `TOTAL` row and the JSON `totals` still count every project in the window, and a note on `stderr` says how many were left out.
 
 ## Projects per period
 

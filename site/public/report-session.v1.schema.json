@@ -90,6 +90,33 @@
           "items": {
             "type": "string"
           }
+        },
+        "costExplicitUsd": {
+          "description": "Part of costUsd the source logged (costMode explicit); omitted when none does.",
+          "type": "number",
+          "minimum": 0
+        },
+        "costEstimatedUsd": {
+          "description": "Part of costUsd priced from tokens (costMode estimated); omitted when none is.",
+          "type": "number",
+          "minimum": 0
+        },
+        "filePaths": {
+          "description": "Absolute paths of the local session files this run counted whose stored usage carries the session id, whatever its date, departed files included; from the event store, so omitted when the store is off or holds no such file (a file it could not fingerprint is left out).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "toolCalls": {
+          "description": "Tool calls the session made in the window, deduplicated as the tools report counts them; omitted for sources that log no tool calls (only claude, codex and pi do) and for a source whose files, or another machine's cache, could not be read.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolErrors": {
+          "description": "Of toolCalls, those whose result records an error; present with toolCalls.",
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [

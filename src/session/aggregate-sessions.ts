@@ -33,6 +33,8 @@ type SessionAccumulator = UsageTotals & {
   timestampsMs: number[];
   eventCount: number;
   models: Set<string>;
+  costExplicitUsd?: number;
+  costEstimatedUsd?: number;
 };
 
 type RepoAccumulator = UsageTotals & {
@@ -79,6 +81,14 @@ function addEventUsage(totals: UsageTotals, event: UsageEvent): void {
 function addEventToAccumulator(accumulator: SessionAccumulator, event: UsageEvent): void {
   accumulator.eventCount++;
   addEventUsage(accumulator, event);
+
+  if (event.costUsd !== undefined) {
+    if (event.costMode === 'explicit') {
+      accumulator.costExplicitUsd = addUsd(accumulator.costExplicitUsd ?? 0, event.costUsd);
+    } else {
+      accumulator.costEstimatedUsd = addUsd(accumulator.costEstimatedUsd ?? 0, event.costUsd);
+    }
+  }
   accumulator.timestampsMs.push(Date.parse(event.timestamp));
 
   if (event.timestamp < accumulator.firstActivity) {
@@ -160,6 +170,12 @@ function toSessionRow(accumulator: SessionAccumulator, repoRoot: string | undefi
     totalTokens: accumulator.totalTokens,
     costUsd: accumulator.costUsd,
     costIncomplete: accumulator.costIncomplete,
+    ...(accumulator.costExplicitUsd !== undefined && {
+      costExplicitUsd: accumulator.costExplicitUsd,
+    }),
+    ...(accumulator.costEstimatedUsd !== undefined && {
+      costEstimatedUsd: accumulator.costEstimatedUsd,
+    }),
   };
 }
 

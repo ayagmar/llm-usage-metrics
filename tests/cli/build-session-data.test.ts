@@ -1,11 +1,22 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildSessionData } from '../../src/cli/build-session-data.js';
+import { addSessionDetails } from '../../src/cli/build-session-details.js';
+import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
 import { readFrom } from '../helpers/fake-read.js';
+import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
+import {
+  createToolFixtureAdapters,
+  type ToolFixtureOptions,
+} from '../helpers/tool-call-fixtures.js';
+import type { SessionRow } from '../../src/session/session-row.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -567,5 +578,156 @@ describe('buildSessionData --timeline', () => {
       expect(first.costUsd).toBeGreaterThan(0);
       expect(second.runningCostUsd).toBeCloseTo((first.costUsd ?? 0) + (second.costUsd ?? 0), 10);
     }
+  });
+});
+
+describe('buildSessionData --json details', () => {
+  const environment = useIsolatedEnvironment();
+  const now = () => new Date('2026-06-21T12:00:00.000Z');
+
+  function toolFixtureDeps(fixtureOptions: ToolFixtureOptions = {}) {
+    return {
+      ...runtimeDeps({ adapters: createToolFixtureAdapters(fixtureOptions) }),
+      now,
+    };
+  }
+
+  function detailsBySession(rows: readonly SessionRow[]) {
+    return Object.fromEntries(
+      rows.map((row) => [row.sessionId, { toolCalls: row.toolCalls, toolErrors: row.toolErrors }]),
+    );
+  }
+
+  it('counts each session its tool calls as tools does, leaving them out for usage-only sources', async () => {
+    const result = await buildSessionData({ json: true, timezone: 'UTC' }, toolFixtureDeps());
+    const rows = sessionRowsOf(result);
+
+    // claude-b's toolu-1 is a copy of claude-a's call, so it stays claude-a's.
+    expect(detailsBySession(rows)).toEqual({
+      'claude-a': { toolCalls: 6, toolErrors: 1 },
+      'claude-b': { toolCalls: 2, toolErrors: 1 },
+      'codex-c': { toolCalls: 5, toolErrors: 1 },
+      'codex-old': { toolCalls: 3, toolErrors: 0 },
+      'gemini-e': { toolCalls: undefined, toolErrors: undefined },
+    });
+    expect(rows.find((row) => row.source === 'gemini')).not.toHaveProperty('toolCalls');
+    expect(result.diagnostics.notes).toContain(
+      'Tool calls are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist are not counted.',
+    );
+  });
+
+  it('counts a copied call once when --id leaves out the session tools gives it', async () => {
+    const result = await buildSessionData(
+      { json: true, id: ['claude-b'], timezone: 'UTC' },
+      toolFixtureDeps(),
+    );
+
+    expect(detailsBySession(sessionRowsOf(result))).toEqual({
+      'claude-b': { toolCalls: 2, toolErrors: 1 },
+    });
+  });
+
+  it('reads no tool calls for terminal or Markdown output', async () => {
+    const liveReads: string[] = [];
+    const result = await buildSessionData(
+      { timezone: 'UTC' },
+      toolFixtureDeps({ onLiveRead: (filePath) => liveReads.push(filePath) }),
+    );
+
+    expect(liveReads).toEqual([]);
+    expect(sessionRowsOf(result).some((row) => 'toolCalls' in row)).toBe(false);
+  });
+
+  it('gives no counts to the sessions of a source whose live read fails, and warns', async () => {
+    const result = await buildSessionData(
+      { json: true, timezone: 'UTC' },
+      toolFixtureDeps({ failingFiles: new Set(['/tools-fixture/codex/c.jsonl']) }),
+    );
+    const details = detailsBySession(sessionRowsOf(result));
+
+    // Not 0: codex's counts are unknown, not empty. Claude's files read fine.
+    expect(details['codex-c']).toEqual({ toolCalls: undefined, toolErrors: undefined });
+    expect(details['codex-old']).toEqual({ toolCalls: undefined, toolErrors: undefined });
+    expect(details['claude-a']).toEqual({ toolCalls: 6, toolErrors: 1 });
+    expect(result.diagnostics.warnings).toContain(
+      'Tool calls left out of 1 file that could not be read',
+    );
+  });
+
+  it("gives no counts to any session when another machine's cache could not be read", async () => {
+    const deps = toolFixtureDeps();
+    const result = await buildSessionData({ timezone: 'UTC' }, deps);
+    const dataset = await buildUsageEventDataset({ timezone: 'UTC' }, deps);
+    // A cache path names no source, so every source's counts are unknown.
+    const details = await addSessionDetails(
+      dataset,
+      sessionRowsOf(result),
+      { calls: [], failedFilePaths: ['/cache/machines/laptop/events.db'] },
+      new Set(['claude', 'codex']),
+    );
+
+    expect(details.rows.some((row) => 'toolCalls' in row)).toBe(false);
+  });
+
+  it('lists the stored files holding each session, and none with the event store off', async () => {
+    const sessionsDir = path.join(environment.rootDir, 'claude-sessions');
+    const mainFile = path.join(sessionsDir, 'a.jsonl');
+    const subagentFile = path.join(sessionsDir, 'a', 'subagents', 'agent-1.jsonl');
+    const otherFile = path.join(sessionsDir, 'b.jsonl');
+    const eventsByFile = {
+      [subagentFile]: [createBaseEvent({ source: 'claude', sessionId: 'a' })],
+      [mainFile]: [createBaseEvent({ source: 'claude', sessionId: 'a' })],
+      [otherFile]: [createBaseEvent({ source: 'claude', sessionId: 'b' })],
+    };
+
+    for (const filePath of Object.keys(eventsByFile)) {
+      await mkdir(path.dirname(filePath), { recursive: true });
+      await writeFile(filePath, '{}\n');
+    }
+
+    const deps = runtimeDeps({ adapters: [createAdapter('claude', eventsByFile)] });
+    const storeOn = await buildSessionData(
+      { json: true, timezone: 'UTC' },
+      {
+        ...deps,
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true as const,
+          path: path.join(environment.rootDir, 'events.db'),
+        }),
+      },
+    );
+    const storeOff = await buildSessionData({ json: true, timezone: 'UTC' }, deps);
+    const filePathsOf = (result: Awaited<ReturnType<typeof buildSessionData>>) =>
+      Object.fromEntries(sessionRowsOf(result).map((row) => [row.sessionId, row.filePaths]));
+
+    expect(filePathsOf(storeOn)).toEqual({
+      a: [mainFile, subagentFile].sort(),
+      b: [otherFile],
+    });
+    expect(filePathsOf(storeOff)).toEqual({ a: undefined, b: undefined });
+
+    // The store cannot be read after the dataset was built: the report still prints.
+    const dataset = await buildUsageEventDataset(
+      { timezone: 'UTC' },
+      {
+        ...deps,
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true as const,
+          path: path.join(environment.rootDir, 'events.db'),
+        }),
+      },
+    );
+    const details = await addSessionDetails(
+      { ...dataset, ledger: dataset.ledger && { ...dataset.ledger, path: environment.rootDir } },
+      sessionRowsOf(storeOff),
+      { calls: [], failedFilePaths: [] },
+      new Set(),
+    );
+
+    expect(details.rows.some((row) => 'filePaths' in row)).toBe(false);
+    expect(details.warnings).toHaveLength(1);
+    expect(details.warnings[0]).toMatch(
+      /^Session files left out: the event store could not be read: /,
+    );
   });
 });

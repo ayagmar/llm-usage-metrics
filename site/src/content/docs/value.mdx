@@ -45,12 +45,14 @@ llm-usage value --plan claude-pro --plan-price 18 --last 6 --json
 | Column     | Meaning                                                                  |
 | ---------- | ------------------------------------------------------------------------ |
 | Month      | Calendar month in the reporting timezone; `*` marks a partial month      |
-| Projects   | The month's [projects](/llm-usage-metrics/projects/) with cost and share |
+| Projects   | The month's costliest [projects](/llm-usage-metrics/projects/) with cost and share |
 | Tokens     | Total tokens of the plan's sources                                       |
 | API Cost   | Cost of the same usage at API prices                                     |
 | Plan       | The plan's monthly price                                                 |
 | API / Plan | API cost divided by the plan price                                       |
 | Difference | API cost minus the plan price; positive means the plan cost less         |
+
+Each month lists its 10 costliest projects, then one `and N more` line with the cost and share of the rest. `--top N` lists N projects per month and `--top 0` lists them all; the limit applies to `--json` as well, and a note on `stderr` says when projects were left out. On a terminal too narrow for the table, each month is listed as labelled values, one project per line.
 
 The final `ALL` row sums the months. A month is partial when the window does not cover all of it or it is the current month. Partial months are not prorated: the plan price counts in full, so the current month looks worse for the plan than it will by its end.
 
@@ -108,7 +110,8 @@ The shared filters apply, including `--repo` to price only some projects and `--
                 "costIncomplete": false,
                 "costShare": 0.661578
               }
-            ]
+            ],
+            "otherProjects": null
           }
         ],
         "total": {
@@ -125,4 +128,4 @@ The shared filters apply, including `--repo` to price only some projects and `--
 }
 ```
 
-The sample keeps one month and one project. `priceSource` is `override` when `--plan-price` set the price. `months` lists every month in the window, months without usage included. `total.planPriceUsd` counts partial months in full. The full contract is [report-value.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-value.v1.schema.json).
+The sample keeps one month and one project. `priceSource` is `override` when `--plan-price` set the price. `months` lists every month in the window, months without usage included. `otherProjects` sums the projects `--top` left out of a month (`projects`, `totalTokens`, `costUsd`, `costIncomplete`, `costShare`) and is `null` when none were. `total.planPriceUsd` counts partial months in full. The full contract is [report-value.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-value.v1.schema.json).

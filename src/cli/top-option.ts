@@ -31,19 +31,23 @@ export function parseTopRowsOption(top: string | undefined): number | undefined 
 
 const DEFAULT_TOP_ROWS = 20;
 
+/** The default `--top` of `projects` and of each month's projects in `value`. */
+export const DEFAULT_PROJECT_ROWS = 10;
+
 /**
  * The row limit of a `--top` list: `--top 0` shows every row; without `--top`, the first
- * 20 rows, or every row when `showAllByDefault` (e.g. rows picked by --id).
+ * `defaultLimit` rows (20), or every row when `showAllByDefault` (e.g. rows picked by --id).
  */
 export function resolveTopRowLimit(
   top: number | undefined,
   showAllByDefault = false,
+  defaultLimit = DEFAULT_TOP_ROWS,
 ): number | undefined {
   if (top !== undefined) {
     return top === 0 ? undefined : top;
   }
 
-  return showAllByDefault ? undefined : DEFAULT_TOP_ROWS;
+  return showAllByDefault ? undefined : defaultLimit;
 }
 
 /** The first `limit` rows, with the note naming what --top left out. */

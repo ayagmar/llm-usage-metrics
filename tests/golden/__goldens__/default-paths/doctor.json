@@ -141,6 +141,7 @@
         "state": "not_installed",
         "searchedPaths": [
           "<home>/home/.config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks",
+          "<home>/home/.config/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks",
           "<home>/home/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks"
         ]
       },
@@ -152,6 +153,7 @@
         "state": "not_installed",
         "searchedPaths": [
           "<home>/home/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks",
+          "<home>/home/.config/Cursor/User/globalStorage/rooveterinaryinc.roo-cline/tasks",
           "<home>/home/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks"
         ]
       },
@@ -163,6 +165,7 @@
         "state": "not_installed",
         "searchedPaths": [
           "<home>/home/.config/Code/User/globalStorage/kilocode.kilo-code/tasks",
+          "<home>/home/.config/Cursor/User/globalStorage/kilocode.kilo-code/tasks",
           "<home>/home/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks"
         ]
       },

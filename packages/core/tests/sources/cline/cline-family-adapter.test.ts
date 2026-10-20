@@ -36,7 +36,7 @@ async function writeUiMessagesFile(rootDir: string, taskId: string): Promise<str
 }
 
 describe('getDefaultClineTaskRootCandidates', () => {
-  it('resolves Linux local and remote VS Code task roots', () => {
+  it('resolves Linux VS Code, Cursor and remote VS Code task roots', () => {
     expect(
       getDefaultClineTaskRootCandidates({
         extensionId: CLINE_EXTENSION_IDS.cline,
@@ -47,6 +47,15 @@ describe('getDefaultClineTaskRootCandidates', () => {
         '/home/tester',
         '.config',
         'Code',
+        'User',
+        'globalStorage',
+        CLINE_EXTENSION_IDS.cline,
+        'tasks',
+      ),
+      path.join(
+        '/home/tester',
+        '.config',
+        'Cursor',
         'User',
         'globalStorage',
         CLINE_EXTENSION_IDS.cline,
@@ -95,6 +104,56 @@ describe('getDefaultClineTaskRootCandidates', () => {
     ).toBe(
       path.join('/roaming', 'Code', 'User', 'globalStorage', CLINE_EXTENSION_IDS.cline, 'tasks'),
     );
+  });
+
+  it('resolves Cursor beside VS Code on macOS and Windows', () => {
+    const candidates = (context: ReturnType<typeof createSourceContext>) =>
+      getDefaultClineTaskRootCandidates({ extensionId: CLINE_EXTENSION_IDS.roocode, context });
+    const tasksDir = (appRoot: string) =>
+      path.join(appRoot, 'User', 'globalStorage', CLINE_EXTENSION_IDS.roocode, 'tasks');
+
+    expect(
+      candidates(createSourceContext({ platform: 'darwin', homeDir: '/Users/tester', env: {} })),
+    ).toEqual([
+      tasksDir(path.join('/Users/tester', 'Library', 'Application Support', 'Code')),
+      tasksDir(path.join('/Users/tester', 'Library', 'Application Support', 'Cursor')),
+      tasksDir(path.join('/Users/tester', '.vscode-server', 'data')),
+    ]);
+
+    expect(
+      candidates(
+        createSourceContext({
+          platform: 'win32',
+          homeDir: '/home/tester',
+          env: { APPDATA: '/roaming' },
+        }),
+      ).slice(0, 2),
+    ).toEqual([tasksDir(path.join('/roaming', 'Code')), tasksDir(path.join('/roaming', 'Cursor'))]);
+
+    expect(
+      candidates(
+        createSourceContext({ platform: 'win32', homeDir: '/home/tester', env: {} }),
+      ).slice(0, 2),
+    ).toEqual([
+      tasksDir(path.join('/home/tester', 'AppData', 'Roaming', 'Code')),
+      tasksDir(path.join('/home/tester', 'AppData', 'Roaming', 'Cursor')),
+    ]);
+  });
+
+  it('finds Cursor beside an APPDATA that already names the VS Code dir', () => {
+    const roots = getDefaultClineTaskRootCandidates({
+      extensionId: CLINE_EXTENSION_IDS.cline,
+      context: createSourceContext({
+        platform: 'win32',
+        homeDir: '/home/tester',
+        env: { APPDATA: path.join('/roaming', 'Code') },
+      }),
+    });
+
+    expect(roots.slice(0, 2)).toEqual([
+      path.join('/roaming', 'Code', 'User', 'globalStorage', CLINE_EXTENSION_IDS.cline, 'tasks'),
+      path.join('/roaming', 'Cursor', 'User', 'globalStorage', CLINE_EXTENSION_IDS.cline, 'tasks'),
+    ]);
   });
 
   it('uses source-specific extension ids in default roots', () => {
@@ -154,6 +213,70 @@ describe('ClineFamilyAdapter', () => {
 
     await expect(adapter.discoverFiles()).resolves.toEqual(expectedFiles);
   });
+
+  it.each(['cline', 'roocode', 'kilocode'] as const)(
+    'reads %s tasks from both VS Code and Cursor storage once each',
+    async (id) => {
+      const homeDir = await mkdtemp(path.join(os.tmpdir(), 'cline-home-'));
+      tempDirs.push(homeDir);
+      const context = createSourceContext({ platform: 'linux', homeDir, env: {} });
+      const tasksDir = (appDir: string) =>
+        path.join(
+          homeDir,
+          '.config',
+          appDir,
+          'User',
+          'globalStorage',
+          CLINE_EXTENSION_IDS[id],
+          'tasks',
+        );
+      const copyTask = async (appDir: string, taskId: string) => {
+        const taskDir = path.join(tasksDir(appDir), taskId);
+        await mkdir(taskDir, { recursive: true });
+        await copyFile(fixtureUiMessagesPath, path.join(taskDir, 'ui_messages.json'));
+        await copyFile(
+          getClineTaskHistoryPath(fixtureUiMessagesPath),
+          path.join(taskDir, 'api_conversation_history.json'),
+        );
+      };
+      const singleTaskEvents = await collect(
+        createClineFamilyAdapter({ id, extensionId: CLINE_EXTENSION_IDS[id] }).read(
+          fixtureUiMessagesPath,
+        ),
+      );
+
+      await copyTask('Cursor', 'task-cursor');
+      const cursorOnly = createClineFamilyAdapter({
+        id,
+        extensionId: CLINE_EXTENSION_IDS[id],
+        context,
+      });
+      const cursorFiles = await cursorOnly.discoverFiles();
+      expect(cursorFiles).toEqual([
+        await realpath(path.join(tasksDir('Cursor'), 'task-cursor', 'ui_messages.json')),
+      ]);
+      expect(singleTaskEvents.length).toBeGreaterThan(0);
+      await expect(collect(cursorOnly.read(cursorFiles[0]))).resolves.toHaveLength(
+        singleTaskEvents.length,
+      );
+
+      await copyTask('Code', 'task-code');
+      const adapter = createClineFamilyAdapter({
+        id,
+        extensionId: CLINE_EXTENSION_IDS[id],
+        context,
+      });
+      const files = await adapter.discoverFiles();
+      expect(files).toEqual(
+        [
+          await realpath(path.join(tasksDir('Code'), 'task-code', 'ui_messages.json')),
+          await realpath(path.join(tasksDir('Cursor'), 'task-cursor', 'ui_messages.json')),
+        ].sort(),
+      );
+      const events = (await Promise.all(files.map((file) => collect(adapter.read(file))))).flat();
+      expect(events).toHaveLength(singleTaskEvents.length * 2);
+    },
+  );
 
   it('validates explicit task directory overrides', async () => {
     const blankAdapter = createClineFamilyAdapter({

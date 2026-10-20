@@ -110,7 +110,7 @@ llm-usage session --id 486c3261 --timeline
 llm-usage tools --by-source
 
 # Cost per project, and daily rows split by project
-llm-usage projects --top 10
+llm-usage projects
 llm-usage daily --by-repo
 
 # Estimated 5-hour blocks for Claude Code today, including the active one
@@ -238,6 +238,16 @@ llm-usage                            # the summary splits this month's cost by m
 ```
 
 A session that reached both machines (a copied or synced `~/.claude`) is counted once. See [Multiple machines](https://ayagmar.github.io/llm-usage-metrics/machines/).
+
+## Use with coding agents
+
+The repository ships an agent skill that teaches Claude Code, Codex, Pi, and other agents which `llm-usage` command answers a spend or usage question, and to read the `--json` output instead of guessing. Install it with the [skills CLI](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add ayagmar/llm-usage-metrics --skill llm-usage-metrics --agent claude-code
+```
+
+Use `--agent codex`, `--agent pi`, or another agent id, and `-g` to install it for all projects. See [Use with coding agents](https://ayagmar.github.io/llm-usage-metrics/agents/).
 
 ## Output
 

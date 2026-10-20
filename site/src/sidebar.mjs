@@ -9,6 +9,7 @@ export const sidebar = [
       { label: 'Choose a report', slug: 'reports' },
       { label: 'Data sources', slug: 'sources' },
       { label: 'Configuration', slug: 'configuration' },
+      { label: 'Use with coding agents', slug: 'agents' },
     ],
   },
   {

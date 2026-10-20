@@ -735,16 +735,13 @@ export async function readEventStoreEvents(
 }
 
 /**
- * Reads the stored tool calls and messages of `files`, each file's in the order its adapter
- * yielded them, from a store opened read-only in one read transaction. A row the event
- * constructors reject is skipped; a file the store does not hold has none.
+ * Runs `read` on a v5 store opened read-only, in one read transaction, and closes it.
  */
-export async function readStoredSessionEvents(
+async function readV5StoreInTransaction<T>(
   filePath: string,
-  files: readonly EventStoreStoredFile[],
-  kinds: ReadonlySet<StoredSessionEventKind>,
-  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
-): Promise<StoredSessionEvent[][]> {
+  loadSqliteModule: LoadEventStoreSqliteModule,
+  read: (database: EventStoreDatabase) => T,
+): Promise<T> {
   const sqliteModule = await loadSqliteModule();
 
   if (!isEventStoreSqliteModule(sqliteModule)) {
@@ -763,28 +760,69 @@ export async function readStoredSessionEvents(
       throw new EventStoreSchemaVersionError(schemaVersion);
     }
 
-    const select = prepareSelectFileSessionEvents(database, kinds);
-
-    if (!select) {
-      return files.map(() => []);
-    }
-
     database.exec('BEGIN');
 
     try {
-      return files.map((file) =>
-        selectFileSessionEvents(
-          select,
-          normalizeStoreSource(file.source),
-          normalizeStoreFilePath(file.filePath),
-        ),
-      );
+      return read(database);
     } finally {
       database.exec('COMMIT');
     }
   } finally {
     database.close();
   }
+}
+
+/**
+ * Reads the stored tool calls and messages of `files`, each file's in the order its adapter
+ * yielded them, from a store opened read-only in one read transaction. A row the event
+ * constructors reject is skipped; a file the store does not hold has none.
+ */
+export async function readStoredSessionEvents(
+  filePath: string,
+  files: readonly EventStoreStoredFile[],
+  kinds: ReadonlySet<StoredSessionEventKind>,
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<StoredSessionEvent[][]> {
+  return readV5StoreInTransaction(filePath, loadSqliteModule, (database) => {
+    const select = prepareSelectFileSessionEvents(database, kinds);
+
+    if (!select) {
+      return files.map(() => []);
+    }
+
+    return files.map((file) =>
+      selectFileSessionEvents(
+        select,
+        normalizeStoreSource(file.source),
+        normalizeStoreFilePath(file.filePath),
+      ),
+    );
+  });
+}
+
+/**
+ * The distinct session ids of each file's stored usage events, from a store opened
+ * read-only in one read transaction; a file the store does not hold has none.
+ */
+export async function readStoredFileSessionIds(
+  filePath: string,
+  files: readonly EventStoreStoredFile[],
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<string[][]> {
+  return readV5StoreInTransaction(filePath, loadSqliteModule, (database) => {
+    const statement = database.prepare(
+      [
+        'SELECT DISTINCT session_id FROM events',
+        'WHERE file_id = (SELECT id FROM files WHERE source = ? AND file_path = ?)',
+      ].join('\n'),
+    );
+
+    return files.map((file) =>
+      statement
+        .all(normalizeStoreSource(file.source), normalizeStoreFilePath(file.filePath))
+        .flatMap((row) => toText(row.session_id) ?? []),
+    );
+  });
 }
 
 function deleteFileEntry(store: EventStore, source: string, filePath: string): void {

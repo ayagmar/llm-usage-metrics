@@ -19,6 +19,17 @@ export type ValueProjectRow = {
   costShare: number | null;
 };
 
+/** The projects of a month that the project limit left out, summed. */
+export type ValueOtherProjects = {
+  /** How many projects. */
+  projects: number;
+  totalTokens: number;
+  costUsd: number;
+  costIncomplete: boolean;
+  /** Share of the month's cost, rounded by `roundRatio`; `null` when the month cost nothing. */
+  costShare: number | null;
+};
+
 export type ValueMonthRow = {
   /** `YYYY-MM` in the report timezone. */
   month: string;
@@ -32,7 +43,10 @@ export type ValueMonthRow = {
   ratio: number;
   /** API cost minus the plan price: positive when the plan cost less than the API would. */
   differenceUsd: number;
+  /** The month's costliest projects, at most the project limit. */
   projects: ValueProjectRow[];
+  /** The projects past the limit; `null` when none were left out. */
+  otherProjects: ValueOtherProjects | null;
 };
 
 export type ValuePlanReport = {
@@ -115,6 +129,8 @@ export type BuildValueReportOptions = {
   until?: string;
   /** Labels from one `buildEventProjectLabels` call over every event of the report. */
   projectLabels: ReadonlyMap<string | undefined, string>;
+  /** How many projects each month lists; every project when absent. */
+  projectLimit?: number;
 };
 
 const RATIO_SCALE = 1_000_000;
@@ -154,11 +170,39 @@ function toProjectRows(rows: readonly PeriodProjectRow[], monthCostUsd: number):
     .sort(compareProjectRows);
 }
 
+function sumOtherProjects(
+  rows: readonly ValueProjectRow[],
+  monthCostUsd: number,
+): ValueOtherProjects | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  let totalTokens = 0;
+  let costUsd = 0;
+  let costIncomplete = false;
+
+  for (const row of rows) {
+    totalTokens += row.totalTokens;
+    costUsd = addUsd(costUsd, row.costUsd);
+    costIncomplete ||= row.costIncomplete;
+  }
+
+  return {
+    projects: rows.length,
+    totalTokens,
+    costUsd,
+    costIncomplete,
+    costShare: monthCostUsd > 0 ? roundRatio(costUsd / monthCostUsd) : null,
+  };
+}
+
 function toMonthRow(
   month: string,
   rows: readonly PeriodProjectRow[],
   planPriceUsd: number,
   partial: boolean,
+  projectLimit: number | undefined,
 ): ValueMonthRow {
   let totalTokens = 0;
   let apiCostUsd = 0;
@@ -170,6 +214,9 @@ function toMonthRow(
     costIncomplete ||= row.costIncomplete === true;
   }
 
+  const projects = toProjectRows(rows, apiCostUsd);
+  const shownCount = projectLimit ?? projects.length;
+
   return {
     month,
     partial,
@@ -179,7 +226,8 @@ function toMonthRow(
     planPriceUsd,
     ratio: roundRatio(apiCostUsd / planPriceUsd),
     differenceUsd: addUsd(apiCostUsd, -planPriceUsd),
-    projects: toProjectRows(rows, apiCostUsd),
+    projects: projects.slice(0, shownCount),
+    otherProjects: sumOtherProjects(projects.slice(shownCount), apiCostUsd),
   };
 }
 
@@ -273,6 +321,7 @@ export function buildValueReport(
           rowsByMonth.get(month) ?? [],
           selected.priceUsdPerMonth,
           isPartial(month),
+          options.projectLimit,
         ),
       );
 

@@ -2,10 +2,12 @@ import { renderValueReport, type ValueReportFormat } from '../render/render-valu
 import { buildValueData } from './build-value-data.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
+  emitLimitNote,
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
   validateTableDisplayFlags,
+  type LimitedReportDiagnostics,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildUsageDataDeps, ValueCommandOptions } from './usage-data-contracts.js';
@@ -22,7 +24,10 @@ async function prepareValueReport(options: ValueCommandOptions, deps: BuildUsage
       validateTableDisplayFlags(options, 'tables');
     },
     buildData: () => buildValueData(options, deps),
-    getDiagnostics: (valueData) => valueData.diagnostics,
+    getDiagnostics: (valueData): LimitedReportDiagnostics => ({
+      ...valueData.diagnostics,
+      limitNote: valueData.limitNote,
+    }),
     runtimeProfile: deps.runtimeProfile,
     render: (valueData, format) =>
       renderValueReport(valueData.data, format, {
@@ -45,5 +50,8 @@ export async function runValueReport(options: ValueCommandOptions): Promise<void
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareValueReport(options, { runtimeProfile });
 
-  await runStandardPreparedReport({ preparedReport });
+  await runStandardPreparedReport({
+    preparedReport,
+    emitReportDiagnostics: emitLimitNote,
+  });
 }
