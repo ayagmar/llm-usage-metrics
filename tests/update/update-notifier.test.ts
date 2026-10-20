@@ -818,20 +818,29 @@ describe('update-notifier', () => {
         now: () => nowValue + 2_000,
       });
 
+      // The later run awaits the check without the 5 ms grace: a grace that expires during
+      // the cache read on a slow runner would abort the run and drop the hint.
       const unreachableRegistry = vi.fn<typeof fetch>(async () => {
         throw new Error('a fresh cache needs no registry request');
       });
-      const third = await runShortCommand({
+      const thirdStartBackgroundRefresh = vi.fn<(request: BackgroundRefreshRequest) => void>();
+      const thirdHint = await checkForUpdates({
+        packageName: 'llm-usage-metrics',
+        currentVersion: '0.1.0',
         cacheFilePath,
-        nowValue: nowValue + 3_000,
+        cacheTtlMs,
         fetchImpl: unreachableRegistry,
+        now: () => nowValue + 3_000,
+        env: { PATH: '/usr/bin' },
+        argv,
+        startBackgroundRefresh: thirdStartBackgroundRefresh,
       });
 
-      expect(third.hint).toBe(
+      expect(thirdHint).toBe(
         'Update available for llm-usage-metrics: 0.1.0 → 0.4.0. Run "npm install -g llm-usage-metrics@latest" to update.',
       );
       expect(unreachableRegistry).not.toHaveBeenCalled();
-      expect(third.startBackgroundRefresh).not.toHaveBeenCalled();
+      expect(thirdStartBackgroundRefresh).not.toHaveBeenCalled();
     });
 
     it('tries the background refresh again once the cache TTL has passed since the last try', async () => {
