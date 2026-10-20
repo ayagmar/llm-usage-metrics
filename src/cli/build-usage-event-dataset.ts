@@ -59,7 +59,7 @@ import {
   type PricedEventsResult,
   type PricingLoadMode,
 } from './build-usage-data-pricing.js';
-import type { PricingCostMode } from '@ayagmar/agent-sessions/pricing';
+import type { PricingCostMode } from '@ayagmar/agent-sessions/internal';
 import type {
   BuildUsageDataDeps,
   ReportCommandOptions,

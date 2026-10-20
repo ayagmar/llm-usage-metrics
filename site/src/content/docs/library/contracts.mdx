@@ -13,6 +13,7 @@ Outside that promise:
 
 - `@ayagmar/agent-sessions/internal` holds helpers for the CLI and changes whenever the CLI needs it to.
 - `@ayagmar/agent-sessions/otel` is experimental. Its attribute names follow the OpenTelemetry GenAI conventions at the commit pinned in `SEMCONV_GENAI_REF`, and can change in any version when that pin moves.
+- `@ayagmar/agent-sessions/pricing` is experimental. Its functions and types can change in any version until it joins the public entry points. The bundled prices change with every snapshot refresh.
 - Names tagged `@internal` on a public entry point: `canParseSourceOnWorker`, `createWorkerParseAdapter`, `getParseWorkerRoots` and `sourceSupportsDirectories` on `./registry`, `LEGACY_CODEX_MODEL_FALLBACK` on `./sources/codex`, and the test seams in the adapter options types (`defaultRootDirs`, `resolveDefaultDbPaths`, `pathExists`, `pathReadable`, `pathIsDirectory`, `pathIsFile`, `loadSqliteModule`, `sleep`).
 
 The package's own test suite pins the exact list of names each entry point exports, so a name is added or removed only on purpose.

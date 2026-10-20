@@ -1,5 +1,9 @@
 import type { CostMode, UsageEvent } from '../domain/usage-event.js';
 
+/**
+ * How a model bills reasoning tokens: as output tokens (`included-in-output`, the default) or
+ * at their own `reasoningPer1MUsd` rate (`separate`).
+ */
 export type ReasoningBillingMode = 'included-in-output' | 'separate';
 
 /**
@@ -15,8 +19,10 @@ export type PricingTier = {
   cacheWrite1hPer1MUsd?: number;
 };
 
+/** A token bucket whose rate can come from LiteLLM's priority-tier price. */
 export type PriorityFallbackBucket = 'input' | 'output' | 'cacheRead' | 'cacheWrite';
 
+/** One model's rates in USD per 1M tokens. */
 export type ModelPricing = {
   inputPer1MUsd: number;
   outputPer1MUsd: number;
@@ -32,6 +38,10 @@ export type ModelPricing = {
   tiers?: PricingTier[];
 };
 
+/**
+ * Resolves model names to rates. `getPricing(resolveModelAlias(name))` is the price the cost
+ * functions apply to an event of that model.
+ */
 export interface PricingSource {
   resolveModelAlias(model: string): string;
   getPricing(model: string): ModelPricing | undefined;
@@ -51,6 +61,7 @@ export interface PricingSource {
 export type CanonicalModelKeyRule =
   'preferred-key' | 'direct' | 'effort-suffix' | 'provider-prefixed' | 'release-suffix' | 'fuzzy';
 
+/** The pricing key a model name resolved to, and the rule that found it. */
 export type CanonicalModelKeyExplanation = {
   key: string;
   rule: CanonicalModelKeyRule;

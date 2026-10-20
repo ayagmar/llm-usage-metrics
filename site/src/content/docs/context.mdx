@@ -52,7 +52,7 @@ The columns:
 
 The tier extra is an estimate from token counts, also for sources that log their own cost.
 
-Context limits come with the prices: a live or cached LiteLLM fetch reads `max_input_tokens` along with the rates, and the package carries a bundled copy (`packages/core/src/pricing/litellm-context-limits.json`) for the bundled snapshot and for caches written before the limits were kept. A custom `--pricing-url` uses only the limits its own file lists. `--pricing-overrides` changes prices, not limits.
+Context limits come with the prices: a live or cached LiteLLM fetch reads `max_input_tokens` along with the rates, and the package carries a bundled copy (`packages/core/src/pricing/data/litellm-context-limits.json`) for the bundled snapshot and for caches written before the limits were kept. A custom `--pricing-url` uses only the limits its own file lists. `--pricing-overrides` changes prices, not limits.
 
 ## JSON shape
 

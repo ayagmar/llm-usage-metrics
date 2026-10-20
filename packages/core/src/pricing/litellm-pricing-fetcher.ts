@@ -1,16 +1,11 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { asRecord } from '../utils/as-record.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
-import {
-  explainCanonicalModelKey,
-  normalizeKey,
-  resolveCanonicalModelKey,
-} from './litellm-model-matching.js';
-import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
-import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
-import litellmContextLimitsPayload from './litellm-context-limits.json' with { type: 'json' };
+import { normalizeKey } from './litellm-model-matching.js';
+import { PricingTable, toNonNegativeNumber } from './pricing-table.js';
 import type {
   ModelPricing,
   ModelPricingExplanation,
@@ -22,9 +17,9 @@ import type {
 
 const ONE_MILLION = 1_000_000;
 const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_FETCH_TIMEOUT_MS = 4000;
-const DEFAULT_FETCH_RETRY_COUNT = 2;
-const DEFAULT_FETCH_RETRY_DELAY_MS = 200;
+export const DEFAULT_FETCH_TIMEOUT_MS = 4000;
+export const DEFAULT_FETCH_RETRY_COUNT = 2;
+export const DEFAULT_FETCH_RETRY_DELAY_MS = 200;
 export const MAX_LITELLM_PRICING_RESPONSE_BYTES = 33_554_432;
 
 export const DEFAULT_LITELLM_PRICING_URL =
@@ -61,6 +56,11 @@ export type LiteLLMPricingFetcherOptions = {
   offline?: boolean;
   /** The only way the fetcher reaches the network. */
   fetchImpl: typeof fetch;
+  /**
+   * The snapshot, retired prices and context limits default-source pricing falls back on;
+   * the files this package ships by default.
+   */
+  bundledPricing?: BundledPricingData;
   now?: () => number;
   sleep?: (delayMs: number) => Promise<void>;
 };
@@ -94,34 +94,6 @@ function isRetryableFetchFailure(error: unknown): boolean {
   }
 
   return /timeout|timed out|network|econn|enotfound|eai_again/iu.test(error.message);
-}
-
-let bundledLiteLLMPricingSnapshot: LiteLLMCachePayload | undefined;
-
-function toNonNegativeNumber(value: unknown): number | undefined {
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value < 0) {
-      return undefined;
-    }
-
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    if (value.trim() === '') {
-      return undefined;
-    }
-
-    const parsedValue = Number(value);
-
-    if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-      return undefined;
-    }
-
-    return parsedValue;
-  }
-
-  return undefined;
 }
 
 type TierRateField = Exclude<keyof PricingTier, 'aboveTokens'>;
@@ -367,7 +339,7 @@ function normalizeCachedPriorityFallback(value: unknown): PriorityFallbackBucket
   return buckets.length === 0 ? undefined : buckets;
 }
 
-function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
+export function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
   const pricingRecord = asRecord(rawPricing);
 
   if (!pricingRecord) {
@@ -464,60 +436,165 @@ export function normalizeLiteLLMCachePayload(payload: unknown): LiteLLMCachePayl
   };
 }
 
-/**
- * One key's positive limit from a record of limits keyed by normalized pricing key. Read one
- * entry at a time, so loading pricing never walks the thousands of limits only the context
- * report asks for.
- */
-function readContextLimit(
-  limits: Readonly<Record<string, unknown>> | undefined,
-  key: string,
-): number | undefined {
-  const limit = limits && Object.hasOwn(limits, key) ? toNonNegativeNumber(limits[key]) : undefined;
+/** The bundled data files: the snapshot, the retired prices and the context limits. */
+export type BundledPricingFile = 'snapshot' | 'retiredPricing' | 'contextLimits';
 
-  return limit === 0 ? undefined : limit;
+/** `promise`, with `forget` called when it rejects, so a memo of it retries on the next call. */
+export function forgetOnRejection<T>(promise: Promise<T>, forget: () => void): Promise<T> {
+  return promise.catch((error: unknown) => {
+    forget();
+    throw error;
+  });
 }
 
-function getBundledLiteLLMPricingSnapshot(): LiteLLMCachePayload {
-  if (bundledLiteLLMPricingSnapshot) {
-    return bundledLiteLLMPricingSnapshot;
+/**
+ * The pricing data the package bundles, normalized on first use and kept; a failed read is
+ * retried on the next call. `readFile` returns a file's parsed JSON: the library reads the
+ * files next to its build, the CLI passes the JSON it inlines. The returned rates are shared:
+ * do not change them.
+ */
+export class BundledPricingData {
+  private snapshotPromise: Promise<LiteLLMCachePayload> | undefined;
+  private retiredPricingPromise: Promise<ReadonlyMap<string, ModelPricing>> | undefined;
+  private contextLimitsPromise: Promise<Readonly<Record<string, unknown>>> | undefined;
+
+  public constructor(private readonly readFile: (file: BundledPricingFile) => Promise<unknown>) {}
+
+  public snapshot(): Promise<LiteLLMCachePayload> {
+    this.snapshotPromise ??= forgetOnRejection(
+      this.readFile('snapshot').then((payload) => {
+        const snapshot = normalizeLiteLLMCachePayload(payload);
+
+        if (!snapshot || Object.keys(snapshot.pricingByModel).length === 0) {
+          throw new Error('Bundled LiteLLM pricing snapshot is not usable');
+        }
+
+        return snapshot;
+      }),
+      () => {
+        this.snapshotPromise = undefined;
+      },
+    );
+    return this.snapshotPromise;
   }
 
-  const snapshot = normalizeLiteLLMCachePayload(litellmPricingSnapshotPayload);
+  /**
+   * Models LiteLLM no longer lists, kept from earlier snapshots by the snapshot generator.
+   * Their prices still apply to historical usage, so they back-fill any default-source
+   * pricing that lacks them.
+   */
+  public retiredPricing(): Promise<ReadonlyMap<string, ModelPricing>> {
+    this.retiredPricingPromise ??= forgetOnRejection(
+      this.readFile('retiredPricing').then((payload) => {
+        const retiredPricing = new Map<string, ModelPricing>();
+        const pricingRecord = asRecord(asRecord(payload)?.pricingByModel) ?? {};
 
-  if (!snapshot || Object.keys(snapshot.pricingByModel).length === 0) {
-    throw new Error('Bundled LiteLLM pricing snapshot is not usable');
+        for (const [modelName, rawPricing] of Object.entries(pricingRecord)) {
+          const pricing = normalizeCachedPricing(rawPricing);
+
+          if (pricing) {
+            retiredPricing.set(normalizeKey(modelName), pricing);
+          }
+        }
+
+        return retiredPricing;
+      }),
+      () => {
+        this.retiredPricingPromise = undefined;
+      },
+    );
+    return this.retiredPricingPromise;
   }
 
-  bundledLiteLLMPricingSnapshot = snapshot;
-  return snapshot;
+  /** Context limits by normalized pricing key, for the snapshot and older caches. */
+  public maxInputTokensByModel(): Promise<Readonly<Record<string, unknown>>> {
+    this.contextLimitsPromise ??= forgetOnRejection(
+      this.readFile('contextLimits').then(
+        (payload) => asRecord(asRecord(payload)?.maxInputTokensByModel) ?? {},
+      ),
+      () => {
+        this.contextLimitsPromise = undefined;
+      },
+    );
+    return this.contextLimitsPromise;
+  }
 }
 
-let retiredLiteLLMPricing: ReadonlyMap<string, ModelPricing> | undefined;
+/**
+ * The data files this package ships, read from `./data/` next to this module on first use.
+ * Both `./internal` and `./pricing` use this module, so the build puts it in a shared chunk
+ * at the root of `dist/` and copies the files to `dist/data/`.
+ */
+export const packagedPricingData = new BundledPricingData(async (file) => {
+  const content = await readFile(packagedPricingFileUrl(file), 'utf8');
+  return JSON.parse(content) as unknown;
+});
+
+// Literal URLs, so a bundler that handles `new URL(..., import.meta.url)` can find the files.
+function packagedPricingFileUrl(file: BundledPricingFile): URL {
+  switch (file) {
+    case 'snapshot':
+      return new URL('./data/litellm-pricing-snapshot.json', import.meta.url);
+    case 'retiredPricing':
+      return new URL('./data/litellm-retired-pricing.json', import.meta.url);
+    case 'contextLimits':
+      return new URL('./data/litellm-context-limits.json', import.meta.url);
+  }
+}
+
+/** Rates keyed by normalized model key, in the record's order. */
+export function toPricingMap(
+  pricingByModel: Record<string, ModelPricing>,
+): Map<string, ModelPricing> {
+  return new Map(
+    Object.entries(pricingByModel).map(([modelName, pricing]) => [
+      normalizeKey(modelName),
+      pricing,
+    ]),
+  );
+}
 
 /**
- * Models LiteLLM no longer lists, kept from earlier snapshots by the snapshot generator.
- * Their prices still apply to historical usage, so they back-fill any default-source
- * pricing that lacks them.
+ * A pricing source over LiteLLM rates. With `bundledPricing` (default-source pricing), the
+ * retired prices back-fill the keys `pricingByModel` lacks, appended to it, and the bundled
+ * context limits stand in where the loaded ones list none.
  */
-function getRetiredLiteLLMPricing(): ReadonlyMap<string, ModelPricing> {
-  if (retiredLiteLLMPricing) {
-    return retiredLiteLLMPricing;
+export async function createLiteLLMPricingTable(
+  pricingByModel: Map<string, ModelPricing>,
+  options: {
+    maxInputTokensByModel?: Readonly<Record<string, unknown>>;
+    origin: PricingDataOrigin;
+    bundledPricing: BundledPricingData | undefined;
+  },
+): Promise<PricingTable> {
+  const { maxInputTokensByModel, origin, bundledPricing } = options;
+
+  if (!bundledPricing) {
+    return new PricingTable(pricingByModel, {
+      ...(maxInputTokensByModel ? { maxInputTokensByModel } : {}),
+      origin,
+    });
   }
 
-  const retiredPricing = new Map<string, ModelPricing>();
-  const pricingRecord = asRecord(asRecord(litellmRetiredPricingPayload)?.pricingByModel) ?? {};
+  const [retiredPricing, bundledMaxInputTokensByModel] = await Promise.all([
+    bundledPricing.retiredPricing(),
+    bundledPricing.maxInputTokensByModel(),
+  ]);
+  const retiredModelKeys = new Set<string>();
 
-  for (const [modelName, rawPricing] of Object.entries(pricingRecord)) {
-    const pricing = normalizeCachedPricing(rawPricing);
-
-    if (pricing) {
-      retiredPricing.set(normalizeKey(modelName), pricing);
+  for (const [modelName, pricing] of retiredPricing) {
+    if (!pricingByModel.has(modelName)) {
+      pricingByModel.set(modelName, pricing);
+      retiredModelKeys.add(modelName);
     }
   }
 
-  retiredLiteLLMPricing = retiredPricing;
-  return retiredPricing;
+  return new PricingTable(pricingByModel, {
+    ...(maxInputTokensByModel ? { maxInputTokensByModel } : {}),
+    fallbackMaxInputTokensByModel: bundledMaxInputTokensByModel,
+    origin,
+    retiredModelKeys,
+  });
 }
 
 function formatBundledSnapshotWarning(fetchedAt: number): string {
@@ -535,6 +612,109 @@ function formatStaleCacheWarning(fetchedAt: number, fetchError: string | undefin
   return `Pricing: the LiteLLM refresh failed (${fetchError}); using cached pricing from ${fetchedDate}.`;
 }
 
+/** One request for LiteLLM's pricing JSON, with the retry and size policy of a fetch. */
+export type LiteLLMPricingRequest = {
+  url: string;
+  fetchImpl: typeof fetch;
+  /** Each attempt's timeout. */
+  timeoutMs: number;
+  /** Attempts after the first, for timeouts, network errors and retryable HTTP statuses. */
+  retryCount: number;
+  /** The first backoff; each retry doubles it. */
+  retryDelayMs: number;
+  maxResponseBytes: number;
+  /** Waits between attempts; pass one that rejects on `signal` so an abort stops the retries. */
+  sleep: (delayMs: number) => Promise<void>;
+  /** Aborts each attempt, along with its timeout. */
+  signal?: AbortSignal;
+};
+
+async function fetchPricingResponse(request: LiteLLMPricingRequest): Promise<Response> {
+  const timeout = AbortSignal.timeout(request.timeoutMs);
+  const response = await request.fetchImpl(request.url, {
+    signal: request.signal ? AbortSignal.any([request.signal, timeout]) : timeout,
+  });
+
+  if (!response.ok) {
+    if (isRetryableHttpStatus(response.status)) {
+      throw new RetryableLiteLLMFetchError(
+        `Retryable LiteLLM pricing response status: HTTP ${response.status}`,
+      );
+    }
+
+    throw new Error(`Failed to fetch LiteLLM pricing: HTTP ${response.status}`);
+  }
+
+  return response;
+}
+
+async function fetchPricingResponseWithRetry(request: LiteLLMPricingRequest): Promise<Response> {
+  const maxAttempts = request.retryCount + 1;
+
+  for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
+    try {
+      return await fetchPricingResponse(request);
+    } catch (error) {
+      const shouldRetry = isRetryableFetchFailure(error) && attemptIndex < maxAttempts - 1;
+
+      if (!shouldRetry) {
+        throw error;
+      }
+    }
+
+    const backoffDelay = request.retryDelayMs * 2 ** attemptIndex;
+    await request.sleep(backoffDelay);
+  }
+
+  throw new Error('Failed to fetch LiteLLM pricing after retries');
+}
+
+async function readPayloadWithByteLimit(
+  response: Response,
+  maxResponseBytes: number,
+): Promise<unknown> {
+  const contentLength = Number(response.headers.get('content-length'));
+
+  if (Number.isFinite(contentLength) && contentLength > maxResponseBytes) {
+    throw new Error(
+      `LiteLLM pricing response exceeds ${maxResponseBytes} bytes (content-length ${contentLength})`,
+    );
+  }
+
+  if (!response.body) {
+    const text = await response.text();
+
+    if (Buffer.byteLength(text, 'utf8') > maxResponseBytes) {
+      throw new Error(`LiteLLM pricing response exceeds ${maxResponseBytes} bytes`);
+    }
+
+    return JSON.parse(text) as unknown;
+  }
+
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+
+  for await (const chunk of response.body as ReadableStream<Uint8Array>) {
+    receivedBytes += chunk.byteLength;
+
+    if (receivedBytes > maxResponseBytes) {
+      throw new Error(`LiteLLM pricing response exceeds ${maxResponseBytes} bytes`);
+    }
+
+    chunks.push(chunk);
+  }
+
+  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+}
+
+/** Fetches LiteLLM's pricing JSON and parses it, unvalidated. */
+export async function requestLiteLLMPricingPayload(
+  request: LiteLLMPricingRequest,
+): Promise<unknown> {
+  const response = await fetchPricingResponseWithRetry(request);
+  return readPayloadWithByteLimit(response, request.maxResponseBytes);
+}
+
 export class LiteLLMPricingFetcher implements PricingSource {
   private readonly sourceUrl: string;
   private readonly cacheFilePath: string;
@@ -545,16 +725,13 @@ export class LiteLLMPricingFetcher implements PricingSource {
   private readonly maxResponseBytes: number;
   private readonly offline: boolean;
   private readonly fetchImpl: typeof fetch;
+  private readonly bundledPricing: BundledPricingData;
   private readonly now: () => number;
   private readonly sleep: (delayMs: number) => Promise<void>;
 
-  private pricingByModel = new Map<string, ModelPricing>();
-  private maxInputTokensByModel: Readonly<Record<string, unknown>> | undefined;
-  private resolvedAliasCache = new Map<string, string>();
+  private table = new PricingTable(new Map());
   private loadOrigin: LiteLLMPricingLoadOrigin | undefined;
   private dataOrigin: PricingDataOrigin | undefined;
-  /** Keys the retired prices back-filled into the loaded pricing. */
-  private retiredModelKeys = new Set<string>();
   private pricingWarning: string | undefined;
 
   public constructor(options: LiteLLMPricingFetcherOptions) {
@@ -573,6 +750,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
     this.maxResponseBytes = options.maxResponseBytes ?? MAX_LITELLM_PRICING_RESPONSE_BYTES;
     this.offline = options.offline ?? false;
     this.fetchImpl = options.fetchImpl;
+    this.bundledPricing = options.bundledPricing ?? packagedPricingData;
     this.now = options.now ?? Date.now;
     this.sleep = options.sleep ?? sleep;
   }
@@ -596,7 +774,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
       const staleCacheLoaded = await this.loadFromCache({ allowStale: true });
 
       if (!staleCacheLoaded) {
-        const bundledSnapshotLoaded = this.loadFromBundledSnapshot();
+        const bundledSnapshotLoaded = await this.loadFromBundledSnapshot();
 
         if (!bundledSnapshotLoaded) {
           throw new Error(
@@ -620,7 +798,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
       });
 
       if (!staleCacheLoaded) {
-        const bundledSnapshotLoaded = this.loadFromBundledSnapshot();
+        const bundledSnapshotLoaded = await this.loadFromBundledSnapshot();
 
         if (!bundledSnapshotLoaded) {
           throw new Error('Could not load LiteLLM pricing from network or cache', {
@@ -653,40 +831,15 @@ export class LiteLLMPricingFetcher implements PricingSource {
   }
 
   public explainModel(model: string): ModelPricingExplanation {
-    const normalizedModel = normalizeKey(model);
-    const resolvedModel = this.resolveModelAlias(model);
-    const pricing = this.getPricing(resolvedModel);
-    const match = explainCanonicalModelKey(normalizedModel, this.pricingByModel);
-
-    return {
-      normalizedModel,
-      resolvedModel,
-      ...(match ? { match } : {}),
-      override: 'none',
-      ...(this.dataOrigin ? { origin: this.dataOrigin } : {}),
-      retired: pricing !== undefined && this.retiredModelKeys.has(resolvedModel),
-      ...(pricing ? { pricing } : {}),
-    };
+    return this.table.explainModel(model);
   }
 
   public resolveModelAlias(model: string): string {
-    const normalizedModel = normalizeKey(model);
-    const cachedAlias = this.resolvedAliasCache.get(normalizedModel);
-
-    if (cachedAlias) {
-      return cachedAlias;
-    }
-
-    const resolvedAlias =
-      resolveCanonicalModelKey(normalizedModel, this.pricingByModel) ?? normalizedModel;
-    this.resolvedAliasCache.set(normalizedModel, resolvedAlias);
-
-    return resolvedAlias;
+    return this.table.resolveModelAlias(model);
   }
 
   public getPricing(model: string): ModelPricing | undefined {
-    const resolvedModel = this.resolveModelAlias(model);
-    return this.pricingByModel.get(resolvedModel);
+    return this.table.getPricing(model);
   }
 
   /**
@@ -694,111 +847,43 @@ export class LiteLLMPricingFetcher implements PricingSource {
    * on the bundled limits, which cover the snapshot and caches written before limits were kept.
    */
   public getMaxInputTokens(model: string): number | undefined {
-    const key = this.resolveModelAlias(model);
-
-    return (
-      readContextLimit(this.maxInputTokensByModel, key) ??
-      (this.sourceUrl === DEFAULT_LITELLM_PRICING_URL
-        ? readContextLimit(litellmContextLimitsPayload.maxInputTokensByModel, key)
-        : undefined)
-    );
-  }
-
-  private async fetchRemotePricingResponse(): Promise<Response> {
-    const response = await this.fetchImpl(this.sourceUrl, {
-      signal: AbortSignal.timeout(this.fetchTimeoutMs),
-    });
-
-    if (!response.ok) {
-      if (isRetryableHttpStatus(response.status)) {
-        throw new RetryableLiteLLMFetchError(
-          `Retryable LiteLLM pricing response status: HTTP ${response.status}`,
-        );
-      }
-
-      throw new Error(`Failed to fetch LiteLLM pricing: HTTP ${response.status}`);
-    }
-
-    return response;
-  }
-
-  private async fetchRemotePricingResponseWithRetry(): Promise<Response> {
-    const maxAttempts = this.fetchRetryCount + 1;
-
-    for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
-      try {
-        return await this.fetchRemotePricingResponse();
-      } catch (error) {
-        const shouldRetry = isRetryableFetchFailure(error) && attemptIndex < maxAttempts - 1;
-
-        if (!shouldRetry) {
-          throw error;
-        }
-      }
-
-      const backoffDelay = this.fetchRetryDelayMs * 2 ** attemptIndex;
-      await this.sleep(backoffDelay);
-    }
-
-    throw new Error('Failed to fetch LiteLLM pricing after retries');
-  }
-
-  private async readPayloadWithByteLimit(response: Response): Promise<unknown> {
-    const contentLength = Number(response.headers.get('content-length'));
-
-    if (Number.isFinite(contentLength) && contentLength > this.maxResponseBytes) {
-      throw new Error(
-        `LiteLLM pricing response exceeds ${this.maxResponseBytes} bytes (content-length ${contentLength})`,
-      );
-    }
-
-    if (!response.body) {
-      const text = await response.text();
-
-      if (Buffer.byteLength(text, 'utf8') > this.maxResponseBytes) {
-        throw new Error(`LiteLLM pricing response exceeds ${this.maxResponseBytes} bytes`);
-      }
-
-      return JSON.parse(text) as unknown;
-    }
-
-    const chunks: Uint8Array[] = [];
-    let receivedBytes = 0;
-
-    for await (const chunk of response.body as ReadableStream<Uint8Array>) {
-      receivedBytes += chunk.byteLength;
-
-      if (receivedBytes > this.maxResponseBytes) {
-        throw new Error(`LiteLLM pricing response exceeds ${this.maxResponseBytes} bytes`);
-      }
-
-      chunks.push(chunk);
-    }
-
-    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+    return this.table.getMaxInputTokens(model);
   }
 
   private async loadFromRemote(): Promise<void> {
-    const response = await this.fetchRemotePricingResponseWithRetry();
-    const payload = await this.readPayloadWithByteLimit(response);
-    const normalizedPricing = normalizeLitellmPricingPayload(payload);
-
-    this.pricingByModel = normalizedPricing;
-    this.maxInputTokensByModel = Object.fromEntries(
-      normalizeLitellmContextLimits(payload, normalizedPricing),
+    const payload = await requestLiteLLMPricingPayload({
+      url: this.sourceUrl,
+      fetchImpl: this.fetchImpl,
+      timeoutMs: this.fetchTimeoutMs,
+      retryCount: this.fetchRetryCount,
+      retryDelayMs: this.fetchRetryDelayMs,
+      maxResponseBytes: this.maxResponseBytes,
+      sleep: this.sleep,
+    });
+    const pricingByModel = normalizeLitellmPricingPayload(payload);
+    const maxInputTokensByModel = Object.fromEntries(
+      normalizeLitellmContextLimits(payload, pricingByModel),
     );
-    this.resolvedAliasCache.clear();
-    this.loadOrigin = 'network';
-    this.dataOrigin = { kind: 'network', fetchedAt: this.now(), url: this.sourceUrl };
-    this.pricingWarning = undefined;
+    const origin: PricingDataOrigin = {
+      kind: 'network',
+      fetchedAt: this.now(),
+      url: this.sourceUrl,
+    };
 
     try {
-      await this.writeCache();
+      await this.writeCache(pricingByModel, maxInputTokensByModel);
     } catch {
       // Cache writes are best-effort. A successful remote fetch must still be usable.
     }
 
-    this.backfillRetiredModels();
+    this.table = await createLiteLLMPricingTable(pricingByModel, {
+      maxInputTokensByModel,
+      origin,
+      bundledPricing: this.defaultSourceBundledPricing(),
+    });
+    this.loadOrigin = 'network';
+    this.dataOrigin = origin;
+    this.pricingWarning = undefined;
   }
 
   private async loadFromCache(options: {
@@ -832,79 +917,66 @@ export class LiteLLMPricingFetcher implements PricingSource {
       return false;
     }
 
-    this.pricingByModel = new Map(
-      Object.entries(cacheFileContent.pricingByModel).map(([modelName, pricing]) => [
-        normalizeKey(modelName),
-        pricing,
-      ]),
-    );
-    this.maxInputTokensByModel = cacheFileContent.maxInputTokensByModel;
-    this.resolvedAliasCache.clear();
+    const pricingByModel = toPricingMap(cacheFileContent.pricingByModel);
 
-    if (this.pricingByModel.size === 0) {
+    if (pricingByModel.size === 0) {
       return false;
     }
 
-    this.loadOrigin = 'cache';
-    this.dataOrigin = {
+    const origin: PricingDataOrigin = {
       kind: 'cache',
       fetchedAt: cacheFileContent.fetchedAt,
       url: cacheFileContent.sourceUrl,
     };
+    this.table = await createLiteLLMPricingTable(pricingByModel, {
+      ...(cacheFileContent.maxInputTokensByModel
+        ? { maxInputTokensByModel: cacheFileContent.maxInputTokensByModel }
+        : {}),
+      origin,
+      bundledPricing: this.defaultSourceBundledPricing(),
+    });
+    this.loadOrigin = 'cache';
+    this.dataOrigin = origin;
     this.pricingWarning = isStale
       ? formatStaleCacheWarning(cacheFileContent.fetchedAt, options.fetchError)
       : undefined;
-    this.backfillRetiredModels();
     return true;
   }
 
-  private backfillRetiredModels(): void {
-    this.retiredModelKeys = new Set();
-
-    if (this.sourceUrl !== DEFAULT_LITELLM_PRICING_URL) {
-      return;
-    }
-
-    for (const [modelName, pricing] of getRetiredLiteLLMPricing()) {
-      if (!this.pricingByModel.has(modelName)) {
-        this.pricingByModel.set(modelName, pricing);
-        this.retiredModelKeys.add(modelName);
-      }
-    }
+  /** The bundled data for default-source pricing; a custom URL never mixes it in. */
+  private defaultSourceBundledPricing(): BundledPricingData | undefined {
+    return this.sourceUrl === DEFAULT_LITELLM_PRICING_URL ? this.bundledPricing : undefined;
   }
 
-  private loadFromBundledSnapshot(): boolean {
+  private async loadFromBundledSnapshot(): Promise<boolean> {
     if (this.sourceUrl !== DEFAULT_LITELLM_PRICING_URL) {
       return false;
     }
 
-    const snapshot = getBundledLiteLLMPricingSnapshot();
+    const snapshot = await this.bundledPricing.snapshot();
 
     if (snapshot.sourceUrl !== this.sourceUrl) {
       return false;
     }
 
-    this.pricingByModel = new Map(
-      Object.entries(snapshot.pricingByModel).map(([modelName, pricing]) => [
-        normalizeKey(modelName),
-        pricing,
-      ]),
-    );
-    this.maxInputTokensByModel = undefined;
-    this.resolvedAliasCache.clear();
+    const pricingByModel = toPricingMap(snapshot.pricingByModel);
 
-    if (this.pricingByModel.size === 0) {
+    if (pricingByModel.size === 0) {
       return false;
     }
 
-    this.loadOrigin = 'bundled-snapshot';
-    this.dataOrigin = {
+    const origin: PricingDataOrigin = {
       kind: 'bundled-snapshot',
       fetchedAt: snapshot.fetchedAt,
       url: snapshot.sourceUrl,
     };
+    this.table = await createLiteLLMPricingTable(pricingByModel, {
+      origin,
+      bundledPricing: this.bundledPricing,
+    });
+    this.loadOrigin = 'bundled-snapshot';
+    this.dataOrigin = origin;
     this.pricingWarning = formatBundledSnapshotWarning(snapshot.fetchedAt);
-    this.backfillRetiredModels();
     return true;
   }
 
@@ -931,7 +1003,10 @@ export class LiteLLMPricingFetcher implements PricingSource {
     return payload && { ...payload, formatVersion: asRecord(parsedPayload)?.formatVersion };
   }
 
-  private async writeCache(): Promise<void> {
+  private async writeCache(
+    pricingByModel: ReadonlyMap<string, ModelPricing>,
+    maxInputTokensByModel: Record<string, unknown>,
+  ): Promise<void> {
     const directoryPath = path.dirname(this.cacheFilePath);
     await ensureDirectory(directoryPath);
 
@@ -939,8 +1014,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
       formatVersion: CACHE_FORMAT_VERSION,
       fetchedAt: this.now(),
       sourceUrl: this.sourceUrl,
-      pricingByModel: Object.fromEntries(this.pricingByModel.entries()),
-      maxInputTokensByModel: this.maxInputTokensByModel,
+      pricingByModel: Object.fromEntries(pricingByModel.entries()),
+      maxInputTokensByModel,
     };
 
     await writeFileAtomic(this.cacheFilePath, JSON.stringify(payload));

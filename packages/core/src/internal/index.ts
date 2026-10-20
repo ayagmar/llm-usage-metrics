@@ -41,3 +41,12 @@ export * from '../utils/fs-helpers.js';
 export * from '../utils/pluralize.js';
 export * from '../utils/read-first-line.js';
 export * from '../utils/read-jsonl-objects.js';
+// The pricing engine behind the CLI's reports. `./pricing` publishes the library's part of it.
+export * from '../pricing/cache-savings.js';
+export * from '../pricing/cost-engine.js';
+export * from '../pricing/explain-model-pricing.js';
+export * from '../pricing/litellm-model-matching.js';
+export * from '../pricing/litellm-pricing-fetcher.js';
+export * from '../pricing/pricing-override-source.js';
+export * from '../pricing/pricing-table.js';
+export type * from '../pricing/types.js';

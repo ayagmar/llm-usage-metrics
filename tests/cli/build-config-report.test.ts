@@ -13,7 +13,7 @@ import {
   openEventStore,
   readEventStoreSummary,
 } from '../../src/persistence/event-store.js';
-import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/pricing';
+import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/internal';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import {
   captureJsonStdout,

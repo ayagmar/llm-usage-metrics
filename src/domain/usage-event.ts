@@ -1,5 +1,5 @@
 import * as core from '@ayagmar/agent-sessions';
-import { normalizeUsdCost } from '@ayagmar/agent-sessions/internal';
+import { normalizeUsdCost, resolveCostMode } from '@ayagmar/agent-sessions/internal';
 
 /** How reports and `--machine` name this machine, next to the configured ones. */
 export const LOCAL_MACHINE_NAME = 'local';
@@ -26,21 +26,6 @@ export type UsageEvent = core.UsageEvent & {
 export type UsageEventInput = core.UsageEventInput & {
   costMode?: core.CostMode;
 };
-
-function resolveCostMode(
-  costMode: core.CostMode | undefined,
-  costUsd: number | undefined,
-): core.CostMode {
-  if (costMode === 'explicit' && costUsd === undefined) {
-    throw new Error('UsageEvent with costMode "explicit" requires costUsd');
-  }
-
-  if (costMode) {
-    return costMode;
-  }
-
-  return costUsd === undefined ? 'estimated' : 'explicit';
-}
 
 export function createUsageEvent(input: UsageEventInput): UsageEvent {
   if (!core.normalizeSourceId(input.source)) {
@@ -71,7 +56,7 @@ function hasCostMode(event: AdapterEvent): event is UsageEvent {
 export function withCostMode(event: AdapterEvent): UsageEvent {
   return hasCostMode(event)
     ? event
-    : Object.assign(event, { costMode: event.costUsd === undefined ? 'estimated' : 'explicit' });
+    : Object.assign(event, { costMode: resolveCostMode(undefined, event.costUsd) });
 }
 
 export function withCostModes(diagnostics: core.SourceParseFileDiagnostics): ParseFileDiagnostics {

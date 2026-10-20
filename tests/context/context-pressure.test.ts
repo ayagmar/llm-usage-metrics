@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { aggregateContextPressure } from '../../src/context/context-pressure.js';
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
-import type { ModelPricing } from '@ayagmar/agent-sessions/pricing';
+import type { ModelPricing } from '@ayagmar/agent-sessions/internal';
 
 // Base and above-200k rates per 1M tokens, so the tier extra is easy to work out by hand.
 const TIERED_PRICING: ModelPricing = {

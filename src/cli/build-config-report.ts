@@ -11,7 +11,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import { hasConfigPathOverride } from '../config/user-config.js';
-import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/pricing';
+import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/internal';
 import {
   createLiteLLMPricingFetcher,
   getDefaultLiteLLMPricingCachePath,

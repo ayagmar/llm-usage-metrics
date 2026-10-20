@@ -3,10 +3,12 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import {
   calculateEstimatedCostUsd,
   canEstimateUsageCost,
+  compareByCodePoint,
+  hasBillableTokenBuckets,
   hasUsedBucketWithUndefinedRate,
-} from '@ayagmar/agent-sessions/pricing';
-import type { ModelPricing, PricingSource } from '@ayagmar/agent-sessions/pricing';
-import { compareByCodePoint, hasBillableTokenBuckets } from '@ayagmar/agent-sessions/internal';
+  type ModelPricing,
+  type PricingSource,
+} from '@ayagmar/agent-sessions/internal';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
 import { addUsd, roundUsd } from '../utils/usd-math.js';
 

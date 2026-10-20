@@ -3,6 +3,7 @@ import { asTrimmedText, toNumberLike } from '../sources/parsing-utils.js';
 import { asRecord } from '../utils/as-record.js';
 import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { normalizeKey } from './litellm-model-matching.js';
+import { assertValidModelRates } from './pricing-table.js';
 import type {
   ModelPricing,
   ModelPricingExplanation,
@@ -260,4 +261,21 @@ export class PricingOverrideSource implements PricingSource {
       ...(pricing ? { pricing } : {}),
     };
   }
+}
+
+/**
+ * `base` with your rates for some models on top, as `--pricing-overrides` applies them: an
+ * override prices a name equal to its key (case-insensitive), and any name `base` resolves
+ * to its key. Overrides are never matched fuzzily. Context limits still come from `base`.
+ * Throws when a rate is not a finite, non-negative number.
+ */
+export function withOverrides(
+  base: PricingSource,
+  overrides: ReadonlyMap<string, ModelPricing>,
+): PricingSource {
+  assertValidModelRates(overrides);
+  return new PricingOverrideSource(
+    new Map([...overrides].map(([model, pricing]) => [normalizeKey(model), pricing])),
+    base,
+  );
 }

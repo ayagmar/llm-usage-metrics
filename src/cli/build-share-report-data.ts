@@ -13,8 +13,8 @@ import {
   costUnderPolicy,
   createModelPricingLookup,
   type PricingPolicy,
-} from '@ayagmar/agent-sessions/pricing';
-import type { PricingSource } from '@ayagmar/agent-sessions/pricing';
+} from '@ayagmar/agent-sessions/internal';
+import type { PricingSource } from '@ayagmar/agent-sessions/internal';
 import {
   buildSharePayload,
   SHARE_COST_MODES,

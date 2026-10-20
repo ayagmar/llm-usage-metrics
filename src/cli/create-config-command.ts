@@ -15,7 +15,6 @@ import {
 } from '../config/runtime-overrides.js';
 import { resolveUserConfigPath, USER_CONFIG_SOURCE_DIR_KEYS } from '../config/user-config.js';
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
-import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/pricing';
 import { ensureDirectory } from '../utils/fs-helpers.js';
 import { logger } from '../utils/logger.js';
 import { renderConfigReportText } from '../render/render-config-report.js';
@@ -25,7 +24,7 @@ import { formatHelpExamples } from './report-definitions/report-definitions.js';
 import { registerSharedReportOptions } from './report-definitions/shared-report-options.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { ConfigShowCommandOptions } from './usage-data-contracts.js';
-import { hasErrorCode } from '@ayagmar/agent-sessions/internal';
+import { DEFAULT_LITELLM_PRICING_URL, hasErrorCode } from '@ayagmar/agent-sessions/internal';
 
 type ConfigInitOptions = {
   force?: boolean;
