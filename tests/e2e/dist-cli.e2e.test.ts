@@ -1,8 +1,10 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
@@ -365,5 +367,79 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 
     expect(exitCode).toBeDefined();
     expect(exitCode).not.toBe(0);
+  });
+
+  it('refreshes a stale update-check cache from a detached process after a short command', async () => {
+    const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'dist-update-refresh-'));
+
+    try {
+      const cacheDir = path.join(tempDir, 'cache');
+      const cacheFilePath = path.join(cacheDir, 'llm-usage-metrics', 'update-check.json');
+      await mkdir(path.dirname(cacheFilePath), { recursive: true });
+      await writeFile(cacheFilePath, JSON.stringify({ checkedAt: 1, latestVersion: '0.0.1' }));
+
+      // A fake npm registry. The command's own request does not answer before it exits, as
+      // when the registry is slower than the command; only the detached refresh process gets
+      // a version.
+      const registryPath = path.join(tempDir, 'fake-registry.mjs');
+      await writeFile(
+        registryPath,
+        `globalThis.fetch = (url, init) => {
+  if (process.env.LLM_USAGE_UPDATE_CHECK_REFRESH) {
+    return Promise.resolve(new Response(JSON.stringify({ version: '99.0.0' })));
+  }
+  return new Promise((_resolve, reject) => {
+    // An open request keeps the process alive, as a real socket does.
+    const pending = setTimeout(() => reject(new Error('fake registry timed out')), 60_000);
+    init?.signal?.addEventListener('abort', () => {
+      clearTimeout(pending);
+      reject(init.signal.reason);
+    }, { once: true });
+  });
+};
+`,
+      );
+
+      const env: NodeJS.ProcessEnv = {
+        ...createSmokeEnv(),
+        XDG_CACHE_HOME: cacheDir,
+        NODE_OPTIONS: `--import=${pathToFileURL(registryPath).href}`,
+      };
+      // Each turns off the check or its background refresh: the opt-out, CI, and npx (pnpm sets
+      // npm_command).
+      delete env.LLM_USAGE_SKIP_UPDATE_CHECK;
+      delete env.CI;
+      delete env.npm_command;
+      delete env.npm_execpath;
+
+      const { stdout } = await execFileAsync(
+        process.execPath,
+        [
+          distCliPath,
+          'monthly',
+          '--json',
+          '--source',
+          'codex',
+          '--codex-dir',
+          codexDir,
+          '--pricing-offline',
+        ],
+        { encoding: 'utf8', env },
+      );
+      expect(JSON.parse(stdout)).toMatchObject({ report: 'usage' });
+
+      let cachedVersion: string | undefined;
+
+      for (let attempt = 0; attempt < 100 && cachedVersion !== '99.0.0'; attempt += 1) {
+        await delay(100);
+        cachedVersion = (
+          JSON.parse(await readFile(cacheFilePath, 'utf8')) as { latestVersion: string }
+        ).latestVersion;
+      }
+
+      expect(cachedVersion).toBe('99.0.0');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   });
 });

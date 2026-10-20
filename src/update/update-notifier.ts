@@ -1,4 +1,8 @@
+import { spawn } from 'node:child_process';
+
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 import {
+  claimBackgroundRefresh,
   getDefaultUpdateCheckCachePath,
   getSessionScopedCachePath,
   resolveLatestVersion,
@@ -9,6 +13,7 @@ import { shouldOfferUpdate } from './version-utils.js';
 export {
   UPDATE_CHECK_CACHE_SCOPE_ENV_VAR,
   UPDATE_CHECK_CACHE_SESSION_KEY_ENV_VAR,
+  claimBackgroundRefresh,
   getDefaultUpdateCheckCachePath,
   getSessionScopedCachePath,
   isCacheFresh,
@@ -27,6 +32,15 @@ export {
 
 const UPDATE_CHECK_SKIP_ENV_VAR = 'LLM_USAGE_SKIP_UPDATE_CHECK';
 const UPDATE_HINT_EXIT_GRACE_MS = 50;
+export const UPDATE_CHECK_BACKGROUND_REFRESH_ENV_VAR = 'LLM_USAGE_UPDATE_CHECK_REFRESH';
+
+/** What a detached refresh process needs to fetch the latest version and cache it. */
+export type BackgroundRefreshRequest = {
+  packageName: string;
+  cacheFilePath: string;
+  cacheTtlMs?: number;
+  fetchTimeoutMs?: number;
+};
 
 export type UpdateNotifierOptions = {
   packageName: string;
@@ -40,6 +54,7 @@ export type UpdateNotifierOptions = {
   signal?: AbortSignal;
   env?: NodeJS.ProcessEnv;
   argv?: string[];
+  startBackgroundRefresh?: (request: BackgroundRefreshRequest) => void;
 };
 
 function isTruthyEnvFlag(value: string | undefined): boolean {
@@ -121,10 +136,71 @@ export function isLikelySourceExecution(argv: string[]): boolean {
   return /\.[cm]?tsx?$/iu.test(executablePath);
 }
 
+/* v8 ignore next -- Vitest uses a fake starter; the dist e2e covers the real spawn. */
+function spawnBackgroundRefresh(request: BackgroundRefreshRequest): void {
+  const entryPath = process.argv[1];
+
+  if (!entryPath) {
+    return;
+  }
+
+  // The same CLI entry, told by the env var to refresh the cache and exit. Detached and
+  // unref'd, so this process exits as soon as its own command is done.
+  const child = spawn(process.execPath, [entryPath], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+    env: { ...process.env, [UPDATE_CHECK_BACKGROUND_REFRESH_ENV_VAR]: JSON.stringify(request) },
+  });
+  child.on('error', () => undefined);
+  child.unref();
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+export function readBackgroundRefreshRequest(
+  env: NodeJS.ProcessEnv,
+): BackgroundRefreshRequest | undefined {
+  const rawRequest = env[UPDATE_CHECK_BACKGROUND_REFRESH_ENV_VAR];
+
+  if (!rawRequest) {
+    return undefined;
+  }
+
+  let record: Record<string, unknown> | undefined;
+
+  try {
+    record = asRecord(JSON.parse(rawRequest));
+  } catch {
+    return undefined;
+  }
+
+  if (typeof record?.packageName !== 'string' || typeof record.cacheFilePath !== 'string') {
+    return undefined;
+  }
+
+  return {
+    packageName: record.packageName,
+    cacheFilePath: record.cacheFilePath,
+    cacheTtlMs: toOptionalNumber(record.cacheTtlMs),
+    fetchTimeoutMs: toOptionalNumber(record.fetchTimeoutMs),
+  };
+}
+
+/** The detached refresh process's whole job; `resolveLatestVersion` never throws. */
+export async function runBackgroundRefresh(
+  request: BackgroundRefreshRequest,
+  options: Pick<ResolveLatestVersionOptions, 'fetchImpl' | 'now'> = {},
+): Promise<void> {
+  await resolveLatestVersion({ ...request, ...options });
+}
+
 function toResolveLatestVersionOptions(
   options: UpdateNotifierOptions,
   env: NodeJS.ProcessEnv,
-): ResolveLatestVersionOptions {
+): ResolveLatestVersionOptions & { cacheFilePath: string } {
   const baseCacheFilePath = options.cacheFilePath ?? getDefaultUpdateCheckCachePath();
   const scopedCacheFilePath = getSessionScopedCachePath(baseCacheFilePath, env);
 
@@ -186,7 +262,31 @@ export async function checkForUpdates(options: UpdateNotifierOptions): Promise<s
     // cache is missing or stale. Doing this on every run keeps the update
     // hint consistent across commands: a stale cache no longer silently
     // skips the hint for the run that triggers the refresh.
-    const latestVersion = await resolveLatestVersion(toResolveLatestVersionOptions(options, env));
+    const resolveOptions = toResolveLatestVersionOptions(options, env);
+    const latestVersion = await resolveLatestVersion(resolveOptions);
+
+    // The exit grace aborted the check, usually a registry fetch slower than a short
+    // command. Refresh the cache from a detached process instead, so the next run reads a
+    // fresh cache rather than paying the grace again. CI runs leave no process behind.
+    if (options.signal?.aborted) {
+      if (
+        !isTruthyEnvFlag(env.CI) &&
+        (await claimBackgroundRefresh(
+          resolveOptions.cacheFilePath,
+          options.cacheTtlMs,
+          options.now,
+        ))
+      ) {
+        (options.startBackgroundRefresh ?? spawnBackgroundRefresh)({
+          packageName: options.packageName,
+          cacheFilePath: resolveOptions.cacheFilePath,
+          cacheTtlMs: options.cacheTtlMs,
+          fetchTimeoutMs: options.fetchTimeoutMs,
+        });
+      }
+
+      return undefined;
+    }
 
     if (!latestVersion || !shouldOfferUpdate(options.currentVersion, latestVersion)) {
       return undefined;

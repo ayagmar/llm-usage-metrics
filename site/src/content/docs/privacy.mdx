@@ -17,7 +17,7 @@ description: What llm-usage-metrics reads, what it stores and where, and every n
 | --- | --- | --- |
 | Event ledger | `~/.local/share/llm-usage-metrics/events.db` | One row per usage event: source, log file path, session ID, timestamp, model, provider, recorded working directory, token counts, and cost. |
 | Pricing cache | `~/.cache/llm-usage-metrics/litellm-pricing-cache.json` | Model prices downloaded from LiteLLM. |
-| Update-check cache | `~/.cache/llm-usage-metrics/update-check.json` | The latest published version number. |
+| Update-check cache | `~/.cache/llm-usage-metrics/update-check.json` | The latest published version number. `update-check.json.refresh-attempt` beside it holds the time of the last background refresh. |
 | Config | `~/.config/llm-usage-metrics/config.toml` | Only what you write there. |
 
 The ledger stores token counts and metadata, not session content. Your prompts, model responses, and code are not saved. `XDG_DATA_HOME`, `XDG_CACHE_HOME`, and `XDG_CONFIG_HOME` move these locations, and other platforms use their own directories. See [Caching and history](/llm-usage-metrics/caching/) and [Event store](/llm-usage-metrics/architecture/event-store/) for details, and `LLM_USAGE_EVENT_STORE` to turn the ledger off.
@@ -36,7 +36,7 @@ The tool makes two kinds of HTTP request on its own. Neither sends any of your u
 ### Update check
 
 - **What:** a GET request for `https://registry.npmjs.org/llm-usage-metrics/latest`, which returns the newest version number.
-- **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. It is skipped for `statusline`, `machine export`, `config`, `completion`, `help`, `-h`/`--help`, `--help-all`, `-V`/`--version`, and when run through `npx`.
+- **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. When a command finishes first, a detached background process makes the request instead, at most once per `update.cacheTtlMs`, so the command exits without waiting. It is skipped for `statusline`, `machine export`, `config`, `completion`, `help`, `-h`/`--help`, `--help-all`, `-V`/`--version`, and when run through `npx`.
 - **Turn it off:** set `LLM_USAGE_SKIP_UPDATE_CHECK=1`, or `update.skipCheck = true` in the config file.
 
 ### OTLP push

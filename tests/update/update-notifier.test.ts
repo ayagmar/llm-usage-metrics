@@ -5,13 +5,17 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  type BackgroundRefreshRequest,
+  UPDATE_CHECK_BACKGROUND_REFRESH_ENV_VAR,
   checkForUpdates,
   compareVersions,
   getSessionScopedCachePath,
   isCacheFresh,
   isLikelyNpxExecution,
   isLikelySourceExecution,
+  readBackgroundRefreshRequest,
   resolveLatestVersion,
+  runBackgroundRefresh,
   shouldOfferUpdate,
   shouldSkipUpdateCheckForArgv,
   waitForUpdateHintBeforeExit,
@@ -24,6 +28,22 @@ afterEach(async () => {
   tempDirs.length = 0;
   vi.restoreAllMocks();
 });
+
+// A registry slower than any short command: it answers only when the request is aborted.
+function createSlowRegistryFetch() {
+  return vi.fn<typeof fetch>(
+    (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('update fetch aborted', { cause: init.signal?.reason }));
+          },
+          { once: true },
+        );
+      }),
+  );
+}
 
 async function createTempCachePath(prefix: string): Promise<string> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), prefix));
@@ -265,6 +285,7 @@ describe('update-notifier', () => {
       signal: abortController.signal,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+      startBackgroundRefresh: vi.fn(),
     });
 
     await fetchStarted;
@@ -714,5 +735,135 @@ describe('update-notifier', () => {
 
     expect(result).toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  describe('background refresh after the exit grace', () => {
+    const cacheTtlMs = 60_000;
+    const argv = ['/usr/bin/node', '/app/dist/index.js', 'monthly'];
+
+    async function runShortCommand(options: {
+      cacheFilePath: string;
+      nowValue: number;
+      fetchImpl: typeof fetch;
+      env?: NodeJS.ProcessEnv;
+    }) {
+      const startBackgroundRefresh = vi.fn<(request: BackgroundRefreshRequest) => void>();
+      const abortController = new AbortController();
+      const hint = await waitForUpdateHintBeforeExit(
+        checkForUpdates({
+          packageName: 'llm-usage-metrics',
+          currentVersion: '0.1.0',
+          cacheFilePath: options.cacheFilePath,
+          cacheTtlMs,
+          fetchImpl: options.fetchImpl,
+          now: () => options.nowValue,
+          signal: abortController.signal,
+          env: options.env ?? { PATH: '/usr/bin' },
+          argv,
+          startBackgroundRefresh,
+        }),
+        abortController,
+        5,
+      );
+
+      return { hint, startBackgroundRefresh };
+    }
+
+    it('refreshes a stale cache from a detached process once, so later runs read it', async () => {
+      const cacheFilePath = await createTempCachePath('update-background-refresh-');
+      const nowValue = 10_000_000;
+      await writeFile(
+        cacheFilePath,
+        JSON.stringify({ checkedAt: nowValue - cacheTtlMs * 2, latestVersion: '0.1.0' }),
+        'utf8',
+      );
+
+      const first = await runShortCommand({
+        cacheFilePath,
+        nowValue,
+        fetchImpl: createSlowRegistryFetch(),
+      });
+
+      expect(first.hint).toBeUndefined();
+      expect(first.startBackgroundRefresh).toHaveBeenCalledOnce();
+      const [request] = first.startBackgroundRefresh.mock.calls[0] ?? [];
+
+      // A second short run before the refresh lands does not start another one.
+      const second = await runShortCommand({
+        cacheFilePath,
+        nowValue: nowValue + 1_000,
+        fetchImpl: createSlowRegistryFetch(),
+      });
+      expect(second.startBackgroundRefresh).not.toHaveBeenCalled();
+
+      // The detached process gets the request through its env and writes the cache.
+      const childRequest = readBackgroundRefreshRequest({
+        [UPDATE_CHECK_BACKGROUND_REFRESH_ENV_VAR]: JSON.stringify(request),
+      });
+      expect(childRequest).toEqual({
+        packageName: 'llm-usage-metrics',
+        cacheFilePath,
+        cacheTtlMs,
+        fetchTimeoutMs: undefined,
+      });
+      if (!childRequest) {
+        throw new Error('the background refresh request did not round-trip');
+      }
+
+      await runBackgroundRefresh(childRequest, {
+        fetchImpl: vi.fn(
+          async () => new Response(JSON.stringify({ version: '0.4.0' }), { status: 200 }),
+        ),
+        now: () => nowValue + 2_000,
+      });
+
+      const unreachableRegistry = vi.fn<typeof fetch>(async () => {
+        throw new Error('a fresh cache needs no registry request');
+      });
+      const third = await runShortCommand({
+        cacheFilePath,
+        nowValue: nowValue + 3_000,
+        fetchImpl: unreachableRegistry,
+      });
+
+      expect(third.hint).toBe(
+        'Update available for llm-usage-metrics: 0.1.0 → 0.4.0. Run "npm install -g llm-usage-metrics@latest" to update.',
+      );
+      expect(unreachableRegistry).not.toHaveBeenCalled();
+      expect(third.startBackgroundRefresh).not.toHaveBeenCalled();
+    });
+
+    it('tries the background refresh again once the cache TTL has passed since the last try', async () => {
+      const cacheFilePath = await createTempCachePath('update-background-retry-');
+      const nowValue = 10_000_000;
+
+      const first = await runShortCommand({
+        cacheFilePath,
+        nowValue,
+        fetchImpl: createSlowRegistryFetch(),
+      });
+      const later = await runShortCommand({
+        cacheFilePath,
+        nowValue: nowValue + cacheTtlMs + 1,
+        fetchImpl: createSlowRegistryFetch(),
+      });
+
+      expect(first.startBackgroundRefresh).toHaveBeenCalledOnce();
+      expect(later.startBackgroundRefresh).toHaveBeenCalledOnce();
+    });
+
+    it('starts no background process in CI', async () => {
+      const cacheFilePath = await createTempCachePath('update-background-ci-');
+
+      const run = await runShortCommand({
+        cacheFilePath,
+        nowValue: 10_000_000,
+        fetchImpl: createSlowRegistryFetch(),
+        env: { PATH: '/usr/bin', CI: 'true' },
+      });
+
+      expect(run.hint).toBeUndefined();
+      expect(run.startBackgroundRefresh).not.toHaveBeenCalled();
+    });
   });
 });
