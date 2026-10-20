@@ -23,15 +23,15 @@ console.log(`$${total.toFixed(2)}`);
 ## Where the prices come from
 
 - `loadBundledPricing()` returns the LiteLLM snapshot shipped in the package, with retired models back-filled and the bundled context limits. It reads the data files under `dist/data/` on the first call and returns the same source after that. It makes no network call.
-- `fetchLiteLLMPricing({ url?, signal?, maxBytes? })` fetches current prices with the global `fetch`: one GET, retried twice on a timeout (4 s per attempt), a network error or a 408, 425, 429 or 5xx status. It rejects when every attempt fails and does not fall back on the bundled prices, so catch it and call `loadBundledPricing()` if you want that. It writes no file. From the default URL, the bundled retired prices and context limits fill in what LiteLLM no longer lists; a custom `url` gets none of them.
-- `createPricingSource(rates, { maxInputTokensByModel?, origin? })` builds a source from your own `Map` of model name to `ModelPricing`. Names resolve to your keys with the same matcher, so `claude-sonnet-4-5-20250929` finds a `claude-sonnet-4-5` key.
+- `fetchLiteLLMPricing({ url?, signal?, maxBytes? })` fetches current prices with the global `fetch`: one GET, retried twice on a timeout (4 s per attempt), a network error or a 408, 425, 429, 500, 502, 503 or 504 status. It rejects when every attempt fails and does not fall back on the bundled prices, so catch it and call `loadBundledPricing()` if you want that. It writes no file. From the default URL, the bundled retired prices and context limits fill in what LiteLLM no longer lists; a custom `url` gets none of them.
+- `createPricingSource(rates, { maxInputTokensByModel?, origin? })` builds a source from your own `Map` of model name to `ModelPricing`. Names resolve to your keys with the same matcher, so `claude-sonnet-4-5-20250929` finds a `claude-sonnet-4-5` key. It throws on a rate that is not a finite, non-negative number, and so does `withOverrides`.
 - `withOverrides(base, overrides)` puts your rates for some models on top of any source, as `--pricing-overrides` does: an override prices a name equal to its key (case-insensitive) and any name `base` resolves to that key. Overrides are never matched fuzzily.
 
-Rates are in USD per 1M tokens (`inputPer1MUsd`, `outputPer1MUsd`, and optional cache read, cache write, 1-hour cache write and reasoning rates).
+Rates are in USD per 1M tokens (`inputPer1MUsd`, `outputPer1MUsd`, and optional cache read, cache write, 1-hour cache write and reasoning rates). The rates a source returns are shared with later calls, so copy one before you change it.
 
 ## Pricing events
 
-`priceEvents(events, source, { costMode? })` returns new events in the same order with `costUsd` and `costMode` set; the input is not changed.
+`priceEvents(events, source, { costMode? })` returns new events in the same order with `costUsd` and `costMode` set. They keep every other field, and their type, so usage records stay usage records; the input is not changed. An event with `costMode: 'explicit'` and no `costUsd` makes it throw.
 
 | `costMode`       | What each event costs                                                    |
 | ---------------- | ------------------------------------------------------------------------ |
@@ -56,4 +56,6 @@ console.log(explained.pricingKey, explained.rule, explained.rates);
 
 ## Network and files
 
-Only `fetchLiteLLMPricing` calls the network, and only when you call it. `loadBundledPricing` reads the package's own data files. Nothing in `./pricing` writes a file or reads the environment, and importing it reads nothing.
+Only `fetchLiteLLMPricing` calls the network, and only when you call it. `loadBundledPricing` reads the package's own data files from `dist/data/`; if the first read fails, the next call tries again. Nothing in `./pricing` writes a file or reads the environment, and importing it reads nothing.
+
+If you bundle your code, the files are read from a `data/` directory next to the bundled module. The reader uses literal `new URL('./data/…', import.meta.url)` paths, which webpack 5 copies as assets. Other bundlers, esbuild among them, leave them alone: copy `node_modules/@ayagmar/agent-sessions/dist/data/` to `data/` beside your bundle, or price with `createPricingSource`.

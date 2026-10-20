@@ -251,14 +251,14 @@ const priced = priceEvents(usageEvents, await loadBundledPricing(), { costMode: 
 ```
 
 - `loadBundledPricing()`: the LiteLLM snapshot in the package, with retired models back-filled and context limits. Reads `dist/data/` on the first call and returns the same `PricingSource` after that. No network.
-- `fetchLiteLLMPricing({ url?, signal?, maxBytes? })`: current prices, fetched with the global `fetch`. Retries a timeout (4 s per attempt), a network error or a 408/425/429/5xx twice, then rejects; it writes no file and does not fall back on the bundled prices. From the default URL, the bundled retired prices and context limits fill in what LiteLLM no longer lists.
-- `createPricingSource(rates, { maxInputTokensByModel?, origin? })`: a source over your own `Map` of model to `ModelPricing`, resolved with the same model matcher.
+- `fetchLiteLLMPricing({ url?, signal?, maxBytes? })`: current prices, fetched with the global `fetch`. Retries a timeout (4 s per attempt), a network error or a 408/425/429/500/502/503/504 status twice, then rejects; it writes no file and does not fall back on the bundled prices. From the default URL, the bundled retired prices and context limits fill in what LiteLLM no longer lists.
+- `createPricingSource(rates, { maxInputTokensByModel?, origin? })`: a source over your own `Map` of model to `ModelPricing`, resolved with the same model matcher. Throws on a rate that is not a finite, non-negative number, as `withOverrides` does.
 - `withOverrides(base, overrides)`: your rates for some models on top of a source, matched like `--pricing-overrides` (the exact name, case-insensitive, or a name `base` resolves to the key; never fuzzily).
-- `priceEvents(events, source, { costMode? })`: new events with `costUsd` and `costMode` set. `both` (default) keeps a logged cost and estimates the rest, `explicit` keeps logged costs only, `estimated` estimates every event. A `singleRequest` event above a long-context threshold bills at that tier's rates. An event the source cannot price has no `costUsd`.
+- `priceEvents(events, source, { costMode? })`: new events with `costUsd` and `costMode` set. `both` (default) keeps a logged cost and estimates the rest, `explicit` keeps logged costs only, `estimated` estimates every event. A `singleRequest` event above a long-context threshold bills at that tier's rates. An event the source cannot price has no `costUsd`. Events keep their other fields and type. An event with `costMode: 'explicit'` and no `costUsd` throws.
 - `estimateEventCostUsd(event, pricing)`: one event at one model's rates; `undefined` when a bucket the event used has no rate.
 - `explainModelPricing(source, model)`: the matched key and rule, override, origin, retired flag, rates and tiers, as `llm-usage pricing --json` prints them.
 
-Rates are USD per 1M tokens. The site's [Pricing events](https://ayagmar.github.io/llm-usage-metrics/library/pricing/) page has a longer walk-through.
+Rates are USD per 1M tokens. The rates a source returns are shared with later calls: copy them before changing them. When you bundle the package, `loadBundledPricing` reads a `data/` directory next to the bundled module: webpack 5 copies the files from their literal `new URL()` paths, but with esbuild and most other bundlers, copy `dist/data/` there yourself. The site's [Pricing events](https://ayagmar.github.io/llm-usage-metrics/library/pricing/) page has a longer walk-through.
 
 ## Example: session forensics
 
@@ -326,7 +326,7 @@ The order is the same on every read of the same file. Every event from a file us
 
 `text` (message text) and `title` (session titles, which summarise content) are only set with `text: true`. `textLength` is always set. `raw` carries the full parsed record, text, tool inputs and tool outputs included, whether or not `text` is set. For a tool call `raw` is `{ call, result }` (Codex web searches: `{ call }`). For a Codex usage record it is the record that carries the tokens (`token_usage_record` when present, else `token_count`). `cwd` and `gitBranch` are always set, as usage `repoRoot` already is.
 
-The core never sends data anywhere: it makes no network calls and writes nothing to the agents' stores.
+The core never sends data anywhere: its one network call, `fetchLiteLLMPricing`, is a GET for prices that sends nothing of yours, and it writes nothing to the agents' stores.
 
 ### Ids and logged provider
 

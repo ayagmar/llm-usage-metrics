@@ -513,13 +513,14 @@ export type PriceEventsOptions = {
  * replaces every cost with an estimate; `explicit` keeps logged costs only. A logged $0 with
  * tokens is estimated under `both`. A `singleRequest` event above a long-context threshold
  * bills at that tier's rates. An event the source cannot price is left without `costUsd`.
- * Returns new events in the same order; the input is not changed.
+ * Returns new events in the same order, with every field of the input events; the input is
+ * not changed. Throws when an event has `costMode: 'explicit'` but no `costUsd`.
  */
-export function priceEvents(
-  events: ReadonlyArray<UsageEvent & { costMode?: CostMode }>,
+export function priceEvents<E extends UsageEvent & { costMode?: CostMode }>(
+  events: readonly E[],
   source: PricingSource,
   options: PriceEventsOptions = {},
-): PricedUsageEvent[] {
+): WithEngineCost<E & { costMode: CostMode }>[] {
   const withCostModes = events.map((event) => ({
     ...event,
     costMode: resolveCostMode(event.costMode, event.costUsd),

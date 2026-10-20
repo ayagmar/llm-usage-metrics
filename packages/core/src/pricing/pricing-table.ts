@@ -124,15 +124,52 @@ export type PricingSourceOptions = {
   origin?: PricingDataOrigin;
 };
 
+const modelRateKeys = [
+  'inputPer1MUsd',
+  'outputPer1MUsd',
+  'cacheReadPer1MUsd',
+  'cacheWritePer1MUsd',
+  'cacheWrite1hPer1MUsd',
+  'reasoningPer1MUsd',
+] as const;
+
+function isValidRate(rate: number | undefined): boolean {
+  return rate === undefined || (Number.isFinite(rate) && rate >= 0);
+}
+
+/**
+ * Throws unless every rate of every model (tiers included) is a finite, non-negative number,
+ * so a bad rate cannot turn costs into NaN or negative numbers.
+ */
+export function assertValidModelRates(rates: ReadonlyMap<string, ModelPricing>): void {
+  for (const [model, pricing] of rates) {
+    const valid =
+      modelRateKeys.every((key) => isValidRate(pricing[key])) &&
+      (pricing.tiers ?? []).every(
+        (tier) =>
+          Number.isFinite(tier.aboveTokens) &&
+          modelRateKeys.every((key) => key === 'reasoningPer1MUsd' || isValidRate(tier[key])),
+      );
+
+    if (!valid) {
+      throw new TypeError(
+        `Invalid pricing for "${model}": rates must be finite, non-negative numbers`,
+      );
+    }
+  }
+}
+
 /**
  * A pricing source over your own rates, keyed by model name. Names resolve to keys with the
  * same matcher the bundled LiteLLM prices use, so `claude-sonnet-4-5-20250929` finds a
- * `claude-sonnet-4-5` key. Keys are trimmed and lowercased; the maps are copied.
+ * `claude-sonnet-4-5` key. Keys are trimmed and lowercased; the maps are copied. Throws when
+ * a rate is not a finite, non-negative number.
  */
 export function createPricingSource(
   rates: ReadonlyMap<string, ModelPricing>,
   options: PricingSourceOptions = {},
 ): PricingSource {
+  assertValidModelRates(rates);
   const maxInputTokensByModel = options.maxInputTokensByModel
     ? Object.fromEntries(
         [...options.maxInputTokensByModel].map(([model, limit]) => [normalizeKey(model), limit]),

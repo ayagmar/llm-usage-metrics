@@ -439,17 +439,19 @@ export function normalizeLiteLLMCachePayload(payload: unknown): LiteLLMCachePayl
 /** The bundled data files: the snapshot, the retired prices and the context limits. */
 export type BundledPricingFile = 'snapshot' | 'retiredPricing' | 'contextLimits';
 
-/** Each bundled data file's name under `pricing/data/`. */
-export const BUNDLED_PRICING_FILE_NAMES: Readonly<Record<BundledPricingFile, string>> = {
-  snapshot: 'litellm-pricing-snapshot.json',
-  retiredPricing: 'litellm-retired-pricing.json',
-  contextLimits: 'litellm-context-limits.json',
-};
+/** `promise`, with `forget` called when it rejects, so a memo of it retries on the next call. */
+export function forgetOnRejection<T>(promise: Promise<T>, forget: () => void): Promise<T> {
+  return promise.catch((error: unknown) => {
+    forget();
+    throw error;
+  });
+}
 
 /**
- * The pricing data the package bundles, normalized on first use and kept. `readFile` returns
- * a file's parsed JSON: the library reads the files next to its build, the CLI passes the
- * JSON it inlines.
+ * The pricing data the package bundles, normalized on first use and kept; a failed read is
+ * retried on the next call. `readFile` returns a file's parsed JSON: the library reads the
+ * files next to its build, the CLI passes the JSON it inlines. The returned rates are shared:
+ * do not change them.
  */
 export class BundledPricingData {
   private snapshotPromise: Promise<LiteLLMCachePayload> | undefined;
@@ -459,15 +461,20 @@ export class BundledPricingData {
   public constructor(private readonly readFile: (file: BundledPricingFile) => Promise<unknown>) {}
 
   public snapshot(): Promise<LiteLLMCachePayload> {
-    this.snapshotPromise ??= this.readFile('snapshot').then((payload) => {
-      const snapshot = normalizeLiteLLMCachePayload(payload);
+    this.snapshotPromise ??= forgetOnRejection(
+      this.readFile('snapshot').then((payload) => {
+        const snapshot = normalizeLiteLLMCachePayload(payload);
 
-      if (!snapshot || Object.keys(snapshot.pricingByModel).length === 0) {
-        throw new Error('Bundled LiteLLM pricing snapshot is not usable');
-      }
+        if (!snapshot || Object.keys(snapshot.pricingByModel).length === 0) {
+          throw new Error('Bundled LiteLLM pricing snapshot is not usable');
+        }
 
-      return snapshot;
-    });
+        return snapshot;
+      }),
+      () => {
+        this.snapshotPromise = undefined;
+      },
+    );
     return this.snapshotPromise;
   }
 
@@ -477,27 +484,37 @@ export class BundledPricingData {
    * pricing that lacks them.
    */
   public retiredPricing(): Promise<ReadonlyMap<string, ModelPricing>> {
-    this.retiredPricingPromise ??= this.readFile('retiredPricing').then((payload) => {
-      const retiredPricing = new Map<string, ModelPricing>();
-      const pricingRecord = asRecord(asRecord(payload)?.pricingByModel) ?? {};
+    this.retiredPricingPromise ??= forgetOnRejection(
+      this.readFile('retiredPricing').then((payload) => {
+        const retiredPricing = new Map<string, ModelPricing>();
+        const pricingRecord = asRecord(asRecord(payload)?.pricingByModel) ?? {};
 
-      for (const [modelName, rawPricing] of Object.entries(pricingRecord)) {
-        const pricing = normalizeCachedPricing(rawPricing);
+        for (const [modelName, rawPricing] of Object.entries(pricingRecord)) {
+          const pricing = normalizeCachedPricing(rawPricing);
 
-        if (pricing) {
-          retiredPricing.set(normalizeKey(modelName), pricing);
+          if (pricing) {
+            retiredPricing.set(normalizeKey(modelName), pricing);
+          }
         }
-      }
 
-      return retiredPricing;
-    });
+        return retiredPricing;
+      }),
+      () => {
+        this.retiredPricingPromise = undefined;
+      },
+    );
     return this.retiredPricingPromise;
   }
 
   /** Context limits by normalized pricing key, for the snapshot and older caches. */
   public maxInputTokensByModel(): Promise<Readonly<Record<string, unknown>>> {
-    this.contextLimitsPromise ??= this.readFile('contextLimits').then(
-      (payload) => asRecord(asRecord(payload)?.maxInputTokensByModel) ?? {},
+    this.contextLimitsPromise ??= forgetOnRejection(
+      this.readFile('contextLimits').then(
+        (payload) => asRecord(asRecord(payload)?.maxInputTokensByModel) ?? {},
+      ),
+      () => {
+        this.contextLimitsPromise = undefined;
+      },
     );
     return this.contextLimitsPromise;
   }
@@ -509,12 +526,21 @@ export class BundledPricingData {
  * at the root of `dist/` and copies the files to `dist/data/`.
  */
 export const packagedPricingData = new BundledPricingData(async (file) => {
-  const content = await readFile(
-    new URL(`./data/${BUNDLED_PRICING_FILE_NAMES[file]}`, import.meta.url),
-    'utf8',
-  );
+  const content = await readFile(packagedPricingFileUrl(file), 'utf8');
   return JSON.parse(content) as unknown;
 });
+
+// Literal URLs, which a bundler such as webpack 5 can find and copy as assets.
+function packagedPricingFileUrl(file: BundledPricingFile): URL {
+  switch (file) {
+    case 'snapshot':
+      return new URL('./data/litellm-pricing-snapshot.json', import.meta.url);
+    case 'retiredPricing':
+      return new URL('./data/litellm-retired-pricing.json', import.meta.url);
+    case 'contextLimits':
+      return new URL('./data/litellm-context-limits.json', import.meta.url);
+  }
+}
 
 /** Rates keyed by normalized model key, in the record's order. */
 export function toPricingMap(

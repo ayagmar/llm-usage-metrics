@@ -192,6 +192,30 @@ export default tseslint.config(
     },
   },
   {
+    // The CLI bundle inlines the pricing data and ships no data/ directory, so anything that
+    // reads the package's data files works from source and in tests but fails in dist.
+    files: ['src/**/*.ts'],
+    ignores: ['src/pricing/cli-pricing-fetcher.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@ayagmar/agent-sessions/internal',
+              importNames: ['LiteLLMPricingFetcher', 'packagedPricingData'],
+              message: 'Use createLiteLLMPricingFetcher from src/pricing/cli-pricing-fetcher.ts.',
+            },
+            {
+              name: '@ayagmar/agent-sessions/pricing',
+              message: 'The CLI reads pricing through src/pricing/cli-pricing-fetcher.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['tests/**/*.{ts,tsx,mts,cts}', 'packages/*/tests/**/*.{ts,tsx,mts,cts}'],
     rules: {
       '@typescript-eslint/no-unsafe-type-assertion': 'off',

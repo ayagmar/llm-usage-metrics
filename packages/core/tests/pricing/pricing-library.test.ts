@@ -2,6 +2,7 @@ import type * as NodeFsPromises from 'node:fs/promises';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createUsageRecord } from '../../src/domain/session-event.js';
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
 import { LiteLLMPricingFetcher } from '../../src/pricing/litellm-pricing-fetcher.js';
 import {
@@ -110,6 +111,31 @@ describe('loadBundledPricing', () => {
       'litellm-retired-pricing.json',
     ]);
   });
+
+  it('reads the data files again after a failed first read', async () => {
+    let failNextRead = true;
+    vi.doMock('node:fs/promises', async (importOriginal) => {
+      const actual = await importOriginal<typeof NodeFsPromises>();
+      const readFile = ((...args: Parameters<typeof actual.readFile>) => {
+        if (failNextRead) {
+          failNextRead = false;
+          return Promise.reject(
+            Object.assign(new Error('EMFILE: too many open files'), { code: 'EMFILE' }),
+          );
+        }
+        return actual.readFile(...args);
+      }) as typeof actual.readFile;
+      return { ...actual, readFile, default: { ...actual, readFile } };
+    });
+    vi.resetModules();
+
+    // eslint-disable-next-line no-restricted-syntax -- importing after the mock is what is tested
+    const pricing = await import('../../src/pricing/index.js');
+
+    await expect(pricing.loadBundledPricing()).rejects.toThrow(/EMFILE/u);
+    const source = await pricing.loadBundledPricing();
+    expect(source.getPricing(source.resolveModelAlias('claude-sonnet-4-5'))).toBeDefined();
+  });
 });
 
 describe('priceEvents', () => {
@@ -127,6 +153,26 @@ describe('priceEvents', () => {
     expect(pricedUnlogged).toMatchObject({ costUsd: 3, costMode: 'estimated' });
     expect(logged).not.toHaveProperty('costMode');
     expect(unlogged.costUsd).toBeUndefined();
+  });
+
+  it('keeps the fields and type of the events it prices', () => {
+    const record = createUsageRecord({
+      source: 'pi',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'gpt-5',
+      inputTokens: 1_000_000,
+      outputTokens: 1_000_000,
+      rawProvider: 'openai',
+    });
+
+    const [priced] = priceEvents([record], source);
+
+    // Compiles only while the result keeps the record's own fields.
+    const kind: 'usage' = priced.kind;
+    expect(kind).toBe('usage');
+    expect(priced.rawProvider).toBe('openai');
+    expect(priced.costUsd).toBe(3);
   });
 
   it('applies the cost modes', () => {
@@ -216,6 +262,21 @@ describe('createPricingSource and withOverrides', () => {
     });
     expect(explainModelPricing(source, 'my-model').override).toBe('raw');
   });
+
+  it('rejects rates that would make costs NaN or negative', () => {
+    const base = createPricingSource(new Map());
+    const invalid: ModelPricing[] = [
+      { inputPer1MUsd: Number.NaN, outputPer1MUsd: 2 },
+      { inputPer1MUsd: 1, outputPer1MUsd: 2, cacheReadPer1MUsd: -1 },
+      { inputPer1MUsd: 1, outputPer1MUsd: 2, tiers: [{ aboveTokens: 200_000, inputPer1MUsd: -2 }] },
+    ];
+
+    for (const pricing of invalid) {
+      const rates = new Map([['my-model', pricing]]);
+      expect(() => createPricingSource(rates)).toThrow(/Invalid pricing for "my-model"/u);
+      expect(() => withOverrides(base, rates)).toThrow(/Invalid pricing for "my-model"/u);
+    }
+  });
 });
 
 describe('fetchLiteLLMPricing', () => {
@@ -262,6 +323,28 @@ describe('fetchLiteLLMPricing', () => {
 
     await expect(fetchLiteLLMPricing({ signal: controller.signal })).rejects.toThrow();
     expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a 503 and prices from the next response', async () => {
+    const fetchStub = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('busy', { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }));
+    vi.stubGlobal('fetch', fetchStub);
+
+    const source = await fetchLiteLLMPricing({ url: 'https://example.test/prices.json' });
+
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+    expect(source.getPricing('my-model')).toEqual({ inputPer1MUsd: 1, outputPer1MUsd: 2 });
+  });
+
+  it('rejects a maxBytes that is not a positive integer without fetching', async () => {
+    const fetchStub = stubFetchServing(payload);
+
+    for (const maxBytes of [Number.NaN, 0, -1, 1.5]) {
+      await expect(fetchLiteLLMPricing({ maxBytes })).rejects.toThrow(/maxBytes/u);
+    }
+    expect(fetchStub).not.toHaveBeenCalled();
   });
 
   it('rejects a response larger than maxBytes', async () => {

@@ -4,6 +4,7 @@ export {
   priceEvents,
   type PriceEventsOptions,
   type PricingCostMode,
+  type WithEngineCost,
 } from './cost-engine.js';
 export {
   explainModelPricing,
