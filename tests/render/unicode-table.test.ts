@@ -34,6 +34,31 @@ describe('renderUnicodeTable', () => {
     ]);
   });
 
+  it('drops the alignment padding of lines too long for a listed value, wrapping only the longest', () => {
+    const cell = ['• a-very-long-project-name  $1.00', '• api                      $2.00'].join(
+      '\n',
+    );
+    const rendered = renderUnicodeTable({
+      headerCells: ['Month', 'Projects'],
+      bodyRows: [['2026-06', cell]],
+      measureHeaderCells: ['Month', 'Projects'],
+      measureBodyRows: [['2026-06', cell]],
+      rowMetas: [createRowMeta()],
+      layout: 'top_aligned',
+      columnKinds: ['text', 'text'],
+      multilineColumnIndex: 1,
+      terminalWidth: 36,
+      stackedTitleColumnCount: 1,
+    });
+
+    expect(rendered.split('\n')).toEqual([
+      '2026-06',
+      '  Projects  • a-very-long-project-',
+      '            name $1.00',
+      '            • api $2.00',
+    ]);
+  });
+
   it('lists rows as labelled values when the table is wider than the terminal', () => {
     const rendered = renderUnicodeTable({
       headerCells: ['Session', 'Source', 'Cost', 'Models'],

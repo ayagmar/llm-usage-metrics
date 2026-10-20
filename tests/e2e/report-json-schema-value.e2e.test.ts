@@ -36,6 +36,7 @@ describe('value JSON schema', () => {
     ['an overridden price with idle months', { planPrice: '18', since: '2026-03-10' }],
     ['incomplete costs', { costMode: 'explicit' as const }],
     ['no usage', { repo: 'no-such-project' }],
+    ['projects left out by --top', { top: '1' }],
   ])('validates %s', async (_, extra) => {
     const output = await buildValueReportOutput({ ...options, ...extra }, deps);
 
