@@ -6,8 +6,8 @@ import { asRecord } from './as-record.js';
 import { compareByCodePoint } from './compare-by-code-point.js';
 
 export type DiscoverFilesOptions = {
-  /** File extension to match (e.g., '.json', '.settings.json'). Case-insensitive. */
-  extension: string;
+  /** File extension, or extensions, to match (e.g., '.json', '.settings.json'). Case-insensitive. */
+  extension: string | readonly string[];
   /** Whether to recurse into subdirectories. Default: true */
   recursive?: boolean;
   /** Skip permission errors (EACCES/EPERM) instead of throwing. Default: true */
@@ -28,10 +28,14 @@ function isSkippableDirectoryReadError(error: unknown): boolean {
   return code === 'EACCES' || code === 'EPERM';
 }
 
-function matchesExtension(fileName: string, extension: string): boolean {
+type ResolvedDiscoverFilesOptions = Required<Omit<DiscoverFilesOptions, 'extension'>> & {
+  /** Lowercased. */
+  extensions: readonly string[];
+};
+
+function matchesExtension(fileName: string, extensions: readonly string[]): boolean {
   const lowerFileName = fileName.toLowerCase();
-  const lowerExtension = extension.toLowerCase();
-  return lowerFileName.endsWith(lowerExtension);
+  return extensions.some((extension) => lowerFileName.endsWith(extension));
 }
 
 function normalizeExtension(extension: string): string {
@@ -45,13 +49,13 @@ function normalizeExtension(extension: string): string {
     throw new Error('discoverFiles extension must start with "."');
   }
 
-  return normalized;
+  return normalized.toLowerCase();
 }
 
 async function walkDirectory(
   rootDir: string,
   acc: string[],
-  options: Required<DiscoverFilesOptions>,
+  options: ResolvedDiscoverFilesOptions,
   ancestryRealPaths: ReadonlySet<string>,
 ): Promise<void> {
   let resolvedRootDir: string;
@@ -112,8 +116,8 @@ async function walkDirectory(
 
         if (
           entryStats.isFile() &&
-          (matchesExtension(entry.name, options.extension) ||
-            matchesExtension(path.basename(resolvedEntryPath), options.extension))
+          (matchesExtension(entry.name, options.extensions) ||
+            matchesExtension(path.basename(resolvedEntryPath), options.extensions))
         ) {
           acc.push(entryPath);
         }
@@ -138,7 +142,7 @@ async function walkDirectory(
       continue;
     }
 
-    if (entry.isFile() && matchesExtension(entry.name, options.extension)) {
+    if (entry.isFile() && matchesExtension(entry.name, options.extensions)) {
       acc.push(entryPath);
     }
   }
@@ -146,7 +150,7 @@ async function walkDirectory(
 
 async function toCanonicalFiles(
   files: readonly string[],
-  options: Required<DiscoverFilesOptions>,
+  options: ResolvedDiscoverFilesOptions,
 ): Promise<string[]> {
   const canonicalFiles: string[] = [];
   const seenRealPaths = new Set<string>();
@@ -184,7 +188,7 @@ async function toCanonicalFiles(
 }
 
 /**
- * Recursively discover files matching the given extension.
+ * Recursively discover files matching any of the given extensions, in one walk.
  * Returns empty array if rootDir doesn't exist.
  * Skips permission errors by default.
  */
@@ -193,8 +197,15 @@ export async function discoverFiles(
   options: DiscoverFilesOptions,
 ): Promise<string[]> {
   const files: string[] = [];
-  const resolvedOptions: Required<DiscoverFilesOptions> = {
-    extension: normalizeExtension(options.extension),
+  const extensions =
+    typeof options.extension === 'string' ? [options.extension] : options.extension;
+
+  if (extensions.length === 0) {
+    throw new Error('discoverFiles needs at least one extension');
+  }
+
+  const resolvedOptions: ResolvedDiscoverFilesOptions = {
+    extensions: extensions.map(normalizeExtension),
     recursive: options.recursive ?? true,
     allowPermissionSkip: options.allowPermissionSkip ?? true,
     sort: options.sort ?? true,

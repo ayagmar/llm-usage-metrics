@@ -65,6 +65,32 @@ describe('discoverFiles', () => {
     await expect(discoverFiles(missingDir, { extension: '.json' })).resolves.toEqual([]);
   });
 
+  it('discovers files matching any of several extensions, in one sorted list', async () => {
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-multi-'));
+    tempDirs.push(rootDir);
+
+    const nestedDir = path.join(rootDir, 'nested');
+    await mkdir(nestedDir, { recursive: true });
+
+    const plainFile = path.join(rootDir, 'b.jsonl');
+    const compressedFile = path.join(rootDir, 'a.JSONL.ZST');
+    const nestedFile = path.join(nestedDir, 'c.jsonl.zst');
+
+    await writeFile(plainFile, '{}', 'utf8');
+    await writeFile(compressedFile, 'x', 'utf8');
+    await writeFile(nestedFile, 'x', 'utf8');
+    await writeFile(path.join(rootDir, 'ignore.zst'), 'x', 'utf8');
+
+    await expect(discoverFiles(rootDir, { extension: ['.jsonl', '.jsonl.zst'] })).resolves.toEqual([
+      compressedFile,
+      plainFile,
+      nestedFile,
+    ]);
+    await expect(discoverFiles(rootDir, { extension: [] })).rejects.toThrow(
+      'discoverFiles needs at least one extension',
+    );
+  });
+
   it('validates extension option', async () => {
     const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-ext-'));
     tempDirs.push(rootDir);

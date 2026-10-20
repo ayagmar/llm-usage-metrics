@@ -105,6 +105,74 @@ describe('CodexSourceAdapter over compressed rollouts', () => {
     }
   });
 
+  it('reads a rollout Codex compresses or decompresses after discovery from its other form', async () => {
+    for (const fixtureRoot of FIXTURE_ROOTS) {
+      const plainAdapter = new CodexSourceAdapter({ dir: fixtureRoot });
+      const plainFiles = await plainAdapter.discoverFiles();
+      const plainRoot = await createTempDir();
+      const compressedRoot = await createTempDir();
+
+      for (const plainFile of plainFiles) {
+        const relativePath = path.relative(fixtureRoot, plainFile);
+        await mkdir(path.dirname(path.join(plainRoot, relativePath)), { recursive: true });
+        await writeFile(path.join(plainRoot, relativePath), await readFile(plainFile));
+        await writeCompressed(path.join(compressedRoot, relativePath), await readFile(plainFile));
+      }
+
+      const compressingAdapter = new CodexSourceAdapter({ dir: plainRoot });
+      const decompressingAdapter = new CodexSourceAdapter({ dir: compressedRoot });
+      const discoveredPlain = await compressingAdapter.discoverFiles();
+      const discoveredCompressed = await decompressingAdapter.discoverFiles();
+
+      // Codex writes the new form, then removes the old one.
+      for (const plainFile of discoveredPlain) {
+        await writeCompressed(plainFile, await readFile(plainFile));
+        await rm(plainFile);
+      }
+
+      for (const compressedFile of discoveredCompressed) {
+        const plainFile = compressedFile.slice(0, -'.zst'.length);
+        await writeFile(
+          plainFile,
+          await readFile(path.join(fixtureRoot, path.relative(compressedRoot, plainFile))),
+        );
+        await rm(compressedFile);
+      }
+
+      for (const [index, plainFile] of plainFiles.entries()) {
+        const expectedEvents = await collect(plainAdapter.readEvents(plainFile));
+        const expectedFile = await collectFile(plainAdapter, plainFile);
+
+        for (const [adapter, discoveredFile] of [
+          [compressingAdapter, discoveredPlain[index]],
+          [decompressingAdapter, discoveredCompressed[index]],
+        ] as const) {
+          await expect(
+            collect(adapter.readEvents(discoveredFile)),
+            discoveredFile,
+          ).resolves.toEqual(expectedEvents);
+          await expect(collectFile(adapter, discoveredFile), discoveredFile).resolves.toEqual(
+            expectedFile,
+          );
+        }
+      }
+    }
+  });
+
+  it('fails a rollout removed after discovery in both forms with the discovered path', async () => {
+    const root = await createTempDir();
+    const plainPath = path.join(root, ROLLOUT);
+    await writeFile(plainPath, largeRollout(1));
+    const adapter = new CodexSourceAdapter({ dir: root });
+    const [discovered] = await adapter.discoverFiles();
+    await rm(plainPath);
+
+    await expect(collectFile(adapter, discovered)).rejects.toMatchObject({
+      code: 'ENOENT',
+      path: plainPath,
+    });
+  });
+
   it('names a session without session_meta after its rollout, plain or compressed', async () => {
     const root = await createTempDir();
     const line = JSON.stringify({
@@ -171,4 +239,22 @@ describe('CodexSourceAdapter over compressed rollouts', () => {
 
     await waitForOpenFdCount(before);
   });
+
+  it.runIf(canCountOpenFds)(
+    'closes the other form when the consumer stops early after a fallback',
+    async () => {
+      const root = await createTempDir();
+      const plainPath = path.join(root, ROLLOUT);
+      await writeCompressed(plainPath, largeRollout(3000));
+      const adapter = new CodexSourceAdapter({ dir: root });
+      const before = countOpenFds();
+
+      for await (const event of adapter.read(plainPath)) {
+        expect(event.sessionId).toBe('codex-large-zst');
+        break;
+      }
+
+      await waitForOpenFdCount(before);
+    },
+  );
 });
