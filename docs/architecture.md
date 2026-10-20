@@ -84,7 +84,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 1. `buildUsageEventDataset(...)` and pricing
 2. `aggregateProjects(...)` (`src/cli/build-projects-data.ts`): per-project totals keyed by `toProjectKey` and labelled by `buildEventProjectLabels` (`src/aggregate/project-key.ts`), which keeps folders with the same name apart and labels events with no repository `(unattributed)`
-3. `renderProjectsReport(...)`
+3. `renderProjectsReportWithNotes(...)`
 4. shared report runtime emits diagnostics and stdout body
 
 ### Blocks
@@ -94,7 +94,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 1. `readBlocksDataset(...)` (`src/cli/build-blocks-data.ts`, shared with `--share`): `buildUsageEventDataset(...)` with a `lookbackSince` a week before the window, so a block that started earlier keeps its start while filters resolve over the window, then pricing
 2. `readWholeStreams(...)` when `--repo`, `--model`, `--provider` or `--machine` narrowed the events: each source's whole stream over the same dates, so blocks keep the account's 5-hour windows; `--machine` reads every machine's cached usage again for this
 3. `aggregateBlocks(...)` (`src/blocks`) places the windows on the whole stream and counts the narrowed events in them
-4. `renderBlocksReport(...)`, with the active block's burn rate
+4. `renderBlocksReportWithNotes(...)`, with the active block's burn rate
 5. shared report runtime emits diagnostics and stdout body
 
 ### Value
@@ -104,7 +104,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 1. `selectPlans(...)` and `resolvePlanScopes(...)` (`src/value/plans.ts`) pick the plans and the sources each covers; the default plan falls back to one whose sources the `--source` filter keeps
 2. `buildUsageEventDataset(...)` over the plans' sources, and pricing
 3. `buildValueReport(...)` (`src/value/build-value-report.ts`): API-priced cost per month against each plan's price, split by project
-4. `renderValueReport(...)`
+4. `renderValueReportWithNotes(...)`
 5. shared report runtime emits diagnostics and stdout body
 
 ### Pricing
@@ -131,7 +131,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 2. pricing load and application
 3. `aggregateUsage(..., { includeModelBreakdown: false })`
 4. `buildCounterfactualRows(...)`
-5. `renderOptimizeReport(...)`
+5. `renderOptimizeReportWithNotes(...)`
 6. shared report runtime emits diagnostics, optional share report, and stdout body
 
 ### Trends
@@ -151,7 +151,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 1. `buildCompareData(...)` builds one priced dataset spanning both date windows
 2. per-window aggregation and delta computation
-3. `renderCompareReport(...)`
+3. `renderCompareReportWithNotes(...)`
 4. shared report runtime emits diagnostics and stdout body
 
 ### Session
@@ -171,7 +171,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 1. `buildToolsData(...)` resolves the window as `daily` does (last 7 days by default) and builds the usage dataset as reports do, history and other machines included; it loads no prices
 2. `readLiveSessionEvents(...)` (`src/cli/read-live-session-events.ts`) reads `tool_call` events of those files and of the departed files history served from the event store (`readStoredSessionEvents`), or from the files on disk through core `readEvents` with the store off or for a file it could not store, then reads the other machines' calls from their caches and drops those this machine or an earlier machine already counts (`mergeMachineSessionEvents`, the same per-session merge as usage), and `dedupeToolCalls` counts a call copied into a resumed or forked session once
 3. `aggregateTools(...)` (`src/tools`): calls, errors, unknown results, sessions and top project per tool, split by source or project on request
-4. `renderToolsReport(...)`
+4. `renderToolsReportWithNotes(...)`
 5. shared report runtime emits diagnostics, the note on where tool calls came from, and stdout body
 
 ### Context
@@ -190,7 +190,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 1. `buildWrappedData(...)` builds the priced dataset for the recap year's range
 2. `aggregateWrapped(...)` (`src/wrapped`)
-3. `renderWrappedReport(...)`
+3. `renderWrappedReportWithNotes(...)`
 4. shared report runtime emits diagnostics, optional share report, and stdout body
 
 ### Summary

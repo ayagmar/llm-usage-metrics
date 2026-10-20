@@ -163,6 +163,41 @@ describe('renderToolsReportWithNotes', () => {
     expect(output).not.toContain(note);
   });
 
+  it.each([
+    {
+      changed: 'counts only',
+      data: createToolsData({ bySource: true }),
+      says: 'abbreviated counts',
+      not: 'shortened',
+    },
+    {
+      changed: 'names only',
+      data: (() => {
+        const data = createToolsData();
+        const rows = [toolRow('Bash', 64), toolRow(LONG_MCP_NAME, 12)];
+        return {
+          ...data,
+          data: {
+            ...data.data,
+            rowCount: rows.length,
+            rows,
+            totals: { calls: 76, errors: 1, unknown: 2, errorRate: 0.02, sessions: 80, tools: 2 },
+          },
+        };
+      })(),
+      says: 'shortened long names',
+      not: 'abbreviated',
+    },
+  ])('names only what the fitted step changed ($changed)', ({ data, says, not }) => {
+    const [note] = renderToolsReportWithNotes(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 80,
+    }).notes;
+
+    expect(note).toContain(says);
+    expect(note).not.toContain(not);
+  });
+
   it('names columns that are really missing from the header at 80 columns', () => {
     const header = headerLine(notesAt(80).output);
 

@@ -47,8 +47,16 @@ export function describeTableFit(...fits: readonly TableFitChanges[]): string | 
     changes.push('abbreviated counts');
   }
 
+  // A table that kept a column another table hid still shows it, so say "in some tables"
+  // rather than claim every table hid it.
+  const hiddenEverywhere = fits.every((one) =>
+    fit.hiddenHeaders.every((header) => one.hiddenHeaders.includes(header)),
+  );
+
   if (fit.hiddenHeaders.length > 0) {
-    changes.push(`hid ${joinWithAnd(fit.hiddenHeaders)}`);
+    changes.push(
+      `hid ${joinWithAnd(fit.hiddenHeaders)}${hiddenEverywhere ? '' : ' in some tables'}`,
+    );
   }
 
   if (fit.shortenedModelNames === true) {
@@ -59,11 +67,10 @@ export function describeTableFit(...fits: readonly TableFitChanges[]): string | 
     changes.push('shortened long names');
   }
 
-  const changedTables = fits.length > 1 ? fits.filter((one) => describeTableFit(one)) : fits;
-  const plural = changedTables.length > 1;
+  const plural = fits.length > 1;
   const table = plural ? 'tables' : 'table';
-  // Listed rows lead the note only when every changed table became a list.
-  const allStacked = fit.stacked && changedTables.every((one) => one.stacked);
+  // Listed rows lead the note only when every table became a list.
+  const allStacked = fits.length > 0 && fits.every((one) => one.stacked);
 
   if (fit.stacked && !allStacked) {
     changes.push('listed rows where no table fit');

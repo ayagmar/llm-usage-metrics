@@ -261,11 +261,3 @@ export function renderProjectsReportWithNotes(
       return renderTerminalProjectsReport(data, options);
   }
 }
-
-export function renderProjectsReport(
-  data: ProjectsData,
-  format: ProjectsReportFormat,
-  options: RenderProjectsReportOptions = {},
-): string {
-  return renderProjectsReportWithNotes(data, format, options).output;
-}

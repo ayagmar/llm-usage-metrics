@@ -43,18 +43,17 @@ describe('describeTableFit', () => {
   it('gives a report with several tables one note, naming each hidden column once', () => {
     expect(
       describeTableFit(
-        { ...unchanged, abbreviatedTokens: true, hiddenHeaders: ['Baseline'] },
-        unchanged,
-        { ...unchanged, hiddenHeaders: ['Baseline', 'Δ%'] },
+        { ...unchanged, abbreviatedTokens: true, hiddenHeaders: ['Baseline', 'Δ%'] },
+        { ...unchanged, hiddenHeaders: ['Δ%', 'Baseline'] },
       ),
     ).toBe(
       'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ%. Widen the terminal or use --json for full detail.',
     );
   });
 
-  it('says "the table" when only one of several tables changed', () => {
+  it('says "in some tables" when another table still shows a hidden column', () => {
     expect(describeTableFit(unchanged, { ...unchanged, hiddenHeaders: ['Rank'] })).toBe(
-      'Fitted the table to the terminal: hid Rank. Widen the terminal or use --json for full detail.',
+      'Fitted the tables to the terminal: hid Rank in some tables. Widen the terminal or use --json for full detail.',
     );
     expect(describeTableFit(unchanged, unchanged)).toBeUndefined();
   });

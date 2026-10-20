@@ -75,21 +75,21 @@ Every report that reads usage builds its events through `buildUsageEventDataset`
 
 ## Builders and renderers
 
-| Command                                 | Builder                                         | Renderer                                       |
-| --------------------------------------- | ----------------------------------------------- | ---------------------------------------------- |
-| `summary`                               | `buildSummaryData`                              | `renderSummaryReport`                          |
-| `hourly`, `daily`, `weekly`, `monthly`  | `buildUsageData`                                | `renderUsageReportWithNotes`                   |
-| `projects`                              | `buildProjectsData`                             | `renderProjectsReport`                         |
-| `compare`                               | `buildCompareData`                              | `renderCompareReport`                          |
-| `efficiency`                            | `buildEfficiencyData`                           | `renderEfficiencyReportWithNotes`              |
-| `optimize`                              | `buildOptimizeData`                             | `renderOptimizeReport`                         |
-| `trends`                                | `buildTrendsData`                               | `renderTrendsReport`                           |
-| `session`                               | `buildSessionData`                              | `renderSessionReport`                          |
-| `blocks`                                | `buildBlocksData`                               | `renderBlocksReport`                           |
-| `value`                                 | `buildValueData`                                | `renderValueReport`                            |
-| `wrapped`                               | `buildWrappedData`                              | `renderWrappedReport`                          |
-| `pricing`                               | `run-pricing-report.ts` (reads no usage)        | `renderPricingReport`                          |
-| `doctor`, `prune`                       | `run-doctor-report.ts`, `run-prune-report.ts`   | `renderDoctorText`, `renderPruneReport`        |
+| Command                                | Builder                                       | Renderer                                         |
+| -------------------------------------- | --------------------------------------------- | ------------------------------------------------ |
+| `summary`                              | `buildSummaryData`                            | `renderSummaryReportWithNotes`                   |
+| `hourly`, `daily`, `weekly`, `monthly` | `buildUsageData`                              | `renderUsageReportWithNotes`                     |
+| `projects`                             | `buildProjectsData`                           | `renderProjectsReportWithNotes`                  |
+| `compare`                              | `buildCompareData`                            | `renderCompareReportWithNotes`                   |
+| `efficiency`                           | `buildEfficiencyData`                         | `renderEfficiencyReportWithNotes`                |
+| `optimize`                             | `buildOptimizeData`                           | `renderOptimizeReportWithNotes`                  |
+| `trends`                               | `buildTrendsData`                             | `renderTrendsReport`                             |
+| `session`                              | `buildSessionData`                            | `renderSessionReport`                            |
+| `blocks`                               | `buildBlocksData`                             | `renderBlocksReportWithNotes`                    |
+| `value`                                | `buildValueData`                              | `renderValueReportWithNotes`                     |
+| `wrapped`                              | `buildWrappedData`                            | `renderWrappedReportWithNotes`                   |
+| `pricing`                              | `run-pricing-report.ts` (reads no usage)      | `renderPricingReport`                            |
+| `doctor`, `prune`                      | `run-doctor-report.ts`, `run-prune-report.ts` | `renderDoctorText`, `renderPruneReportWithNotes` |
 
 `events` and `statusline` have their own runners (`run-events-report.ts`, `run-statusline.ts`): `events` exports the priced events as JSONL, CSV, or OTLP traces or metrics, and `statusline` prints one line for a status bar. `--share` builds its own dataset; see [Share report](/llm-usage-metrics/architecture/share-report/).
 

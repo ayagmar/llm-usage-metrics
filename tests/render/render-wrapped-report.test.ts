@@ -264,6 +264,11 @@ describe('renderWrappedReportWithNotes', () => {
       'Fitted the tables to the terminal: abbreviated token counts, hid Rank. Widen the terminal or use --json for full detail.',
     ]);
     expect(output).not.toMatch(/\bRank\b/u);
+    // The rank column (`#`) is gone from both top tables.
+    expect(output.split('\n').filter((line) => line.startsWith('│ #'))).toEqual([]);
+    expect(renderWrappedReportWithNotes(recap, 'terminal', { terminalWidth: 400 }).output).toMatch(
+      /^│ # /mu,
+    );
     expect(output).not.toContain(notes[0]);
   });
 

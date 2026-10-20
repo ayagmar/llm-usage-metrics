@@ -358,11 +358,11 @@ describe('renderCompareReportWithNotes', () => {
   it.each([
     [
       44,
-      'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ%, listed rows where no table fit. Widen the terminal or use --json for full detail.',
+      'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ% in some tables, listed rows where no table fit. Widen the terminal or use --json for full detail.',
     ],
     [
       60,
-      'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ%. Widen the terminal or use --json for full detail.',
+      'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ% in some tables. Widen the terminal or use --json for full detail.',
     ],
   ])('gives one note for all tables at %i columns, outside stdout', (width, note) => {
     const { output, notes } = notesAt(width);

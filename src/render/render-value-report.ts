@@ -23,7 +23,12 @@ import {
   visibleWidth,
 } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import {
+  describeTableFit,
+  type RenderedReportWithNotes,
+  type TableFitChanges,
+} from './table-fit-note.js';
+import { renderUnicodeTableWithFit, type TableRowMeta } from './unicode-table.js';
 
 export type ValueReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -216,7 +221,7 @@ function hasNoMonths(data: ValueReportData): boolean {
 function renderTerminalValueReport(
   data: ValueReportData,
   options: RenderValueReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const columns = resolveColumns(options);
   const headerCells = columns.map((column) => COLUMN_HEADERS[column]);
@@ -224,8 +229,10 @@ function renderTerminalValueReport(
 
   if (hasNoMonths(data)) {
     lines.push(formatNoUsageMessage(options.filtered ?? false));
-    return lines.join('\n');
+    return { output: lines.join('\n'), notes: [] };
   }
+
+  const fits: TableFitChanges[] = [];
 
   for (const plan of data.plans) {
     const rows = toTableRows(plan, { ...options, useColor, align: true });
@@ -233,29 +240,31 @@ function renderTerminalValueReport(
     const description = describePlan(plan, data.asOf, options.hideCost === true);
 
     lines.push(useColor ? pc.cyan(description) : description);
-    lines.push(
-      renderUnicodeTable({
-        headerCells,
-        bodyRows,
-        measureHeaderCells: headerCells,
-        measureBodyRows: bodyRows,
-        rowMetas: rows.map((row) => row.meta),
-        columnKinds: columns.map((column) =>
-          column === 'month' || column === 'projects' ? 'text' : 'measure',
-        ),
-        multilineColumnIndex: 1,
-        // Narrow terminals list each project on its own line, not in the month's title.
-        stackedTitleColumnCount: 1,
-        terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
-      }),
-    );
-    lines.push('');
+    const { output, fit } = renderUnicodeTableWithFit({
+      headerCells,
+      bodyRows,
+      measureHeaderCells: headerCells,
+      measureBodyRows: bodyRows,
+      rowMetas: rows.map((row) => row.meta),
+      columnKinds: columns.map((column) =>
+        column === 'month' || column === 'projects' ? 'text' : 'measure',
+      ),
+      multilineColumnIndex: 1,
+      // Narrow terminals list each project on its own line, not in the month's title.
+      stackedTitleColumnCount: 1,
+      terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
+    });
+
+    lines.push(output, '');
+    fits.push(fit);
   }
 
   const footerLines = buildFooterLines(data, options);
   lines.push(...(useColor ? footerLines.map((line) => pc.dim(line)) : footerLines));
 
-  return lines.join('\n');
+  const fitNote = describeTableFit(...fits);
+
+  return { output: lines.join('\n'), notes: fitNote ? [fitNote] : [] };
 }
 
 function renderMarkdownValueReport(
@@ -286,17 +295,25 @@ function renderMarkdownValueReport(
   return [...sections, footer.join('\n\n')].join('\n\n');
 }
 
+export function renderValueReportWithNotes(
+  data: ValueReportData,
+  format: ValueReportFormat,
+  options: RenderValueReportOptions = {},
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return { output: renderReportJson('value', data), notes: [] };
+    case 'markdown':
+      return { output: renderMarkdownValueReport(data, options), notes: [] };
+    case 'terminal':
+      return renderTerminalValueReport(data, options);
+  }
+}
+
 export function renderValueReport(
   data: ValueReportData,
   format: ValueReportFormat,
   options: RenderValueReportOptions = {},
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('value', data);
-    case 'markdown':
-      return renderMarkdownValueReport(data, options);
-    case 'terminal':
-      return renderTerminalValueReport(data, options);
-  }
+  return renderValueReportWithNotes(data, format, options).output;
 }
