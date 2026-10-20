@@ -253,16 +253,20 @@ describe('report json schema e2e', () => {
       discoverFiles: async () => [],
       read: readFrom(async () => []),
     };
+    const deps = {
+      createAdapters: () => [adapter],
+      getEventStoreRuntimeConfig: () => ({ enabled: true as const, path: dbPath }),
+    };
     const output = await captureJsonStdout(() =>
-      runPruneReport(
-        { suppressed: true, departedBefore: '2026-01-01', json: true },
-        {
-          createAdapters: () => [adapter],
-          getEventStoreRuntimeConfig: () => ({ enabled: true, path: dbPath }),
-        },
-      ),
+      runPruneReport({ suppressed: true, departedBefore: '2026-01-01', json: true }, deps),
     );
     validateReport('prune', output);
+
+    // Without a selector, the summary counts what each selector would pick.
+    const countsOutput = await captureJsonStdout(() => runPruneReport({ json: true }, deps));
+    expect(validateReport('prune', countsOutput)).toMatchObject({
+      data: { summary: { departedFiles: { fileCount: 1, eventCount: 1 } } },
+    });
   });
 
   it('validates daily and weekly usage output', async () => {
