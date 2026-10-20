@@ -616,7 +616,7 @@ describe('buildSessionData --json details', () => {
     );
   });
 
-  it('keeps a copied call with its parent when --id shows only the copy', async () => {
+  it('counts a copied call once when --id leaves out the session tools gives it', async () => {
     const result = await buildSessionData(
       { json: true, id: ['claude-b'], timezone: 'UTC' },
       toolFixtureDeps(),
@@ -638,19 +638,35 @@ describe('buildSessionData --json details', () => {
     expect(sessionRowsOf(result).some((row) => 'toolCalls' in row)).toBe(false);
   });
 
-  it('warns and leaves out the calls of a file whose live read fails', async () => {
+  it('gives no counts to the sessions of a source whose live read fails, and warns', async () => {
     const result = await buildSessionData(
       { json: true, timezone: 'UTC' },
       toolFixtureDeps({ failingFiles: new Set(['/tools-fixture/codex/c.jsonl']) }),
     );
+    const details = detailsBySession(sessionRowsOf(result));
 
-    expect(detailsBySession(sessionRowsOf(result))['codex-c']).toEqual({
-      toolCalls: 0,
-      toolErrors: 0,
-    });
+    // Not 0: codex's counts are unknown, not empty. Claude's files read fine.
+    expect(details['codex-c']).toEqual({ toolCalls: undefined, toolErrors: undefined });
+    expect(details['codex-old']).toEqual({ toolCalls: undefined, toolErrors: undefined });
+    expect(details['claude-a']).toEqual({ toolCalls: 6, toolErrors: 1 });
     expect(result.diagnostics.warnings).toContain(
       'Tool calls left out of 1 file that could not be read',
     );
+  });
+
+  it("gives no counts to any session when another machine's cache could not be read", async () => {
+    const deps = toolFixtureDeps();
+    const result = await buildSessionData({ timezone: 'UTC' }, deps);
+    const dataset = await buildUsageEventDataset({ timezone: 'UTC' }, deps);
+    // A cache path names no source, so every source's counts are unknown.
+    const details = await addSessionDetails(
+      dataset,
+      sessionRowsOf(result),
+      { calls: [], failedFilePaths: ['/cache/machines/laptop/events.db'] },
+      new Set(['claude', 'codex']),
+    );
+
+    expect(details.rows.some((row) => 'toolCalls' in row)).toBe(false);
   });
 
   it('lists the stored files holding each session, and none with the event store off', async () => {
@@ -704,7 +720,7 @@ describe('buildSessionData --json details', () => {
     const details = await addSessionDetails(
       { ...dataset, ledger: dataset.ledger && { ...dataset.ledger, path: environment.rootDir } },
       sessionRowsOf(storeOff),
-      [],
+      { calls: [], failedFilePaths: [] },
       new Set(),
     );
 

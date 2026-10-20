@@ -196,7 +196,12 @@ export async function buildSessionData(
     );
 
     const details = options.json
-      ? await addSessionDetails(dataset, [session], toolCalls, getToolCallSources(dataset))
+      ? await addSessionDetails(
+          dataset,
+          [session],
+          { calls: toolCalls, failedFilePaths: live.failedFilePaths },
+          getToolCallSources(dataset),
+        )
       : { rows: [session], warnings: [] };
 
     return {
@@ -232,7 +237,8 @@ export async function buildSessionData(
   const toolCallSources = getToolCallSources(dataset);
   const toolCallRows = limited.rows.filter((row) => toolCallSources.has(row.source));
   // Tool calls come from every file of the shown sessions' sources, as `tools` reads them,
-  // so a call a resumed or forked transcript copied from its parent stays its parent's.
+  // so a call a resumed or forked transcript copied counts once, for the session `tools`
+  // gives it, whichever sessions are shown.
   const live =
     toolCallRows.length === 0
       ? undefined
@@ -243,7 +249,15 @@ export async function buildSessionData(
           }),
         );
   const details = await measureRuntimeProfileStage(deps.runtimeProfile, 'session.details', () =>
-    addSessionDetails(dataset, limited.rows, dedupeToolCalls(live?.events ?? []), toolCallSources),
+    addSessionDetails(
+      dataset,
+      limited.rows,
+      {
+        calls: dedupeToolCalls(live?.events ?? []),
+        failedFilePaths: live?.failedFilePaths ?? [],
+      },
+      toolCallSources,
+    ),
   );
 
   return {

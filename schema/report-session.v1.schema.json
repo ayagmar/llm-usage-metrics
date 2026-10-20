@@ -102,14 +102,14 @@
           "minimum": 0
         },
         "filePaths": {
-          "description": "Absolute paths of the local session files this run counted that hold the session's usage, from the event store, departed files included; omitted when the event store is off or no local file holds the session.",
+          "description": "Absolute paths of the local session files this run counted whose stored usage carries the session id, whatever its date, departed files included; from the event store, so omitted when the store is off or holds no such file (a file it could not fingerprint is left out).",
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "toolCalls": {
-          "description": "Tool calls the session made, deduplicated as the tools report counts them; omitted for sources that log no tool calls (only claude, codex and pi do).",
+          "description": "Tool calls the session made in the window, deduplicated as the tools report counts them; omitted for sources that log no tool calls (only claude, codex and pi do) and for a source whose files, or another machine's cache, could not be read.",
           "type": "integer",
           "minimum": 0
         },

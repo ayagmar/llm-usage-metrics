@@ -80,20 +80,49 @@ async function readSessionFilePaths(
   return { filePaths, warnings: [] };
 }
 
+/** The tool calls read for the rows, and the reads that failed (see `readLiveSessionEvents`). */
+export type SessionToolCalls = {
+  calls: readonly ToolCallEvent[];
+  failedFilePaths: readonly string[];
+};
+
+/**
+ * The sources whose tool call counts a failed read leaves unknown: a local file's source,
+ * or every source for another machine's cache, whose path names no source.
+ */
+function listUnreadSources(
+  dataset: UsageEventDataset,
+  failedFilePaths: readonly string[],
+  toolCallSources: ReadonlySet<string>,
+): Set<string> {
+  const localSources = new Map(
+    listCountedLocalFiles(dataset).map((file) => [file.filePath, file.source]),
+  );
+
+  return new Set(
+    failedFilePaths.flatMap((filePath) => {
+      const source = localSources.get(filePath);
+      return source === undefined ? [...toolCallSources] : [source];
+    }),
+  );
+}
+
 /**
  * The rows with what --json adds: their local files and, for sessions of `toolCallSources`,
- * their counts of `toolCalls` (deduplicated as `tools` deduplicates them).
+ * their counts of the calls (deduplicated as `tools` deduplicates them). A source with a
+ * failed read gets no counts, since they would read as fewer calls than were made.
  */
 export async function addSessionDetails(
   dataset: UsageEventDataset,
   rows: readonly SessionRow[],
-  toolCalls: readonly ToolCallEvent[],
+  toolCalls: SessionToolCalls,
   toolCallSources: ReadonlySet<string>,
 ): Promise<{ rows: SessionRow[]; warnings: string[] }> {
   const { filePaths, warnings } = await readSessionFilePaths(dataset, rows);
+  const unreadSources = listUnreadSources(dataset, toolCalls.failedFilePaths, toolCallSources);
   const toolCounts = new Map<string, { toolCalls: number; toolErrors: number }>();
 
-  for (const call of toolCalls) {
+  for (const call of toolCalls.calls) {
     const key = getEventSessionKey(call);
     const counts = toolCounts.get(key) ?? { toolCalls: 0, toolErrors: 0 };
     counts.toolCalls += 1;
@@ -105,12 +134,12 @@ export async function addSessionDetails(
     rows: rows.map((row) => {
       const key = getEventSessionKey(row);
       const paths = filePaths.get(key);
+      const countsKnown = toolCallSources.has(row.source) && !unreadSources.has(row.source);
 
       return {
         ...row,
         ...(paths && { filePaths: paths }),
-        ...(toolCallSources.has(row.source) &&
-          (toolCounts.get(key) ?? { toolCalls: 0, toolErrors: 0 })),
+        ...(countsKnown && (toolCounts.get(key) ?? { toolCalls: 0, toolErrors: 0 })),
       };
     }),
     warnings,
