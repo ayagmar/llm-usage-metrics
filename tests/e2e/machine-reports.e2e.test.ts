@@ -16,6 +16,7 @@ import { renderReportJson } from '../../src/render/report-json.js';
 import { renderSummaryReport } from '../../src/render/render-summary-report.js';
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { buildStatusline } from '../../src/cli/run-statusline.js';
+import type { ReportNote } from '../../src/cli/usage-data-contracts.js';
 import type { MachineExportLine } from '../../src/machines/machine-export-bundle.js';
 import { readMachineCacheStatus } from '../../src/machines/machine-cache.js';
 import { refreshDueMachines } from '../../src/machines/refresh-machines.js';
@@ -36,6 +37,10 @@ function buildDataset(
     spawnSsh: createInProcessRemote(remote).spawnSsh,
     ...deps,
   });
+}
+
+function noteText(note: ReportNote): string {
+  return typeof note === 'string' ? note : note.verbose;
 }
 
 function sourcesOf(events: readonly { source: string }[]): string[] {
@@ -226,7 +231,7 @@ describe('reports refreshing other machines', () => {
     expect(sourcesOf(dataset.filteredEvents)).toEqual(['codex', 'codex', 'pi', 'pi']);
     expect(dataset.notes).toEqual([
       'Could not sync laptop (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 11 min ago.',
-      'Machines: laptop (synced 11 min ago); left out 2 events already counted.',
+      { verbose: 'Machines: laptop (synced 11 min ago); left out 2 events already counted.' },
     ]);
     expect(dataset.warnings).toEqual([]);
   });
@@ -242,7 +247,7 @@ describe('reports refreshing other machines', () => {
 
     expect(dataset.notes).toEqual([
       'laptop: last sync failed (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 11 min ago. Run llm-usage sync laptop to retry.',
-      'Machines: laptop (synced 11 min ago); left out 2 events already counted.',
+      { verbose: 'Machines: laptop (synced 11 min ago); left out 2 events already counted.' },
     ]);
   });
 
@@ -275,7 +280,7 @@ describe('reports refreshing other machines', () => {
     await buildDataset({ timezone: 'UTC' }, { spawnSsh, now: later });
 
     const dataset = await buildDataset({ timezone: 'UTC', sync: false }, { spawnSsh, now: later });
-    const lines = [...dataset.notes, ...dataset.warnings];
+    const lines = [...dataset.notes.map(noteText), ...dataset.warnings];
 
     expect(
       lines.some(
@@ -293,7 +298,7 @@ describe('reports with other machines', () => {
     // pi twice from here (the laptop's copy is left out) and codex twice from the laptop.
     expect(sourcesOf(dataset.filteredEvents)).toEqual(['codex', 'codex', 'pi', 'pi']);
     expect(dataset.notes).toEqual([
-      'Machines: laptop (synced just now); left out 2 events already counted.',
+      { verbose: 'Machines: laptop (synced just now); left out 2 events already counted.' },
     ]);
   });
 
@@ -356,7 +361,10 @@ describe('reports with other machines', () => {
     const dataset = await buildDataset({ timezone: 'UTC' }, { spawnSsh: unreachable.spawnSsh });
 
     expect(dataset.notes).toEqual([
-      'Machines: laptop (synced just now), vps (never synced); left out 2 events already counted.',
+      {
+        verbose:
+          'Machines: laptop (synced just now), vps (never synced); left out 2 events already counted.',
+      },
     ]);
     expect(dataset.warnings).toEqual([
       'Could not sync vps (ssh failed: ssh: connect to host vps port 22: No route to host); it has no usage cached yet.',
@@ -378,7 +386,7 @@ describe('reports with other machines', () => {
     expect(dataset.warnings).toContainEqual(
       expect.stringMatching(/^Left out machine laptop: its cache cannot be read/),
     );
-    expect(dataset.notes.filter((note) => note.startsWith('Machines:'))).toEqual([]);
+    expect(dataset.notes.map(noteText).filter((note) => note.startsWith('Machines:'))).toEqual([]);
   });
 
   it('leave other machines out of a run pointed at a custom source directory', async () => {
