@@ -115,6 +115,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'getNewestFingerprintMtimeMs',
     'getPrimaryFingerprintByteSize',
     'getRepeatingSourceIds',
+    'getRequestKey',
     'getSessionCopyingSourceIds',
     'hasBillableTokenBuckets',
     'hasControlCharacters',

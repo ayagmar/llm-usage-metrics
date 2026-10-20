@@ -93,7 +93,7 @@ A directory-backed adapter takes `{ dir, requireDir, context }`; opencode and go
 
 | `kind`         | Type               | Adds                                                                                     |
 | -------------- | ------------------ | ---------------------------------------------------------------------------------------- |
-| `usage`        | `UsageRecord`      | every `UsageEvent` field, then `messageId`, `requestId` and `rawProvider` when known     |
+| `usage`        | `UsageRecord`      | every `UsageEvent` field, with `messageId` and `requestId` when known, then `rawProvider` |
 | `message`      | `MessageEvent`     | `role` (`user`, `assistant` or `system`) and `textLength`; `text` only with `text: true` |
 | `tool_call`    | `ToolCallEvent`    | `name` and `status` (`ok`, `error` or `unknown`), and `durationMs` when the source logs it |
 | `session_meta` | `SessionMetaEvent` | any of `cwd`, `title`, `gitBranch`, `agentVersion`, `parentSessionId`, `model`, `rawProvider` |
@@ -111,7 +111,7 @@ A stage is a function from one async iterable to another (`Stage<In, Out>`). `pi
 - `since(bound)` keeps events at or after `bound`, and `until(bound)` events before it. Bounds are compared as instants. A string with a time of day but no UTC offset (`'2026-06-01T10:00'`) throws, since it means different instants in different time zones. A bare ISO date is midnight UTC; a date alone in another form (`'June 1, 2026'`) throws for the same reason.
 - `bySession()` groups events into `{ source, sessionId, events }` in the order each session first appears. It buffers its whole input.
 - `repeatedAcrossFiles()` takes one array of events per file, in file order, and drops usage an earlier file already yielded. Use it for sources with `capabilities.eventsRepeatAcrossFiles` (pi: forks of one parent each copy its entries).
-- `copiedSessions()` drops usage that a continued session copied from the session it continues, for sources with `capabilities.sessionsCopyEvents` (claude). It buffers its whole input, since which copy is kept depends on every session's first event.
+- `copiedSessions()` drops usage that a continued session copied from the session it continues, for sources with `capabilities.sessionsCopyEvents` (claude). A copy keeps the timestamp, model, usage, `messageId` and `requestId`; events with different ids all count. It buffers its whole input, since which copy is kept depends on every session's first event.
 
 Both dedup stages compare usage only; other kinds pass through. `dedupeRepeatedAcrossFiles` and `dedupeCopiedSessions` are the same steps for arrays, and `computeEventContentHash` is the hash they compare. For tool calls, `dedupeToolCalls` keeps one call per source and call id, so a call a resumed or forked transcript repeats counts once.
 

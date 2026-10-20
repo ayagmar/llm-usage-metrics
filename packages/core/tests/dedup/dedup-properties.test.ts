@@ -256,6 +256,64 @@ describe('dedupeCopiedSessions properties', () => {
   });
 });
 
+describe('dedupeCopiedSessions with events stored before they had ids', () => {
+  const timestamp = '2026-06-01T10:00:00.000Z';
+
+  // A request of `session`; `legacy` drops its ids, as a store or export from before
+  // events carried them does.
+  function request(session: number, index: number, legacy: boolean): UsageEvent {
+    return createUsageEvent({
+      source: 'claude',
+      sessionId: `session-${session}`,
+      timestamp,
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5',
+      inputTokens: 10,
+      outputTokens: 5,
+      ...(legacy ? {} : { messageId: `msg_${index}`, requestId: `req_${index}` }),
+    });
+  }
+
+  it('never counts more requests than the sessions hold, and all of them when that is knowable', () => {
+    const seed = 0x1d5;
+    const random = mulberry32(seed);
+    let knowable = 0;
+
+    for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
+      // Distinct requests with the same timestamp and usage; each session holds some of
+      // them (its own or copies), and any of its events may have lost its ids.
+      const requestCount = 1 + randomInt(random, 4);
+      const requests = Array.from({ length: requestCount }, (_, index) => index + 1);
+      const sessionCount = 2 + randomInt(random, 3);
+      const held = Array.from({ length: sessionCount }, () =>
+        sampleDistinct(random, requests, 1 + randomInt(random, requestCount)),
+      );
+      const events = held.flatMap((indexes, session) =>
+        indexes.map((index) => request(session, index, randomInt(random, 2) === 0)),
+      );
+      const heldRequests = new Set(held.flat());
+      const identified = new Set(
+        events.flatMap((event) => (event.messageId === undefined ? [] : [event.messageId])),
+      );
+      const counted = dedupeCopiedSessions(events).length;
+      const message = failureMessage(seed, iteration);
+
+      expect(counted, message).toBeLessThanOrEqual(heldRequests.size);
+
+      // Every request kept its ids somewhere, or one session holds them all.
+      if (
+        identified.size === heldRequests.size ||
+        held.some((indexes) => indexes.length === heldRequests.size)
+      ) {
+        knowable += 1;
+        expect(counted, message).toBe(heldRequests.size);
+      }
+    }
+
+    expect(knowable).toBeGreaterThanOrEqual(MIN_ITERATIONS_WITH_COPIES);
+  });
+});
+
 describe('dedupeRepeatedAcrossFiles properties', () => {
   type HashedEvent = UsageEvent & { costMode: CostMode };
   type EventFile = HashedEvent[];

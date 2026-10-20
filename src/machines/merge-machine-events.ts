@@ -5,7 +5,7 @@ import {
   getParserVersion,
   type SourceAdapter,
 } from '@ayagmar/agent-sessions';
-import { addHashCount, takeUncountedEvents } from '@ayagmar/agent-sessions/internal';
+import { getRequestKey } from '@ayagmar/agent-sessions/internal';
 import type { StoredSessionEvent } from '../persistence/event-store.js';
 
 /** Source id → the parser version a machine read it with (`getParserVersion`). */
@@ -56,21 +56,9 @@ type Server = { name: string; parserVersions?: ParserVersions };
 type EventKeys<E extends MergedEvent> = {
   hash: (event: E) => string;
   turns: readonly ((event: E) => string)[];
+  /** The logged request ids the hash leaves out, undefined when the event has none. */
+  requestKey: (event: E) => string | undefined;
 };
-
-function countKeys<E extends MergedEvent>(
-  events: readonly E[],
-  toKey: (event: E) => string,
-): Map<string, number> {
-  const counts = new Map<string, number>();
-
-  for (const event of events) {
-    const key = toKey(event);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-
-  return counts;
-}
 
 /**
  * Another parser version can split tokens and resolve models differently, but keeps when
@@ -80,6 +68,7 @@ function countKeys<E extends MergedEvent>(
 const USAGE_KEYS: EventKeys<UsageEvent> = {
   hash: computeEventContentHash,
   turns: [(event) => `${event.timestamp}\0${event.model ?? ''}`, (event) => event.timestamp],
+  requestKey: getRequestKey,
 };
 
 /**
@@ -89,6 +78,7 @@ const USAGE_KEYS: EventKeys<UsageEvent> = {
 const SESSION_EVENT_KEYS: EventKeys<StoredSessionEvent> = {
   hash: (event) => JSON.stringify(event),
   turns: [(event) => `${event.kind}\0${event.timestamp}`],
+  requestKey: () => undefined,
 };
 
 function groupBySession<E extends MergedEvent>(events: readonly E[]): Map<string, E[]> {
@@ -118,38 +108,95 @@ function findSkew(source: string, machine: Server, server: Server): ParserSkew |
     : undefined;
 }
 
-/** Which of `events` match a served turn, each served event matched once. */
-function matchTurns<E extends MergedEvent>(
+type ServedCandidates = {
+  byRequest: Map<string, number[]>;
+  withIds: number[];
+  withoutIds: number[];
+};
+
+/**
+ * Which of `events` are copies of a served event, each served event matched once. An event
+ * matches a served one with an equal key and the same request ids, or no ids on either
+ * side (stored or exported before events carried them). Keys are tried in order, so a
+ * closer match is taken before a looser one. Events with the same ids are matched first,
+ * so an event stored without ids never takes the match of a request held with its ids,
+ * and a session never holds one request's ids twice.
+ */
+function matchCopies<E extends MergedEvent>(
   events: readonly E[],
   served: readonly E[],
-  turns: EventKeys<E>['turns'],
+  toKeys: readonly ((event: E) => string)[],
+  requestKey: (event: E) => string | undefined,
 ): boolean[] {
   const matched = events.map(() => false);
   const taken = served.map(() => false);
-
-  for (const toKey of turns) {
-    const available = new Map<string, number[]>();
+  const eventIds = events.map(requestKey);
+  const servedIds = served.map(requestKey);
+  const candidatesByKey = toKeys.map((toKey) => {
+    const candidates = new Map<string, ServedCandidates>();
 
     served.forEach((event, index) => {
-      if (!taken[index]) {
-        const key = toKey(event);
-        const indexes = available.get(key);
+      const key = toKey(event);
+      let entry = candidates.get(key);
 
-        if (indexes) {
-          indexes.push(index);
+      if (!entry) {
+        entry = { byRequest: new Map(), withIds: [], withoutIds: [] };
+        candidates.set(key, entry);
+      }
+
+      const ids = servedIds[index];
+
+      if (ids === undefined) {
+        entry.withoutIds.push(index);
+      } else {
+        entry.withIds.push(index);
+        const sameIds = entry.byRequest.get(ids);
+
+        if (sameIds) {
+          sameIds.push(index);
         } else {
-          available.set(key, [index]);
+          entry.byRequest.set(ids, [index]);
         }
       }
     });
 
-    events.forEach((event, index) => {
-      const servedIndex = matched[index] ? undefined : available.get(toKey(event))?.pop();
+    return candidates;
+  });
+  const take = (indexes: number[] | undefined): boolean => {
+    while (indexes && indexes.length > 0) {
+      const index = indexes.pop() ?? 0;
 
-      if (servedIndex !== undefined) {
-        taken[servedIndex] = true;
-        matched[index] = true;
+      if (!taken[index]) {
+        taken[index] = true;
+        return true;
       }
+    }
+
+    return false;
+  };
+  // The same ids first. Then the matches only one side can make: a served event with ids
+  // takes an event without, and an event with ids a served one without. Events without
+  // ids on both sides go last, so as many copies as possible are matched.
+  const passes: ((entry: ServedCandidates, ids: string | undefined) => number[] | undefined)[] = [
+    (entry, ids) => (ids === undefined ? undefined : entry.byRequest.get(ids)),
+    (entry, ids) => (ids === undefined ? entry.withIds : undefined),
+    (entry, ids) => (ids === undefined ? undefined : entry.withoutIds),
+    (entry, ids) => (ids === undefined ? entry.withoutIds : undefined),
+  ];
+
+  for (const candidatesFor of passes) {
+    toKeys.forEach((toKey, keyIndex) => {
+      events.forEach((event, index) => {
+        if (matched[index]) {
+          return;
+        }
+
+        const entry = candidatesByKey[keyIndex].get(toKey(event));
+
+        if (entry && take(candidatesFor(entry, eventIds[index]))) {
+          matched[index] = true;
+        }
+      });
     });
   }
 
@@ -159,8 +206,8 @@ function matchTurns<E extends MergedEvent>(
 /**
  * Combines other machines' events with the ones already counted here. The same session
  * can reach several machines (a synced or copied ~/.claude, a shared home), so a
- * machine's event is left out when an identical event (same content hash) is already
- * counted, counting each served event once. Machines are taken in order, each against
+ * machine's event is left out when an identical event (same content hash, and the same
+ * request ids or none on one side) is already counted, counting each served event once. Machines are taken in order, each against
  * everything served before it. A session continued on another machine keeps its new
  * events: their timestamps differ. Only sessions present on both sides are hashed.
  *
@@ -199,7 +246,18 @@ function mergeByKeys<E extends MergedEvent>(
   const local: Server = { name: LOCAL_MACHINE_NAME, parserVersions: servedParserVersions };
   const servedBySession = groupBySession(servedEvents);
   const serverBySession = new Map<string, Server>();
-  const servedHashesBySession = new Map<string, Map<string, number>>();
+  // Each event is hashed once, however many machines its session is compared with.
+  const hashes = new Map<E, string>();
+  const hashOf = (event: E): string => {
+    let hash = hashes.get(event);
+
+    if (hash === undefined) {
+      hash = keys.hash(event);
+      hashes.set(event, hash);
+    }
+
+    return hash;
+  };
   const merged: MergedMachineEvents<E>[] = [];
 
   for (const machine of machines) {
@@ -218,40 +276,25 @@ function mergeByKeys<E extends MergedEvent>(
         continue;
       }
 
-      let servedHashes = servedHashesBySession.get(sessionKey);
       const skew = findSkew(events[0].source, machine, serverBySession.get(sessionKey) ?? local);
 
       if (skew) {
         skews.set(JSON.stringify([skew.source, skew.servedBy]), skew);
-        const matched = matchTurns(events, served, keys.turns);
-
-        for (const [index, event] of events.entries()) {
-          if (matched[index]) {
-            skewDroppedCount += 1;
-            continue;
-          }
-
-          kept.push(event);
-          served.push(event);
-
-          if (servedHashes) {
-            addHashCount(servedHashes, keys.hash(event), 1);
-          }
-        }
-
-        continue;
-      }
-
-      if (!servedHashes) {
-        servedHashes = countKeys(served, keys.hash);
-        servedHashesBySession.set(sessionKey, servedHashes);
       }
 
       // Matched against what was served before this machine, one served event each.
-      const uncounted = takeUncountedEvents(events, servedHashes, keys.hash);
-      duplicateCount += events.length - uncounted.length;
-      kept.push(...uncounted);
-      served.push(...uncounted);
+      const matched = matchCopies(events, served, skew ? keys.turns : [hashOf], keys.requestKey);
+
+      for (const [index, event] of events.entries()) {
+        if (!matched[index]) {
+          kept.push(event);
+          served.push(event);
+        } else if (skew) {
+          skewDroppedCount += 1;
+        } else {
+          duplicateCount += 1;
+        }
+      }
     }
 
     merged.push({

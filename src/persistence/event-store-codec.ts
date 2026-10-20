@@ -30,13 +30,16 @@ const acceptedText: Record<
   model: { value: undefined },
 };
 
-/** The columns of a `StoredEventTuple`, from `files` joined with `events`. */
-export const STORED_EVENT_COLUMNS = [
+/** The columns of a `StoredEventTuple` but the ids, from `files` joined with `events`. */
+export const STORED_EVENT_COLUMNS_WITHOUT_IDS = [
   'files.source, events.session_id, events.timestamp, events.model, events.provider,',
   '  events.repo_root, events.input_tokens, events.output_tokens, events.reasoning_tokens,',
   '  events.cache_read_tokens, events.cache_write_tokens, events.cache_write_1h_tokens,',
   '  events.total_tokens, events.cost_usd, events.cost_mode, events.single_request',
 ].join('\n');
+
+/** The columns of a `StoredEventTuple`, from `files` joined with `events`. */
+export const STORED_EVENT_COLUMNS = `${STORED_EVENT_COLUMNS_WITHOUT_IDS},\n  events.message_id, events.request_id`;
 
 /** The `single_request` value of a row stored before the flag, from its source column. */
 export function selectSingleRequestBeforeFlagSql(sourceColumn: string): string {
@@ -61,6 +64,8 @@ export type StoredEventTuple = [
   cost_usd: unknown,
   cost_mode: unknown,
   single_request: unknown,
+  message_id: unknown,
+  request_id: unknown,
 ];
 
 export function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
@@ -92,6 +97,8 @@ function slowNormalizeStoredEvent(row: Record<string, unknown>): UsageEvent | un
     costUsd: toNonNegativeNumber(row.cost_usd),
     singleRequest: row.single_request === 1,
     costMode,
+    messageId: toText(row.message_id),
+    requestId: toText(row.request_id),
   };
 
   try {
@@ -119,6 +126,8 @@ function fastMaterializeStoredEvent(row: Record<string, unknown>): UsageEvent | 
     row.cost_usd,
     row.cost_mode,
     row.single_request,
+    row.message_id,
+    row.request_id,
   );
 }
 
@@ -146,6 +155,8 @@ export function normalizeStoredEventTuple(row: StoredEventTuple): UsageEvent | u
     cost_usd: row[13],
     cost_mode: row[14],
     single_request: row[15],
+    message_id: row[16],
+    request_id: row[17],
   });
 }
 
@@ -166,6 +177,8 @@ function materializeStoredEvent(
   costUsdValue: unknown,
   costModeValue: unknown,
   singleRequestValue: unknown,
+  messageIdValue: unknown,
+  requestIdValue: unknown,
 ): UsageEvent | undefined {
   const costMode =
     costModeValue === 'explicit' || costModeValue === 'estimated' ? costModeValue : undefined;
@@ -188,6 +201,8 @@ function materializeStoredEvent(
   const cacheWrite1hTokens = toStoredNonNegativeInteger(cacheWrite1hTokensValue);
   const totalTokens = toStoredNonNegativeInteger(totalTokensValue);
   const costUsd = toStoredCostUsd(costUsdValue, costMode);
+  const messageId = toStoredOptionalId(messageIdValue);
+  const requestId = toStoredOptionalId(requestIdValue);
 
   if (
     !source ||
@@ -205,12 +220,61 @@ function materializeStoredEvent(
     cacheWrite1hTokens > cacheWriteTokens ||
     totalTokens === undefined ||
     costUsd === FAST_PATH_REJECT ||
+    messageId === FAST_PATH_REJECT ||
+    requestId === FAST_PATH_REJECT ||
     (singleRequestValue !== 0 && singleRequestValue !== 1)
   ) {
     return undefined;
   }
 
-  return {
+  // createUsageEvent sets the ids before the cost mode, and leaves out an unknown one.
+  // Claude logs both, or only the message id, so those common cases are one literal too.
+  if (messageId !== undefined && requestId !== undefined) {
+    return {
+      source,
+      sessionId,
+      timestamp,
+      repoRoot,
+      provider,
+      model,
+      inputTokens,
+      outputTokens,
+      reasoningTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      cacheWrite1hTokens,
+      totalTokens,
+      singleRequest: singleRequestValue === 1 ? true : undefined,
+      costUsd,
+      messageId,
+      requestId,
+      costMode,
+    };
+  }
+
+  if (messageId !== undefined && requestId === undefined) {
+    return {
+      source,
+      sessionId,
+      timestamp,
+      repoRoot,
+      provider,
+      model,
+      inputTokens,
+      outputTokens,
+      reasoningTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      cacheWrite1hTokens,
+      totalTokens,
+      singleRequest: singleRequestValue === 1 ? true : undefined,
+      costUsd,
+      messageId,
+      costMode,
+    };
+  }
+
+  const event: UsageEvent = {
     source,
     sessionId,
     timestamp,
@@ -227,6 +291,18 @@ function materializeStoredEvent(
     singleRequest: singleRequestValue === 1 ? true : undefined,
     costUsd,
     costMode,
+  };
+
+  if (messageId === undefined && requestId === undefined) {
+    return event;
+  }
+
+  const { costMode: storedCostMode, ...usage } = event;
+  return {
+    ...usage,
+    ...(messageId === undefined ? {} : { messageId }),
+    ...(requestId === undefined ? {} : { requestId }),
+    costMode: storedCostMode,
   };
 }
 
@@ -274,6 +350,20 @@ function toStoredOptionalText(
   }
 
   return toStoredRequiredText(value, slot, isCanonical) ?? FAST_PATH_REJECT;
+}
+
+// Ids differ from row to row, so they are checked without the accepted-text slots.
+function toStoredOptionalId(value: unknown): OptionalStoredText {
+  if (value === null) {
+    return undefined;
+  }
+
+  return typeof value === 'string' &&
+    value.length > 0 &&
+    value === value.trim() &&
+    !hasControlCharacters(value)
+    ? value
+    : FAST_PATH_REJECT;
 }
 
 // A year below 100 fails the canonical reader and takes the slow path, which keeps it.

@@ -59,6 +59,14 @@ export type UsageEvent = {
 
   /** The cost the source recorded, in USD. Undefined when it recorded none. */
   costUsd?: number;
+  /**
+   * The provider's response or message id, as logged, when the adapter's `read` reports it
+   * (only an adapter with `sessionsCopyEvents` does). A copy of the request in another
+   * session keeps it, so it tells a copy from a distinct request with the same usage.
+   */
+  messageId?: string;
+  /** The API request id, as logged, when the adapter's `read` reports it. */
+  requestId?: string;
 };
 
 export type BillableTokenUsage = Pick<
@@ -90,6 +98,8 @@ export type UsageEventInput = {
   singleRequest?: boolean;
 
   costUsd?: NumberLike;
+  messageId?: string;
+  requestId?: string;
 };
 
 /** A trimmed source id with control characters removed, or undefined when empty or not a string. */
@@ -190,8 +200,10 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
   const totalTokens = input.totalTokens === undefined ? componentTotalTokens : declaredTotalTokens;
 
   const costUsd = normalizeUsdCost(input.costUsd);
+  const messageId = normalizeOptionalText(input.messageId);
+  const requestId = normalizeOptionalText(input.requestId);
 
-  return {
+  const event: UsageEvent = {
     source,
     sessionId: requireText(input.sessionId, 'sessionId'),
     timestamp: normalizeTimestamp(input.timestamp),
@@ -208,6 +220,17 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
     singleRequest: input.singleRequest === true ? true : undefined,
     costUsd,
   };
+
+  // Left out when unknown, so events of sources without ids hold no id keys.
+  if (messageId !== undefined) {
+    event.messageId = messageId;
+  }
+
+  if (requestId !== undefined) {
+    event.requestId = requestId;
+  }
+
+  return event;
 }
 
 export function hasBillableTokenBuckets(usage: BillableTokenUsage): boolean {

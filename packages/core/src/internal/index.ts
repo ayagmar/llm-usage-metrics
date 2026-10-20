@@ -14,6 +14,7 @@ export {
 } from '../domain/usage-event.js';
 export { getRepeatingSourceIds, getSessionCopyingSourceIds } from '../sources/source-adapter.js';
 export { addHashCount, takeUncountedEvents } from '../dedup/repeated-across-files.js';
+export { getRequestKey } from '../dedup/request-key.js';
 export * from '../sources/multi-directory-source-adapter.js';
 export * from '../sources/multi-root-discovery.js';
 export { incrementSkippedReason, recordSkippedRow } from '../sources/parse-diagnostics.js';

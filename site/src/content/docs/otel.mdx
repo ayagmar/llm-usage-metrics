@@ -68,6 +68,7 @@ Usage event → `chat` span:
 | `provider` | `gen_ai.provider.name`; `google` → `gcp.gemini`, `moonshot` → `moonshot_ai`, `xai` → `x_ai`, `amazon-bedrock*` → `aws.bedrock`, `google-vertex*` → `gcp.vertex_ai`, `azure-openai*` → `azure.ai.openai`, others unchanged; omitted when unknown |
 | `model` | `gen_ai.response.model`, and the span name `chat {model}` |
 | `sessionId` | `gen_ai.conversation.id` |
+| `messageId` | `gen_ai.response.id`; claude only, omitted when unknown |
 | `inputTokens` + `cacheReadTokens` + `cacheWriteTokens` | `gen_ai.usage.input_tokens` (the convention counts cached tokens as input) |
 | `outputTokens` | `gen_ai.usage.output_tokens` (already includes reasoning) |
 | `reasoningTokens` | `gen_ai.usage.reasoning.output_tokens`, left out when zero |

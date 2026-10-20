@@ -295,11 +295,12 @@ class ClaudeUsageRows {
       model,
       usage,
       sequence: this.sequence,
+      // The copy dedup tells a copied request from a distinct one with the same usage by these.
+      messageId: asTrimmedText(message.id),
+      requestId: asTrimmedText(line.requestId) ?? asTrimmedText(line.request_id),
     };
 
     if (this.plan.records) {
-      pendingEvent.messageId = asTrimmedText(message.id);
-      pendingEvent.requestId = asTrimmedText(line.requestId) ?? asTrimmedText(line.request_id);
       pendingEvent.rawProvider = asTrimmedText(message.provider);
       pendingEvent.raw = this.plan.raw ? line : undefined;
     }
@@ -341,6 +342,8 @@ class ClaudeUsageRows {
         model: pendingEvent.model,
         ...pendingEvent.usage,
         singleRequest: true,
+        messageId: pendingEvent.messageId,
+        requestId: pendingEvent.requestId,
       };
       let event: UsageEvent | UsageRecord;
 
@@ -348,8 +351,6 @@ class ClaudeUsageRows {
         event = this.plan.records
           ? createUsageRecord({
               ...input,
-              messageId: pendingEvent.messageId,
-              requestId: pendingEvent.requestId,
               rawProvider: pendingEvent.rawProvider,
               raw: pendingEvent.raw,
             })
@@ -396,7 +397,7 @@ class ClaudeUsageRows {
  */
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
-  public readonly parserVersion = 4;
+  public readonly parserVersion = 5;
   public readonly capabilities = {
     eventsPrecedeFileMtime: true,
     sessionsCopyEvents: true,

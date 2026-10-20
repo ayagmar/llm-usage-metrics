@@ -18,7 +18,7 @@ const EXPECTED_PARSER_VERSIONS: Record<string, string> = {
   droid: 'n4.p2',
   opencode: 'n4.p5',
   openclaw: 'n4.p4',
-  claude: 'n4.p4',
+  claude: 'n4.p5',
   copilot: 'n4.p2',
   goose: 'n4.p2',
   amp: 'n4.p2',

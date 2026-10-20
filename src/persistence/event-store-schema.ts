@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS events (
   cost_usd REAL,
   cost_mode TEXT NOT NULL,
   single_request INTEGER NOT NULL,
+  message_id TEXT,
+  request_id TEXT,
   PRIMARY KEY (file_id, event_index)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash);
@@ -131,6 +133,36 @@ function ensureAddedTables(database: EventStoreDatabase): void {
   if (!tableNames.includes('file_read_cursors')) {
     database.exec(createReadCursorsSql());
   }
+
+  ensureEventIdColumns(database);
+}
+
+/**
+ * Whether the events table has the message and request id columns, added to the v5 layout
+ * without a version bump: older builds name the columns they write, so their rows hold
+ * NULL ids. A read-only open of a store that predates the columns reads NULL ids.
+ */
+export function hasEventIdColumns(database: EventStoreDatabase): boolean {
+  return database
+    .prepare('SELECT name FROM pragma_table_info(?)')
+    .all('events')
+    .some((row) => row.name === 'message_id');
+}
+
+function ensureEventIdColumns(database: EventStoreDatabase): void {
+  if (hasEventIdColumns(database)) {
+    return;
+  }
+
+  runTransaction(database, () => {
+    // Re-check under the write lock: another process may have added them meanwhile.
+    if (hasEventIdColumns(database)) {
+      return;
+    }
+
+    database.exec('ALTER TABLE events ADD COLUMN message_id TEXT');
+    database.exec('ALTER TABLE events ADD COLUMN request_id TEXT');
+  });
 }
 
 function listUserTableNames(database: EventStoreDatabase): string[] {
