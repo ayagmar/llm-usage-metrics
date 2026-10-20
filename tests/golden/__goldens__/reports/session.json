@@ -20,7 +20,10 @@
       "cacheReadTokens": 0,
       "cacheWriteTokens": 0,
       "totalTokens": 180,
-      "costUsd": 0.6
+      "costUsd": 0.6,
+      "costExplicitUsd": 0.6,
+      "toolCalls": 0,
+      "toolErrors": 0
     },
     {
       "rowType": "session",
@@ -40,7 +43,8 @@
       "cacheReadTokens": 0,
       "cacheWriteTokens": 0,
       "totalTokens": 45,
-      "costUsd": 0.03
+      "costUsd": 0.03,
+      "costExplicitUsd": 0.03
     },
     {
       "rowType": "session",
@@ -60,7 +64,8 @@
       "cacheReadTokens": 0,
       "cacheWriteTokens": 5,
       "totalTokens": 55,
-      "costUsd": 0.02
+      "costUsd": 0.02,
+      "costExplicitUsd": 0.02
     },
     {
       "rowType": "session",
@@ -80,7 +85,8 @@
       "cacheReadTokens": 5,
       "cacheWriteTokens": 0,
       "totalTokens": 45,
-      "costUsd": 0.01
+      "costUsd": 0.01,
+      "costExplicitUsd": 0.01
     },
     {
       "rowType": "session",
@@ -100,7 +106,10 @@
       "cacheReadTokens": 70,
       "cacheWriteTokens": 0,
       "totalTokens": 390,
-      "costUsd": 0.00216475
+      "costUsd": 0.00216475,
+      "costEstimatedUsd": 0.00216475,
+      "toolCalls": 0,
+      "toolErrors": 0
     },
     {
       "rowType": "session",
@@ -121,7 +130,10 @@
       "cacheReadTokens": 10,
       "cacheWriteTokens": 15,
       "totalTokens": 220,
-      "costUsd": 0.00142425
+      "costUsd": 0.00142425,
+      "costEstimatedUsd": 0.00142425,
+      "toolCalls": 0,
+      "toolErrors": 0
     },
     {
       "rowType": "session",
@@ -142,7 +154,8 @@
       "cacheReadTokens": 0,
       "cacheWriteTokens": 0,
       "totalTokens": 15,
-      "costUsd": 0.001
+      "costUsd": 0.001,
+      "costExplicitUsd": 0.001
     },
     {
       "rowType": "session",
@@ -163,7 +176,8 @@
       "cacheReadTokens": 15,
       "cacheWriteTokens": 0,
       "totalTokens": 195,
-      "costUsd": 0.000864375
+      "costUsd": 0.000864375,
+      "costEstimatedUsd": 0.000864375
     },
     {
       "rowType": "session",
@@ -184,7 +198,8 @@
       "cacheReadTokens": 10,
       "cacheWriteTokens": 5,
       "totalTokens": 115,
-      "costUsd": 0.00068175
+      "costUsd": 0.00068175,
+      "costEstimatedUsd": 0.00068175
     },
     {
       "rowType": "session",
@@ -205,7 +220,8 @@
       "cacheReadTokens": 750,
       "cacheWriteTokens": 0,
       "totalTokens": 2000,
-      "costUsd": 0.0006045
+      "costUsd": 0.0006045,
+      "costEstimatedUsd": 0.0006045
     },
     {
       "rowType": "session",
@@ -226,7 +242,8 @@
       "cacheReadTokens": 5,
       "cacheWriteTokens": 5,
       "totalTokens": 85,
-      "costUsd": 0.00054525
+      "costUsd": 0.00054525,
+      "costEstimatedUsd": 0.00054525
     },
     {
       "rowType": "session",
@@ -247,7 +264,8 @@
       "cacheReadTokens": 160,
       "cacheWriteTokens": 0,
       "totalTokens": 440,
-      "costUsd": 0.00015696
+      "costUsd": 0.00015696,
+      "costEstimatedUsd": 0.00015696
     },
     {
       "rowType": "session",

@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildSessionReport } from '../../src/cli/run-session-report.js';
 import { buildToolsReport } from '../../src/cli/run-tools-report.js';
 import type { SessionCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import type { SessionRow } from '../../src/session/session-row.js';
 import {
   closeEventStore,
   listStoredFileFingerprints,
@@ -71,7 +72,40 @@ describe('tools and session --timeline from the event store', () => {
     }
   }
 
-  /** The tools report and every session's timeline, as JSON text. */
+  /** Each session's `filePaths`, by `source:sessionId`, from session --json. */
+  async function readSessionFilePaths(
+    root: string,
+    storePath?: string,
+    extraOptions: SessionCommandOptions = {},
+  ): Promise<Record<string, string[] | undefined>> {
+    return withStore(storePath, async () => {
+      const sessions = JSON.parse(
+        await buildSessionReport({ ...sourceOptions(root), ...extraOptions }),
+      ) as { data: SessionRow[] };
+
+      return Object.fromEntries(
+        sessions.data.map((row) => [`${row.source}:${row.sessionId}`, row.filePaths]),
+      );
+    });
+  }
+
+  /**
+   * The session report JSON without the rows' `filePaths`, which only the event store gives
+   * (see `readSessionFilePaths`). The report prints `JSON.stringify(…, null, 2)`, so every
+   * other byte stays as printed.
+   */
+  function withoutFilePaths(text: string): string {
+    const report = JSON.parse(text) as { data: SessionRow[] | { session: SessionRow } };
+    const rows = Array.isArray(report.data) ? report.data : [report.data.session];
+
+    for (const row of rows) {
+      delete row.filePaths;
+    }
+
+    return JSON.stringify(report, null, 2);
+  }
+
+  /** The tools report, the session list and every session's timeline, as JSON text. */
   async function runReports(
     root: string,
     storePath?: string,
@@ -79,19 +113,23 @@ describe('tools and session --timeline from the event store', () => {
   ): Promise<Record<string, string>> {
     return withStore(storePath, async () => {
       const options = { ...sourceOptions(root), ...extraOptions };
-      const sessions = JSON.parse(await buildSessionReport(options)) as {
+      const sessionsText = await buildSessionReport(options);
+      const sessions = JSON.parse(sessionsText) as {
         data: { sessionId: string; source: string }[];
       };
       const outputs: Record<string, string> = {
         tools: await buildToolsReport({ ...options, all: true, bySource: true }),
+        sessions: withoutFilePaths(sessionsText),
       };
 
       for (const { source, sessionId } of sessions.data) {
-        outputs[`${source}:${sessionId}`] = await buildSessionReport({
-          ...options,
-          id: [sessionId],
-          timeline: true,
-        });
+        outputs[`${source}:${sessionId}`] = withoutFilePaths(
+          await buildSessionReport({
+            ...options,
+            id: [sessionId],
+            timeline: true,
+          }),
+        );
       }
 
       return outputs;
@@ -107,9 +145,22 @@ describe('tools and session --timeline from the event store', () => {
       outputs.set('cold', await runReports(path.resolve(fixtureDir), storePath));
       outputs.set('warm', await runReports(path.resolve(fixtureDir), storePath));
 
-      expect(Object.keys(outputs.get('off') ?? {}).length).toBeGreaterThan(2);
+      expect(Object.keys(outputs.get('off') ?? {}).length).toBeGreaterThan(3);
       expect(outputs.get('cold')).toEqual(outputs.get('off'));
       expect(outputs.get('warm')).toEqual(outputs.get('off'));
+
+      // Only the store lists the files; each session's are under the fixture root.
+      const root = path.resolve(fixtureDir);
+      const storeOff = await readSessionFilePaths(root);
+      const storeOn = await readSessionFilePaths(root, storePath);
+
+      expect(Object.values(storeOff).every((paths) => paths === undefined)).toBe(true);
+      expect(Object.keys(storeOn)).toEqual(Object.keys(storeOff));
+
+      for (const paths of Object.values(storeOn)) {
+        expect(paths?.length).toBeGreaterThan(0);
+        expect(paths?.every((filePath) => filePath.startsWith(root + path.sep))).toBe(true);
+      }
     });
   }
 
@@ -145,6 +196,13 @@ describe('tools and session --timeline from the event store', () => {
 
     expect(Object.keys(before).filter((key) => key.startsWith('codex:'))).not.toEqual([]);
     expect(after).toEqual(before);
+    // The departed file is still the session's, as history serves it.
+    const departedPaths = Object.entries(
+      await readSessionFilePaths(root, storePath, { history: true }),
+    ).filter(([key]) => key.startsWith('codex:'));
+    expect(departedPaths.map(([, paths]) => paths)).toEqual([
+      [path.join(root, 'codex', 'session.jsonl')],
+    ]);
     expect(Object.keys(withoutStore).some((key) => key.startsWith('codex:'))).toBe(false);
   });
 

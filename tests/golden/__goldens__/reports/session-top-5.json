@@ -20,7 +20,10 @@
       "cacheReadTokens": 0,
       "cacheWriteTokens": 0,
       "totalTokens": 180,
-      "costUsd": 0.6
+      "costUsd": 0.6,
+      "costExplicitUsd": 0.6,
+      "toolCalls": 0,
+      "toolErrors": 0
     },
     {
       "rowType": "session",
@@ -40,7 +43,8 @@
       "cacheReadTokens": 0,
       "cacheWriteTokens": 0,
       "totalTokens": 45,
-      "costUsd": 0.03
+      "costUsd": 0.03,
+      "costExplicitUsd": 0.03
     },
     {
       "rowType": "session",
@@ -60,7 +64,8 @@
       "cacheReadTokens": 0,
       "cacheWriteTokens": 5,
       "totalTokens": 55,
-      "costUsd": 0.02
+      "costUsd": 0.02,
+      "costExplicitUsd": 0.02
     },
     {
       "rowType": "session",
@@ -80,7 +85,8 @@
       "cacheReadTokens": 5,
       "cacheWriteTokens": 0,
       "totalTokens": 45,
-      "costUsd": 0.01
+      "costUsd": 0.01,
+      "costExplicitUsd": 0.01
     },
     {
       "rowType": "session",
@@ -100,7 +106,10 @@
       "cacheReadTokens": 70,
       "cacheWriteTokens": 0,
       "totalTokens": 390,
-      "costUsd": 0.00216475
+      "costUsd": 0.00216475,
+      "costEstimatedUsd": 0.00216475,
+      "toolCalls": 0,
+      "toolErrors": 0
     }
   ]
 }

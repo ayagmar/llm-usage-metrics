@@ -19,6 +19,7 @@ export {
   readEventStoreSummary,
   readFileEvents,
   readOverrideOnlyFiles,
+  readStoredFileSessionIds,
   readStoredFileSnapshots,
   readStoredSessionEvents,
   replaceFileEvents,

@@ -305,6 +305,38 @@ describe('aggregateSessions', () => {
     ).toEqual(['beta-session', 'Alpha-Session-486C']);
     expect(aggregateSessions(events, { ids: ['no-such-id'] })).toEqual([]);
   });
+
+  it('splits the cost into what the source logged and what pricing estimated', () => {
+    const base = { source: 'opencode', sessionId: 's', inputTokens: 1 };
+    const [mixed, estimatedOnly] = aggregateSessions([
+      event({ ...base, timestamp: '2026-01-02T10:00:00.000Z', costUsd: 0.25 }),
+      event({ ...base, timestamp: '2026-01-02T10:01:00.000Z', costUsd: 0.5 }),
+      event({
+        ...base,
+        timestamp: '2026-01-02T10:02:00.000Z',
+        costUsd: 0.125,
+        costMode: 'estimated',
+      }),
+      // Unpriced: in neither part, and the row is incomplete.
+      event({ ...base, timestamp: '2026-01-02T10:03:00.000Z' }),
+      event({
+        ...base,
+        sessionId: 't',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        costUsd: 0.1,
+        costMode: 'estimated',
+      }),
+    ]);
+
+    expect(mixed).toMatchObject({
+      costUsd: 0.875,
+      costExplicitUsd: 0.75,
+      costEstimatedUsd: 0.125,
+      costIncomplete: true,
+    });
+    expect(estimatedOnly).toMatchObject({ costUsd: 0.1, costEstimatedUsd: 0.1 });
+    expect(estimatedOnly).not.toHaveProperty('costExplicitUsd');
+  });
 });
 
 describe('aggregateSessionsByRepo', () => {
