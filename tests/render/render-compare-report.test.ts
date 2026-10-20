@@ -346,6 +346,21 @@ describe('renderCompareReport', () => {
     // A token change has no good or bad direction.
     expect(output).toContain('│     +27,219,380 │');
   });
+
+  it('right-aligns the Current and Baseline headers over their cost columns', () => {
+    const output = renderCompareReport(createLargeCompareData(), 'terminal', {
+      useColor: false,
+      terminalWidth: 120,
+    });
+    const sourceLines = output.split('\n').slice(output.split('\n').indexOf('By source (cost)'));
+    const header = sourceLines.find((line) => line.includes('Current')) ?? '';
+    const firstRow = sourceLines.find((line) => line.includes('$')) ?? '';
+    const rightEdge = (line: string, text: string) => line.indexOf(text) + text.length;
+    const cells = firstRow.split('│');
+
+    expect(rightEdge(header, 'Current')).toBe(rightEdge(firstRow, cells[2].trim()));
+    expect(rightEdge(header, 'Baseline')).toBe(rightEdge(firstRow, cells[3].trim()));
+  });
 });
 
 describe('renderCompareReportWithNotes', () => {
