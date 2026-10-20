@@ -50,7 +50,9 @@ async function daily(): Promise<{ total?: number; notes: string[] }> {
 
   return {
     total: result.rows.find((row) => row.rowType === 'grand_total')?.totalTokens,
-    notes: result.diagnostics.notes ?? [],
+    notes: (result.diagnostics.notes ?? []).map((note) =>
+      typeof note === 'string' ? note : note.verbose,
+    ),
   };
 }
 
