@@ -27,7 +27,7 @@ The table has one row per block, in time order: the block's start and end in the
 Active block (estimated), claude: ends 2026-06-21 15:00, 3h left, burn rate $0.02/h, 13.1K tokens/h.
 ```
 
-<TerminalShot src={termBlocks} label="llm-usage blocks --last 2 --compact output" alt="Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, events, tokens, and cost, two of them marked active, and a line for each active block with its end time, time left, and burn rate" />
+<TerminalShot src={termBlocks} label="llm-usage blocks --last 2 --compact output" alt="Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, tokens, and cost, two of them marked active, and a line for each active block with its end time, time left, and burn rate" />
 
 The burn rate is the block's usage so far divided by the time since it started (at least one minute). When some events in the block have no price, the cost rate is a lower bound.
 
