@@ -2,11 +2,12 @@ import { markdownTable } from 'markdown-table';
 
 import type { ToolsDataResult } from '../cli/build-tools-data.js';
 import type { ToolCallCounts } from '../tools/aggregate-tools.js';
-import { formatInteger, formatSharePercent } from './format-number.js';
+import { formatAbbreviatedTokenCount, formatInteger, formatSharePercent } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { resolveTtyColumns } from './table-text-layout.js';
+import { resolveTtyColumns, truncateTableColumn } from './table-text-layout.js';
+import { createColorRoles, type ColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
@@ -33,6 +34,8 @@ type Column = {
   /** False drops the column. */
   shown?: boolean;
   cell: (row: ToolTableRow) => string;
+  /** The terminal color of a cell; the default color when omitted. */
+  style?: (cell: string, roles: ColorRoles) => string;
 };
 
 type Table = {
@@ -42,24 +45,48 @@ type Table = {
   rowMetas: TableRowMeta[];
   /** Leading columns that name a row: the tool and its split keys. */
   titleColumnCount: number;
+  /** Text columns a narrow terminal truncates to `FITTED_TEXT_WIDTH`. */
+  textColumns: number[];
+  /** Columns a narrow terminal hides, least useful first. */
+  hideableColumns: number[];
+  styles: (Column['style'] | undefined)[];
 };
 
-function buildTable(result: ToolsDataResult): Table {
+type FormatCount = (value: number) => string;
+
+/** Long MCP tool names and project labels are cut to this in a fitted table. */
+const FITTED_TEXT_WIDTH = 28;
+
+const HIDEABLE_HEADERS = ['Unknown', 'Top Project', 'Sessions'];
+
+function buildTable(result: ToolsDataResult, formatCount: FormatCount = formatInteger): Table {
   const { data } = result;
   const titleColumns = [
     { header: 'Tool', align: 'l', cell: (row) => row.label },
-    { header: 'Source', align: 'l', shown: data.bySource, cell: (row) => row.source },
+    {
+      header: 'Source',
+      align: 'l',
+      shown: data.bySource,
+      cell: (row) => row.source,
+      style: (cell, roles) => roles.source(cell)(cell),
+    },
     { header: 'Project', align: 'l', shown: data.byRepo, cell: (row) => row.project },
   ] satisfies Column[];
   const allColumns: Column[] = [
     ...titleColumns,
-    { header: 'Calls', align: 'r', cell: (row) => formatInteger(row.calls) },
-    { header: 'Errors', align: 'r', cell: (row) => formatInteger(row.errors) },
+    { header: 'Calls', align: 'r', cell: (row) => formatCount(row.calls) },
+    { header: 'Errors', align: 'r', cell: (row) => formatCount(row.errors) },
     { header: 'Error Rate', align: 'r', cell: (row) => formatSharePercent(row.errorRate) },
-    { header: 'Unknown', align: 'r', cell: (row) => formatInteger(row.unknown) },
-    { header: 'Sessions', align: 'r', cell: (row) => formatInteger(row.sessions) },
+    { header: 'Unknown', align: 'r', cell: (row) => formatCount(row.unknown) },
+    { header: 'Sessions', align: 'r', cell: (row) => formatCount(row.sessions) },
     // With --by-repo each row is one project already.
-    { header: 'Top Project', align: 'l', shown: !data.byRepo, cell: (row) => row.topProject },
+    {
+      header: 'Top Project',
+      align: 'l',
+      shown: !data.byRepo,
+      cell: (row) => row.topProject,
+      style: (cell, roles) => roles.dim(cell),
+    },
   ];
   const columns = allColumns.filter((column) => column.shown ?? true);
   const toolRows = data.rows.map((row) => ({
@@ -69,7 +96,8 @@ function buildTable(result: ToolsDataResult): Table {
   const totalRow = {
     row: {
       ...data.totals,
-      label: data.rows.length < data.rowCount ? `TOTAL (all ${String(data.rowCount)})` : 'TOTAL',
+      label:
+        data.rows.length < data.rowCount ? `TOTAL (all ${formatInteger(data.rowCount)})` : 'TOTAL',
       source: '',
       project: '',
       topProject: '',
@@ -77,14 +105,39 @@ function buildTable(result: ToolsDataResult): Table {
     meta: { periodKey: '', rowKind: 'total' as const },
   };
   const rows = [...toolRows, totalRow];
+  const headers = columns.map((column) => column.header);
 
   return {
-    headers: columns.map((column) => column.header),
+    headers,
     align: columns.map((column) => column.align),
     rows: rows.map(({ row }) => columns.map((column) => column.cell(row))),
     rowMetas: rows.map(({ meta }) => meta),
     titleColumnCount: titleColumns.filter((column) => column.shown ?? true).length,
+    textColumns: ['Tool', 'Project', 'Top Project']
+      .map((header) => headers.indexOf(header))
+      .filter((index) => index >= 0),
+    hideableColumns: HIDEABLE_HEADERS.map((header) => headers.indexOf(header)).filter(
+      (index) => index >= 0,
+    ),
+    styles: columns.map((column) => column.style),
   };
+}
+
+function colorizeRows(rows: string[][], table: Table, roles: ColorRoles): string[][] {
+  return rows.map((row) =>
+    row.map((cell, columnIndex) => {
+      const style = table.styles[columnIndex];
+      return style && cell.length > 0 ? style(cell, roles) : cell;
+    }),
+  );
+}
+
+/** Abbreviated counts, with long text cut in the middle so its distinct end stays. */
+function buildFittedRows(result: ToolsDataResult, table: Table): string[][] {
+  return table.textColumns.reduce(
+    (rows, columnIndex) => truncateTableColumn(rows, { columnIndex, width: FITTED_TEXT_WIDTH }),
+    buildTable(result, formatAbbreviatedTokenCount).rows,
+  );
 }
 
 function renderTerminalToolsReport(
@@ -103,17 +156,24 @@ function renderTerminalToolsReport(
     return outputLines.join('\n');
   }
 
+  const roles = createColorRoles(useColor);
   const table = buildTable(result);
+  const fittedRows = buildFittedRows(result, table);
   outputLines.push(
     renderUnicodeTable({
-      headerCells: table.headers,
-      bodyRows: table.rows,
+      headerCells: table.headers.map((header) => roles.header(header)),
+      bodyRows: colorizeRows(table.rows, table, roles),
       measureHeaderCells: table.headers,
       measureBodyRows: table.rows,
       rowMetas: table.rowMetas,
       columnKinds: columnKindsFromAlign(table.align),
       multilineColumnIndex: 0,
       terminalWidth,
+      fit: {
+        abbreviatedBodyRows: colorizeRows(fittedRows, table, roles),
+        abbreviatedMeasureBodyRows: fittedRows,
+        hideableColumns: table.hideableColumns,
+      },
       stackedTitleColumnCount: table.titleColumnCount,
     }),
   );

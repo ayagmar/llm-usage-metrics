@@ -9,8 +9,27 @@ import { pluralize, stripControlCharacters } from '@ayagmar/agent-sessions/inter
 import { formatByteSize } from './format-byte-size.js';
 import { formatInteger } from './format-number.js';
 import { renderReportHeader } from './report-header.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
-import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
+import {
+  createColorRoles,
+  type ColorRoles,
+  type TerminalStylePalette,
+} from './terminal-style-policy.js';
+import { shouldUseColorByDefault } from './terminal-table.js';
+import { renderUnicodeTable, type TableRowMeta, wrapAtNameBreaks } from './unicode-table.js';
+import { measureCellWidth, resolveTtyColumns, wrapProse } from './table-text-layout.js';
+
+export type RenderPruneReportOptions = {
+  useColor?: boolean;
+  /** Defaults to the stdout TTY width; without one (piped output) paths are not wrapped. */
+  terminalWidth?: number;
+  palette?: TerminalStylePalette;
+};
+
+const headerCells = ['Source', 'Path', 'Events', 'Newest Timestamp', 'Reason'];
+const pathColumnIndex = 1;
+const timestampColumnIndex = 3;
+// Narrower than this, a wrapped path is more breaks than path, so rows are listed instead.
+const minPathColumnWidth = 24;
 
 function formatStoreSize(size: StoreSizeSnapshot): string {
   return [
@@ -28,7 +47,54 @@ function createRowMetas(candidates: readonly PruneCandidate[]): TableRowMeta[] {
   }));
 }
 
-function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
+/**
+ * The width to wrap paths at, or undefined when they fit whole. The table hides the
+ * timestamp column before a path wraps, so the width is what is left without it.
+ */
+function resolvePathWrapWidth(
+  bodyRows: readonly string[][],
+  terminalWidth: number | undefined,
+): number | undefined {
+  if (terminalWidth === undefined) {
+    return undefined;
+  }
+
+  const widths = headerCells.map((header, columnIndex) =>
+    bodyRows.reduce(
+      (width, row) => Math.max(width, measureCellWidth(row[columnIndex])),
+      measureCellWidth(header),
+    ),
+  );
+  // Each column adds its two padding spaces and one border; the box adds one more border.
+  const otherColumnsWidth = widths.reduce(
+    (total, width, columnIndex) =>
+      columnIndex === pathColumnIndex || columnIndex === timestampColumnIndex
+        ? total
+        : total + width + 3,
+    1 + 3,
+  );
+  const availablePathWidth = terminalWidth - otherColumnsWidth;
+
+  return availablePathWidth >= widths[pathColumnIndex]
+    ? undefined
+    : Math.max(minPathColumnWidth, availablePathWidth);
+}
+
+function colorizeRow(row: readonly string[], source: string, roles: ColorRoles): string[] {
+  return row.map((cell, columnIndex) => {
+    if (columnIndex === 0) {
+      return roles.source(source)(cell);
+    }
+
+    return cell === '-' ? roles.dim(cell) : cell;
+  });
+}
+
+function renderCandidateTable(
+  candidates: readonly PruneCandidate[],
+  roles: ColorRoles,
+  terminalWidth: number | undefined,
+): string {
   const bodyRows = candidates.map((candidate) => [
     candidate.source,
     stripControlCharacters(candidate.filePath),
@@ -36,18 +102,31 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
     candidate.newestTimestamp ?? '-',
     candidate.reasons.join(', '),
   ]);
-  const wrappedRows = wrapTableColumn(bodyRows, { columnIndex: 1, width: 56 });
+  const pathWrapWidth = resolvePathWrapWidth(bodyRows, terminalWidth);
+  const wrappedRows =
+    pathWrapWidth === undefined
+      ? bodyRows
+      : bodyRows.map((row) =>
+          row.map((cell, columnIndex) =>
+            columnIndex === pathColumnIndex
+              ? wrapAtNameBreaks(cell, pathWrapWidth).join('\n')
+              : cell,
+          ),
+        );
 
   return renderUnicodeTable({
-    headerCells: ['Source', 'Path', 'Events', 'Newest timestamp', 'Reason'],
-    bodyRows: wrappedRows,
-    measureHeaderCells: ['Source', 'Path', 'Events', 'Newest timestamp', 'Reason'],
+    headerCells: headerCells.map((cell) => roles.header(cell)),
+    bodyRows: wrappedRows.map((row, rowIndex) =>
+      colorizeRow(row, candidates[rowIndex].source, roles),
+    ),
+    measureHeaderCells: headerCells,
     measureBodyRows: bodyRows,
     rowMetas: createRowMetas(candidates),
     columnKinds: ['text', 'text', 'measure', 'text', 'text'],
-    multilineColumnIndex: 1,
-    multilineColumnWidth: 56,
-    terminalWidth: resolveTtyColumns(process.stdout),
+    multilineColumnIndex: pathColumnIndex,
+    multilineColumnWidth: pathWrapWidth,
+    terminalWidth,
+    fit: { hideableColumns: [timestampColumnIndex] },
   });
 }
 
@@ -80,12 +159,36 @@ function renderDepartedFileCounts(counts: PruneDepartedFileCounts): string[] {
   ];
 }
 
-export function renderPruneReport(result: PruneReportResult): string {
-  const header = renderReportHeader({ title: 'Event Store Prune', useColor: false });
+export function renderPruneReport(
+  result: PruneReportResult,
+  options: RenderPruneReportOptions = {},
+): string {
+  const useColor = options.useColor ?? shouldUseColorByDefault();
+  const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
+  const roles = createColorRoles(useColor, options.palette);
+  const header = renderReportHeader({ title: 'Event Store Prune', useColor, terminalWidth });
   const departedFiles = result.summary.departedFiles;
-  const lines: string[] = departedFiles
-    ? [header, '', ...renderDepartedFileCounts(departedFiles)]
-    : [header, '', renderCandidateTable(result.candidates), '', renderSummary(result.summary)];
+
+  if (departedFiles) {
+    return [
+      header,
+      '',
+      ...renderDepartedFileCounts(departedFiles).map((line) => wrapProse(line, terminalWidth)),
+    ].join('\n');
+  }
+
+  const lines: string[] = [
+    header,
+    '',
+    result.candidates.length === 0
+      ? 'No files to prune.'
+      : renderCandidateTable(result.candidates, roles, terminalWidth),
+  ];
+
+  // With nothing found, a dry run has nothing to add to that line.
+  if (result.candidates.length > 0 || result.summary.applied) {
+    lines.push('', wrapProse(renderSummary(result.summary), terminalWidth));
+  }
 
   return lines.join('\n');
 }

@@ -21,17 +21,17 @@ These are estimates. Providers do not write their windows into the logs, and the
 
 ## Read the report
 
-The table has one row per block, in time order: the block's start and end in the reporting timezone, the source, models, events, the token columns, and cost. The block that contains the current time is marked `(active)`. Under the table, each active block gets a line:
+The table has one row per block, in time order: the block's start and end in the reporting timezone (`(+1d)` when it ends the next day), the source, models, events, the token columns, and cost. The block that contains the current time is marked `(active)`. Under the table, each active block gets a line:
 
 ```text
-Active block (estimated), claude: ends 2026-06-21 15:00, 180 min left, burn rate $0.02/h, 13,100 tokens/h.
+Active block (estimated), claude: ends 2026-06-21 15:00, 3h 0m left, burn rate $0.02/h, 13.1K tokens/h.
 ```
 
-<TerminalShot src={termBlocks} label="llm-usage blocks --last 2 --compact output" alt="Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, events, tokens, and cost, two of them marked active, and a line for each active block with its end time, minutes left, and burn rate" />
+<TerminalShot src={termBlocks} label="llm-usage blocks --last 2 --compact output" alt="Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, events, tokens, and cost, two of them marked active, and a line for each active block with its end time, time left, and burn rate" />
 
 The burn rate is the block's usage so far divided by the time since it started (at least one minute). When some events in the block have no price, the cost rate is a lower bound.
 
-On a narrow terminal each block is listed as labelled values instead of a table row, and `--compact` abbreviates token counts and leaves out minor columns.
+When the table is wider than the terminal, it first abbreviates token counts, then leaves out Reasoning and Cache Write, then Events, Models, Input, and Output. Block, Source, Cache Read, Total, and Cost always stay. Only when that is still too wide is each block listed as labelled values instead of a table row. `--compact` starts with abbreviated token counts and without the minor columns.
 
 ## Set the window
 

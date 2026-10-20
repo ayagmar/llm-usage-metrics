@@ -1192,14 +1192,76 @@ describe('renderTerminalTable', () => {
     expect(plainLines.some((line) => /^ {2}Output +\S/u.test(line))).toBe(true);
   });
 
-  it('throws when an explicit width is too narrow for a per-model table', () => {
-    expect(() =>
-      renderTerminalTable(sampleRows, {
-        useColor: false,
-        tableLayout: 'per_model_columns',
-        terminalWidth: 30,
-      }),
-    ).toThrow('Configured terminal width (30) is too narrow for table rendering');
+  it('lists each model as its own record when no per-model table fits', () => {
+    const { output, fit } = renderTerminalTableWithFit(sampleRows, {
+      useColor: true,
+      tableLayout: 'per_model_columns',
+      terminalWidth: 44,
+    });
+    const records = stripVTControlCharacters(output)
+      .split('\n\n')
+      .map((record) => record.split('\n'));
+
+    expect(fit).toMatchObject({ stacked: true, tokenFormat: 'abbreviated' });
+    expect(maxLineWidth(output)).toBeLessThanOrEqual(44);
+    expect(output).not.toContain('│');
+    expect(records.map((record) => [record[0], record[1].trim().replace(/ +/gu, ' ')])).toEqual([
+      ['2026-02-10 · pi', 'Model gpt-4.1'],
+      ['2026-02-10 · combined', 'Model gpt-4.1'],
+      ['2026-02-10 · combined', 'Model gpt-5-codex'],
+      ['2026-02-10 · combined', 'Model Σ TOTAL'],
+      ['ALL · TOTAL', 'Model gpt-4.1'],
+      ['ALL · TOTAL', 'Model gpt-5-codex'],
+      ['ALL · TOTAL', 'Model Σ TOTAL'],
+    ]);
+    // Each record carries its own model's numbers, not the row's.
+    expect(records[2]).toEqual(
+      expect.arrayContaining(['  Total       1.14K', '  Cost        $1.50']),
+    );
+    expect(records[3]).toEqual(
+      expect.arrayContaining(['  Total       2.72K', '  Cost        $2.75']),
+    );
+  });
+
+  it('lists per-model records with the compact columns and no cost under --compact --no-cost', () => {
+    const { output } = renderTerminalTableWithFit(sampleRows, {
+      useColor: false,
+      tableLayout: 'per_model_columns',
+      compact: true,
+      hideCost: true,
+      terminalWidth: 44,
+    });
+    const labels = output.split('\n\n').map((record) =>
+      record
+        .split('\n')
+        .slice(1)
+        .map((line) => line.trim().split(/ {2,}/u)[0]),
+    );
+
+    expect(output).not.toContain('\u001b[');
+    for (const recordLabels of labels) {
+      expect(recordLabels).toEqual(['Model', 'Input', 'Output', 'Cache Read', 'Total']);
+    }
+  });
+
+  it('keeps a per-model row whole in the list when it has no per-model breakdown', () => {
+    const rows: UsageReportRow[] = [
+      { ...sampleRows[1], models: ['gpt-4.1', 'gpt-5-codex'], modelBreakdown: [] },
+    ];
+    const { output } = renderTerminalTableWithFit(rows, {
+      useColor: false,
+      tableLayout: 'per_model_columns',
+      terminalWidth: 30,
+    });
+
+    expect(output.split('\n')).toEqual(
+      expect.arrayContaining([
+        '2026-02-10 · combined',
+        '  Model       • gpt-4.1',
+        '              • gpt-5-codex',
+        '  Total       2.72K',
+      ]),
+    );
   });
 });
 

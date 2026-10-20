@@ -41,7 +41,7 @@ A resumed or forked session can copy calls from the session it continued. A call
 - **Sessions** counts the distinct sessions that made the calls.
 - **Top Project** is the project whose sessions made most of the calls, labelled as in [Projects](/llm-usage-metrics/projects/). A session's project comes from its usage; a session with no usage in the window is `(unattributed)`.
 
-Rows are sorted by calls, most first. `--top N` shows the first N rows (20 by default, `0` for all); the TOTAL row still counts every call and reads `TOTAL (all N)` when rows were left out. On a narrow terminal each row is listed as labelled values instead.
+Rows are sorted by calls, most first. `--top N` shows the first N rows (20 by default, `0` for all); the TOTAL row still counts every call and reads `TOTAL (all N)` when rows were left out. When the table is wider than the terminal, counts are abbreviated (`64.5K`), tool names and projects longer than 28 characters are cut in the middle, and then Unknown, Top Project and Sessions are hidden in that order. If it still does not fit, each row is listed as labelled values with full names and counts. With `--by-source` or `--by-repo`, the `--top` note counts tool rows, since one tool can take several rows.
 
 ## Split and filter
 
