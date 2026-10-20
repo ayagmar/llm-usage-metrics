@@ -1,10 +1,29 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { logger, setLogLevel, type LogLevel } from '../../src/utils/logger.js';
+
+const stderrTty = {
+  isTTY: Object.getOwnPropertyDescriptor(process.stderr, 'isTTY'),
+  columns: Object.getOwnPropertyDescriptor(process.stderr, 'columns'),
+};
+
+function setStderr(isTTY: boolean, columns: number): void {
+  Object.defineProperty(process.stderr, 'isTTY', { configurable: true, value: isTTY });
+  Object.defineProperty(process.stderr, 'columns', { configurable: true, value: columns });
+}
 
 afterEach(() => {
   setLogLevel('info');
   vi.restoreAllMocks();
+
+  for (const [key, descriptor] of Object.entries(stderrTty)) {
+    if (descriptor) {
+      Object.defineProperty(process.stderr, key, descriptor);
+    } else {
+      Reflect.deleteProperty(process.stderr, key);
+    }
+  }
 });
 
 function spyOnStderr() {
@@ -77,6 +96,45 @@ describe('logger', () => {
     expect(collectMessages(errorSpy).map((message) => message.replace(/^. /u, ''))).toEqual([
       'visible warn',
       'visible debug',
+    ]);
+  });
+
+  const longNote =
+    'Fitted the table to the terminal: abbreviated token counts, hid Input and Output. Widen the terminal or use --json for full detail.';
+
+  it('wraps a long message to a narrow terminal stderr, indented under the icon', () => {
+    const errorSpy = spyOnStderr();
+    setStderr(true, 44);
+
+    logger.info(longNote);
+
+    const lines = collectMessages(errorSpy)[0]?.split('\n') ?? [];
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.every((line) => visibleWidth(line) <= 44)).toBe(true);
+    expect(lines.slice(1).every((line) => line.startsWith('  ') && line[2] !== ' ')).toBe(true);
+    expect(lines.map((line) => line.trim()).join(' ')).toBe(`ℹ ${longNote}`);
+  });
+
+  it('leaves the message on one line when stderr is piped, whatever its width', () => {
+    const errorSpy = spyOnStderr();
+    setStderr(false, 44);
+
+    logger.warn(longNote);
+
+    expect(collectMessages(errorSpy)).toEqual([`⚠ ${longNote}`]);
+  });
+
+  it('keeps a path wider than the terminal whole, so it still copies as one line', () => {
+    const errorSpy = spyOnStderr();
+    const path = '/home/someone/.cache/llm-usage-metrics/reports/share-report-daily-abcdef.html';
+    setStderr(true, 40);
+
+    logger.info(`Wrote html share report: ${path} for today`);
+
+    expect(collectMessages(errorSpy)[0]?.split('\n')).toEqual([
+      'ℹ Wrote html share report:',
+      `  ${path}`,
+      '  for today',
     ]);
   });
 });

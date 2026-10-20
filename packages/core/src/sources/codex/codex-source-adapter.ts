@@ -10,12 +10,11 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
-import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
-import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { hasErrorCode } from '../../utils/error-code.js';
 import { readFirstLine } from '../../utils/read-first-line.js';
+import { isZstdFilePath } from '../../utils/read-zstd-file-chunks.js';
 import { readParentVersion, type ParentVersion } from '../parent-version-cache.js';
 import {
   readClassifiedJsonlObjectBatches,
@@ -381,13 +380,65 @@ function getRolloutStem(filePath: string): string {
  * as Codex reads it, so a session is never read twice.
  */
 async function discoverRollouts(rootDir: string): Promise<string[]> {
-  const plainFiles = await discoverJsonlFiles(rootDir);
-  const plainFileSet = new Set(plainFiles);
-  const compressedFiles = (
-    await discoverFiles(rootDir, { extension: `.jsonl${COMPRESSED_ROLLOUT_SUFFIX}` })
-  ).filter((filePath) => !plainFileSet.has(filePath.slice(0, -COMPRESSED_ROLLOUT_SUFFIX.length)));
+  const files = await discoverFiles(rootDir, {
+    extension: ['.jsonl', `.jsonl${COMPRESSED_ROLLOUT_SUFFIX}`],
+  });
+  const fileSet = new Set(files);
 
-  return [...plainFiles, ...compressedFiles].sort(compareByCodePoint);
+  return files.filter(
+    (filePath) =>
+      !isZstdFilePath(filePath) ||
+      !fileSet.has(filePath.slice(0, -COMPRESSED_ROLLOUT_SUFFIX.length)),
+  );
+}
+
+/** The rollout's other form: `<name>.jsonl.zst` for `<name>.jsonl`, and back. */
+function getOtherRolloutForm(filePath: string): string {
+  return isZstdFilePath(filePath)
+    ? filePath.slice(0, -COMPRESSED_ROLLOUT_SUFFIX.length)
+    : `${filePath}${COMPRESSED_ROLLOUT_SUFFIX}`;
+}
+
+/**
+ * Reads a rollout's batches through `openBatches`, or its other form's when Codex
+ * compressed or decompressed it after discovery. Codex writes the new form before it
+ * removes the old one, so a rollout gone when it is opened was replaced by its other form,
+ * which holds the same lines. `onOpen` gets the path read, before the first batch.
+ */
+async function* readRolloutBatches<T>(
+  filePath: string,
+  openBatches: (filePath: string) => AsyncGenerator<T, void, undefined>,
+  onOpen: (readPath: string) => void,
+): AsyncGenerator<T, void, undefined> {
+  let readPath = filePath;
+  let batches = openBatches(readPath);
+  let first: IteratorResult<T, void>;
+
+  try {
+    first = await batches.next();
+  } catch (error) {
+    if (!hasErrorCode(error, 'ENOENT')) {
+      throw error;
+    }
+
+    readPath = getOtherRolloutForm(filePath);
+    batches = openBatches(readPath);
+    // Neither form exists: the rollout was removed, as the first error says.
+    first = await batches.next().catch((otherFormError: unknown) => {
+      throw hasErrorCode(otherFormError, 'ENOENT') ? error : otherFormError;
+    });
+  }
+
+  onOpen(readPath);
+
+  try {
+    if (!first.done) {
+      yield first.value;
+      yield* batches;
+    }
+  } finally {
+    await batches.return();
+  }
 }
 
 function getFallbackSessionId(filePath: string): string {
@@ -1161,7 +1212,7 @@ export class CodexSourceAdapter implements SourceAdapter {
     const findCopiedBlock = async (): Promise<void> => {
       const spawnId = state.spawnCandidateOf;
       state.spawnCandidateOf = undefined;
-      copiedPrefixEnd = await this.findForkPrefixEnd(filePath);
+      copiedPrefixEnd = await this.findForkPrefixEnd(readPath);
 
       if (spawnId !== undefined && copiedPrefixEnd !== undefined) {
         state.forkPrefixOf = spawnId;
@@ -1169,13 +1220,26 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
     };
 
+    // The path read: the rollout, or its other form when Codex replaced it since discovery.
+    let readPath = filePath;
+    const onOpen = (openedPath: string): void => {
+      readPath = openedPath;
+    };
+
     if (!kindReader) {
-      for await (const lines of readJsonlObjectBatches(filePath, {
-        shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
-        onMalformedLine: () => {
-          recordSkippedRow(diagnostics, 'json_parse_error');
-        },
-      })) {
+      const batches = readRolloutBatches(
+        filePath,
+        (rolloutPath) =>
+          readJsonlObjectBatches(rolloutPath, {
+            shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
+            onMalformedLine: () => {
+              recordSkippedRow(diagnostics, 'json_parse_error');
+            },
+          }),
+        onOpen,
+      );
+
+      for await (const lines of batches) {
         for (const line of lines) {
           usageLineIndex += 1;
 
@@ -1199,13 +1263,20 @@ export class CodexSourceAdapter implements SourceAdapter {
         }
       }
     } else {
-      for await (const items of readClassifiedJsonlObjectBatches(filePath, {
-        shouldParseLineBytes: shouldParseCodexEventLineBytes,
-        isUsageLineBytes: shouldParseCodexJsonlLineBytes,
-        onMalformedLine: (lineBytes) => {
-          recordMalformedLine(diagnostics, kinds, shouldParseCodexJsonlLineBytes(lineBytes));
-        },
-      })) {
+      const batches = readRolloutBatches(
+        filePath,
+        (rolloutPath) =>
+          readClassifiedJsonlObjectBatches(rolloutPath, {
+            shouldParseLineBytes: shouldParseCodexEventLineBytes,
+            isUsageLineBytes: shouldParseCodexJsonlLineBytes,
+            onMalformedLine: (lineBytes) => {
+              recordMalformedLine(diagnostics, kinds, shouldParseCodexJsonlLineBytes(lineBytes));
+            },
+          }),
+        onOpen,
+      );
+
+      for await (const items of batches) {
         for (const { record: line, isUsageLine } of items) {
           if (isUsageLine) {
             usageLineIndex += 1;

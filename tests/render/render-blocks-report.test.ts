@@ -85,7 +85,7 @@ describe('renderBlocksReport', () => {
     expect(output).toContain('* Start uncertain');
     expect(output).toContain('Top 2 of 5 blocks by tokens.');
     expect(output).toContain(
-      'Active block (estimated), claude: ends 2026-06-21 20:30, 3h 0m left, burn rate 1.15K tokens/h.',
+      'Active block (estimated), claude: ends 2026-06-21 20:30, 3h left, burn rate 1.15K tokens/h.',
     );
   });
 

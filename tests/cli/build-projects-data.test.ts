@@ -1,3 +1,6 @@
+import { stripVTControlCharacters } from 'node:util';
+
+import pc from 'picocolors';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
@@ -5,6 +8,7 @@ import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { aggregateProjects, buildProjectsData } from '../../src/cli/build-projects-data.js';
 import { buildProjectsReport } from '../../src/cli/run-projects-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import { renderProjectsReportWithNotes } from '../../src/render/render-projects-report.js';
 import { readFrom } from '../helpers/fake-read.js';
 import { freezeDate } from '../golden/golden-harness.js';
 import { createProjectFixtureAdapters } from '../golden/m9-project-fixture.js';
@@ -241,6 +245,25 @@ describe('projects report', () => {
 
   const deps = { createAdapters: createProjectFixtureAdapters };
   const options = { timezone: 'UTC', pricingOffline: true } as const;
+
+  // picocolors styles only where color is supported, as under CI.
+  it.skipIf(!pc.isColorSupported)(
+    'bolds the table headers without changing the layout',
+    async () => {
+      const data = await buildProjectsData(options, deps);
+      const colored = renderProjectsReportWithNotes(data, 'terminal', {
+        useColor: true,
+        terminalWidth: 120,
+      }).output;
+      const plain = renderProjectsReportWithNotes(data, 'terminal', {
+        useColor: false,
+        terminalWidth: 120,
+      }).output;
+
+      expect(colored).toContain(`│ ${pc.bold('Project')}`);
+      expect(stripVTControlCharacters(colored)).toBe(plain);
+    },
+  );
 
   it('covers full history by default and the last N months with --last', async () => {
     const countEvents = async (windowOptions: { last?: string; all?: boolean }) =>

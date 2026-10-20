@@ -14,10 +14,12 @@ describe('formatHours', () => {
 });
 
 describe('formatDuration', () => {
-  it('prints minutes, hours and minutes, or a dash for no time', () => {
+  it('prints minutes, hours and minutes, whole hours, or a dash for no time', () => {
     expect(formatDuration(0)).toBe('-');
     expect(formatDuration(20_000)).toBe('<1m');
     expect(formatDuration(119_000)).toBe('2m');
     expect(formatDuration(1_234 * 60_000)).toBe('20h 34m');
+    expect(formatDuration(2 * HOUR_MS)).toBe('2h');
+    expect(formatDuration(2 * HOUR_MS + 20_000)).toBe('2h');
   });
 });

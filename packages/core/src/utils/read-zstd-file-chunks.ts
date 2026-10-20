@@ -1,5 +1,5 @@
 import type { ReadStream } from 'node:fs';
-import { open } from 'node:fs/promises';
+import { open, type FileHandle } from 'node:fs/promises';
 import { createZstdDecompress } from 'node:zlib';
 
 /** Zstandard frame magic number, little-endian encoding of `0xFD2FB528`. */
@@ -43,6 +43,29 @@ function readFrameContentSize(header: Buffer, filePath: string): number | undefi
   }
 }
 
+async function readHandleContentSize(
+  handle: FileHandle,
+  filePath: string,
+): Promise<number | undefined> {
+  const header = Buffer.alloc(MAX_FRAME_HEADER_BYTES);
+  const { bytesRead } = await handle.read(header, 0, header.length, 0);
+  return readFrameContentSize(header.subarray(0, bytesRead), filePath);
+}
+
+/**
+ * The decoded size a zstd file's first frame header declares, read from the first bytes
+ * only, or undefined when it declares none. Throws when the file is not zstd.
+ */
+export async function readZstdContentSize(filePath: string): Promise<number | undefined> {
+  const handle = await open(filePath, 'r');
+
+  try {
+    return await readHandleContentSize(handle, filePath);
+  } finally {
+    await handle.close();
+  }
+}
+
 /**
  * Yields a zstd file's decompressed bytes as they decode, so memory stays bounded by a
  * chunk, and closes the file before a return or throw finishes. Node 22 and Bun end a
@@ -58,9 +81,7 @@ export async function* readZstdFileChunks(
   let compressed: ReadStream | undefined;
 
   try {
-    const header = Buffer.alloc(MAX_FRAME_HEADER_BYTES);
-    const { bytesRead } = await handle.read(header, 0, header.length, 0);
-    const contentSize = readFrameContentSize(header.subarray(0, bytesRead), filePath);
+    const contentSize = await readHandleContentSize(handle, filePath);
     compressed = handle.createReadStream({ start: 0, autoClose: false });
     compressed.on('error', (error) => decompress.destroy(error));
     let decodedBytes = 0;

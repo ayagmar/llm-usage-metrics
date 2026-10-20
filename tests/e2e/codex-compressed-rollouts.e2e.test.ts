@@ -5,6 +5,7 @@ import { zstdCompressSync } from 'node:zlib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../src/cli/build-usage-data.js';
+import { CodexSourceAdapter } from '../../packages/core/src/sources/codex/index.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const FIXTURE = path.resolve('packages/core/tests/fixtures/codex/session-token-usage-record.jsonl');
@@ -19,28 +20,56 @@ afterEach(async () => {
 });
 
 /** A rollout in a Codex home's sessions directory, read where Codex keeps it by default. */
-async function createRollout(): Promise<{ plainPath: string; compressedPath: string }> {
+async function createRollout(): Promise<{
+  plainPath: string;
+  compressedPath: string;
+  storePath: string;
+}> {
   const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'codex-zst-'));
   tempDirs.push(rootDir);
   const codexHome = path.join(rootDir, '.codex');
   vi.stubEnv('HOME', rootDir);
   vi.stubEnv('CODEX_HOME', codexHome);
   vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
-  vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'events.db'));
+  const storePath = path.join(rootDir, 'events.db');
+  vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', storePath);
 
   const dayDir = path.join(codexHome, 'sessions', '2026', '10', '04');
   await mkdir(dayDir, { recursive: true });
   const plainPath = path.join(dayDir, ROLLOUT);
   await copyFile(FIXTURE, plainPath);
 
-  return { plainPath, compressedPath: `${plainPath}.zst` };
+  return { plainPath, compressedPath: `${plainPath}.zst`, storePath };
 }
 
 async function compress(plainPath: string, compressedPath: string): Promise<void> {
   await writeFile(compressedPath, zstdCompressSync(await readFile(plainPath)));
 }
 
-async function daily(): Promise<{ total?: number; notes: string[] }> {
+/**
+ * Runs `swap` once, right after the next call of `step`: after discovery, or after the
+ * file's fingerprint is taken (a cold store looks up its dependencies), before the read.
+ */
+function swapAfter(
+  step: 'discoverFiles' | 'getParseDependencies',
+  swap: () => Promise<void>,
+): void {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- called with the adapter as `this`
+  const original = CodexSourceAdapter.prototype[step] as (
+    this: CodexSourceAdapter,
+    ...args: unknown[]
+  ) => Promise<string[]>;
+  vi.spyOn(CodexSourceAdapter.prototype, step).mockImplementationOnce(async function (
+    this: CodexSourceAdapter,
+    ...args: unknown[]
+  ) {
+    const result = await original.apply(this, args);
+    await swap();
+    return result;
+  });
+}
+
+async function daily(): Promise<{ total?: number; notes: string[]; failedFiles: number }> {
   const result = await buildUsageData('daily', {
     all: true,
     source: 'codex',
@@ -53,6 +82,10 @@ async function daily(): Promise<{ total?: number; notes: string[] }> {
     notes: (result.diagnostics.notes ?? []).map((note) =>
       typeof note === 'string' ? note : note.verbose,
     ),
+    failedFiles: result.diagnostics.skippedRows
+      .flatMap((source) => source.reasons ?? [])
+      .filter((reason) => reason.reason === 'file_parse_failed')
+      .reduce((sum, reason) => sum + reason.count, 0),
   };
 }
 
@@ -86,6 +119,44 @@ describe('daily over a Codex rollout that Codex compresses', () => {
 
     expect(compressed.total).toBeGreaterThan(0);
     expect(plain.total).toBe(compressed.total);
+  });
+
+  it('counts a rollout Codex compresses between discovery and parse', async () => {
+    const { plainPath, compressedPath, storePath } = await createRollout();
+    const expected = (await daily()).total;
+    await rm(storePath);
+
+    // Discovered and fingerprinted as plain, read once compressed: its events are stored
+    // under the plain path, which the next run finds departed.
+    swapAfter('getParseDependencies', async () => {
+      await compress(plainPath, compressedPath);
+      await rm(plainPath);
+    });
+    const during = await daily();
+    const after = await daily();
+
+    expect(expected).toBeGreaterThan(0);
+    expect(during).toMatchObject({ total: expected, failedFiles: 0 });
+    expect(after).toMatchObject({ total: expected, failedFiles: 0 });
+    expect(after.notes.join('\n')).not.toMatch(/History: included [1-9]/u);
+  });
+
+  it('counts a rollout Codex decompresses between discovery and parse', async () => {
+    const { plainPath, compressedPath } = await createRollout();
+    const expected = (await daily()).total;
+    await compress(plainPath, compressedPath);
+    await rm(plainPath);
+
+    swapAfter('discoverFiles', async () => {
+      await writeFile(plainPath, await readFile(FIXTURE));
+      await rm(compressedPath);
+    });
+    const during = await daily();
+    const after = await daily();
+
+    expect(during).toMatchObject({ total: expected, failedFiles: 0 });
+    expect(after).toMatchObject({ total: expected, failedFiles: 0 });
+    expect(after.notes.join('\n')).not.toMatch(/History: included [1-9]/u);
   });
 
   it('leaves out a damaged compressed rollout with a diagnostic and counts the rest', async () => {

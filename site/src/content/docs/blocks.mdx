@@ -24,7 +24,7 @@ These are estimates. Providers do not write their windows into the logs, and the
 The table has one row per block, in time order: the block's start and end in the reporting timezone (`(+1d)` when it ends the next day), the source, models, events, the token columns, and cost. The block that contains the current time is marked `(active)`. Under the table, each active block gets a line:
 
 ```text
-Active block (estimated), claude: ends 2026-06-21 15:00, 3h 0m left, burn rate $0.02/h, 13.1K tokens/h.
+Active block (estimated), claude: ends 2026-06-21 15:00, 3h left, burn rate $0.02/h, 13.1K tokens/h.
 ```
 
 <TerminalShot src={termBlocks} label="llm-usage blocks --last 2 --compact output" alt="Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, events, tokens, and cost, two of them marked active, and a line for each active block with its end time, time left, and burn rate" />

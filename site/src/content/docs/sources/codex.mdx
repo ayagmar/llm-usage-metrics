@@ -7,7 +7,7 @@ description: Discovery paths, overrides, and usage parsing for Codex.
 
 - `~/.codex/sessions/**/*.jsonl` and `**/*.jsonl.zst` (or `$CODEX_HOME/sessions/...` when `CODEX_HOME` is set)
 
-Codex compresses rollouts it no longer writes to `<name>.jsonl.zst` and removes the plain file; it decompresses one back to `<name>.jsonl` to resume the session. Both forms are read, and while both exist only the plain file is, as Codex itself does, so a session counts once. With the event store on, the plain file's stored usage matches the compressed file's, so history does not serve it again after it is compressed. A compressed rollout that does not decode to the end (truncated or damaged) fails its parse and is left out of the report with a `file_parse_failed` diagnostic.
+Codex compresses rollouts it no longer writes to `<name>.jsonl.zst` and removes the plain file; it decompresses one back to `<name>.jsonl` to resume the session. Both forms are read, and while both exist only the plain file is, as Codex itself does, so a session counts once. With the event store on, the plain file's stored usage matches the compressed file's, so history does not serve it again after it is compressed. Codex writes the new form before it removes the old one, so a rollout compressed or decompressed during a run, after it was found, is read from its other form. A compressed rollout that does not decode to the end (truncated or damaged) fails its parse and is left out of the report with a `file_parse_failed` diagnostic.
 
 ## Override
 

@@ -234,6 +234,7 @@ function renderTerminalValueReport(
   }
 
   const fits: TableFitChanges[] = [];
+  const roles = createColorRoles(useColor);
 
   for (const plan of data.plans) {
     const rows = toTableRows(plan, { ...options, useColor, align: true });
@@ -242,8 +243,8 @@ function renderTerminalValueReport(
 
     lines.push(useColor ? pc.cyan(description) : description);
     const { output, fit } = renderUnicodeTableWithFit({
-      labelStyler: createColorRoles(useColor).label,
-      headerCells,
+      labelStyler: roles.label,
+      headerCells: headerCells.map((header) => roles.header(header)),
       bodyRows,
       measureHeaderCells: headerCells,
       measureBodyRows: bodyRows,

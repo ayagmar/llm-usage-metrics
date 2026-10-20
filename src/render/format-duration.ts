@@ -13,7 +13,11 @@ export function formatDuration(durationMs: number): string {
 
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return hours === 0 ? `${minutes}m` : `${hours}h ${minutes}m`;
+  if (hours === 0) {
+    return `${minutes}m`;
+  }
+
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }
 
 /** Active time in whole hours, as the wrapped recap prints it: `12h`, `<1h`, `0h`. */
