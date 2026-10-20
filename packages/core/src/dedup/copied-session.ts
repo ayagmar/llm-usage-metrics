@@ -97,27 +97,47 @@ function findEventsOtherSessionsHold<E extends UsageEvent>(events: readonly E[])
   return candidates;
 }
 
-// The identity each candidate is counted under: its usage and request ids. A candidate
-// without ids takes the lowest request key among the candidates with the same usage, so
-// a copy stored before events carried ids still matches its original.
+// The identity each candidate is counted under: its usage and request ids. Candidates
+// without ids, stored or exported before events carried them, take the request keys of
+// the candidates with the same usage in sorted order, one key per event of their session
+// and the last key again when they run out, so such a copy still matches its original.
+// Which of several distinct requests an id-less event stands for cannot be known; it can
+// take the key of another session's distinct request, which then counts as the copy.
 function getCopyIdentities<E extends UsageEvent>(candidates: ReadonlySet<E>): Map<E, string> {
-  const lowestKeys = new Map<string, string>();
+  const keysByUsage = new Map<string, Set<string>>();
 
   for (const event of candidates) {
-    const usageIdentity = getUsageIdentity(event);
     const key = getRequestKey(event);
-    const lowest = lowestKeys.get(usageIdentity);
 
-    if (key !== undefined && (lowest === undefined || compareByCodePoint(key, lowest) < 0)) {
-      lowestKeys.set(usageIdentity, key);
+    if (key !== undefined) {
+      const usageIdentity = getUsageIdentity(event);
+      const keys = keysByUsage.get(usageIdentity) ?? new Set<string>();
+      keys.add(key);
+      keysByUsage.set(usageIdentity, keys);
     }
   }
 
+  const sortedKeysByUsage = new Map(
+    [...keysByUsage].map(([usageIdentity, keys]) => [
+      usageIdentity,
+      [...keys].sort(compareByCodePoint),
+    ]),
+  );
+  const idlessSeen = new Map<string, number>();
   const identities = new Map<E, string>();
 
   for (const event of candidates) {
     const usageIdentity = getUsageIdentity(event);
-    const key = getRequestKey(event) ?? lowestKeys.get(usageIdentity) ?? '';
+    let key = getRequestKey(event);
+
+    if (key === undefined) {
+      const keys = sortedKeysByUsage.get(usageIdentity) ?? [];
+      const sessionUsage = `${event.sessionId}\0${usageIdentity}`;
+      const seen = idlessSeen.get(sessionUsage) ?? 0;
+      idlessSeen.set(sessionUsage, seen + 1);
+      key = keys[Math.min(seen, keys.length - 1)] ?? '';
+    }
+
     identities.set(event, `${usageIdentity}\0${key}`);
   }
 

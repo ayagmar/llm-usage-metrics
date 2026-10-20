@@ -1,4 +1,3 @@
-import type { UsageEvent as CoreUsageEvent } from '@ayagmar/agent-sessions';
 import {
   hasControlCharacters,
   normalizeProviderToBillingEntity,
@@ -228,7 +227,7 @@ function materializeStoredEvent(
     return undefined;
   }
 
-  const event: CoreUsageEvent = {
+  const event: UsageEvent = {
     source,
     sessionId,
     timestamp,
@@ -244,18 +243,21 @@ function materializeStoredEvent(
     totalTokens,
     singleRequest: singleRequestValue === 1 ? true : undefined,
     costUsd,
+    costMode,
   };
 
-  // In the order createUsageEvent sets them, and left out when unknown as it does.
-  if (messageId !== undefined) {
-    event.messageId = messageId;
+  if (messageId === undefined && requestId === undefined) {
+    return event;
   }
 
-  if (requestId !== undefined) {
-    event.requestId = requestId;
-  }
-
-  return Object.assign<CoreUsageEvent, Pick<UsageEvent, 'costMode'>>(event, { costMode });
+  // createUsageEvent sets the ids before the cost mode, and leaves out an unknown one.
+  const { costMode: storedCostMode, ...usage } = event;
+  return {
+    ...usage,
+    ...(messageId === undefined ? {} : { messageId }),
+    ...(requestId === undefined ? {} : { requestId }),
+    costMode: storedCostMode,
+  };
 }
 
 function isBillingEntity(provider: string): boolean {

@@ -100,4 +100,19 @@ describe('dedupeCopiedSessions', () => {
       distinct,
     ]);
   });
+
+  it('matches each event stored without ids to a different copy with ids', () => {
+    // Two requests of one session in the same millisecond with the same usage.
+    const original = [
+      createEvent('original', '2026-10-09T09:00:00.000Z'),
+      createEvent('original', '2026-10-09T10:00:00.000Z'),
+      createEvent('original', '2026-10-09T10:00:00.000Z'),
+    ];
+    const continued = [
+      createRequest('continued', 'msg_1', 'req_1'),
+      createRequest('continued', 'msg_2', 'req_2'),
+    ];
+
+    expect(dedupeCopiedSessions([...original, ...continued])).toEqual(original);
+  });
 });
