@@ -127,6 +127,7 @@ function toTableRows(
   options: RenderValueReportOptions & { useColor: boolean; align: boolean },
 ): ValueTableRow[] {
   const formatTokens = options.compact ? formatAbbreviatedTokenCount : formatInteger;
+  const { money, moneyTotal } = createColorRoles(options.useColor);
   const styleDifference = (value: number, formatted: string): string => {
     if (!options.useColor || value === 0) {
       return formatted;
@@ -141,8 +142,8 @@ function toTableRows(
       month: month.partial ? `${month.month}${PARTIAL_MONTH_MARKER}` : month.month,
       projects: formatProjects(month, options),
       tokens: formatTokens(month.totalTokens),
-      apiCost: formatApproxUsd(month.apiCostUsd, month.costIncomplete),
-      plan: formatUsd(month.planPriceUsd),
+      apiCost: money(formatApproxUsd(month.apiCostUsd, month.costIncomplete)),
+      plan: money(formatUsd(month.planPriceUsd)),
       ratio: formatRatio(month.ratio, month.costIncomplete),
       difference: styleDifference(
         month.differenceUsd,
@@ -161,8 +162,8 @@ function toTableRows(
         month: totalLabel,
         projects: '',
         tokens: formatTokens(total.totalTokens),
-        apiCost: formatApproxUsd(total.apiCostUsd, total.costIncomplete),
-        plan: formatUsd(total.planPriceUsd),
+        apiCost: moneyTotal(formatApproxUsd(total.apiCostUsd, total.costIncomplete)),
+        plan: moneyTotal(formatUsd(total.planPriceUsd)),
         ratio: formatRatio(total.ratio, total.costIncomplete),
         difference: styleDifference(
           total.differenceUsd,

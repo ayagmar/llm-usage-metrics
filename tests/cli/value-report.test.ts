@@ -14,6 +14,7 @@ import {
   renderValueReportWithNotes,
 } from '../../src/render/render-value-report.js';
 import type { ValueCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import { formatUsd } from '../../src/render/format-number.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { ValueReportData } from '../../src/value/build-value-report.js';
 import { freezeDate } from '../golden/golden-harness.js';
@@ -326,13 +327,18 @@ describe('value report', () => {
 
   // picocolors styles only where color is supported, as under CI.
   it.skipIf(!pc.isColorSupported)(
-    'bolds the table headers without changing the layout',
+    'bolds the headers and colors API Cost and Plan as money without changing the layout',
     async () => {
       const { data } = await buildValueData(baseOptions, deps);
       const colored = renderValueReport(data, 'terminal', { useColor: true, terminalWidth: 120 });
       const plain = renderValueReport(data, 'terminal', { useColor: false, terminalWidth: 120 });
 
       expect(colored).toContain(`│ ${pc.bold('Month')}`);
+      expect(colored).toContain(`${pc.yellow('$0.06')} │ ${pc.yellow('$200.00')} │`);
+      const planTotal = formatUsd(data.plans[0].total.planPriceUsd);
+      expect(colored).toContain(
+        `${pc.bold(pc.yellow('$0.07'))} │ ${pc.bold(pc.yellow(planTotal))} │`,
+      );
       expect(stripVTControlCharacters(colored)).toBe(plain);
     },
   );

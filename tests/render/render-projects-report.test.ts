@@ -1,3 +1,6 @@
+import { stripVTControlCharacters } from 'node:util';
+
+import pc from 'picocolors';
 import { describe, expect, it } from 'vitest';
 
 import type { ProjectRow, ProjectsData } from '../../src/cli/build-projects-data.js';
@@ -58,5 +61,28 @@ describe('renderProjectsReportWithNotes', () => {
         renderProjectsReportWithNotes(createProjectsData(), format, { terminalWidth: 44 }).notes,
       ).toEqual([]);
     }
+  });
+
+  // picocolors emits nothing without a color terminal, so this runs where color is on (CI).
+  it.runIf(pc.isColorSupported)('colors costs as money without changing the layout', () => {
+    const render = (useColor: boolean) =>
+      renderProjectsReportWithNotes(createProjectsData(), 'terminal', {
+        useColor,
+        terminalWidth: 400,
+      }).output;
+    const colored = render(true);
+
+    expect(colored).toContain(`│ ${pc.yellow('$10,543.08')} │`);
+    expect(colored).toContain(`│ ${pc.bold(pc.yellow('$10,543.08'))} │`);
+    expect(stripVTControlCharacters(colored)).toBe(render(false));
+  });
+
+  it('keeps markdown costs free of color codes', () => {
+    const { output } = renderProjectsReportWithNotes(createProjectsData(), 'markdown', {
+      useColor: true,
+    });
+
+    expect(output).toContain('$10,543.08');
+    expect(output).toBe(stripVTControlCharacters(output));
   });
 });

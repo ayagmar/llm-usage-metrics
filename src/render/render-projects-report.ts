@@ -56,6 +56,7 @@ const PERIOD_NAMES = { daily: 'Day', weekly: 'Week', monthly: 'Month' } as const
 
 /** The column that wraps; the columns before it name a stacked row. */
 const MODELS_HEADER = 'Models';
+const COST_HEADER = 'Cost';
 
 function formatCost(totals: UsageTotals): string {
   return formatApproxUsd(totals.costUsd, totals.costIncomplete);
@@ -118,7 +119,7 @@ function buildProjectTable(data: ProjectsData, options: RenderProjectsReportOpti
       align: 'l',
       cell: (row) => (row.models.length === 0 ? '' : formatBulletedList(row.models)),
     },
-    { header: 'Cost', align: 'r', kind: 'cost', cell: formatCost },
+    { header: COST_HEADER, align: 'r', kind: 'cost', cell: formatCost },
     { header: 'Share', align: 'r', kind: 'cost', cell: (row) => formatSharePercent(row.costShare) },
     { header: 'Tokens', align: 'r', cell: (row) => formatTokens(row.totalTokens) },
     {
@@ -163,7 +164,7 @@ function buildPeriodTable(
       align: 'l',
       cell: (row) => formatBulletedList(row.models.slice(0, TOP_MODEL_COUNT)),
     },
-    { header: 'Cost', align: 'r', kind: 'cost', cell: formatCost },
+    { header: COST_HEADER, align: 'r', kind: 'cost', cell: formatCost },
     { header: 'Tokens', align: 'r', cell: (row) => formatTokens(row.totalTokens) },
   ];
 
@@ -189,11 +190,23 @@ function renderTerminalTable(
 ) {
   const { terminalWidth, roles } = options;
   const modelsColumnIndex = table.headers.indexOf(MODELS_HEADER);
+  const costColumnIndex = table.headers.indexOf(COST_HEADER);
+  const bodyRows = table.rows.map((row, rowIndex) =>
+    row.map((cell, columnIndex) => {
+      if (columnIndex !== costColumnIndex) {
+        return cell;
+      }
+
+      return table.rowMetas[rowIndex].rowKind === 'total'
+        ? roles.moneyTotal(cell)
+        : roles.money(cell);
+    }),
+  );
 
   return renderUnicodeTableWithFit({
     labelStyler: roles.label,
     headerCells: table.headers.map((header) => roles.header(header)),
-    bodyRows: table.rows,
+    bodyRows,
     measureHeaderCells: table.headers,
     measureBodyRows: table.rows,
     rowMetas: table.rowMetas,
