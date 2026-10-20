@@ -26,12 +26,15 @@ async function prepareSessionReport(
       limitNote: sessionData.limitNote,
     }),
     runtimeProfile: deps.runtimeProfile,
-    render: (sessionData, format) =>
-      renderSessionReport(sessionData, format, {
+    render: (sessionData, format) => {
+      const { output, notes } = renderSessionReport(sessionData, format, {
         timezone: sessionData.diagnostics.timezone,
         truncateSessionIds: !options.id?.length,
         filtered: hasCliFilters(options),
-      }),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
   });
 }
 

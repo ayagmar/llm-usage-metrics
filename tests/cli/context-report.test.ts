@@ -6,6 +6,7 @@ import { freezeDate } from '../golden/golden-harness.js';
 import { createContextFixtureAdapters } from '../golden/m12-context-fixture.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
+import { overrideStdoutTty } from '../helpers/stdout.js';
 
 describe('context report', () => {
   useIsolatedEnvironment();
@@ -69,6 +70,30 @@ describe('context report', () => {
     expect(JSON.parse(printed)).toMatchObject({ report: 'context', data: { grouping: 'session' } });
     expect(diagnostics).toContain('Showing top 1 of 3 sessions by peak prompt.');
     expect(printed).not.toContain('Showing top');
+  });
+
+  it('says on stderr, after the table, which columns a narrow terminal hid', async () => {
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const restoreStdout = overrideStdoutTty(80);
+    let printed: string;
+    let diagnostics: string;
+
+    try {
+      await runContextReport({ ...options, bySession: true }, deps);
+      printed = stdout.mock.calls.map((call) => String(call[0])).join('\n');
+      diagnostics = stderr.mock.calls.map((call) => String(call[0])).join('\n');
+    } finally {
+      restoreStdout();
+      stdout.mockRestore();
+      stderr.mockRestore();
+    }
+
+    expect(printed).toContain('╭');
+    expect(printed).not.toContain('Fitted');
+    expect(diagnostics).toContain(
+      'Fitted the table to the terminal: abbreviated token counts, hid Models, Tier Extra and Project.',
+    );
   });
 
   it('rejects --top without --by-session', async () => {

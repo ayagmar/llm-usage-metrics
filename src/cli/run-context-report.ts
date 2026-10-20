@@ -29,8 +29,13 @@ async function prepareContextReport(options: ContextCommandOptions, deps: BuildU
       limitNote: contextData.limitNote,
     }),
     runtimeProfile: deps.runtimeProfile,
-    render: (contextData, format) =>
-      renderContextReport(contextData, format, { filtered: hasCliFilters(options) }),
+    render: (contextData, format) => {
+      const { output, notes } = renderContextReport(contextData, format, {
+        filtered: hasCliFilters(options),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
     getHintsAfterOutput: (contextData) =>
       contextData.defaultWindowSince
         ? getDefaultWindowHint('daily', contextData.defaultWindowSince)

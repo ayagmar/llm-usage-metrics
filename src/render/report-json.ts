@@ -20,6 +20,20 @@ export type ReportJsonName =
   | 'value'
   | 'share';
 
-export function renderReportJson(report: ReportJsonName, data: unknown): string {
-  return JSON.stringify({ schemaVersion: REPORT_JSON_SCHEMA_VERSION, report, data }, null, 2);
+/** Envelope fields beside `data`, for payloads (bare arrays) that cannot carry them. */
+type ReportJsonEnvelopeFields = {
+  /** Rows before --top, when `data` is a list --top may have cut. */
+  rowCount?: number;
+};
+
+export function renderReportJson(
+  report: ReportJsonName,
+  data: unknown,
+  envelopeFields: ReportJsonEnvelopeFields = {},
+): string {
+  return JSON.stringify(
+    { schemaVersion: REPORT_JSON_SCHEMA_VERSION, report, ...envelopeFields, data },
+    null,
+    2,
+  );
 }

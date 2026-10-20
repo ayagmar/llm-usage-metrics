@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { UsageDataResult } from '../../src/cli/usage-data-contracts.js';
 import {
-  describeTableFit,
+  describeUsageTableFit,
   renderUsageReportWithNotes,
 } from '../../src/render/render-usage-report.js';
 
@@ -245,18 +245,18 @@ describe('renderUsageReportWithNotes output', () => {
       stacked: false,
     };
 
-    expect(describeTableFit(fit, true)).toBeUndefined();
-    expect(describeTableFit({ ...fit, truncatedModelNames: true }, true)).toBe(
+    expect(describeUsageTableFit(fit, true)).toBeUndefined();
+    expect(describeUsageTableFit({ ...fit, truncatedModelNames: true }, true)).toBe(
       'Fitted the table to the terminal: shortened model names. Widen the terminal or use --json for full detail.',
     );
     expect(
-      describeTableFit({ ...fit, hiddenColumns: [...fit.hiddenColumns, 'models'] }, true),
+      describeUsageTableFit({ ...fit, hiddenColumns: [...fit.hiddenColumns, 'models'] }, true),
     ).toBe(
       'Fitted the table to the terminal: hid Models. Widen the terminal or use --json for full detail.',
     );
-    expect(describeTableFit(fit, false)).toContain('hid Reasoning and Cache Write');
+    expect(describeUsageTableFit(fit, false)).toContain('hid Reasoning and Cache Write');
     expect(
-      describeTableFit({ ...fit, hiddenColumns: [...fit.hiddenColumns, 'cost'] }, true, true),
+      describeUsageTableFit({ ...fit, hiddenColumns: [...fit.hiddenColumns, 'cost'] }, true, true),
     ).toBeUndefined();
   });
 });
