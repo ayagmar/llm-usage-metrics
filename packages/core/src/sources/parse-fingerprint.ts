@@ -207,18 +207,15 @@ export async function getParseByteSize(
   filePath: string,
   fingerprint: FileFingerprint | undefined,
 ): Promise<number> {
-  const fileByteSize =
-    getPrimaryFingerprintByteSize(fingerprint) ?? (await getFileByteSize(filePath));
+  if (isZstdFilePath(filePath)) {
+    const contentSize = await readZstdContentSize(filePath).catch(() => undefined);
 
-  if (!isZstdFilePath(filePath)) {
-    return fileByteSize;
+    if (contentSize !== undefined) {
+      return contentSize;
+    }
   }
 
-  try {
-    return (await readZstdContentSize(filePath)) ?? fileByteSize;
-  } catch {
-    return fileByteSize;
-  }
+  return getPrimaryFingerprintByteSize(fingerprint) ?? (await getFileByteSize(filePath));
 }
 
 /** Newest mtime among the file and its parse dependencies that exist. */
