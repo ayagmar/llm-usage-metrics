@@ -212,6 +212,30 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.notes).toEqual([]);
   });
 
+  it('keeps the default history note for --verbose, unlike an explicit --history', async () => {
+    const eventStorePath = await createEventStorePath();
+    await writeStoredFile(eventStorePath, {
+      filePath: '/tmp/departed.jsonl',
+      events: [createEvent({ sessionId: 'departed' })],
+    });
+
+    const dataset = await buildUsageEventDataset(
+      { source: 'codex', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(eventStorePath),
+        createAdapters: () => [createAdapter('codex', {})],
+      },
+    );
+
+    expect(dataset.filteredEvents).toHaveLength(1);
+    expect(dataset.notes).toEqual([
+      {
+        verbose:
+          'History: included 1 event from 1 departed file (0 suppressed as moved or duplicated).',
+      },
+    ]);
+  });
+
   it('skips default history quietly when the event store is disabled', async () => {
     const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
 

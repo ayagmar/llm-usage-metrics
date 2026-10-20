@@ -60,7 +60,7 @@ describe('emitDiagnostics', () => {
     );
   });
 
-  it('summarizes discovery, pricing, config, and env overrides on one info line', () => {
+  it('summarizes discovery, pricing, config, and env overrides on one --verbose line', () => {
     const diagnosticsLogger = createLoggerSpy();
 
     emitDiagnostics(
@@ -76,9 +76,11 @@ describe('emitDiagnostics', () => {
     );
 
     // Sources without files are left out; the rest are ordered by file count.
-    expect(diagnosticsLogger.info.mock.calls).toEqual([
-      ['Scanned 1,201 files (codex 1,200, pi 1) · cached pricing · 1 env override'],
-    ]);
+    expect(diagnosticsLogger.debug).toHaveBeenCalledWith(
+      'Scanned 1,201 files (codex 1,200, pi 1) · cached pricing · 1 env override',
+    );
+    // A clean run prints nothing by default.
+    expect(diagnosticsLogger.info).not.toHaveBeenCalled();
     expect(diagnosticsLogger.warn).not.toHaveBeenCalled();
     expect(diagnosticsLogger.dim).not.toHaveBeenCalled();
   });
@@ -94,7 +96,9 @@ describe('emitDiagnostics', () => {
       diagnosticsLogger,
     );
 
-    expect(diagnosticsLogger.info).toHaveBeenCalledWith('Scanned 1 file (pi 1) · config /cfg.toml');
+    expect(diagnosticsLogger.debug).toHaveBeenCalledWith(
+      'Scanned 1 file (pi 1) · config /cfg.toml',
+    );
   });
 
   it.each([
@@ -113,7 +117,7 @@ describe('emitDiagnostics', () => {
       diagnosticsLogger,
     );
 
-    expect(diagnosticsLogger.info).toHaveBeenCalledWith(`Scanned 1 file (pi 1) · ${label}`);
+    expect(diagnosticsLogger.debug).toHaveBeenCalledWith(`Scanned 1 file (pi 1) · ${label}`);
   });
 
   it('keeps per-source counts for --verbose', () => {
@@ -121,7 +125,7 @@ describe('emitDiagnostics', () => {
 
     emitDiagnostics(createDiagnostics({ sessionStats: twoSources }), diagnosticsLogger);
 
-    expect(diagnosticsLogger.debug.mock.calls).toEqual([
+    expect(diagnosticsLogger.debug.mock.calls.slice(1)).toEqual([
       ['pi: 1 file, 2 events'],
       ['codex: 1,200 files, 3,000 events'],
       ['droid: 0 files, 0 events'],
@@ -290,6 +294,28 @@ describe('emitDiagnostics', () => {
     expect(diagnosticsLogger.warn).not.toHaveBeenCalled();
     expect(diagnosticsLogger.info).toHaveBeenLastCalledWith(
       'History: included 0 events from 0 departed files.',
+    );
+  });
+
+  it('keeps routine notes for --verbose and prints the rest by default', () => {
+    const diagnosticsLogger = createLoggerSpy();
+
+    emitDiagnostics(
+      createDiagnostics({
+        sessionStats: twoSources,
+        notes: [
+          '~ marks costs that leave out 1 event with no known price (models: x)',
+          { verbose: 'Machines: laptop (synced 1 hour ago)' },
+        ],
+      }),
+      diagnosticsLogger,
+    );
+
+    expect(diagnosticsLogger.info.mock.calls).toEqual([
+      ['~ marks costs that leave out 1 event with no known price (models: x)'],
+    ]);
+    expect(diagnosticsLogger.debug).toHaveBeenLastCalledWith(
+      'Machines: laptop (synced 1 hour ago)',
     );
   });
 });
