@@ -1,5 +1,6 @@
-import { copyFile, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { zstdCompressSync } from 'node:zlib';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -136,6 +137,20 @@ describe('daily over a Codex parent and its fork', () => {
     await rename(parentPath, path.join(codexHome, 'archived_sessions', PARENT));
     // The parent left the sessions directory; the fork still counts only its own turn.
     await expect(totals(sessionsDir)).resolves.toMatchObject({ '2026-01-02': 540 });
+  });
+
+  it('keeps counting an old fork once after Codex compresses its parent', async () => {
+    const { sessionsDir, place, totals } = await createCodexHome();
+    const dayDir = path.join(sessionsDir, '2026', '01', '01');
+    const parentPath = await place(PARENT, dayDir);
+    await place(FORK, dayDir);
+    const before = await totals(sessionsDir);
+
+    await writeFile(`${parentPath}.zst`, zstdCompressSync(await readFile(parentPath)));
+    await rm(parentPath);
+
+    expect(before).toEqual({ '2026-01-01': 2760, '2026-01-02': 540, all: 3300 });
+    await expect(totals(sessionsDir)).resolves.toEqual(before);
   });
 
   it('finds the parent on a normal run after a run over a directory without it', async () => {

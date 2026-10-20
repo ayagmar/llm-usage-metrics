@@ -12,8 +12,8 @@ import type {
 } from '../../src/cli/build-usage-event-dataset.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import { resolveAndApplyPricingToEvents } from '../../src/cli/build-usage-data-pricing.js';
-import { StaticPricingSource } from '../helpers/static-pricing-source.js';
-import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../../src/pricing/cost-engine.js';
+import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
+import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/pricing';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
 
@@ -268,6 +268,7 @@ describe('buildEfficiencyData', () => {
       gitLinesDeleted: 20,
       gitMalformedCommitLines: 3,
       repoMatchedUsageEvents: 1,
+      repoUsageDays: 1,
       repoExcludedUsageEvents: 1,
       repoUnattributedUsageEvents: 1,
     });

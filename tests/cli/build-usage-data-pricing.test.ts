@@ -12,28 +12,27 @@ let mockLoadedFromCache = false;
 let mockLoadOrigin: 'cache' | 'network' | 'bundled-snapshot' | undefined;
 let mockPricingWarning: string | undefined;
 
-vi.mock('../../src/pricing/litellm-pricing-fetcher.js', () => {
-  return {
-    DEFAULT_LITELLM_PRICING_URL: 'https://example.test/litellm.json',
-    LiteLLMPricingFetcher: class {
-      public async load() {
-        mockLoadOrigin = mockLoadOrigin ?? (mockLoadedFromCache ? 'cache' : 'network');
-        return mockLoadedFromCache;
-      }
-      public getLoadOrigin() {
-        return mockLoadOrigin;
-      }
-      public getPricingWarning() {
-        return mockPricingWarning;
-      }
-      public resolveModelAlias(model: string) {
-        return model.toLowerCase();
-      }
-      public getPricing(model: string) {
-        return mockPricingByModel.get(model.toLowerCase());
-      }
-    },
-  };
+vi.mock('../../src/pricing/cli-pricing-fetcher.js', () => {
+  class FakeLiteLLMPricingFetcher {
+    public async load() {
+      mockLoadOrigin = mockLoadOrigin ?? (mockLoadedFromCache ? 'cache' : 'network');
+      return mockLoadedFromCache;
+    }
+    public getLoadOrigin() {
+      return mockLoadOrigin;
+    }
+    public getPricingWarning() {
+      return mockPricingWarning;
+    }
+    public resolveModelAlias(model: string) {
+      return model.toLowerCase();
+    }
+    public getPricing(model: string) {
+      return mockPricingByModel.get(model.toLowerCase());
+    }
+  }
+
+  return { createLiteLLMPricingFetcher: () => new FakeLiteLLMPricingFetcher() };
 });
 
 import {
@@ -41,8 +40,8 @@ import {
   resolvePricingSource,
 } from '../../src/cli/build-usage-data-pricing.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { DEFAULT_PRICING_POLICY } from '../../src/pricing/cost-engine.js';
-import { StaticPricingSource } from '../helpers/static-pricing-source.js';
+import { DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/pricing';
+import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 
 const tempDirs: string[] = [];
 

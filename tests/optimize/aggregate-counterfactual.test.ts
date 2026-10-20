@@ -7,7 +7,7 @@ import {
 import {
   createDefaultOpenAiPricingSource,
   StaticPricingSource,
-} from '../helpers/static-pricing-source.js';
+} from '../../packages/core/tests/helpers/static-pricing-source.js';
 import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
 
 function createUsageRows(

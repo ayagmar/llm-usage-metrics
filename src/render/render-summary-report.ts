@@ -316,7 +316,6 @@ function renderTerminalSummaryReport(
       measureHeaderCells: summaryTableHeaders,
       measureBodyRows: bodyRows,
       rowMetas,
-      layout: 'compact',
       multilineColumnIndex: 0,
       columnKinds: ['text', 'measure', 'measure', 'text'],
       multilineColumnWidth: 13,

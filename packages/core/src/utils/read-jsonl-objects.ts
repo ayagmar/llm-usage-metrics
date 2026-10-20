@@ -1,6 +1,7 @@
 import { open, type FileHandle } from 'node:fs/promises';
 
 import { asRecord } from './as-record.js';
+import { isZstdFilePath, readZstdFileChunks } from './read-zstd-file-chunks.js';
 
 /**
  * A read that starts at a byte offset and reports where each complete line ends, for a
@@ -201,9 +202,15 @@ async function* readHandleChunks(handle: FileHandle, start: number): AsyncGenera
 /**
  * Reads the file into one buffer, reused for every chunk and kept for the next read. A
  * fresh chunk per read outlives a young-generation GC while its lines are parsed, so its
- * memory came back only at the next full GC: tens of MB per parse worker.
+ * memory came back only at the next full GC: tens of MB per parse worker. A `.zst` file
+ * is read decompressed.
  */
 async function* readFileChunks(filePath: string): AsyncGenerator<Buffer> {
+  if (isZstdFilePath(filePath)) {
+    yield* readZstdFileChunks(filePath);
+    return;
+  }
+
   const handle = await open(filePath, 'r');
   const buffer = takeChunkBuffer();
 

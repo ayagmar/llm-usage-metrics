@@ -236,6 +236,21 @@ function wrapPlainLine(line: string, width: number): string[] {
   return wrappedLines;
 }
 
+/**
+ * Wraps plain prose between words to `width`, breaking a word only when it is wider than
+ * a whole line. Without a width (piped output) the text is left as it is. Color the
+ * lines after wrapping: escape codes would count toward the width.
+ */
+export function wrapProse(text: string, width: number | undefined): string {
+  if (width === undefined) {
+    return text;
+  }
+
+  return splitCellLines(text)
+    .flatMap((line) => wrapPlainLine(line, width))
+    .join('\n');
+}
+
 export function wrapTableColumn(
   rows: string[][],
   options: { columnIndex: number; width: number },
@@ -246,10 +261,11 @@ export function wrapTableColumn(
 
   return rows.map((row) => {
     const wrappedRow = [...row];
-    const cell = wrappedRow[options.columnIndex] ?? '';
-    const wrappedLines = splitCellLines(cell).flatMap((line) => wrapPlainLine(line, options.width));
 
-    wrappedRow[options.columnIndex] = wrappedLines.join('\n');
+    wrappedRow[options.columnIndex] = wrapProse(
+      wrappedRow[options.columnIndex] ?? '',
+      options.width,
+    );
 
     return wrappedRow;
   });

@@ -56,7 +56,32 @@ describe('efficiency-row-cells', () => {
     ]);
 
     expect(cells[0]?.[11]).toBe('~$2.50');
-    expect(cells[0]?.[12]).toBe('~$1.2500');
+    expect(cells[0]?.[12]).toBe('~$1.25');
     expect(cells[0]?.[15]).toBe('~0.80');
+  });
+
+  it('prints whole tokens per commit in both the full and the fitted table', () => {
+    const row = {
+      rowType: 'period' as const,
+      periodKey: '2026-02',
+      inputTokens: 100,
+      outputTokens: 25,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 125,
+      costUsd: 1,
+      commitCount: 2,
+      linesAdded: 1,
+      linesDeleted: 1,
+      linesChanged: 2,
+      usdPerCommit: 0.5,
+      usdPer1kLinesChanged: 500,
+      tokensPerCommit: 62.5,
+      commitsPerUsd: 2,
+    };
+
+    expect(toEfficiencyTableCells([row], 'full')[0]?.[14]).toBe('63');
+    expect(toEfficiencyTableCells([row], 'abbreviated')[0]?.[14]).toBe('63');
   });
 });

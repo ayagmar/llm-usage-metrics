@@ -7,7 +7,6 @@ const cliModules = [
   { path: 'src/config', role: 'config.toml, env vars' },
   { path: 'src/persistence', role: 'SQLite event store' },
   { path: 'src/machines', role: 'other machines (ssh)' },
-  { path: 'src/pricing', role: 'LiteLLM rates, costs' },
   { path: 'src/aggregate, …', role: 'per-report totals' },
   { path: 'src/render', role: 'text, JSON, Markdown' },
   { path: 'src/share-report', role: 'interactive HTML' },
@@ -18,6 +17,7 @@ const coreModules = [
   { path: 'stream/', role: 'read, collect, cursors' },
   { path: 'dedup/', role: 'hash, repeats, copies' },
   { path: 'domain/', role: 'event types' },
+  { path: 'pricing/', role: 'LiteLLM rates, costs' },
   { path: 'otel/', role: 'GenAI attributes' },
 ];
 
@@ -49,13 +49,13 @@ const height = coreBottom + 10;
       <desc id="dg-package-layers-desc">
         Two layers. The llm-usage-metrics CLI on top owns commands and the report runtime (src/cli),
         config and env vars (src/config), the SQLite event store (src/persistence), other machines
-        over ssh (src/machines), pricing (src/pricing), the per-report aggregation directories,
-        terminal, JSON and Markdown rendering (src/render) and the interactive HTML report
-        (src/share-report). It imports the core package @ayagmar/agent-sessions, which the CLI build
-        bundles. The core package owns the 17 source adapters (sources), the adapter registry and
-        readSources (registry), reading, collecting and cursors (stream), the dedup stages (dedup),
-        the event types and constructors (domain) and OpenTelemetry GenAI attributes (otel). It has
-        no runtime dependencies.
+        over ssh (src/machines), the per-report aggregation directories, terminal, JSON and Markdown
+        rendering (src/render) and the interactive HTML report (src/share-report). It imports the
+        core package @ayagmar/agent-sessions, which the CLI build bundles. The core package owns the
+        17 source adapters (sources), the adapter registry and readSources (registry), reading,
+        collecting and cursors (stream), the dedup stages (dedup), the event types and constructors
+        (domain), LiteLLM rates and the cost engine (pricing) and OpenTelemetry GenAI attributes
+        (otel). It has no runtime dependencies.
       </desc>
       <defs>
         <marker

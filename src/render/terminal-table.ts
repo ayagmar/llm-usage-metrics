@@ -20,7 +20,7 @@ import {
   truncateTableColumn,
   visibleWidth,
 } from './table-text-layout.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { findFittingStep, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
 const modelsColumnIndex = 2;
 const sourceColumnIndex = 1;
@@ -405,7 +405,6 @@ function renderPreparedTable(
     measureHeaderCells: selectColumns(prepared.headerCells, columns),
     measureBodyRows: preparedRows.map((row) => selectColumns(row, columns)),
     rowMetas: toRowMetas(rows),
-    layout: options.tableLayout === 'per_model_columns' ? 'top_aligned' : 'compact',
     columnKinds: selectColumns(usageTableColumnKinds, columns),
     multilineColumnIndex: prepared.showsModels
       ? columns.indexOf(modelsColumnIndex)
@@ -430,23 +429,15 @@ export function renderTerminalTableWithFit(
   const hasExplicitTerminalWidth = isValidTerminalWidth(options.terminalWidth);
   const terminalWidth = resolveTerminalWidth(options.terminalWidth);
   const steps = resolveFitSteps(tableLayout, options.compact ?? false, options.hideCost ?? false);
-  let prepared = prepareFitStep(rows, tableLayout, steps[0]);
-
-  if (terminalWidth !== undefined) {
-    for (const step of steps.slice(1)) {
-      if (fitsTerminal(prepared, terminalWidth)) {
-        break;
-      }
-
-      prepared = prepareFitStep(rows, tableLayout, step);
-    }
-  }
+  const fitted = findFittingStep(
+    steps,
+    (step) => prepareFitStep(rows, tableLayout, step),
+    (candidate) => terminalWidth === undefined || fitsTerminal(candidate, terminalWidth),
+  );
+  let { prepared } = fitted;
 
   // Per-model metric lines only line up with their model names inside the table.
-  const stacked =
-    tableLayout === 'compact' &&
-    terminalWidth !== undefined &&
-    !fitsTerminal(prepared, terminalWidth);
+  const stacked = tableLayout === 'compact' && !fitted.fits;
 
   if (stacked) {
     // A list has no column budget: keep Input and Output, drop only the model lists.

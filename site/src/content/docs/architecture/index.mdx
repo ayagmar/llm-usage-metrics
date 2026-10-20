@@ -12,7 +12,7 @@ The repository holds two packages. `@ayagmar/agent-sessions` (`packages/core`) r
 
 ## Core package
 
-`packages/core/src` only reads local files: it has no runtime dependencies and makes no network calls.
+`packages/core/src` reads local files and has no runtime dependencies. It makes no network calls of its own: the pricing fetcher uses the `fetch` and the cache file its caller passes.
 
 | Directory   | What lives there                                                                                                                                                               |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -21,6 +21,7 @@ The repository holds two packages. `@ayagmar/agent-sessions` (`packages/core`) r
 | `stream/`   | Async-iterable stages: `readEvents`, `collect`/`collectFile`, `pipe`, `kinds`, `since`/`until`, `bySession`, and read cursors                                                |
 | `dedup/`    | The content hash and the repeated-across-files and copied-session stages                                                                                                      |
 | `domain/`   | The event types and constructors, timestamp and provider normalization, active time                                                                                          |
+| `pricing/`  | LiteLLM loading and cache file, model-name matching, the cost engine, overrides, retired prices, cache savings, `pricing` explain                                            |
 | `utils/`    | File discovery, chunked reads, and the JSONL reader with byte and string prefilters                                                                                           |
 | `otel/`     | OpenTelemetry GenAI attributes for events (experimental)                                                                                                                       |
 | `internal/` | Helpers the CLI uses that are not part of the public API                                                                                                                       |
@@ -35,7 +36,7 @@ The package's exports map publishes `.`, `./registry`, `./otel`, `./internal`, a
 | `src/config`       | `config.toml` loading, runtime overrides and defaults, the active-config and env-var displays                         |
 | `src/persistence`  | The SQLite event store: schema and migrations, ingest, history replay, prune                                          |
 | `src/machines`     | Machine config edits, ssh export and sync, per-machine caches, merge                                                  |
-| `src/pricing`      | LiteLLM loading and cache, model-name matching, the cost engine, overrides, retired prices, cache savings, `pricing` explain |
+| `src/pricing`      | The LiteLLM fetcher the CLI uses: the user cache path and the global `fetch`                                          |
 | `src/aggregate`    | Usage totals by period, source, model, and project; daily activity; project keys                                       |
 | `src/blocks`, `src/value`, `src/session`, `src/trends`, `src/efficiency`, `src/optimize`, `src/wrapped` | Each report's own aggregation          |
 | `src/render`       | Terminal, Markdown, and JSON output for every report, and the table primitives                                        |
@@ -92,7 +93,7 @@ Every report that reads usage builds its events through `buildUsageEventDataset`
 
 `events` and `statusline` have their own runners (`run-events-report.ts`, `run-statusline.ts`): `events` exports the priced events as JSONL, CSV, or OTLP traces or metrics, and `statusline` prints one line for a status bar. `--share` builds its own dataset; see [Share report](/llm-usage-metrics/architecture/share-report/).
 
-`aggregateUsage` keeps per-model breakdowns by default; `trends`, `optimize`, and `efficiency` turn them off. `src/render/unicode-table.ts` lays out rows from explicit metadata (`periodKey`, and `rowKind`: `detail`, `combined`, or `total`), so sorting and separators stay deterministic without the table knowing report types.
+`aggregateUsage` keeps per-model breakdowns by default; `trends`, `optimize`, and `efficiency` turn them off. `src/render/unicode-table.ts` lays out rows from explicit metadata (`periodKey`, and `rowKind`: `detail`, `combined`, or `total`), so sorting and separators stay deterministic without the table knowing report types. Given a terminal width and a `fit`, it abbreviates values and then hides columns before it lists rows as labelled values.
 
 ## Invariants
 

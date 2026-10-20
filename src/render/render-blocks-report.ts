@@ -176,7 +176,6 @@ function renderTerminalBlocksReport(
       measureHeaderCells: headers,
       measureBodyRows: wrappedRows,
       rowMetas: wrappedRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
-      layout: 'top_aligned',
       columnKinds: columnKindsFromAlign(toColumnAlign(headers)),
       multilineColumnIndex: MODELS_COLUMN_INDEX,
       multilineColumnWidth: MODELS_COLUMN_WIDTH,

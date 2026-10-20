@@ -109,7 +109,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 ### Pricing
 
-`runPricingReport(models, options)` loads the pricing source like a report does and runs `explainModelPricing(...)` (`src/pricing/explain-model-pricing.ts`) for each model name: the matched key and rule, overrides, where the prices came from, rates and tiers. It never reads usage.
+`runPricingReport(models, options)` loads the pricing source like a report does and runs `explainModelPricing(...)` (`packages/core/src/pricing/explain-model-pricing.ts`) for each model name: the matched key and rule, overrides, where the prices came from, rates and tiers. It never reads usage.
 
 ### Efficiency
 
@@ -281,7 +281,9 @@ This removes unnecessary work and avoids leaking usage-table-specific model meta
 - `periodKey`
 - `rowKind` (`detail`, `combined`, `total`)
 
-That keeps sorting and separator behavior deterministic without coupling the generic table renderer to `UsageReportRow`.
+That keeps sorting and separator behavior deterministic without coupling the generic table renderer to `UsageReportRow`. A rule separates period groups and sets off the `total` row; rows of one group (and every row of a flat list) share it. Every cell starts on its row's first line.
+
+With a terminal width, a caller's `fit` (abbreviated body rows and an ordered list of hideable columns) gives the table its fit ladder: the full table, then abbreviated values, then those values with one more hideable column left out per step. The first step that fits is boxed. Only when the last step is too wide are rows listed as label/value lines, with every column in full detail; a title cell the table wrapped is taken from its measure cell, so callers pass that text unwrapped. The usage table (`terminal-table.ts`) runs its own steps through the same `findFittingStep` loop.
 
 ## Module map
 
@@ -301,8 +303,10 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`) and `readSources`, which reads and dedupes whole sources for library users (the CLI does not use it), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
 - `src/domain`
   The CLI's usage event and report row contracts
+- `packages/core/src/pricing`
+  LiteLLM pricing loader, cache file, model matching, cost engine, long-context tiers, and `explain-model-pricing.ts` for the `pricing` command; the CLI imports it as `@ayagmar/agent-sessions/pricing`, a path the core package does not export yet
 - `src/pricing`
-  LiteLLM pricing loader, cache, model matching, cost engine, long-context tiers, and `explain-model-pricing.ts` for the `pricing` command
+  `createLiteLLMPricingFetcher`: the core fetcher with the user cache path and the global `fetch`
 - `src/persistence`
   SQLite event-store ledger, schema migrations, history suppression
 - `src/machines`

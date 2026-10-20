@@ -156,7 +156,6 @@ describe('renderTerminalTable', () => {
       │ Period     │ Source   │ Models                           │ Input │ Output │ Reasoning │ Cache Read │ Cache Write │ Total │  Cost │
       ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ pi       │ • gpt-4.1                        │ 1,234 │    321 │         0 │         30 │           0 │ 1,585 │ $1.25 │
-      ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ combined │ • gpt-4.1                        │ 2,000 │    500 │       120 │        100 │           0 │ 2,720 │ $2.75 │
       │            │          │ • gpt-5-codex                    │       │        │           │            │             │       │       │
       ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
@@ -180,7 +179,6 @@ describe('renderTerminalTable', () => {
       │ Period     │ Source   │ Models                           │ Input │ Output │ Reasoning │ Cache Read │ Cache Write │ Total │  Cost │
       ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ pi       │ • gpt-4.1                        │ 1,234 │    321 │         0 │         30 │           0 │ 1,585 │ $1.25 │
-      ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ combined │ • gpt-4.1                        │ 1,234 │    321 │         0 │         30 │           0 │ 1,585 │ $1.25 │
       │            │          │ • gpt-5-codex                    │   766 │    179 │       120 │         70 │           0 │ 1,135 │ $1.50 │
       │            │          │ Σ TOTAL                          │ 2,000 │    500 │       120 │        100 │           0 │ 2,720 │ $2.75 │
@@ -194,7 +192,7 @@ describe('renderTerminalTable', () => {
     expect(rendered).toContain('│   766 │    179 │       120 │         70 │');
   });
 
-  it('top-aligns period/source while keeping compact numeric columns vertically centered', () => {
+  it('top-aligns numeric columns with the first model line, so values sit beside their row', () => {
     const rendered = renderTerminalTable(
       [
         {
@@ -230,10 +228,10 @@ describe('renderTerminalTable', () => {
     );
 
     expect(rendered).toContain(
-      '│ 2026-01-01 │ pi     │ • a                              │       │',
+      '│ 2026-01-01 │ pi     │ • a                              │   100 │',
     );
     expect(rendered).toContain(
-      '│            │        │ • b                              │   100 │',
+      '│            │        │ • b                              │       │',
     );
     expect(rendered).toContain(
       '│            │        │ • c                              │       │',
@@ -549,7 +547,7 @@ describe('renderTerminalTable', () => {
     expect(rendered).toContain(' x-model ');
   });
 
-  it('draws separators between same-period source rows, even for combined/TOTAL literals', () => {
+  it('keeps same-period source rows together, even for combined/TOTAL literals', () => {
     const rendered = renderTerminalTable(
       [
         {
@@ -600,10 +598,11 @@ describe('renderTerminalTable', () => {
 
     const separatorLines = rendered.split('\n').filter((line) => line.startsWith('├'));
 
-    expect(separatorLines).toHaveLength(3);
+    // Under the header and above the grand total only.
+    expect(separatorLines).toHaveLength(2);
   });
 
-  it('draws separators between same-period source detail rows for clearer grouping', () => {
+  it('draws rules between period groups and above TOTAL, not between rows of one period', () => {
     const rendered = renderTerminalTable(
       [
         {
@@ -649,26 +648,53 @@ describe('renderTerminalTable', () => {
           costUsd: 0.03,
         },
         {
+          rowType: 'period_source',
+          periodKey: '2026-02-11',
+          source: 'pi',
+          models: ['gpt-4.1'],
+          modelBreakdown: [],
+          inputTokens: 1,
+          outputTokens: 1,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 2,
+          costUsd: 0.01,
+        },
+        {
           rowType: 'grand_total',
           periodKey: 'ALL',
           source: 'combined',
           models: ['gpt-4.1', 'gpt-5.2'],
           modelBreakdown: [],
-          inputTokens: 3,
-          outputTokens: 3,
+          inputTokens: 4,
+          outputTokens: 4,
           reasoningTokens: 0,
           cacheReadTokens: 0,
           cacheWriteTokens: 0,
-          totalTokens: 6,
-          costUsd: 0.03,
+          totalTokens: 8,
+          costUsd: 0.04,
         },
       ],
       { useColor: false },
     );
 
-    const separatorLines = rendered.split('\n').filter((line) => line.startsWith('├'));
+    const bodyLines = rendered.split('\n').slice(3, -1);
+    const rowLabels = bodyLines.map((line) =>
+      line.startsWith('├') ? 'rule' : line.split('│')[2].trim(),
+    );
 
-    expect(separatorLines).toHaveLength(4);
+    expect(rowLabels).toEqual([
+      'pi',
+      'opencode',
+      'combined',
+      '',
+      'rule',
+      'pi',
+      'rule',
+      'TOTAL',
+      '',
+    ]);
   });
 
   it('normalizes row grouping before separator decisions when input rows are out of order', () => {
@@ -733,7 +759,7 @@ describe('renderTerminalTable', () => {
     expect(grandTotalLineIndex).toBeGreaterThan(-1);
     expect(periodSourceLineIndex).toBeLessThan(periodCombinedLineIndex);
     expect(periodCombinedLineIndex).toBeLessThan(grandTotalLineIndex);
-    expect(separatorLines).toHaveLength(3);
+    expect(separatorLines).toHaveLength(2);
   });
 
   it('renders unknown cost values as "-" instead of NaN', () => {

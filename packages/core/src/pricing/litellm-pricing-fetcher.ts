@@ -1,8 +1,7 @@
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { asRecord } from '@ayagmar/agent-sessions/internal';
-import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
+import { asRecord } from '../utils/as-record.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
 import {
   explainCanonicalModelKey,
@@ -52,14 +51,16 @@ export type LiteLLMPricingLoadOrigin = 'cache' | 'network' | 'bundled-snapshot';
 
 export type LiteLLMPricingFetcherOptions = {
   sourceUrl?: string;
-  cacheFilePath?: string;
+  /** Where fetched prices are cached; read before fetching and written after. */
+  cacheFilePath: string;
   cacheTtlMs?: number;
   fetchTimeoutMs?: number;
   fetchRetryCount?: number;
   fetchRetryDelayMs?: number;
   maxResponseBytes?: number;
   offline?: boolean;
-  fetchImpl?: typeof fetch;
+  /** The only way the fetcher reaches the network. */
+  fetchImpl: typeof fetch;
   now?: () => number;
   sleep?: (delayMs: number) => Promise<void>;
 };
@@ -534,10 +535,6 @@ function formatStaleCacheWarning(fetchedAt: number, fetchError: string | undefin
   return `Pricing: the LiteLLM refresh failed (${fetchError}); using cached pricing from ${fetchedDate}.`;
 }
 
-export function getDefaultLiteLLMPricingCachePath(): string {
-  return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'litellm-pricing-cache.json');
-}
-
 export class LiteLLMPricingFetcher implements PricingSource {
   private readonly sourceUrl: string;
   private readonly cacheFilePath: string;
@@ -560,9 +557,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
   private retiredModelKeys = new Set<string>();
   private pricingWarning: string | undefined;
 
-  public constructor(options: LiteLLMPricingFetcherOptions = {}) {
+  public constructor(options: LiteLLMPricingFetcherOptions) {
     this.sourceUrl = options.sourceUrl ?? DEFAULT_LITELLM_PRICING_URL;
-    this.cacheFilePath = options.cacheFilePath ?? getDefaultLiteLLMPricingCachePath();
+    this.cacheFilePath = options.cacheFilePath;
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.fetchTimeoutMs = options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
     this.fetchRetryCount =
@@ -575,7 +572,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
         : DEFAULT_FETCH_RETRY_DELAY_MS;
     this.maxResponseBytes = options.maxResponseBytes ?? MAX_LITELLM_PRICING_RESPONSE_BYTES;
     this.offline = options.offline ?? false;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl;
     this.now = options.now ?? Date.now;
     this.sleep = options.sleep ?? sleep;
   }

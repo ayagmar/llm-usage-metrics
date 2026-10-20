@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import {
+  createPricedUsageEvent,
+  type PricedUsageEventInput,
+} from '../helpers/priced-usage-event.js';
+import type { PricedUsageEvent } from '../../src/pricing/types.js';
 import {
   applyPricingToEvents,
   createPricingRunStats,
@@ -15,8 +19,8 @@ const pricingSource = new StaticPricingSource({
   },
 });
 
-function createEvent(overrides: Partial<Parameters<typeof createUsageEvent>[0]> = {}): UsageEvent {
-  return createUsageEvent({
+function createEvent(overrides: Partial<PricedUsageEventInput> = {}): PricedUsageEvent {
+  return createPricedUsageEvent({
     source: 'pi',
     sessionId: 'session-1',
     timestamp: '2026-02-16T10:00:00Z',
@@ -27,7 +31,7 @@ function createEvent(overrides: Partial<Parameters<typeof createUsageEvent>[0]> 
   });
 }
 
-function priceWithMode(events: UsageEvent[], costMode: PricingCostMode) {
+function priceWithMode(events: PricedUsageEvent[], costMode: PricingCostMode) {
   const stats = createPricingRunStats();
   const pricedEvents = applyPricingToEvents(events, pricingSource, {
     policy: { ...DEFAULT_PRICING_POLICY, costMode },

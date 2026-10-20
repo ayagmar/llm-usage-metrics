@@ -158,7 +158,6 @@ function renderTerminalTable(options: {
     measureHeaderCells: options.headerCells,
     measureBodyRows: options.bodyRows,
     rowMetas: createRowMetas(options.bodyRows.length),
-    layout: 'compact',
     columnKinds: options.headerCells.map((_, index) => (index === 0 ? 'text' : 'measure')),
     multilineColumnIndex: 0,
     multilineColumnWidth: options.firstColumnWidth,

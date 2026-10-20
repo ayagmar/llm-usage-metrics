@@ -12,12 +12,17 @@ import {
 } from '../context/context-pressure.js';
 import { UNKNOWN_MODEL_LABEL } from '../share-report/redact.js';
 import { pluralize } from '@ayagmar/agent-sessions/internal';
-import { formatApproxUsd, formatInteger } from './format-number.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportJson } from './report-json.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { formatModels, MODELS_COLUMN_WIDTH, truncateSessionId } from './render-session-report.js';
-import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
+import {
+  measureCellWidth,
+  resolveTtyColumns,
+  wrapProse,
+  wrapTableColumn,
+} from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
 
@@ -42,61 +47,78 @@ type ContextTable = {
   wrapColumnIndex: number;
   /** Leading columns that name a row when a narrow terminal lists rows. */
   titleColumnCount: number;
+  /** Columns a narrow terminal hides first, least useful first. */
+  hideableColumns: number[];
 };
 
-function toPressureCells(row: ContextPressure): string[] {
+type FormatNumber = (value: number) => string;
+
+function toPressureCells(row: ContextPressure, formatTokens: FormatNumber): string[] {
   return [
     formatInteger(row.requests),
-    formatInteger(row.peakPromptTokens),
+    formatTokens(row.peakPromptTokens),
     formatInteger(row.longContextRequests),
     formatApproxUsd(row.longContextExtraUsd, row.longContextExtraIncomplete),
   ];
 }
 
 // An unknown limit shows `-`, like other unknown values, so it never reads as zero.
-function formatOptionalInteger(value: number | undefined): string {
-  return value === undefined ? '-' : formatInteger(value);
+function formatOptional(value: number | undefined, format: FormatNumber = formatInteger): string {
+  return value === undefined ? '-' : format(value);
 }
 
-function buildModelTable(rows: readonly ContextModelRow[]): ContextTable {
+function buildModelTable(
+  rows: readonly ContextModelRow[],
+  formatTokens: FormatNumber,
+): ContextTable {
+  const headers = ['Model', ...pressureHeaders, 'Limit', NEAR_LIMIT_HEADER];
+
   return {
-    headers: ['Model', ...pressureHeaders, 'Limit', NEAR_LIMIT_HEADER],
+    headers,
     bodyRows: rows.map((row) => [
       row.model ?? UNKNOWN_MODEL_LABEL,
-      ...toPressureCells(row),
-      formatOptionalInteger(row.contextLimit),
-      formatOptionalInteger(row.nearLimitRequests),
+      ...toPressureCells(row, formatTokens),
+      formatOptional(row.contextLimit, formatTokens),
+      formatOptional(row.nearLimitRequests),
     ]),
     align: ['l', 'r', 'r', 'r', 'r', 'r', 'r'],
     wrapColumnIndex: 0,
     titleColumnCount: 1,
+    hideableColumns: ['Tier extra', 'Limit'].map((header) => headers.indexOf(header)),
   };
 }
 
 function buildSessionTable(
   rows: readonly ContextSessionRow[],
   projectLabels: ContextDataResult['projectLabels'],
+  formatTokens: FormatNumber,
 ): ContextTable {
+  const headers = ['Session', 'Source', 'Project', ...pressureHeaders, NEAR_LIMIT_HEADER, 'Models'];
+
   return {
-    headers: ['Session', 'Source', 'Project', ...pressureHeaders, NEAR_LIMIT_HEADER, 'Models'],
+    headers,
     bodyRows: rows.map((row) => [
       truncateSessionId(row.sessionId),
       row.source,
       toProjectLabel(row.repoRoot, projectLabels),
-      ...toPressureCells(row),
-      formatOptionalInteger(row.nearLimitRequests),
+      ...toPressureCells(row, formatTokens),
+      formatOptional(row.nearLimitRequests),
       formatModels(row.models),
     ]),
     align: ['l', 'l', 'l', 'r', 'r', 'r', 'r', 'r', 'l'],
     wrapColumnIndex: 8,
     titleColumnCount: 1,
+    hideableColumns: ['Models', 'Tier extra', 'Project'].map((header) => headers.indexOf(header)),
   };
 }
 
-function buildTable(data: ContextDataResult): ContextTable {
+function buildTable(
+  data: ContextDataResult,
+  formatTokens: FormatNumber = formatInteger,
+): ContextTable {
   return data.grouping === 'session'
-    ? buildSessionTable(data.sessions, data.projectLabels)
-    : buildModelTable(data.models);
+    ? buildSessionTable(data.sessions, data.projectLabels, formatTokens)
+    : buildModelTable(data.models, formatTokens);
 }
 
 function formatAggregatedSourcesLine(
@@ -118,6 +140,7 @@ function renderTerminalContextReport(
   options: RenderContextReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
+  const terminalWidth = resolveTtyColumns(process.stdout);
   const lines = [renderReportHeader({ title: 'Context Pressure Report', useColor }), ''];
   const aggregatedLine = formatAggregatedSourcesLine(data.aggregatedSources);
   const table = buildTable(data);
@@ -128,29 +151,42 @@ function renderTerminalContextReport(
   }
 
   if (table.bodyRows.length > 0) {
-    const wrappedRows = wrapTableColumn(table.bodyRows, {
-      columnIndex: table.wrapColumnIndex,
-      width: MODELS_COLUMN_WIDTH,
-    });
+    const wrapRows = (rows: string[][]) =>
+      wrapTableColumn(rows, { columnIndex: table.wrapColumnIndex, width: MODELS_COLUMN_WIDTH });
+    const wrappedRows = wrapRows(table.bodyRows);
+    const abbreviatedRows = buildTable(data, formatAbbreviatedTokenCount).bodyRows;
+    // Measured unwrapped, so a listed row's title reads whole; the wrap sets the width.
+    const wrapColumnWidth = [table.headers, ...wrappedRows].reduce(
+      (width, row) => Math.max(width, measureCellWidth(row[table.wrapColumnIndex])),
+      0,
+    );
 
     lines.push(
       renderUnicodeTable({
         headerCells: table.headers,
         bodyRows: wrappedRows,
         measureHeaderCells: table.headers,
-        measureBodyRows: wrappedRows,
+        measureBodyRows: table.bodyRows,
         rowMetas: wrappedRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
-        layout: 'top_aligned',
         columnKinds: columnKindsFromAlign(table.align),
         multilineColumnIndex: table.wrapColumnIndex,
-        terminalWidth: resolveTtyColumns(process.stdout),
+        multilineColumnWidth: wrapColumnWidth,
+        terminalWidth,
+        fit: {
+          abbreviatedBodyRows: wrapRows(abbreviatedRows),
+          abbreviatedMeasureBodyRows: abbreviatedRows,
+          hideableColumns: table.hideableColumns,
+        },
         stackedTitleColumnCount: table.titleColumnCount,
       }),
     );
   }
 
   if (aggregatedLine) {
-    lines.push(...(table.bodyRows.length > 0 ? [''] : []), aggregatedLine);
+    lines.push(
+      ...(table.bodyRows.length > 0 ? [''] : []),
+      wrapProse(aggregatedLine, terminalWidth),
+    );
   }
 
   return lines.join('\n');

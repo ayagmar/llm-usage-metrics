@@ -281,7 +281,6 @@ function renderTerminalOptimizeReport(
       measureHeaderCells: headerCells,
       measureBodyRows: tableCells,
       rowMetas: optimizeData.rows.map((row) => toTableRowMeta(row)),
-      layout: 'compact',
       columnKinds: headerCells.map((header, index) =>
         index <= 1 || header === 'Notes' ? 'text' : 'measure',
       ),

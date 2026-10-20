@@ -21,7 +21,7 @@ import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import {
   createDefaultOpenAiPricingSource,
   StaticPricingSource,
-} from '../helpers/static-pricing-source.js';
+} from '../../packages/core/tests/helpers/static-pricing-source.js';
 import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];

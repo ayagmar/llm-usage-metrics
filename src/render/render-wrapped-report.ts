@@ -163,7 +163,6 @@ function renderTopTable(headerCells: readonly string[], bodyRows: string[][]): s
     measureHeaderCells: headerCells,
     measureBodyRows: bodyRows,
     rowMetas,
-    layout: 'compact',
     columnKinds: ['text', 'text', 'measure', 'measure'],
     multilineColumnIndex: TOP_ITEM_NAME_COLUMN,
     multilineColumnWidth: nameColumnWidth,

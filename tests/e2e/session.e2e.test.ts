@@ -11,7 +11,7 @@ import type { SessionRow } from '../../src/session/session-row.js';
 import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
 import { createDshSessionsFixture } from '../helpers/dsh-fixtures.js';
-import { StaticPricingSource } from '../helpers/static-pricing-source.js';
+import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 
 type OpenCodeMessageFixture = {
   id: string;
