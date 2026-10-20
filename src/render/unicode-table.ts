@@ -329,7 +329,7 @@ function joinCellLines(cell: string): string {
  * Wraps a plain line after spaces, `/`, or `-` so model names and paths break between
  * their parts; a part wider than the line is broken by width.
  */
-function wrapAtNameBreaks(line: string, width: number): string[] {
+export function wrapAtNameBreaks(line: string, width: number): string[] {
   const lines: string[] = [];
 
   for (const piece of line.split(/(?<=[\s/-])/u)) {

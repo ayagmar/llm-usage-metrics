@@ -577,6 +577,70 @@ describe('run-prune-report', () => {
     ]);
   });
 
+  it("counts each selector's departed files without selecting any when run without one", async () => {
+    const dbPath = await createTempDbPath('prune-no-selector-');
+    const oldPath = '/tmp/old.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
+    const agedPath = '/tmp/aged.jsonl';
+    const store = await openEventStore(dbPath);
+
+    try {
+      writeStoredFile(store, {
+        filePath: oldPath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+        now: 1_000,
+      });
+      await writeLiveStoredFile(store, {
+        filePath: livePath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+        now: 2_000,
+      });
+      writeStoredFile(store, {
+        filePath: agedPath,
+        events: [
+          createEvent({ sessionId: 'aged', timestamp: '2025-12-31T23:00:00.000Z' }),
+          createEvent({ sessionId: 'aged', timestamp: '2025-12-31T23:30:00.000Z' }),
+        ],
+        now: 3_000,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+
+    const result = await buildPruneReport(
+      {},
+      createDeps(dbPath, [createAdapter({ files: [livePath] })]),
+    );
+
+    expect(result.candidates).toEqual([]);
+    expect(result.summary).toMatchObject({
+      applied: false,
+      candidateFileCount: 0,
+      departedFiles: {
+        fileCount: 2,
+        eventCount: 3,
+        suppressedFileCount: 1,
+        suppressedEventCount: 1,
+      },
+    });
+    expect(renderPruneReport(result).split('\n').slice(-2)).toEqual([
+      'Departed: 2 files / 3 events; suppressed by --history: 1 file / 1 event.',
+      'Preview with --suppressed or --departed-before YYYY-MM-DD, then add --apply to delete.',
+    ]);
+  });
+
+  it('prints a one-line empty state without a selector or a store', async () => {
+    const dbPath = await createTempDbPath('prune-no-selector-missing-store-');
+    await rm(dbPath, { force: true });
+
+    const result = await buildPruneReport({}, createDeps(dbPath, [createAdapter({ files: [] })]));
+
+    expect(renderPruneReport(result).split('\n').at(-1)).toBe(
+      'No departed files in the event store.',
+    );
+    await expect(stat(dbPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('renders structured JSON output', async () => {
     const dbPath = await createTempDbPath('prune-json-');
     const oldPath = '/tmp/old.jsonl';
@@ -730,12 +794,12 @@ describe('run-prune-report', () => {
     });
   });
 
-  it('throws actionable errors for missing selectors, invalid dates, disabled stores, and unsafe discovery', async () => {
+  it('throws actionable errors for an unselected apply, invalid dates, disabled stores, and unsafe discovery', async () => {
     const dbPath = await createTempDbPath('prune-errors-');
     const deps = createDeps(dbPath, [createAdapter({ files: [] })]);
 
-    await expect(buildPruneReport({}, deps)).rejects.toThrow(
-      'prune requires at least one selector',
+    await expect(buildPruneReport({ apply: true }, deps)).rejects.toThrow(
+      'prune --apply requires a selector: --suppressed or --departed-before',
     );
     await expect(buildPruneReport({ departedBefore: '2026-1-1' }, deps)).rejects.toThrow(
       '--departed-before "2026-1-1" is not a date; use YYYY-MM-DD',
@@ -805,39 +869,13 @@ describe('run-prune-report', () => {
   });
 
   it('strips terminal escapes from stored file paths', () => {
-    const rendered = renderPruneReport({
-      candidates: [
-        {
-          source: 'codex',
-          filePath: '/tmp/\u001B[31mred\u202E.jsonl',
-          eventCount: 1,
-          reasons: ['aged'],
-        },
-      ],
-      summary: {
-        storePath: '/tmp/events.db',
-        applied: false,
-        candidateFileCount: 1,
-        candidateEventCount: 1,
-      },
-    });
-
-    expect(rendered).toContain('/tmp/[31mred.jsonl');
-    expect(rendered).not.toContain('\u001B');
-    expect(rendered).not.toContain('\u202E');
-  });
-
-  it('lists candidates as labelled rows on a terminal narrower than the table', () => {
-    const restoreStdout = overrideStdoutTty(60);
-
-    try {
-      const rendered = renderPruneReport({
+    const rendered = renderPruneReport(
+      {
         candidates: [
           {
             source: 'codex',
-            filePath: '/tmp/old.jsonl',
-            eventCount: 1250,
-            newestTimestamp: '2025-01-01T00:00:00.000Z',
+            filePath: '/tmp/\u001B[31mred\u202E.jsonl',
+            eventCount: 1,
             reasons: ['aged'],
           },
         ],
@@ -845,14 +883,46 @@ describe('run-prune-report', () => {
           storePath: '/tmp/events.db',
           applied: false,
           candidateFileCount: 1,
-          candidateEventCount: 1250,
+          candidateEventCount: 1,
         },
-      });
+      },
+      { useColor: false },
+    );
+
+    expect(rendered).toContain('/tmp/[31mred.jsonl');
+    expect(rendered).not.toContain('\u001B');
+    expect(rendered).not.toContain('\u202E');
+  });
+
+  it('lists candidates as labelled rows on a terminal narrower than the table', () => {
+    const restoreStdout = overrideStdoutTty(44);
+
+    try {
+      const rendered = renderPruneReport(
+        {
+          candidates: [
+            {
+              source: 'codex',
+              filePath: '/tmp/old.jsonl',
+              eventCount: 1250,
+              newestTimestamp: '2025-01-01T00:00:00.000Z',
+              reasons: ['aged'],
+            },
+          ],
+          summary: {
+            storePath: '/tmp/events.db',
+            applied: false,
+            candidateFileCount: 1,
+            candidateEventCount: 1250,
+          },
+        },
+        { useColor: false },
+      );
 
       expect(rendered.split('\n').slice(4, 9)).toEqual([
         'codex · /tmp/old.jsonl',
         '  Events            1,250',
-        '  Newest timestamp  2025-01-01T00:00:00.000Z',
+        '  Newest Timestamp  2025-01-01T00:00:00.000Z',
         '  Reason            aged',
         '',
       ]);
@@ -908,7 +978,7 @@ describe('run-prune-report', () => {
     }
 
     expect(stdout.getOutput()).toContain('Event Store Prune');
-    expect(stdout.getOutput()).toContain('Would delete 0 files / 0 events');
+    expect(stdout.getOutput()).toContain('No files to prune.');
   });
 
   it('surfaces the Active config block and unknown-key warnings on prune', async () => {

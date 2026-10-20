@@ -2,13 +2,20 @@ import { markdownTable } from 'markdown-table';
 
 import type { BlockBurnRate } from '../blocks/aggregate-blocks.js';
 import type { BlockRow, BlocksReportData } from '../cli/build-blocks-data.js';
-import { formatLocalDateTime, formatLocalDateTimeSpan } from './format-local-date-time.js';
+import { formatDuration } from './format-duration.js';
+import { formatLocalDateTime } from './format-local-date-time.js';
 import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import { formatBulletedList } from './row-cells.js';
-import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
+import {
+  resolveTtyColumns,
+  splitCellLines,
+  wrapProse,
+  wrapTableColumn,
+} from './table-text-layout.js';
+import { createColorRoles, type ColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
 
@@ -31,10 +38,13 @@ const ACTIVE_MARK = '(active)';
 
 type BlockColumn = {
   header: string;
-  /** Hidden by --compact. */
+  /** Hidden by --compact, and first when fitting the table to the terminal. */
   minor?: boolean;
+  /** Hidden after the minor columns when the table is still too wide, in this order. */
+  fitHideOrder?: number;
   cost?: boolean;
   cell: (row: BlockRow, context: CellContext) => string;
+  style?: (cell: string, row: BlockRow, roles: ColorRoles) => string;
 };
 
 type CellContext = {
@@ -47,27 +57,44 @@ function formatCost(value: { costUsd?: number; costIncomplete?: boolean }): stri
 }
 
 /**
- * `2026-06-15 09:00-14:00`, or `2026-06-15 21:00-2026-06-16 02:00` across midnight, with
- * the marks for an uncertain start and the active block.
+ * `2026-06-15 09:00-14:00`, or `2026-06-15 21:00-02:00 (+1d)` across midnight, with the
+ * marks for an uncertain start and the active block. A block lasts hours, so it ends on
+ * the day it starts or the next one.
  */
 function formatBlockSpan(row: BlockRow, timezone: string): string {
+  const start = formatLocalDateTime(row.start, timezone);
+  const end = formatLocalDateTime(row.end, timezone);
+  const nextDay = start.slice(0, 10) === end.slice(0, 10) ? '' : ' (+1d)';
   const marks = [
     row.startUncertain ? UNCERTAIN_MARK : '',
     row.active ? ` ${ACTIVE_MARK}` : '',
   ].join('');
-  return `${formatLocalDateTimeSpan(row.start, row.end, timezone)}${marks}`;
+  return `${start}-${end.slice(11)}${nextDay}${marks}`;
 }
 
 const blockColumns: readonly BlockColumn[] = [
   { header: 'Block', cell: (row, { timezone }) => formatBlockSpan(row, timezone) },
-  { header: 'Source', cell: (row) => row.source },
+  {
+    header: 'Source',
+    cell: (row) => row.source,
+    style: (cell, row, roles) => roles.source(row.source)(cell),
+  },
   {
     header: 'Models',
+    fitHideOrder: 1,
     cell: (row) => formatBulletedList(row.models),
   },
-  { header: 'Events', cell: (row) => formatInteger(row.eventCount) },
-  { header: 'Input', cell: (row, { formatTokens }) => formatTokens(row.inputTokens) },
-  { header: 'Output', cell: (row, { formatTokens }) => formatTokens(row.outputTokens) },
+  { header: 'Events', fitHideOrder: 0, cell: (row) => formatInteger(row.eventCount) },
+  {
+    header: 'Input',
+    fitHideOrder: 2,
+    cell: (row, { formatTokens }) => formatTokens(row.inputTokens),
+  },
+  {
+    header: 'Output',
+    fitHideOrder: 3,
+    cell: (row, { formatTokens }) => formatTokens(row.outputTokens),
+  },
   {
     header: 'Reasoning',
     minor: true,
@@ -80,7 +107,12 @@ const blockColumns: readonly BlockColumn[] = [
     cell: (row, { formatTokens }) => formatTokens(row.cacheWriteTokens),
   },
   { header: 'Total', cell: (row, { formatTokens }) => formatTokens(row.totalTokens) },
-  { header: 'Cost', cost: true, cell: (row) => formatCost(row) },
+  {
+    header: 'Cost',
+    cost: true,
+    cell: (row) => formatCost(row),
+    style: (cell, _row, roles) => roles.money(cell),
+  },
 ];
 
 function selectVisibleColumns(options: RenderBlocksReportOptions): readonly BlockColumn[] {
@@ -89,21 +121,57 @@ function selectVisibleColumns(options: RenderBlocksReportOptions): readonly Bloc
   );
 }
 
-function buildTable(data: BlocksReportData, options: RenderBlocksReportOptions) {
-  const columns = selectVisibleColumns(options);
+function buildBodyRows(
+  data: BlocksReportData,
+  columns: readonly BlockColumn[],
+  abbreviated: boolean,
+): string[][] {
   const context: CellContext = {
     timezone: data.timezone,
-    formatTokens: options.compact ? formatAbbreviatedTokenCount : (value) => formatInteger(value),
+    formatTokens: abbreviated ? formatAbbreviatedTokenCount : (value) => formatInteger(value),
   };
+
+  return data.blocks.map((row) => columns.map((column) => column.cell(row, context)));
+}
+
+function buildTable(data: BlocksReportData, options: RenderBlocksReportOptions) {
+  const columns = selectVisibleColumns(options);
 
   return {
     headers: columns.map((column) => column.header),
-    bodyRows: data.blocks.map((row) => columns.map((column) => column.cell(row, context))),
+    bodyRows: buildBodyRows(data, columns, options.compact ?? false),
   };
 }
 
+function styleBodyRows(
+  data: BlocksReportData,
+  columns: readonly BlockColumn[],
+  rows: readonly string[][],
+  roles: ColorRoles,
+): string[][] {
+  return rows.map((cells, rowIndex) =>
+    cells.map((cell, columnIndex) => {
+      const { style } = columns[columnIndex];
+      return style ? style(cell, data.blocks[rowIndex], roles) : cell;
+    }),
+  );
+}
+
+/** Minor columns first, then the measures the fitted usage table also gives up. */
+function resolveHideableColumns(columns: readonly BlockColumn[]): number[] {
+  const indexed = columns.map((column, index) => ({ column, index }));
+
+  return [
+    ...indexed.filter(({ column }) => column.minor).map(({ index }) => index),
+    ...indexed
+      .filter(({ column }) => column.fitHideOrder !== undefined)
+      .sort((left, right) => (left.column.fitHideOrder ?? 0) - (right.column.fitHideOrder ?? 0))
+      .map(({ index }) => index),
+  ];
+}
+
 function formatBurnRate(active: BlockBurnRate, options: RenderBlocksReportOptions): string {
-  const rates = [`${formatInteger(active.tokensPerHour)} tokens/h`];
+  const rates = [`${formatAbbreviatedTokenCount(active.tokensPerHour)} tokens/h`];
 
   if (!options.hideCost && active.costUsdPerHour !== undefined) {
     rates.unshift(
@@ -117,7 +185,7 @@ function formatBurnRate(active: BlockBurnRate, options: RenderBlocksReportOption
 /** Lines after the table: the window rule, what the marks mean, and the active blocks. */
 function buildFooterLines(data: BlocksReportData, options: RenderBlocksReportOptions): string[] {
   const lines = [
-    `Blocks are estimated: each starts on the whole UTC hour at or before a source's first event after the previous block and lasts ${String(data.blockHours)} hours, across machines. Times are in ${data.timezone}.`,
+    `Blocks are estimated: each starts on the whole UTC hour at or before a source's first event after the previous block and lasts ${String(data.blockHours)} hours, across machines. Times are in ${data.timezone}.${data.since === null ? '' : ' A block that overlaps the start of the window counts in full.'}`,
   ];
 
   if (data.blocks.some((row) => row.startUncertain)) {
@@ -128,14 +196,14 @@ function buildFooterLines(data: BlocksReportData, options: RenderBlocksReportOpt
 
   if (data.top) {
     lines.push(
-      `Top ${String(data.top.count)} of ${String(data.blockCount)} blocks by ${data.top.rankedBy}.`,
+      `Top ${formatInteger(data.top.count)} of ${formatInteger(data.blockCount)} blocks by ${data.top.rankedBy}.`,
     );
   }
 
   for (const row of data.activeBlocks) {
     if (row.active) {
       lines.push(
-        `Active block (estimated), ${row.source}: ends ${formatLocalDateTime(row.end, data.timezone)}, ${String(row.active.remainingMinutes)} min left, burn rate ${formatBurnRate(row.active, options)}.`,
+        `Active block (estimated), ${row.source}: ends ${formatLocalDateTime(row.end, data.timezone)}, ${formatDuration(row.active.remainingMinutes * 60_000)} left, burn rate ${formatBurnRate(row.active, options)}.`,
       );
     }
   }
@@ -153,8 +221,10 @@ function renderTerminalBlocksReport(
   options: RenderBlocksReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
+  const roles = createColorRoles(useColor);
+  const terminalWidth = resolveTtyColumns(process.stdout);
   const outputLines = [
-    renderReportHeader({ title: 'Estimated 5-Hour Usage Blocks', useColor }),
+    renderReportHeader({ title: 'Estimated 5-Hour Usage Blocks', useColor, terminalWidth }),
     '',
   ];
 
@@ -163,27 +233,44 @@ function renderTerminalBlocksReport(
     return outputLines.join('\n');
   }
 
-  const { headers, bodyRows } = buildTable(data, options);
-  const wrappedRows = wrapTableColumn(bodyRows, {
-    columnIndex: MODELS_COLUMN_INDEX,
-    width: MODELS_COLUMN_WIDTH,
-  });
+  const columns = selectVisibleColumns(options);
+  const headers = columns.map((column) => column.header);
+  // The models column is as wide as its longest model, up to MODELS_COLUMN_WIDTH.
+  const wrapModels = (rows: string[][]) =>
+    wrapTableColumn(rows, { columnIndex: MODELS_COLUMN_INDEX, width: MODELS_COLUMN_WIDTH });
+  const bodyRows = wrapModels(buildBodyRows(data, columns, options.compact ?? false));
+  // --compact starts abbreviated, so fitting has no abbreviated step of its own.
+  const abbreviatedRows = options.compact
+    ? undefined
+    : wrapModels(buildBodyRows(data, columns, true));
+  // Dim each line on its own, so no style carries across a wrapped line.
+  const footer = buildFooterLines(data, options).flatMap((line) =>
+    splitCellLines(wrapProse(line, terminalWidth)).map(roles.dim),
+  );
 
   outputLines.push(
     renderUnicodeTable({
-      headerCells: headers,
-      bodyRows: wrappedRows,
+      headerCells: headers.map(roles.header),
+      bodyRows: styleBodyRows(data, columns, bodyRows, roles),
       measureHeaderCells: headers,
-      measureBodyRows: wrappedRows,
-      rowMetas: wrappedRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
+      measureBodyRows: bodyRows,
+      rowMetas: bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
       columnKinds: columnKindsFromAlign(toColumnAlign(headers)),
       multilineColumnIndex: MODELS_COLUMN_INDEX,
-      multilineColumnWidth: MODELS_COLUMN_WIDTH,
-      terminalWidth: resolveTtyColumns(process.stdout),
+      terminalWidth,
+      fit: {
+        ...(abbreviatedRows
+          ? {
+              abbreviatedBodyRows: styleBodyRows(data, columns, abbreviatedRows, roles),
+              abbreviatedMeasureBodyRows: abbreviatedRows,
+            }
+          : {}),
+        hideableColumns: resolveHideableColumns(columns),
+      },
       stackedTitleColumnCount: MODELS_COLUMN_INDEX,
     }),
     '',
-    ...buildFooterLines(data, options),
+    ...footer,
   );
 
   return outputLines.join('\n');

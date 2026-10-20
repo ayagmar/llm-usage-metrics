@@ -130,17 +130,20 @@ const MOVERS = 5;
 
 /**
  * The rows that changed most across sources and projects, by the size of their change in the
- * breakdowns' metric; ties keep the command's order. Rows that did not change are left out.
+ * breakdowns' metric; ties keep the command's order. Rows that did not change are left out, and
+ * so is the `N other projects` row that --top folds: it is many projects, not one that moved.
  */
 function moversTable(breakdowns: Breakdown[]): PanelTable | undefined {
   const metric = breakdownMetric(breakdowns.flatMap((breakdown) => breakdown.rows));
   const ranked = breakdowns
     .flatMap((breakdown) =>
-      breakdown.rows.map((row) => ({
-        breakdown,
-        row,
-        size: Math.abs(readNumber(sideOf(row, 'delta'), metric) ?? 0),
-      })),
+      breakdown.rows
+        .filter((row) => row.otherProjects === undefined)
+        .map((row) => ({
+          breakdown,
+          row,
+          size: Math.abs(readNumber(sideOf(row, 'delta'), metric) ?? 0),
+        })),
     )
     .filter((mover) => mover.size > 0)
     .sort((left, right) => right.size - left.size)
@@ -160,15 +163,22 @@ function moversTable(breakdowns: Breakdown[]): PanelTable | undefined {
   };
 }
 
+// Sentence case, as the page's other fact labels: the totals' labels are Title Case.
+const FACTS = [
+  { key: 'costUsd', label: 'Cost change' },
+  { key: 'totalTokens', label: 'Total tokens change' },
+  { key: 'events', label: 'Events change' },
+];
+
 /** The cost, token and event changes; the lede names both windows. */
 function buildFacts(totals: Record<string, unknown>[]): PanelFact[] {
   const facts: PanelFact[] = [];
 
-  for (const key of ['costUsd', 'totalTokens', 'events']) {
+  for (const { key, label } of FACTS) {
     const row = totals.find((entry) => entry.key === key);
 
     if (row) {
-      const [label, now, then, change, ratio] = metricCells(row);
+      const [, now, then, change, ratio] = metricCells(row);
       // The CLI leaves the percentage out after a zero baseline, and the whole change out when a
       // side has no price: only the first means there was nothing before.
       const percent =
@@ -178,7 +188,7 @@ function buildFacts(totals: Record<string, unknown>[]): PanelFact[] {
             ? 'change unknown'
             : 'nothing before';
       facts.push({
-        label: `${label.text} change`,
+        label,
         value: change.text,
         detail: `${percent} · ${now.text} against ${then.text}`,
       });
