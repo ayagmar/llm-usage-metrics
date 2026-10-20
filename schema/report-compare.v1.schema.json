@@ -28,7 +28,7 @@
           "items": { "$ref": "#/$defs/sourceRow" }
         },
         "projects": {
-          "description": "Per-project cost comparison rows, by absolute cost delta then label; present with --by-repo.",
+          "description": "Per-project cost comparison rows, by absolute cost delta then label, then one row folding the projects past --top; present with --by-repo.",
           "type": "array",
           "items": { "$ref": "#/$defs/projectRow" }
         }
@@ -191,12 +191,17 @@
       "type": "object",
       "properties": {
         "repoRoot": {
-          "description": "Project key (recorded working directory without trailing separators), or null for usage without one.",
+          "description": "Project key (recorded working directory without trailing separators), or null for usage without one; absent on the row folding the projects past --top.",
           "type": ["string", "null"]
         },
         "project": {
           "description": "Project display label, the same in both windows.",
           "type": "string"
+        },
+        "otherProjects": {
+          "description": "On the last row when --top (default 20) left projects out: how many projects the row folds. That row has no repoRoot.",
+          "type": "integer",
+          "minimum": 1
         },
         "current": { "$ref": "#/$defs/windowTotals" },
         "baseline": { "$ref": "#/$defs/windowTotals" },
@@ -220,7 +225,11 @@
           "additionalProperties": { "type": "number" }
         }
       },
-      "required": ["repoRoot", "project", "current", "baseline", "delta", "deltaRatio"],
+      "required": ["project", "current", "baseline", "delta", "deltaRatio"],
+      "oneOf": [
+        { "properties": { "repoRoot": true }, "required": ["repoRoot"] },
+        { "properties": { "otherProjects": true }, "required": ["otherProjects"] }
+      ],
       "additionalProperties": false
     }
   }

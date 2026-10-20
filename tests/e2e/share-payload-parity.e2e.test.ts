@@ -227,12 +227,11 @@ async function expectBlocksParity(
   extra: ReportCommandOptions = {},
 ) {
   const data = await buildShare(fixture, undefined, extra);
-  const blocks = await reportJson<{ blocks: BlockJsonRow[] }>(
-    buildBlocksReport,
-    fixture,
-    mode,
-    extra,
-  );
+  // The share file holds every block; blocks --json shows the most recent unless --top 0.
+  const blocks = await reportJson<{ blocks: BlockJsonRow[] }>(buildBlocksReport, fixture, mode, {
+    ...extra,
+    top: '0',
+  });
   const { sources, models } = data.dictionaries;
 
   expect(blocks.blocks.length).toBeGreaterThan(0);

@@ -1,17 +1,4 @@
-/** `--top N` for reports that always show a top list; undefined when not passed. */
-export function parsePositiveTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-
-  if (!/^[1-9]\d*$/u.test(normalized)) {
-    throw new Error('--top must be a positive integer');
-  }
-
-  return Number.parseInt(normalized, 10);
-}
+import { formatInteger } from '../render/format-number.js';
 
 /** `--top N` where 0 shows every row; undefined when not passed. */
 export function parseTopRowsOption(top: string | undefined): number | undefined {
@@ -63,6 +50,6 @@ export function limitRows<Row>(
 
   return {
     rows: rows.slice(0, limit),
-    limitNote: `Showing top ${limit} of ${rows.length} ${rowNoun} by ${rankedBy}. Use --top 0 for all.`,
+    limitNote: `Showing top ${formatInteger(limit)} of ${formatInteger(rows.length)} ${rowNoun} by ${rankedBy}. Use --top 0 for all.`,
   };
 }

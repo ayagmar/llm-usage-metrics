@@ -38,7 +38,7 @@ Options:
   --no-sync                      Use other machines' cached usage without refreshing it over ssh
   --markdown                     Render output as markdown table
   --all                          Report every day instead of the last 7 days
-  --last <n>                     Report the last N days, counting the current day
+  --last <n>                     Report the last N days, counting today
   --by-session                   One row per session instead of per model, largest peak prompt first
   --top <n>                      With --by-session, show only the top N sessions (default 20; 0
                                  shows all)

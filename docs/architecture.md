@@ -308,7 +308,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/machines`
   Multi-machine sync: the versioned `machine export` bundle format and its validating reader (`machine-export-bundle.ts`), the ssh transport and `command` detection (`machine-ssh.ts`), per-machine caches (`machine-cache.ts`, each an event store under `machines/<name>.db`), `sync` (`sync-machine.ts`), safe `config.toml` edits for `machine add/remove` (`machine-config-file.ts`), and the report-side read and cross-machine dedup (`load-machine-usage.ts`, `merge-machine-events.ts`)
 - `src/aggregate`
-  Period/source usage aggregation, split by project with `--by-repo`; `project-key.ts` holds the project keys and labels that every report naming projects, the share report and `--repo` use; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`; `spend-spikes.ts` finds the spend spike days that `summary` and `trends` note
+  Period/source usage aggregation, split by project with `--by-repo` (the projects past `--top` folded per source); `project-key.ts` holds the project keys and labels that every report naming projects, the share report and `--repo` use; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`; `spend-spikes.ts` finds the spend spike days that `summary` and `trends` note
 - `src/blocks`
   Estimated 5-hour usage blocks per source
 - `src/value`

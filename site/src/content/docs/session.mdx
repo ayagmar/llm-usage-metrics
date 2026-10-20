@@ -43,7 +43,7 @@ Without date flags, `session` covers your full history. It supports terminal, `-
 The terminal report is a boxed **Session Usage Report** table with `Session`, `Source`, `Project`, `Last Activity`, `Duration`, `Total`, `Cost`, and `Models` columns, sorted by cost. `Project` uses the same labels as `llm-usage projects`: the repository's folder name, with parent folders added when two repositories share it, and `(unattributed)` for sessions without one. `Duration` is the raw span from a session's first to last event (`-` for single-event sessions). Sessions have no `TOTAL` row because each row is a conversation, not a calendar period. When the list is truncated, a note is printed on `stderr`:
 
 ```text
-Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
+Showing top 20 of 1,653 sessions by cost. Use --top 0 for all.
 ```
 
 <TerminalShot src={termSession} label="llm-usage session --top 5 output" alt="Terminal output of llm-usage session --top 5: the five costliest sessions with their source, project, last activity, duration, total tokens, cost, and models" />

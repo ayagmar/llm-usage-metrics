@@ -5,6 +5,7 @@ import {
   resolveUsageDataRequest,
 } from './build-usage-data.js';
 import {
+  emitLimitNote,
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
@@ -99,7 +100,7 @@ async function prepareUsageReport(
     commandOptions: options,
     supportedFormats: usageReportFormats,
     buildData: () => buildUsageData(granularity, options, deps),
-    getDiagnostics: (usageData) => usageData.diagnostics,
+    getDiagnostics: (usageData) => ({ ...usageData.diagnostics, limitNote: usageData.limitNote }),
     runtimeProfile: deps.runtimeProfile,
     // hourly has no --share.
     buildShare:
@@ -159,5 +160,5 @@ export async function runUsageReport(
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareUsageReport(granularity, options, { runtimeProfile });
 
-  await runStandardPreparedReport({ preparedReport });
+  await runStandardPreparedReport({ preparedReport, emitReportDiagnostics: emitLimitNote });
 }
