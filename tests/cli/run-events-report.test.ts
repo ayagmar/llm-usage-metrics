@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runEventsReport } from '../../src/cli/run-events-report.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { setLogLevel } from '../../src/utils/logger.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
 import { readFrom } from '../helpers/fake-read.js';
@@ -286,10 +287,12 @@ describe('run-events-report', () => {
 
   it('keeps stdout data-only with diagnostics on stderr', async () => {
     const output = captureOutput();
+    setLogLevel('debug');
 
     try {
       await runEventsReport({ timezone: 'UTC' }, runtimeDeps(fixtureAdapters()));
     } finally {
+      setLogLevel('info');
       output.restore();
     }
 

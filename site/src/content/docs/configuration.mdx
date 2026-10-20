@@ -109,7 +109,7 @@ A CLI `--source-dir <id>=<path>` overrides the config `sourceDirs.<id>` entry ju
 
 Paths in the config file (`sourceDirs.*`, `eventStore.path`, `pricing.overridesPath`) may start with `~/`, and relative paths resolve against the directory holding the config file, not the current directory.
 
-Reports name the applied config file in their `stderr` summary line; `--verbose` prints the `Active config:` block with each applied value. Values shadowed by a flag or environment variable are not listed. Set `logLevel = "warn"` to suppress informational stderr by default, or pass `--quiet` to do the same for a single report command.
+With `--verbose`, reports name the applied config file in their `stderr` summary line and print the `Active config:` block with each applied value. Values shadowed by a flag or environment variable are not listed. Set `logLevel = "warn"` to suppress informational stderr by default, or pass `--quiet` to do the same for a single report command.
 
 ## Config keys
 
@@ -166,7 +166,7 @@ LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly
 
 ## Environment overrides
 
-Environment variables override the config file. Reports count them in the `stderr` summary line, and `--verbose` lists them in an `Active environment overrides:` block.
+Environment variables override the config file. With `--verbose`, reports count them in the `stderr` summary line and list them in an `Active environment overrides:` block.
 
 | Variable                             | Config key            | Default                   | Notes                                                                         |
 | ------------------------------------ | --------------------- | ------------------------- | ----------------------------------------------------------------------------- |

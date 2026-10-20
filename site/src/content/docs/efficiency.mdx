@@ -33,7 +33,7 @@ Without `--repo-dir`, the command uses the Git repository that contains the curr
 
 The command builds two datasets for each period:
 
-1. Usage events whose recorded working directory lies in the selected repository: the CLI walks up from that directory to the nearest folder with a `.git` entry and keeps the events whose folder is the repository's root.
+1. Usage events whose recorded working directory lies in the selected repository: the CLI walks up from that directory to the nearest folder with a `.git` entry and keeps the events whose folder is the repository's root. While a Claude Code worktree exists, its own `.git` entry keeps its usage out of the repository's totals, unlike in `projects`; usage from a removed worktree counts for the repository.
 2. Commits and line changes from local Git history whose author email matches your Git identity (`user.email`, compared without case). Merge commits are left out unless you pass `--include-merge-commits`.
 
 Events without repository attribution stay out of the usage totals. Periods need at least one commit and attributed usage before the renderer emits a row. When no period qualifies, the report says which half is missing: no usage attributed to the repository, or no commits by you on the days it had usage.

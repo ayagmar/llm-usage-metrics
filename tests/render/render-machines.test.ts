@@ -47,11 +47,12 @@ describe('renderMachineList', () => {
         NOW,
       ),
     ).toEqual([
-      'laptop  me@laptop  never synced',
-      'laptop  me@laptop  never synced: ssh failed: timed out',
-      'laptop  me@laptop  disabled (cached usage stays in reports)',
-      'laptop  me@laptop  synced 1 h ago, 2 files, 1,200 events; last attempt failed 1 min ago: ssh failed',
-      'laptop  me@laptop  synced 2 min ago, 2 files, 1,200 events',
+      'Machine  SSH target  Status',
+      'laptop   me@laptop   never synced',
+      'laptop   me@laptop   never synced: ssh failed: timed out',
+      'laptop   me@laptop   disabled (cached usage stays in reports)',
+      'laptop   me@laptop   synced 1 h ago, 2 files, 1,200 events; last attempt failed 1 min ago: ssh failed',
+      'laptop   me@laptop   synced 2 min ago, 2 files, 1,200 events',
     ]);
   });
 });
@@ -61,8 +62,8 @@ describe('renderMachineList widths', () => {
     const lines = renderMachineList(
       [
         {
-          name: 'ノート',
-          machine: { ssh: 'me@laptop' },
+          name: 'ノートパソコン',
+          machine: { ssh: 'me@laptop.example' },
           state: undefined,
           fileCount: 0,
           eventCount: 0,
@@ -78,7 +79,11 @@ describe('renderMachineList widths', () => {
       NOW,
     );
 
-    expect(lines).toEqual(['ノート  me@laptop  never synced', 'vps     root@vps   never synced']);
+    expect(lines).toEqual([
+      'Machine         SSH target         Status',
+      'ノートパソコン  me@laptop.example  never synced',
+      'vps             root@vps           never synced',
+    ]);
   });
 });
 
@@ -168,6 +173,10 @@ describe('renderMachineList alignment', () => {
         ],
         NOW,
       ),
-    ).toEqual(['vps          me@10.0.0.9  never synced', 'workstation  ws           never synced']);
+    ).toEqual([
+      'Machine      SSH target   Status',
+      'vps          me@10.0.0.9  never synced',
+      'workstation  ws           never synced',
+    ]);
   });
 });

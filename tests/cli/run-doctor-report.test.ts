@@ -646,6 +646,44 @@ describe('run-doctor-report', () => {
     expect(stdout.getOutput()).toContain('Sources: 1 unparseable');
   });
 
+  it.each([
+    ['by default', {}, false],
+    ['with --verbose', { verbose: true }, true],
+    ['with --source', { source: 'droid,amp' }, true],
+  ] as const)(
+    'lists where not-installed sources were searched only on request (%s)',
+    async (_label, options, expectPaths) => {
+      // An empty home: every source is missing from its default paths.
+      const homeDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-empty-home-'));
+      tempDirs.push(homeDir);
+      for (const name of ['HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'XDG_DATA_HOME']) {
+        vi.stubEnv(name, homeDir);
+      }
+      for (const name of [
+        'CLAUDE_CONFIG_DIR',
+        'CODEX_HOME',
+        'COPILOT_OTEL_FILE_EXPORTER_PATH',
+        'DSH_HOME',
+        'GEMINI_CLI_HOME',
+        'GOOSE_PATH_ROOT',
+      ]) {
+        vi.stubEnv(name, '');
+      }
+      const stdout = captureStdout();
+
+      try {
+        await runDoctorReport(options, eventStoreDisabledDeps());
+      } finally {
+        stdout.restore();
+        vi.unstubAllEnvs();
+      }
+
+      const output = stdout.getOutput();
+      expect(output.includes('○ not installed: ')).toBe(!expectPaths);
+      expect(output.includes(`    ~${path.sep}.factory`)).toBe(expectPaths);
+    },
+  );
+
   it('prints plain text error details to stdout', async () => {
     const options = await createDoctorFixtureOptions();
     const missingClaudeDir = path.join(canonicalTmpdir(), `missing-claude-${Date.now()}`);
@@ -895,7 +933,7 @@ describe('renderDoctorText', () => {
         { id: 'claude', format: 'jsonl', status: 'error', state: 'error', error: 'missing' },
         { id: 'event-store', format: 'sqlite', status: 'ok', detail: 'not yet created' },
       ],
-      { homeDir },
+      { homeDir, showAllPaths: true },
     );
 
     expect(output.split('\n')).toEqual([
@@ -911,6 +949,48 @@ describe('renderDoctorText', () => {
       '',
       'Sources: 1 found · 1 unparseable · 1 failed · 2 not installed',
       'Tip: add your other machines to every report with llm-usage machine add <name> [user@host]',
+    ]);
+  });
+
+  it('folds sources missing from their default paths into one line, before the store and machines', () => {
+    const notInstalled = (id: string) => ({
+      id,
+      format: 'jsonl' as const,
+      status: 'ok' as const,
+      state: 'not_installed' as const,
+      itemsFound: 0,
+      searchedPaths: [path.join(homeDir, `.${id}`)],
+    });
+
+    expect(
+      renderDoctorText(
+        [
+          notInstalled('droid'),
+          { id: 'pi', format: 'jsonl', status: 'ok', state: 'found', itemsFound: 2 },
+          notInstalled('openclaw'),
+          {
+            id: 'kimi',
+            format: 'jsonl',
+            status: 'ok',
+            state: 'not_installed',
+            itemsFound: 0,
+            detail: 'no files found in the given path',
+            searchedPaths: ['/data/kimi'],
+          },
+          { id: 'event-store', format: 'sqlite', status: 'ok', detail: 'not yet created' },
+          { id: 'machine:vps', format: 'ssh', status: 'ok', detail: 'never synced' },
+        ],
+        { homeDir },
+      ).split('\n'),
+    ).toEqual([
+      '✔ pi           jsonl   2 files',
+      '○ kimi         jsonl   no files found in the given path',
+      '    /data/kimi',
+      '○ not installed: droid, openclaw',
+      '✔ event-store  sqlite  not yet created',
+      '✔ machine:vps  ssh     never synced',
+      '',
+      'Sources: 1 found · 3 not installed; --verbose shows where they were searched',
     ]);
   });
 
