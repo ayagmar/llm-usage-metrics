@@ -1,4 +1,7 @@
-import { renderBlocksReport, type BlocksReportFormat } from '../render/render-blocks-report.js';
+import {
+  renderBlocksReportWithNotes,
+  type BlocksReportFormat,
+} from '../render/render-blocks-report.js';
 import { buildBlocksData } from './build-blocks-data.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
@@ -29,12 +32,15 @@ async function prepareBlocksReport(options: BlocksCommandOptions, deps: BuildUsa
       limitNote: blocksData.limitNote,
     }),
     runtimeProfile: deps.runtimeProfile,
-    render: (blocksData, format) =>
-      renderBlocksReport(blocksData.data, format, {
+    render: (blocksData, format) => {
+      const { output, notes } = renderBlocksReportWithNotes(blocksData.data, format, {
         compact: options.compact,
         hideCost,
         filtered: hasCliFilters(options),
-      }),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
     getHintsAfterOutput: (blocksData) =>
       blocksData.defaultWindowSince
         ? getDefaultWindowHint('daily', blocksData.defaultWindowSince, {

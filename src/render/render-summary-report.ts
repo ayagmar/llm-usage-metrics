@@ -26,7 +26,8 @@ import {
   type TextStyler,
 } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
+import { renderUnicodeTableWithFit, type TableRowMeta } from './unicode-table.js';
 
 export type SummaryReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -312,7 +313,7 @@ function toSummaryNotes(summaryData: SummaryDataResult, escapeName: EscapeName):
 function renderTerminalSummaryReport(
   summaryData: SummaryDataResult,
   options: RenderSummaryReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const palette = options.palette ?? defaultTerminalStylePalette;
   const roles = createColorRoles(useColor, palette);
@@ -347,24 +348,25 @@ function renderTerminalSummaryReport(
     );
   }
 
-  lines.push(
-    renderUnicodeTable({
-      headerCells: summaryTableHeaders.map((header) => roles.header(header)),
-      bodyRows: toRows(formatInteger, true),
-      measureHeaderCells: summaryTableHeaders,
-      measureBodyRows,
-      rowMetas,
-      multilineColumnIndex: 0,
-      columnKinds: ['text', 'measure', 'measure', 'text'],
-      multilineColumnWidth: 13,
-      terminalWidth,
-      fit: {
-        abbreviatedBodyRows: toRows(formatAbbreviatedTokenCount, true),
-        abbreviatedMeasureBodyRows: toRows(formatAbbreviatedTokenCount, false),
-        hideableColumns: [TOP_SOURCE_COLUMN],
-      },
-    }),
-  );
+  const { output: table, fit } = renderUnicodeTableWithFit({
+    headerCells: summaryTableHeaders.map((header) => roles.header(header)),
+    bodyRows: toRows(formatInteger, true),
+    measureHeaderCells: summaryTableHeaders,
+    measureBodyRows,
+    rowMetas,
+    multilineColumnIndex: 0,
+    columnKinds: ['text', 'measure', 'measure', 'text'],
+    multilineColumnWidth: 13,
+    terminalWidth,
+    fit: {
+      abbreviatedBodyRows: toRows(formatAbbreviatedTokenCount, true),
+      abbreviatedMeasureBodyRows: toRows(formatAbbreviatedTokenCount, false),
+      hideableColumns: [TOP_SOURCE_COLUMN],
+    },
+  });
+  const fitNote = describeTableFit(fit);
+
+  lines.push(table);
 
   const notes = toSummaryNotes(summaryData, keepName);
 
@@ -390,7 +392,7 @@ function renderTerminalSummaryReport(
     );
   }
 
-  return lines.join('\n');
+  return { output: lines.join('\n'), notes: fitNote ? [fitNote] : [] };
 }
 
 function renderMarkdownSummaryReport(summaryData: SummaryDataResult): string {
@@ -429,24 +431,35 @@ function renderMarkdownSummaryReport(summaryData: SummaryDataResult): string {
   ].join('\n');
 }
 
+export function renderSummaryReportWithNotes(
+  summaryData: SummaryDataResult,
+  format: SummaryReportFormat,
+  options: RenderSummaryReportOptions = {},
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return {
+        output: renderReportJson('summary', {
+          timezone: summaryData.timezone,
+          periods: summaryData.periods,
+          monthEnd: summaryData.monthEnd,
+          monthToDateCacheSavingsUsd: summaryData.monthToDateCacheSavingsUsd,
+          activity: summaryData.activity,
+          spike: summaryData.spike,
+        }),
+        notes: [],
+      };
+    case 'markdown':
+      return { output: renderMarkdownSummaryReport(summaryData), notes: [] };
+    case 'terminal':
+      return renderTerminalSummaryReport(summaryData, options);
+  }
+}
+
 export function renderSummaryReport(
   summaryData: SummaryDataResult,
   format: SummaryReportFormat,
   options: RenderSummaryReportOptions = {},
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('summary', {
-        timezone: summaryData.timezone,
-        periods: summaryData.periods,
-        monthEnd: summaryData.monthEnd,
-        monthToDateCacheSavingsUsd: summaryData.monthToDateCacheSavingsUsd,
-        activity: summaryData.activity,
-        spike: summaryData.spike,
-      });
-    case 'markdown':
-      return renderMarkdownSummaryReport(summaryData);
-    case 'terminal':
-      return renderTerminalSummaryReport(summaryData, options);
-  }
+  return renderSummaryReportWithNotes(summaryData, format, options).output;
 }

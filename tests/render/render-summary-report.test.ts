@@ -12,7 +12,10 @@ import {
   resolveActivityStart,
 } from '../../src/aggregate/daily-activity.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { renderSummaryReport } from '../../src/render/render-summary-report.js';
+import {
+  renderSummaryReport,
+  renderSummaryReportWithNotes,
+} from '../../src/render/render-summary-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 
 function totals(overrides: Partial<UsageWindowTotals> = {}): UsageWindowTotals {
@@ -600,5 +603,44 @@ describe('renderSummaryReport', () => {
     expect(renderSummaryReport(data, 'markdown')).toContain(
       'top project my\\_app, top model gpt-\\*',
     );
+  });
+});
+
+describe('renderSummaryReportWithNotes', () => {
+  function bigData() {
+    const data = createSummaryData();
+    data.periods[2].totals = totals({ totalTokens: 25_563_792_427, costUsd: 10_334.21 });
+
+    return data;
+  }
+  const notesAt = (terminalWidth: number) =>
+    renderSummaryReportWithNotes(bigData(), 'terminal', { useColor: false, terminalWidth });
+
+  it.each([
+    [
+      60,
+      'Fitted the table to the terminal: abbreviated token counts. Widen the terminal or use --json for full detail.',
+    ],
+    [
+      44,
+      'Fitted the table to the terminal: abbreviated token counts, hid Top source. Widen the terminal or use --json for full detail.',
+    ],
+  ])('says what %i columns changed, outside stdout', (width, note) => {
+    const { output, notes } = notesAt(width);
+
+    expect(notes).toEqual([note]);
+    expect(note).toContain(width === 44 ? 'hid Top source' : 'abbreviated token counts');
+    expect(output.includes('Top source')).toBe(width !== 44);
+    expect(output).not.toContain(note);
+  });
+
+  it('has no note when the table fits, or for markdown and json', () => {
+    expect(notesAt(400).notes).toEqual([]);
+
+    for (const format of ['markdown', 'json'] as const) {
+      expect(renderSummaryReportWithNotes(bigData(), format, { terminalWidth: 44 }).notes).toEqual(
+        [],
+      );
+    }
   });
 });

@@ -1,4 +1,8 @@
-import { renderCompareReport, type CompareReportFormat } from '../render/render-compare-report.js';
+import {
+  renderCompareReport,
+  renderCompareReportWithNotes,
+  type CompareReportFormat,
+} from '../render/render-compare-report.js';
 import { buildCompareData } from './build-compare-data.js';
 import {
   emitLimitNote,
@@ -51,8 +55,13 @@ async function prepareCompareReport(
         { ...deps, runtimeProfile },
       );
     },
-    render: (compareData, format) =>
-      renderCompareReport(compareData, format, { filtered: hasCliFilters(options) }),
+    render: (compareData, format) => {
+      const { output, notes } = renderCompareReportWithNotes(compareData, format, {
+        filtered: hasCliFilters(options),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
   });
 }
 

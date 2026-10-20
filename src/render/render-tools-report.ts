@@ -9,7 +9,12 @@ import { renderReportJson } from './report-json.js';
 import { resolveTtyColumns, truncateTableColumn } from './table-text-layout.js';
 import { createColorRoles, type ColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
+import {
+  columnKindsFromAlign,
+  renderUnicodeTableWithFit,
+  type TableRowMeta,
+} from './unicode-table.js';
 
 export type ToolsReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -143,7 +148,7 @@ function buildFittedRows(result: ToolsDataResult, table: Table): string[][] {
 function renderTerminalToolsReport(
   result: ToolsDataResult,
   options: RenderToolsReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
   const outputLines = [
@@ -153,32 +158,47 @@ function renderTerminalToolsReport(
 
   if (result.data.rows.length === 0) {
     outputLines.push(formatNoUsageMessage(options.filtered ?? false, undefined, 'tool calls'));
-    return outputLines.join('\n');
+    return { output: outputLines.join('\n'), notes: [] };
   }
 
   const roles = createColorRoles(useColor);
   const table = buildTable(result);
   const fittedRows = buildFittedRows(result, table);
-  outputLines.push(
-    renderUnicodeTable({
-      headerCells: table.headers.map((header) => roles.header(header)),
-      bodyRows: colorizeRows(table.rows, table, roles),
-      measureHeaderCells: table.headers,
-      measureBodyRows: table.rows,
-      rowMetas: table.rowMetas,
-      columnKinds: columnKindsFromAlign(table.align),
-      multilineColumnIndex: 0,
-      terminalWidth,
-      fit: {
-        abbreviatedBodyRows: colorizeRows(fittedRows, table, roles),
-        abbreviatedMeasureBodyRows: fittedRows,
-        hideableColumns: table.hideableColumns,
-      },
-      stackedTitleColumnCount: table.titleColumnCount,
-    }),
+  const { output, fit } = renderUnicodeTableWithFit({
+    headerCells: table.headers.map((header) => roles.header(header)),
+    bodyRows: colorizeRows(table.rows, table, roles),
+    measureHeaderCells: table.headers,
+    measureBodyRows: table.rows,
+    rowMetas: table.rowMetas,
+    columnKinds: columnKindsFromAlign(table.align),
+    multilineColumnIndex: 0,
+    terminalWidth,
+    fit: {
+      abbreviatedBodyRows: colorizeRows(fittedRows, table, roles),
+      abbreviatedMeasureBodyRows: fittedRows,
+      hideableColumns: table.hideableColumns,
+    },
+    stackedTitleColumnCount: table.titleColumnCount,
+  });
+  // The fitted step abbreviates call counts, not tokens, and cuts long names: say which
+  // of those changed a cell that is still shown.
+  const changedColumns = table.headers.flatMap((header, columnIndex) =>
+    !fit.abbreviatedTokens ||
+    fit.hiddenHeaders.includes(header) ||
+    fittedRows.every((row, rowIndex) => row[columnIndex] === table.rows[rowIndex]?.[columnIndex])
+      ? []
+      : [columnIndex],
   );
+  const fitNote = describeTableFit({
+    ...fit,
+    abbreviatedTokens: false,
+    abbreviatedCounts: changedColumns.some((index) => !table.textColumns.includes(index)),
+    shortenedNames: changedColumns.some((index) => table.textColumns.includes(index)),
+  });
 
-  return outputLines.join('\n');
+  outputLines.push(output);
+
+  return { output: outputLines.join('\n'), notes: fitNote ? [fitNote] : [] };
 }
 
 /** Always a table, as `projects`: an empty window keeps its TOTAL row. */
@@ -191,17 +211,25 @@ function renderMarkdownToolsReport(result: ToolsDataResult): string {
   );
 }
 
+export function renderToolsReportWithNotes(
+  result: ToolsDataResult,
+  format: ToolsReportFormat,
+  options: RenderToolsReportOptions = {},
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return { output: renderReportJson('tools', result.data), notes: [] };
+    case 'markdown':
+      return { output: renderMarkdownToolsReport(result), notes: [] };
+    case 'terminal':
+      return renderTerminalToolsReport(result, options);
+  }
+}
+
 export function renderToolsReport(
   result: ToolsDataResult,
   format: ToolsReportFormat,
   options: RenderToolsReportOptions = {},
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('tools', result.data);
-    case 'markdown':
-      return renderMarkdownToolsReport(result);
-    case 'terminal':
-      return renderTerminalToolsReport(result, options);
-  }
+  return renderToolsReportWithNotes(result, format, options).output;
 }

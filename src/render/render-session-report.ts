@@ -21,7 +21,7 @@ import {
   renderMarkdownSessionTimeline,
   renderTerminalSessionTimeline,
 } from './render-session-timeline.js';
-import { describeTableFit } from './table-fit-note.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
 import {
   measureWrappedColumnWidth,
   resolveTtyColumns,
@@ -40,11 +40,7 @@ export type RenderSessionReportOptions = {
   filtered?: boolean;
 };
 
-export type RenderedSessionReport = {
-  output: string;
-  /** stderr notes about what a narrow terminal left out of the table. */
-  notes: string[];
-};
+export type RenderedSessionReport = RenderedReportWithNotes;
 
 export const MODELS_COLUMN_WIDTH = 32;
 

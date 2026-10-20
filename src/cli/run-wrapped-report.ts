@@ -1,5 +1,9 @@
 import { getYearDateRange } from '../wrapped/aggregate-wrapped.js';
-import { renderWrappedReport, wrappedReportFormats } from '../render/render-wrapped-report.js';
+import {
+  renderWrappedReport,
+  renderWrappedReportWithNotes,
+  wrappedReportFormats,
+} from '../render/render-wrapped-report.js';
 import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.js';
 import { prepareReport, runStandardPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
@@ -39,8 +43,13 @@ async function prepareWrappedReport(
         { ...deps, runtimeProfile },
       );
     },
-    render: (wrappedData, format) =>
-      renderWrappedReport(wrappedData.recap, format, { filtered: hasCliFilters(options) }),
+    render: (wrappedData, format) => {
+      const { output, notes } = renderWrappedReportWithNotes(wrappedData.recap, format, {
+        filtered: hasCliFilters(options),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
   });
 }
 

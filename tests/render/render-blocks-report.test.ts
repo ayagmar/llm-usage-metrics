@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { aggregateBlocks, type UsageBlock } from '../../src/blocks/aggregate-blocks.js';
 import type { BlockRow, BlocksReportData } from '../../src/cli/build-blocks-data.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { renderBlocksReport } from '../../src/render/render-blocks-report.js';
+import {
+  renderBlocksReport,
+  renderBlocksReportWithNotes,
+} from '../../src/render/render-blocks-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
@@ -216,5 +219,61 @@ describe('renderBlocksReport', () => {
 
     expect(parsed.report).toBe('blocks');
     expect(parsed.data.estimated).toBe(true);
+  });
+});
+
+describe('renderBlocksReportWithNotes', () => {
+  let restoreStdout: (() => void) | undefined;
+
+  afterEach(() => {
+    restoreStdout?.();
+    restoreStdout = undefined;
+  });
+
+  const data = reportData(blockRows());
+
+  it('notes what an 80-column terminal changed, and keeps the note out of stdout', () => {
+    restoreStdout = overrideStdoutTty(80);
+    const { output, notes } = renderBlocksReportWithNotes(data, 'terminal', { useColor: false });
+
+    const header = output.split('\n').find((line) => line.startsWith('│ Block')) ?? '';
+
+    expect(notes).toEqual([
+      'Fitted the table to the terminal: abbreviated token counts, hid Reasoning, Cache Write, Events, Models, Input and Output. Widen the terminal or use --json for full detail.',
+    ]);
+    for (const hidden of ['Reasoning', 'Cache Write', 'Events', 'Models', 'Input', 'Output']) {
+      expect(header).not.toContain(hidden);
+    }
+    expect(output).not.toContain(notes[0]);
+  });
+
+  it('does not call compact tokens an abbreviation by the terminal', () => {
+    restoreStdout = overrideStdoutTty(400);
+
+    expect(renderBlocksReportWithNotes(data, 'terminal', { compact: true }).notes).toEqual([]);
+
+    restoreStdout();
+    restoreStdout = overrideStdoutTty(80);
+
+    const { output, notes } = renderBlocksReportWithNotes(data, 'terminal', { compact: true });
+
+    expect(notes).toEqual([
+      'Fitted the table to the terminal: hid Events, Models, Input and Output. Widen the terminal or use --json for full detail.',
+    ]);
+    expect(notes[0]).not.toContain('abbreviated');
+    expect(output).not.toContain(notes[0]);
+  });
+
+  it('has no note when the table fits, or for markdown and json', () => {
+    restoreStdout = overrideStdoutTty(400);
+
+    expect(renderBlocksReportWithNotes(data, 'terminal', { useColor: false }).notes).toEqual([]);
+
+    restoreStdout();
+    restoreStdout = overrideStdoutTty(60);
+
+    for (const format of ['markdown', 'json'] as const) {
+      expect(renderBlocksReportWithNotes(data, format).notes).toEqual([]);
+    }
   });
 });

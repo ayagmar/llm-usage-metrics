@@ -4,7 +4,10 @@ import pc from 'picocolors';
 import { describe, expect, it } from 'vitest';
 
 import type { ToolsDataResult, ToolsReportRow } from '../../src/cli/build-tools-data.js';
-import { renderToolsReport } from '../../src/render/render-tools-report.js';
+import {
+  renderToolsReport,
+  renderToolsReportWithNotes,
+} from '../../src/render/render-tools-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 
 const LONG_MCP_NAME = 'mcp__plugin_playwright_playwright__browser_navigate';
@@ -131,6 +134,49 @@ describe('renderToolsReport colors', () => {
       expect(colored).toContain('\u001b');
       expect(stripVTControlCharacters(colored)).toBe(plain);
       expect(plain).not.toContain('\u001b');
+    }
+  });
+});
+
+describe('renderToolsReportWithNotes', () => {
+  const notesAt = (terminalWidth: number) =>
+    renderToolsReportWithNotes(createToolsData(), 'terminal', { useColor: false, terminalWidth });
+
+  it.each([
+    [
+      120,
+      'Fitted the table to the terminal: abbreviated counts, shortened long names. Widen the terminal or use --json for full detail.',
+    ],
+    [
+      80,
+      'Fitted the table to the terminal: abbreviated counts, hid Unknown and Top Project, shortened long names. Widen the terminal or use --json for full detail.',
+    ],
+    [
+      44,
+      'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
+    ],
+  ])('says what %i columns changed, outside stdout', (width, note) => {
+    const { output, notes } = notesAt(width);
+
+    expect(notes).toEqual([note]);
+    expect(note).not.toContain('token');
+    expect(output).not.toContain(note);
+  });
+
+  it('names columns that are really missing from the header at 80 columns', () => {
+    const header = headerLine(notesAt(80).output);
+
+    expect(header).not.toContain('Unknown');
+    expect(header).not.toContain('Top Project');
+  });
+
+  it('has no note when the table fits, or for markdown and json', () => {
+    expect(notesAt(400).notes).toEqual([]);
+
+    for (const format of ['markdown', 'json'] as const) {
+      expect(
+        renderToolsReportWithNotes(createToolsData(), format, { terminalWidth: 44 }).notes,
+      ).toEqual([]);
     }
   });
 });

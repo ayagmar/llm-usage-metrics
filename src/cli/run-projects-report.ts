@@ -1,5 +1,5 @@
 import {
-  renderProjectsReport,
+  renderProjectsReportWithNotes,
   type ProjectsReportFormat,
 } from '../render/render-projects-report.js';
 import { buildProjectsData } from './build-projects-data.js';
@@ -33,12 +33,15 @@ async function prepareProjectsReport(
       limitNote: projectsData.limitNote,
     }),
     runtimeProfile: deps.runtimeProfile,
-    render: (projectsData, format) =>
-      renderProjectsReport(projectsData, format, {
+    render: (projectsData, format) => {
+      const { output, notes } = renderProjectsReportWithNotes(projectsData, format, {
         compact: options.compact,
         hideCost: options.cost === false,
         filtered: hasCliFilters(options),
-      }),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
   });
 }
 

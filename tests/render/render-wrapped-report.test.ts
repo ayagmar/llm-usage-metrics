@@ -2,7 +2,10 @@ import { stripVTControlCharacters } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
-import { renderWrappedReport } from '../../src/render/render-wrapped-report.js';
+import {
+  renderWrappedReport,
+  renderWrappedReportWithNotes,
+} from '../../src/render/render-wrapped-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import type { TerminalStylePalette } from '../../src/render/terminal-style-policy.js';
 import type { WrappedRecap } from '../../src/wrapped/wrapped-recap.js';
@@ -240,5 +243,35 @@ describe('render-wrapped-report', () => {
       report: 'wrapped',
       data: recap,
     });
+  });
+});
+
+describe('renderWrappedReportWithNotes', () => {
+  const recap = createRecap({
+    topModels: [
+      { name: 'claude-opus-5-5', totalTokens: 24_664_225_687, costUsd: 9_397.54 },
+      { name: 'claude-fable-5-1', totalTokens: 1_599_077_630, costUsd: 2_065.42 },
+    ],
+    topSources: [{ name: 'claude-code-desktop', totalTokens: 24_664_225_687, costUsd: 9_397.54 }],
+  });
+  const notesAt = (terminalWidth: number) =>
+    renderWrappedReportWithNotes(recap, 'terminal', { useColor: false, terminalWidth });
+
+  it.each([44])('gives one note for the top tables at %i columns, outside stdout', (width) => {
+    const { output, notes } = notesAt(width);
+
+    expect(notes).toEqual([
+      'Fitted the tables to the terminal: abbreviated token counts, hid Rank. Widen the terminal or use --json for full detail.',
+    ]);
+    expect(output).not.toMatch(/\bRank\b/u);
+    expect(output).not.toContain(notes[0]);
+  });
+
+  it('has no note when the tables fit, or for markdown and json', () => {
+    expect(notesAt(400).notes).toEqual([]);
+
+    for (const format of ['markdown', 'json'] as const) {
+      expect(renderWrappedReportWithNotes(recap, format, { terminalWidth: 44 }).notes).toEqual([]);
+    }
   });
 });

@@ -25,7 +25,7 @@ import { createAdaptersFromOptions } from './source-cli-options.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { getRepeatingSourceIds, hasErrorCode } from '@ayagmar/agent-sessions/internal';
 import { getEventStoreFileFingerprint } from './parse/stored-session-events.js';
-import { renderPruneReport } from '../render/render-prune-report.js';
+import { renderPruneReportWithNotes } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
@@ -516,10 +516,15 @@ export async function runPruneReport(
     commandOptions: options,
     supportedFormats: ['terminal', 'json'] as const,
     buildData: async () => result,
-    render: (data, format) =>
-      format === 'json'
-        ? renderReportJson('prune', { candidates: data.candidates, summary: data.summary })
-        : renderPruneReport(data),
+    render: (data, format) => {
+      if (format === 'json') {
+        return renderReportJson('prune', { candidates: data.candidates, summary: data.summary });
+      }
+
+      const { output, notes } = renderPruneReportWithNotes(data);
+
+      return { output, hintsAfterOutput: notes };
+    },
     getDiagnostics: () => undefined,
   });
   await runPreparedReport({ preparedReport });

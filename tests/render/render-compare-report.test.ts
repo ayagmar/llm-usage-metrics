@@ -2,7 +2,10 @@ import pc from 'picocolors';
 import { describe, expect, it } from 'vitest';
 
 import type { CompareProjectRow, CompareReportData } from '../../src/cli/build-compare-data.js';
-import { renderCompareReport } from '../../src/render/render-compare-report.js';
+import {
+  renderCompareReport,
+  renderCompareReportWithNotes,
+} from '../../src/render/render-compare-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import type {
   CompareDataResult,
@@ -342,5 +345,41 @@ describe('renderCompareReport', () => {
     expect(output).toContain(pc.yellow('$10,543.08'));
     // A token change has no good or bad direction.
     expect(output).toContain('│     +27,219,380 │');
+  });
+});
+
+describe('renderCompareReportWithNotes', () => {
+  const notesAt = (terminalWidth: number) =>
+    renderCompareReportWithNotes(createLargeCompareData(), 'terminal', {
+      useColor: false,
+      terminalWidth,
+    });
+
+  it.each([
+    [
+      44,
+      'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ%, listed rows where no table fit. Widen the terminal or use --json for full detail.',
+    ],
+    [
+      60,
+      'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ%. Widen the terminal or use --json for full detail.',
+    ],
+  ])('gives one note for all tables at %i columns, outside stdout', (width, note) => {
+    const { output, notes } = notesAt(width);
+    const metricHeader = output.split('\n').find((line) => line.startsWith('│ Metric')) ?? '';
+
+    expect(notes).toEqual([note]);
+    expect(metricHeader).not.toContain('Baseline');
+    expect(output).not.toContain(notes[0]);
+  });
+
+  it('has no note when the tables fit, or for markdown and json', () => {
+    expect(notesAt(400).notes).toEqual([]);
+
+    for (const format of ['markdown', 'json'] as const) {
+      expect(
+        renderCompareReportWithNotes(createLargeCompareData(), format, { terminalWidth: 44 }).notes,
+      ).toEqual([]);
+    }
   });
 });

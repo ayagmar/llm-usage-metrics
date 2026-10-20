@@ -3,7 +3,7 @@ import type { UsageGranularity } from '../utils/time-buckets.js';
 import { renderMarkdownTable } from './markdown-table.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { describeTableFit } from './table-fit-note.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
 import {
   compactHiddenUsageColumns,
   getUsageTableHeader,
@@ -30,11 +30,7 @@ export type RenderUsageReportOptions = {
   filtered?: boolean;
 };
 
-export type RenderedUsageReport = {
-  output: string;
-  /** stderr notes about what a narrow terminal left out of the table. */
-  notes: string[];
-};
+export type RenderedUsageReport = RenderedReportWithNotes;
 
 function getReportTitle(granularity: UsageGranularity): string {
   switch (granularity) {

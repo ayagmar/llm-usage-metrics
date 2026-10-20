@@ -12,7 +12,12 @@ import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { resolveTerminalWidth, truncateMiddle } from './table-text-layout.js';
 import { createColorRoles, styleDeltaCell } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import {
+  describeTableFit,
+  type RenderedReportWithNotes,
+  type TableFitChanges,
+} from './table-fit-note.js';
+import { renderUnicodeTableWithFit, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 
 export type CompareReportFormat = 'terminal' | 'markdown' | 'json';
@@ -203,14 +208,14 @@ function renderTerminalTable<Row>(options: {
   toCells: (row: Row, format: CellFormat) => string[];
   useColor: boolean;
   terminalWidth: number | undefined;
-}): string {
+}): { output: string; fit: TableFitChanges } {
   const { header } = createColorRoles(options.useColor);
   const cells = (format: Omit<CellFormat, 'nameWidth'>) =>
     options.rows.map((row) =>
       options.toCells(row, { ...format, nameWidth: NAME_COLUMN_MAX_WIDTH }),
     );
 
-  return renderUnicodeTable({
+  return renderUnicodeTableWithFit({
     headerCells: options.headerCells.map((cell) => header(cell)),
     bodyRows: cells({ useColor: options.useColor }),
     measureHeaderCells: options.headerCells,
@@ -234,10 +239,15 @@ function hasNoUsage(compareData: CompareReportData): boolean {
 function renderTerminalCompareReport(
   compareData: CompareReportData,
   options: RenderCompareReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const terminalWidth = resolveTerminalWidth(options.terminalWidth);
   const lines: string[] = [];
+  const fits: TableFitChanges[] = [];
+  const pushTable = (table: { output: string; fit: TableFitChanges }) => {
+    lines.push(table.output);
+    fits.push(table.fit);
+  };
 
   lines.push(
     renderReportHeader({
@@ -250,10 +260,10 @@ function renderTerminalCompareReport(
 
   if (hasNoUsage(compareData)) {
     lines.push(formatNoUsageMessage(options.filtered ?? false));
-    return lines.join('\n');
+    return { output: lines.join('\n'), notes: [] };
   }
 
-  lines.push(
+  pushTable(
     renderTerminalTable({
       headerCells: compareTableHeaders,
       rows: compareData.totals,
@@ -264,7 +274,7 @@ function renderTerminalCompareReport(
   );
   lines.push('');
   lines.push('By source (cost)');
-  lines.push(
+  pushTable(
     renderTerminalTable({
       headerCells: sourceTableHeaders,
       rows: compareData.sources,
@@ -277,7 +287,7 @@ function renderTerminalCompareReport(
   if (compareData.projects) {
     lines.push('');
     lines.push('By project (cost)');
-    lines.push(
+    pushTable(
       renderTerminalTable({
         headerCells: projectTableHeaders,
         rows: compareData.projects,
@@ -288,7 +298,9 @@ function renderTerminalCompareReport(
     );
   }
 
-  return lines.join('\n');
+  const fitNote = describeTableFit(...fits);
+
+  return { output: lines.join('\n'), notes: fitNote ? [fitNote] : [] };
 }
 
 function renderMarkdownRows(headers: readonly string[], rows: string[][]): string {
@@ -331,23 +343,34 @@ function renderMarkdownCompareReport(compareData: CompareReportData): string {
   ].join('\n');
 }
 
+export function renderCompareReportWithNotes(
+  compareData: CompareReportData,
+  format: CompareReportFormat,
+  options: RenderCompareReportOptions = {},
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return {
+        output: renderReportJson('compare', {
+          current: compareData.current,
+          baseline: compareData.baseline,
+          totals: compareData.totals,
+          sources: compareData.sources,
+          projects: compareData.projects,
+        }),
+        notes: [],
+      };
+    case 'markdown':
+      return { output: renderMarkdownCompareReport(compareData), notes: [] };
+    case 'terminal':
+      return renderTerminalCompareReport(compareData, options);
+  }
+}
+
 export function renderCompareReport(
   compareData: CompareReportData,
   format: CompareReportFormat,
   options: RenderCompareReportOptions = {},
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('compare', {
-        current: compareData.current,
-        baseline: compareData.baseline,
-        totals: compareData.totals,
-        sources: compareData.sources,
-        projects: compareData.projects,
-      });
-    case 'markdown':
-      return renderMarkdownCompareReport(compareData);
-    case 'terminal':
-      return renderTerminalCompareReport(compareData, options);
-  }
+  return renderCompareReportWithNotes(compareData, format, options).output;
 }

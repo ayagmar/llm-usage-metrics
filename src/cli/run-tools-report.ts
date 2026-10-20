@@ -1,4 +1,7 @@
-import { renderToolsReport, type ToolsReportFormat } from '../render/render-tools-report.js';
+import {
+  renderToolsReportWithNotes,
+  type ToolsReportFormat,
+} from '../render/render-tools-report.js';
 import { buildToolsData } from './build-tools-data.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
@@ -20,8 +23,13 @@ async function prepareToolsReport(options: ToolsCommandOptions, deps: BuildUsage
     buildData: () => buildToolsData(options, deps),
     getDiagnostics: (toolsData) => ({ ...toolsData.diagnostics, limitNote: toolsData.limitNote }),
     runtimeProfile: deps.runtimeProfile,
-    render: (toolsData, format) =>
-      renderToolsReport(toolsData, format, { filtered: hasCliFilters(options) }),
+    render: (toolsData, format) => {
+      const { output, notes } = renderToolsReportWithNotes(toolsData, format, {
+        filtered: hasCliFilters(options),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
     getHintsAfterOutput: (toolsData) =>
       toolsData.defaultWindowSince
         ? getDefaultWindowHint('daily', toolsData.defaultWindowSince, {

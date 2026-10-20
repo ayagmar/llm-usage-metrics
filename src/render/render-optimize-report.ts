@@ -19,7 +19,8 @@ import {
   type ColorRoles,
   type TextStyler,
 } from './terminal-style-policy.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
+import { renderUnicodeTableWithFit, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 
 export type OptimizeReportFormat = 'terminal' | 'markdown' | 'json';
@@ -300,7 +301,7 @@ function hasBaselineUsage(row: OptimizeRow): boolean {
 function renderTerminalOptimizeReport(
   optimizeData: OptimizeDataResult,
   options: RenderOptimizeReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const roles = createColorRoles(useColor);
   const terminalWidth = resolveTtyColumns(process.stdout);
@@ -312,13 +313,16 @@ function renderTerminalOptimizeReport(
 
   // No baseline tokens, logged cost or unpriced usage: the provider has nothing to compare.
   if (!optimizeData.rows.some(hasBaselineUsage)) {
-    return [
-      header,
-      '',
-      renderProviderLine(optimizeData, { roles, terminalWidth }),
-      '',
-      wrapProse(formatNoUsageMessage(options.filtered ?? false), terminalWidth),
-    ].join('\n');
+    return {
+      output: [
+        header,
+        '',
+        renderProviderLine(optimizeData, { roles, terminalWidth }),
+        '',
+        wrapProse(formatNoUsageMessage(options.filtered ?? false), terminalWidth),
+      ].join('\n'),
+      notes: [],
+    };
   }
 
   const includeNotesColumn = resolveIncludeNotesColumn(optimizeData);
@@ -332,26 +336,32 @@ function renderTerminalOptimizeReport(
     ? [...optimizeTableHeadersWithNotes]
     : [...optimizeTableHeadersWithoutNotes];
 
-  return [
-    header,
-    '',
-    ...resolveTerminalContextLines(optimizeData, { roles, terminalWidth }),
-    '',
-    renderUnicodeTable({
-      headerCells: headerCells.map((cell) => roles.header(cell)),
-      bodyRows: tableCells,
-      measureHeaderCells: headerCells,
-      measureBodyRows: measureCells,
-      rowMetas: optimizeData.rows.map((row) => toTableRowMeta(row)),
-      columnKinds: headerCells.map((cell, index) =>
-        index <= 1 || cell === 'Notes' ? 'text' : 'measure',
-      ),
-      multilineColumnIndex: 1,
-      multilineColumnWidth: resolveCandidateColumnWidth(measureCells),
-      terminalWidth,
-      fit: { hideableColumns: resolveHideableColumns(optimizeData) },
-    }),
-  ].join('\n');
+  const { output, fit } = renderUnicodeTableWithFit({
+    headerCells: headerCells.map((cell) => roles.header(cell)),
+    bodyRows: tableCells,
+    measureHeaderCells: headerCells,
+    measureBodyRows: measureCells,
+    rowMetas: optimizeData.rows.map((row) => toTableRowMeta(row)),
+    columnKinds: headerCells.map((cell, index) =>
+      index <= 1 || cell === 'Notes' ? 'text' : 'measure',
+    ),
+    multilineColumnIndex: 1,
+    multilineColumnWidth: resolveCandidateColumnWidth(measureCells),
+    terminalWidth,
+    fit: { hideableColumns: resolveHideableColumns(optimizeData) },
+  });
+  const fitNote = describeTableFit(fit);
+
+  return {
+    output: [
+      header,
+      '',
+      ...resolveTerminalContextLines(optimizeData, { roles, terminalWidth }),
+      '',
+      output,
+    ].join('\n'),
+    notes: fitNote ? [fitNote] : [],
+  };
 }
 
 function renderMarkdownOptimizeReport(optimizeData: OptimizeDataResult): string {
@@ -373,17 +383,25 @@ function renderMarkdownOptimizeReport(optimizeData: OptimizeDataResult): string 
   ].join('\n');
 }
 
+export function renderOptimizeReportWithNotes(
+  optimizeData: OptimizeDataResult,
+  format: OptimizeReportFormat,
+  options: RenderOptimizeReportOptions,
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return { output: renderReportJson('optimize', optimizeData.rows), notes: [] };
+    case 'markdown':
+      return { output: renderMarkdownOptimizeReport(optimizeData), notes: [] };
+    case 'terminal':
+      return renderTerminalOptimizeReport(optimizeData, options);
+  }
+}
+
 export function renderOptimizeReport(
   optimizeData: OptimizeDataResult,
   format: OptimizeReportFormat,
   options: RenderOptimizeReportOptions,
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('optimize', optimizeData.rows);
-    case 'markdown':
-      return renderMarkdownOptimizeReport(optimizeData);
-    case 'terminal':
-      return renderTerminalOptimizeReport(optimizeData, options);
-  }
+  return renderOptimizeReportWithNotes(optimizeData, format, options).output;
 }

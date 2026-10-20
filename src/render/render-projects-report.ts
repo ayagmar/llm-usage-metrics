@@ -14,7 +14,12 @@ import { renderReportJson } from './report-json.js';
 import { formatBulletedList } from './row-cells.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
+import {
+  columnKindsFromAlign,
+  renderUnicodeTableWithFit,
+  type TableRowMeta,
+} from './unicode-table.js';
 
 export type ProjectsReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -177,10 +182,10 @@ function buildTables(data: ProjectsData, options: RenderProjectsReportOptions): 
   return tables;
 }
 
-function renderTerminalTable(table: Table, terminalWidth: number | undefined): string {
+function renderTerminalTable(table: Table, terminalWidth: number | undefined) {
   const modelsColumnIndex = table.headers.indexOf(MODELS_HEADER);
 
-  return renderUnicodeTable({
+  return renderUnicodeTableWithFit({
     headerCells: table.headers,
     bodyRows: table.rows,
     measureHeaderCells: table.headers,
@@ -196,7 +201,7 @@ function renderTerminalTable(table: Table, terminalWidth: number | undefined): s
 function renderTerminalProjectsReport(
   data: ProjectsData,
   options: RenderProjectsReportOptions,
-): string {
+): RenderedReportWithNotes {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
   const outputLines = [
@@ -206,16 +211,17 @@ function renderTerminalProjectsReport(
 
   if (data.projects.length === 0) {
     outputLines.push(formatNoUsageMessage(options.filtered ?? false));
-    return outputLines.join('\n');
+    return { output: outputLines.join('\n'), notes: [] };
   }
 
-  outputLines.push(
-    buildTables(data, options)
-      .map((table) => renderTerminalTable(table, terminalWidth))
-      .join('\n\n'),
+  const tables = buildTables(data, options).map((table) =>
+    renderTerminalTable(table, terminalWidth),
   );
+  const fitNote = describeTableFit(...tables.map((table) => table.fit));
 
-  return outputLines.join('\n');
+  outputLines.push(tables.map((table) => table.output).join('\n\n'));
+
+  return { output: outputLines.join('\n'), notes: fitNote ? [fitNote] : [] };
 }
 
 /** Always tables, as the usage reports: an empty window keeps its TOTAL row. */
@@ -233,22 +239,33 @@ function renderMarkdownProjectsReport(
     .join('\n\n');
 }
 
+export function renderProjectsReportWithNotes(
+  data: ProjectsData,
+  format: ProjectsReportFormat,
+  options: RenderProjectsReportOptions = {},
+): RenderedReportWithNotes {
+  switch (format) {
+    case 'json':
+      return {
+        output: renderReportJson('projects', {
+          totals: data.totals,
+          projects: data.projects,
+          ...(data.granularity ? { granularity: data.granularity } : {}),
+          ...(data.periods ? { periods: data.periods } : {}),
+        }),
+        notes: [],
+      };
+    case 'markdown':
+      return { output: renderMarkdownProjectsReport(data, options), notes: [] };
+    case 'terminal':
+      return renderTerminalProjectsReport(data, options);
+  }
+}
+
 export function renderProjectsReport(
   data: ProjectsData,
   format: ProjectsReportFormat,
   options: RenderProjectsReportOptions = {},
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('projects', {
-        totals: data.totals,
-        projects: data.projects,
-        ...(data.granularity ? { granularity: data.granularity } : {}),
-        ...(data.periods ? { periods: data.periods } : {}),
-      });
-    case 'markdown':
-      return renderMarkdownProjectsReport(data, options);
-    case 'terminal':
-      return renderTerminalProjectsReport(data, options);
-  }
+  return renderProjectsReportWithNotes(data, format, options).output;
 }

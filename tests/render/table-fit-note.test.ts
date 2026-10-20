@@ -33,4 +33,43 @@ describe('describeTableFit', () => {
       'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
     );
   });
+
+  it('names abbreviated counts and shortened names that are not tokens or models', () => {
+    expect(describeTableFit({ ...unchanged, abbreviatedCounts: true, shortenedNames: true })).toBe(
+      'Fitted the table to the terminal: abbreviated counts, shortened long names. Widen the terminal or use --json for full detail.',
+    );
+  });
+
+  it('gives a report with several tables one note, naming each hidden column once', () => {
+    expect(
+      describeTableFit(
+        { ...unchanged, abbreviatedTokens: true, hiddenHeaders: ['Baseline'] },
+        unchanged,
+        { ...unchanged, hiddenHeaders: ['Baseline', 'Δ%'] },
+      ),
+    ).toBe(
+      'Fitted the tables to the terminal: abbreviated token counts, hid Baseline and Δ%. Widen the terminal or use --json for full detail.',
+    );
+  });
+
+  it('says "the table" when only one of several tables changed', () => {
+    expect(describeTableFit(unchanged, { ...unchanged, hiddenHeaders: ['Rank'] })).toBe(
+      'Fitted the table to the terminal: hid Rank. Widen the terminal or use --json for full detail.',
+    );
+    expect(describeTableFit(unchanged, unchanged)).toBeUndefined();
+  });
+
+  it('says rows were listed when several tables became lists', () => {
+    expect(describeTableFit({ ...unchanged, stacked: true }, { ...unchanged, stacked: true })).toBe(
+      'Listed rows instead of tables to fit the terminal. Widen the terminal to see the tables.',
+    );
+  });
+
+  it('does not say rows were listed instead of tables when only one table became a list', () => {
+    expect(
+      describeTableFit({ ...unchanged, abbreviatedTokens: true }, { ...unchanged, stacked: true }),
+    ).toBe(
+      'Fitted the tables to the terminal: abbreviated token counts, listed rows where no table fit. Widen the terminal or use --json for full detail.',
+    );
+  });
 });
