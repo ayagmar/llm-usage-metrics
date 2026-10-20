@@ -35,23 +35,30 @@ function toWeeks(days: readonly ActivityDay[]): ActivityDay[][] {
 }
 
 function renderMonthLabels(weeks: readonly ActivityDay[][]): string {
-  let line = '';
-  let previousMonth = '';
+  const starts: { column: number; month: string }[] = [];
 
   weeks.forEach((week, column) => {
     const month = week[0].date.slice(5, 7);
 
+    if (month !== starts.at(-1)?.month) {
+      starts.push({ column, month });
+    }
+  });
+
+  // A whole month spans at least four weeks, so only the grid's first, cut-off month can
+  // crowd the next label. Drop the cut-off month's label rather than the whole month's.
+  if (starts.length > 1 && starts[1].column <= MONTH_LABEL_WIDTH) {
+    starts.shift();
+  }
+
+  let line = '';
+
+  for (const { column, month } of starts) {
     // Skip a label that would overlap the previous one or run past the grid.
-    if (
-      month !== previousMonth &&
-      (line.length === 0 || line.length < column) &&
-      column + MONTH_LABEL_WIDTH <= weeks.length
-    ) {
+    if ((line.length === 0 || line.length < column) && column + MONTH_LABEL_WIDTH <= weeks.length) {
       line = line.padEnd(column) + MONTH_LABELS[Number(month) - 1];
     }
-
-    previousMonth = month;
-  });
+  }
 
   return line;
 }

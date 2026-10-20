@@ -1,3 +1,5 @@
+import { stripVTControlCharacters } from 'node:util';
+
 import { describe, expect, it } from 'vitest';
 
 import type {
@@ -195,7 +197,7 @@ describe('renderSummaryReport', () => {
     expect(output).toContain('Activity since 2025-03-10');
     expect(lines).toContain('Current streak  2 days');
     expect(lines).toContain('Longest streak  2 days');
-    expect(lines).toContain('Best day        2026-03-10 · $3.00 · 3k tokens');
+    expect(lines).toContain('Best day        2026-03-10 · $3.00 · 3K tokens');
     expect(lines).toContain('Active days     3');
 
     const rows = lines.filter((line) => /^(?:Mon|Wed|Fri| {3}) [·░▒▓█]/u.test(line));
@@ -227,11 +229,66 @@ describe('renderSummaryReport', () => {
     expect(tooNarrow).toContain('Current streak  2 days');
   });
 
-  it('lists each period with labelled values on a phone-width terminal', () => {
-    const output = renderSummaryReport(createSummaryData(), 'terminal', {
-      useColor: true,
-      terminalWidth: 44,
-    });
+  it('abbreviates tokens, then drops the top source, before listing the periods', () => {
+    const data = createSummaryData();
+    data.periods[2].totals = totals({ totalTokens: 25_563_792_427, costUsd: 10_334.21 });
+    const lineAt = (terminalWidth: number) => {
+      const lines = renderSummaryReport(data, 'terminal', {
+        useColor: true,
+        terminalWidth,
+      }).split('\n');
+      const tableLines = lines.filter((line) => line.includes('│'));
+
+      for (const line of lines) {
+        expect(visibleWidth(line), `${String(terminalWidth)}: ${line}`).toBeLessThanOrEqual(
+          terminalWidth,
+        );
+      }
+
+      return stripVTControlCharacters(
+        tableLines.find((line) => line.includes('Month to date')) ?? '',
+      );
+    };
+
+    expect(lineAt(80)).toMatch(/│ +25,563,792,427 │ gemini +│$/u);
+    expect(lineAt(60)).toMatch(/│ +25\.6B │ gemini +│$/u);
+    expect(lineAt(44)).toMatch(/│ Month to date │ +\$10,334\.21 │ +25\.6B │$/u);
+  });
+
+  it('wraps the notes and the best day to the terminal width', () => {
+    const data = {
+      ...createSummaryData(),
+      monthEnd: { daysElapsed: 10, daysInMonth: 31, projectedCostUsd: 40 },
+      spike: {
+        date: '2026-03-09',
+        costUsd: 1_525.77,
+        costIncomplete: true,
+        medianActiveDayUsd: 182.75,
+        project: 'projects/ccdesk',
+        model: 'claude-opus-5-5',
+      },
+    };
+
+    for (const terminalWidth of [44, 80, 120]) {
+      const lines = renderSummaryReport(data, 'terminal', { useColor: true, terminalWidth }).split(
+        '\n',
+      );
+      const plain = stripVTControlCharacters(lines.join(' ')).replace(/\s+/gu, ' ');
+
+      for (const line of lines) {
+        expect(visibleWidth(line), `${String(terminalWidth)}: ${line}`).toBeLessThanOrEqual(
+          terminalWidth,
+        );
+      }
+      expect(plain).toContain('top project projects/ccdesk, top model claude-opus-5-5');
+      expect(plain).toContain('Best day 2026-03-10 · $3.00 · 3K tokens');
+    }
+  });
+
+  it('lists each period with labelled values on a terminal too narrow for any table', () => {
+    const output = stripVTControlCharacters(
+      renderSummaryReport(createSummaryData(), 'terminal', { useColor: true, terminalWidth: 34 }),
+    );
 
     expect(output).not.toContain('╭');
     expect(output).toMatch(/^Today$/mu);
@@ -241,8 +298,43 @@ describe('renderSummaryReport', () => {
       .filter((line) => /^(?:Today|Last 7 days|Month to date| {2}\S)/u.test(line));
 
     expect(periodLines.length).toBeGreaterThanOrEqual(12);
-    for (const line of periodLines) {
-      expect(visibleWidth(line), line).toBeLessThanOrEqual(44);
+    // The activity stats too: the best day wraps under itself.
+    for (const line of output.split('\n')) {
+      expect(visibleWidth(line), line).toBeLessThanOrEqual(34);
+    }
+    expect(output).toMatch(/^Best day {8}2026-03-10 · \$3\.00\n {16}· 3K tokens$/mu);
+  });
+
+  it('labels every month above the heatmap, even when the first month is cut off', () => {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    // Each width starts the grid on a different week, so some cut the first month short.
+    for (let terminalWidth = 30; terminalWidth <= 57; terminalWidth += 1) {
+      const lines = renderSummaryReport(createSummaryData(), 'terminal', {
+        useColor: false,
+        terminalWidth,
+      }).split('\n');
+      const labelLine = lines[lines.findIndex((line) => line.startsWith('Mon ')) - 1] ?? '';
+      const labels = labelLine.trim().split(/\s+/u);
+
+      expect(labels.length, `${String(terminalWidth)}: ${labelLine}`).toBeGreaterThanOrEqual(5);
+      labels.slice(1).forEach((label, index) => {
+        const previous = months.indexOf(labels[index]);
+        expect(label, `${String(terminalWidth)}: ${labelLine}`).toBe(months[(previous + 1) % 12]);
+      });
     }
   });
 
@@ -378,6 +470,38 @@ describe('renderSummaryReport', () => {
     expect(renderSummaryReport(data, 'terminal', { useColor: false })).not.toContain('by machine');
   });
 
+  it('colors headers, costs, and notes by role', () => {
+    const output = renderSummaryReport(
+      {
+        ...createSummaryData(),
+        monthEnd: { daysElapsed: 10, daysInMonth: 31, projectedCostUsd: 40 },
+      },
+      'terminal',
+      {
+        useColor: true,
+        terminalWidth: 120,
+        palette: {
+          cyan: (text) => text,
+          magenta: (text) => text,
+          red: (text) => text,
+          blue: (text) => text,
+          yellow: (text) => `<y>${text}</y>`,
+          white: (text) => text,
+          bold: (text) => `<b>${text}</b>`,
+          green: (text) => text,
+          dim: (text) => `<d>${text}</d>`,
+        },
+      },
+    );
+
+    expect(output).toContain('<b>Period</b>');
+    expect(output).toContain('<y>$5.00</y>');
+    // Tokens keep the default color.
+    expect(output).toMatch(/│ +1,500 │/u);
+    expect(output).toContain('<d>On pace for $40.00 this month</d>');
+    expect(output).toContain('<d>Current streak</d>  2 days');
+  });
+
   it('colors budget warnings when color is on', () => {
     const data = createSummaryData();
     data.periods[2].totals.costUsd = 0.5;
@@ -427,7 +551,7 @@ describe('renderSummaryReport', () => {
     expect(withBudget).toContain('On pace for $9.00 this month');
     expect(withBudget).toContain('⚠ On pace to exceed your $5.00 monthly budget by $4.00');
     expect(output).toMatch(/\| Current streak \|\s+2 days \|/u);
-    expect(output).toMatch(/\| Best day\s+\| 2026-03-10 · \$3\.00 · 3k tokens \|/u);
+    expect(output).toMatch(/\| Best day\s+\| 2026-03-10 · \$3\.00 · 3K tokens \|/u);
   });
 
   it('renders JSON without diagnostics', () => {

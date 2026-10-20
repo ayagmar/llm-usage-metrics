@@ -5,10 +5,12 @@ import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { formatHours } from './format-duration.js';
 import { pluralize } from '@ayagmar/agent-sessions/internal';
-import { formatApproxUsd, formatInteger } from './format-number.js';
-import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
+import { resolveTerminalWidth, visibleWidth, wrapProse } from './table-text-layout.js';
 import {
+  createColorRoles,
   defaultTerminalStylePalette,
+  type ColorRoles,
   type TerminalStylePalette,
   type TextStyler,
 } from './terminal-style-policy.js';
@@ -23,6 +25,8 @@ export type WrappedReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderWrappedReportOptions = {
   useColor?: boolean;
   palette?: TerminalStylePalette;
+  /** Overrides the TTY width the header, monthly strip, and top tables are fitted to. */
+  terminalWidth?: number;
   /** Whether the command line narrowed the report; names the filters in the empty message. */
   filtered?: boolean;
 };
@@ -37,7 +41,12 @@ export const wrappedReportFormats = [
 const IDLE_MONTH_GLYPH = '·';
 const TOP_MODELS_HEADERS = ['#', 'Model', 'Tokens', 'Cost'] as const;
 const TOP_SOURCES_HEADERS = ['#', 'Source', 'Tokens', 'Cost'] as const;
+const TOP_ITEM_RANK_COLUMN = 0;
 const TOP_ITEM_NAME_COLUMN = 1;
+// `Jan ▁`, two spaces apart; a strip too wide for the terminal breaks into equal rows.
+const MONTH_ENTRY_WIDTH = 5;
+const MONTH_ENTRY_GAP = 2;
+const MONTHS_PER_ROW_STEPS = [12, 6, 4, 3, 2, 1] as const;
 
 /** Gates a styler behind the color policy so `useColor: false` never emits ANSI. */
 type Paint = (styler: TextStyler) => TextStyler;
@@ -49,57 +58,50 @@ function formatPeakHour(peakHour: WrappedRecap['peakHour']): string {
 function formatBusiestDay(busiestDay: WrappedRecap['busiestDay']): string {
   return busiestDay === undefined
     ? '-'
-    : `${busiestDay.date} (${formatInteger(busiestDay.totalTokens)} tokens)`;
+    : `${busiestDay.date} (${formatAbbreviatedTokenCount(busiestDay.totalTokens)} tokens)`;
 }
 
-function renderStatLines(recap: WrappedRecap, paint: Paint, palette: TerminalStylePalette): string {
-  const bold =
-    (styler: TextStyler): TextStyler =>
-    (text) =>
-      palette.bold(styler(text));
+/** The weekday share of the year's tokens, or undefined without any tokens. */
+function formatWeekdayShare(recap: WrappedRecap): string | undefined {
   const totalSplitTokens = recap.weekdayTokens + recap.weekendTokens;
-  const stats: { label: string; value: string; styler: TextStyler }[] = [
-    { label: 'Tokens', value: formatInteger(recap.totalTokens), styler: bold(palette.cyan) },
+
+  return totalSplitTokens > 0
+    ? `${Math.round((100 * recap.weekdayTokens) / totalSplitTokens)}% of tokens`
+    : undefined;
+}
+
+function renderStatLines(recap: WrappedRecap, roles: ColorRoles): string {
+  const weekdayShare = formatWeekdayShare(recap);
+  const stats: { label: string; value: string; styler?: TextStyler }[] = [
+    { label: 'Tokens', value: formatInteger(recap.totalTokens) },
     {
       label: 'Cost',
       value: formatApproxUsd(recap.costUsd, recap.costIncomplete),
-      styler: bold(palette.green),
+      styler: roles.money,
     },
-    { label: 'Active days', value: formatInteger(recap.activeDays), styler: palette.white },
-    {
-      label: 'Longest streak',
-      value: pluralize(recap.longestStreak, 'day'),
-      styler: bold(palette.yellow),
-    },
-    { label: 'Hours', value: formatHours(recap.activeMs), styler: bold(palette.cyan) },
-    { label: 'Peak hour', value: formatPeakHour(recap.peakHour), styler: palette.white },
+    { label: 'Active days', value: formatInteger(recap.activeDays) },
+    { label: 'Longest streak', value: pluralize(recap.longestStreak, 'day') },
+    { label: 'Hours', value: formatHours(recap.activeMs) },
+    { label: 'Peak hour', value: formatPeakHour(recap.peakHour) },
   ];
 
-  if (totalSplitTokens > 0) {
-    stats.push({
-      label: 'Weekday split',
-      value: `${Math.round((100 * recap.weekdayTokens) / totalSplitTokens)}% weekday`,
-      styler: palette.white,
-    });
+  if (weekdayShare !== undefined) {
+    stats.push({ label: 'Weekdays', value: weekdayShare });
   }
 
-  stats.push({
-    label: 'Busiest day',
-    value: formatBusiestDay(recap.busiestDay),
-    styler: palette.white,
-  });
+  stats.push({ label: 'Busiest day', value: formatBusiestDay(recap.busiestDay) });
 
   if (recap.estimatedCacheSavingsUsd !== undefined) {
     stats.push({
       label: 'Cache savings',
       value: formatApproxUsd(recap.estimatedCacheSavingsUsd, true),
-      styler: bold(palette.green),
+      styler: roles.positive,
     });
   }
 
   stats.push(
-    { label: 'Events', value: formatInteger(recap.eventCount), styler: palette.white },
-    { label: 'Sessions', value: formatInteger(recap.sessionCount), styler: palette.white },
+    { label: 'Events', value: formatInteger(recap.eventCount) },
+    { label: 'Sessions', value: formatInteger(recap.sessionCount) },
   );
 
   const labelWidth = stats.reduce((max, stat) => Math.max(max, stat.label.length), 0);
@@ -107,66 +109,116 @@ function renderStatLines(recap: WrappedRecap, paint: Paint, palette: TerminalSty
   return stats
     .map(
       (stat) =>
-        `${paint(palette.dim)(stat.label.padEnd(labelWidth))}  ${paint(stat.styler)(stat.value)}`,
+        `${roles.label(stat.label.padEnd(labelWidth))}  ${(stat.styler ?? roles.value)(stat.value)}`,
     )
     .join('\n');
+}
+
+/** The most months per row that fit `terminalWidth`: 12, then halves, quarters, and so on. */
+function resolveMonthsPerRow(terminalWidth: number | undefined): number {
+  return (
+    MONTHS_PER_ROW_STEPS.find(
+      (count) =>
+        terminalWidth === undefined ||
+        count * MONTH_ENTRY_WIDTH + (count - 1) * MONTH_ENTRY_GAP <= terminalWidth,
+    ) ?? 1
+  );
 }
 
 function renderMonthlyStrip(
   recap: WrappedRecap,
   paint: Paint,
   palette: TerminalStylePalette,
+  terminalWidth: number | undefined,
 ): string {
   const boldGreen: TextStyler = (text) => palette.bold(palette.green(text));
   const maxTokens = Math.max(0, ...recap.monthlyIntensity.map((month) => month.totalTokens));
+  const monthsPerRow = resolveMonthsPerRow(terminalWidth);
+  const entries = recap.monthlyIntensity.map((month, index) => {
+    const level = sparklineLevel(month.totalTokens, maxTokens);
+    const glyph = level === 0 ? IDLE_MONTH_GLYPH : SPARKLINE_GLYPHS[level];
+    const label = MONTH_LABELS[index] ?? month.month;
+    const glyphStyler =
+      level === 0 ? palette.dim : level > SPARKLINE_TOP_LEVEL / 2 ? boldGreen : palette.green;
 
-  return recap.monthlyIntensity
-    .map((month, index) => {
-      const level = sparklineLevel(month.totalTokens, maxTokens);
-      const glyph = level === 0 ? IDLE_MONTH_GLYPH : SPARKLINE_GLYPHS[level];
-      const label = MONTH_LABELS[index] ?? month.month;
-      const glyphStyler =
-        level === 0 ? palette.dim : level > SPARKLINE_TOP_LEVEL / 2 ? boldGreen : palette.green;
+    return `${paint(palette.dim)(label)} ${paint(glyphStyler)(glyph)}`;
+  });
+  const rows: string[] = [];
 
-      return `${paint(palette.dim)(label)} ${paint(glyphStyler)(glyph)}`;
-    })
-    .join('  ');
+  for (let start = 0; start < entries.length; start += monthsPerRow) {
+    rows.push(entries.slice(start, start + monthsPerRow).join(' '.repeat(MONTH_ENTRY_GAP)));
+  }
+
+  return rows.join('\n');
 }
 
-function toTopItemRows(items: readonly WrappedTopItem[]): string[][] {
+type TopItemRowStyle = {
+  formatTokens: (tokens: number) => string;
+  money: TextStyler;
+  name: TextStyler;
+};
+
+const plainTopItemRowStyle: TopItemRowStyle = {
+  formatTokens: formatInteger,
+  money: (text) => text,
+  name: (text) => text,
+};
+
+function toTopItemRows(
+  items: readonly WrappedTopItem[],
+  style: TopItemRowStyle = plainTopItemRowStyle,
+): string[][] {
   if (items.length === 0) {
     return [['-', '-', '-', '-']];
   }
 
   return items.map((item, index) => [
     String(index + 1),
-    item.name,
-    formatInteger(item.totalTokens),
-    formatApproxUsd(item.costUsd, item.costIncomplete),
+    style.name(item.name),
+    style.formatTokens(item.totalTokens),
+    style.money(formatApproxUsd(item.costUsd, item.costIncomplete)),
   ]);
 }
 
-function renderTopTable(headerCells: readonly string[], bodyRows: string[][]): string {
+function renderTopTable(
+  headerCells: readonly string[],
+  items: readonly WrappedTopItem[],
+  options: { roles: ColorRoles; name: TextStyler; terminalWidth: number | undefined },
+): string {
+  const { roles } = options;
+  const toRows = (formatTokens: TopItemRowStyle['formatTokens'], colored: boolean) =>
+    toTopItemRows(
+      items,
+      colored
+        ? { formatTokens, money: roles.money, name: options.name }
+        : { ...plainTopItemRowStyle, formatTokens },
+    );
+  const measureBodyRows = toRows(formatInteger, false);
   const nameCells = [
     headerCells[TOP_ITEM_NAME_COLUMN],
-    ...bodyRows.map((row) => row[TOP_ITEM_NAME_COLUMN]),
+    ...measureBodyRows.map((row) => row[TOP_ITEM_NAME_COLUMN]),
   ];
   const nameColumnWidth = nameCells.reduce((max, cell) => Math.max(max, visibleWidth(cell)), 0);
-  const rowMetas: TableRowMeta[] = bodyRows.map(() => ({
+  const rowMetas: TableRowMeta[] = measureBodyRows.map(() => ({
     periodKey: 'wrapped',
     rowKind: 'detail',
   }));
 
   return renderUnicodeTable({
-    headerCells,
-    bodyRows,
+    headerCells: headerCells.map((header) => roles.header(header)),
+    bodyRows: toRows(formatInteger, true),
     measureHeaderCells: headerCells,
-    measureBodyRows: bodyRows,
+    measureBodyRows,
     rowMetas,
     columnKinds: ['text', 'text', 'measure', 'measure'],
     multilineColumnIndex: TOP_ITEM_NAME_COLUMN,
     multilineColumnWidth: nameColumnWidth,
-    terminalWidth: resolveTtyColumns(process.stdout),
+    terminalWidth: options.terminalWidth,
+    fit: {
+      abbreviatedBodyRows: toRows(formatAbbreviatedTokenCount, true),
+      abbreviatedMeasureBodyRows: toRows(formatAbbreviatedTokenCount, false),
+      hideableColumns: [TOP_ITEM_RANK_COLUMN],
+    },
   });
 }
 
@@ -185,36 +237,46 @@ function renderWrappedTerminalReport(
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const palette = options.palette ?? defaultTerminalStylePalette;
   const paint: Paint = (styler) => (text) => (useColor ? styler(text) : text);
+  const roles = createColorRoles(useColor, palette);
+  const terminalWidth = resolveTerminalWidth(options.terminalWidth);
   const heading = [
-    renderReportHeader({ title: `Wrapped ${recap.year}`, useColor }),
+    renderReportHeader({ title: `Wrapped ${recap.year}`, useColor, terminalWidth }),
     '',
-    paint(palette.dim)(`${recap.from} to ${recap.to} (${recap.timezone})`),
+    ...wrapProse(`${recap.from} to ${recap.to} (${recap.timezone})`, terminalWidth)
+      .split('\n')
+      .map((line) => roles.dim(line)),
     '',
   ];
   const emptyMessage = toEmptyMessage(recap, options.filtered ?? false);
 
   if (emptyMessage) {
-    return [...heading, emptyMessage].join('\n');
+    return [...heading, wrapProse(emptyMessage, terminalWidth)].join('\n');
   }
 
   return [
     ...heading,
-    renderStatLines(recap, paint, palette),
+    renderStatLines(recap, roles),
     '',
     'Monthly activity',
-    renderMonthlyStrip(recap, paint, palette),
+    renderMonthlyStrip(recap, paint, palette, terminalWidth),
     '',
     'Top models',
-    renderTopTable(TOP_MODELS_HEADERS, toTopItemRows(recap.topModels)),
+    renderTopTable(TOP_MODELS_HEADERS, recap.topModels, {
+      roles,
+      name: roles.value,
+      terminalWidth,
+    }),
     '',
     'Top sources',
-    renderTopTable(TOP_SOURCES_HEADERS, toTopItemRows(recap.topSources)),
+    renderTopTable(TOP_SOURCES_HEADERS, recap.topSources, {
+      roles,
+      name: (source) => roles.source(source)(source),
+      terminalWidth,
+    }),
   ].join('\n');
 }
 
 function toMarkdownStatRows(recap: WrappedRecap): string[][] {
-  const totalSplitTokens = recap.weekdayTokens + recap.weekendTokens;
-
   return [
     ['Tokens', formatInteger(recap.totalTokens)],
     ['Cost', formatApproxUsd(recap.costUsd, recap.costIncomplete)],
@@ -224,12 +286,7 @@ function toMarkdownStatRows(recap: WrappedRecap): string[][] {
     ['Events', formatInteger(recap.eventCount)],
     ['Sessions', formatInteger(recap.sessionCount)],
     ['Peak hour', formatPeakHour(recap.peakHour)],
-    [
-      'Weekday split',
-      totalSplitTokens > 0
-        ? `${Math.round((100 * recap.weekdayTokens) / totalSplitTokens)}% weekday`
-        : '-',
-    ],
+    ['Weekdays', formatWeekdayShare(recap) ?? '-'],
     ['Busiest day', formatBusiestDay(recap.busiestDay)],
     [
       'Cache savings',

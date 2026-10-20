@@ -1,6 +1,9 @@
+import { stripVTControlCharacters } from 'node:util';
+
 import { describe, expect, it } from 'vitest';
 
 import { renderWrappedReport } from '../../src/render/render-wrapped-report.js';
+import { visibleWidth } from '../../src/render/table-text-layout.js';
 import type { TerminalStylePalette } from '../../src/render/terminal-style-policy.js';
 import type { WrappedRecap } from '../../src/wrapped/wrapped-recap.js';
 
@@ -70,8 +73,7 @@ describe('render-wrapped-report', () => {
     expect(output).toContain('3h');
     expect(output).toContain('Peak hour');
     expect(output).toContain('14:00');
-    expect(output).toContain('Weekday split');
-    expect(output).toContain('70% weekday');
+    expect(output).toContain('Weekdays        70% of tokens');
     expect(output).toContain('Busiest day');
     expect(output).toContain('2026-03-01 (400 tokens)');
     expect(output).toContain('Monthly activity');
@@ -110,7 +112,7 @@ describe('render-wrapped-report', () => {
   });
 
   it('styles stats and the monthly strip only when color is enabled', () => {
-    const colored = renderWrappedReport(createRecap(), 'terminal', {
+    const colored = renderWrappedReport(createRecap({ estimatedCacheSavingsUsd: 5 }), 'terminal', {
       useColor: true,
       palette: markerPalette,
     });
@@ -119,12 +121,60 @@ describe('render-wrapped-report', () => {
       palette: markerPalette,
     });
 
-    expect(colored).toContain('<bold><cyan>1,000</cyan></bold>');
+    // Tokens keep the default color; cost is money, savings are good news.
+    expect(colored).toMatch(/<dim>Tokens +<\/dim> {2}1,000$/mu);
+    expect(colored).toContain('<yellow>$12.34</yellow>');
+    expect(colored).toContain('<green>~$5.00</green>');
+    expect(colored).toContain('<bold>Model</bold>');
+    expect(colored).toContain('<yellow>$8.00</yellow>');
     expect(colored).toContain('<green>█</green>');
     expect(plain).not.toContain('<bold>');
     expect(plain).not.toContain('<cyan>');
     expect(plain).not.toContain('<green>');
     expect(plain.includes('[')).toBe(false);
+  });
+
+  it('abbreviates the busiest day like the summary does', () => {
+    const output = renderWrappedReport(
+      createRecap({ busiestDay: { date: '2026-10-14', totalTokens: 3_296_247_858 } }),
+      'terminal',
+      { useColor: false },
+    );
+
+    expect(output).toContain('2026-10-14 (3.3B tokens)');
+  });
+
+  it('fits the monthly strip and top tables to 44, 80, and 120 columns', () => {
+    const recap = createRecap({
+      timezone: 'America/Argentina/Buenos_Aires',
+      topModels: [
+        { name: 'claude-opus-5-5', totalTokens: 24_664_225_687, costUsd: 9_397.54 },
+        { name: 'claude-fable-5-1', totalTokens: 1_599_077_630, costUsd: 2_065.42 },
+      ],
+    });
+    const render = (terminalWidth: number) =>
+      renderWrappedReport(recap, 'terminal', { useColor: true, terminalWidth }).split('\n');
+    const plainLines = (terminalWidth: number) =>
+      render(terminalWidth).map((line) => stripVTControlCharacters(line));
+
+    for (const terminalWidth of [44, 80, 120]) {
+      for (const line of render(terminalWidth)) {
+        expect(visibleWidth(line), `${String(terminalWidth)}: ${line}`).toBeLessThanOrEqual(
+          terminalWidth,
+        );
+      }
+    }
+
+    const stripRows = (lines: string[]) =>
+      lines.filter((line) => /^[A-Z][a-z]{2} \S {2}/u.test(line));
+    expect(stripRows(plainLines(120))).toHaveLength(1);
+    expect(stripRows(plainLines(80))).toEqual([
+      expect.stringMatching(/^Jan .* Jun \S+$/u),
+      expect.stringMatching(/^Jul .* Dec \S+$/u),
+    ]);
+    // A table, not a list: tokens abbreviated before the rank column goes.
+    expect(plainLines(80).join('\n')).toContain('24,664,225,687');
+    expect(plainLines(44).join('\n')).toMatch(/│ claude-opus-5-5 +│ +24\.7B │ \$9,397\.54 │/u);
   });
 
   it('renders markdown stat and top tables', () => {
@@ -139,7 +189,7 @@ describe('render-wrapped-report', () => {
     expect(output).toContain('| Hours');
     expect(output).toContain('3h');
     expect(output).toContain('14:00');
-    expect(output).toContain('70% weekday');
+    expect(output).toMatch(/\| Weekdays\s+\|\s+70% of tokens \|/u);
     expect(output).toContain('### Top models');
     expect(output).toContain('gpt-4.1');
     expect(output).toContain('### Top sources');
@@ -177,7 +227,7 @@ describe('render-wrapped-report', () => {
     const markdown = renderWrappedReport(recap, 'markdown');
     expect(markdown).toContain('0h');
     expect(markdown).toMatch(/\| Peak hour\s+\|\s+- \|/);
-    expect(markdown).toMatch(/\| Weekday split\s+\|\s+- \|/);
+    expect(markdown).toMatch(/\| Weekdays\s+\|\s+- \|/);
     expect(markdown).toMatch(/\| Busiest day\s+\|\s+- \|/);
     expect(markdown).toMatch(/\| Cache savings\s+\|\s+- \|/);
   });
