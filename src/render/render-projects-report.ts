@@ -13,6 +13,7 @@ import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import { formatBulletedList } from './row-cells.js';
 import { resolveTtyColumns } from './table-text-layout.js';
+import { createColorRoles, type TextStyler } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
 import {
@@ -182,10 +183,15 @@ function buildTables(data: ProjectsData, options: RenderProjectsReportOptions): 
   return tables;
 }
 
-function renderTerminalTable(table: Table, terminalWidth: number | undefined) {
+function renderTerminalTable(
+  table: Table,
+  options: { terminalWidth: number | undefined; labelStyler: TextStyler },
+) {
+  const { terminalWidth, labelStyler } = options;
   const modelsColumnIndex = table.headers.indexOf(MODELS_HEADER);
 
   return renderUnicodeTableWithFit({
+    labelStyler: labelStyler,
     headerCells: table.headers,
     bodyRows: table.rows,
     measureHeaderCells: table.headers,
@@ -214,8 +220,9 @@ function renderTerminalProjectsReport(
     return { output: outputLines.join('\n'), notes: [] };
   }
 
+  const labelStyler = createColorRoles(useColor).label;
   const tables = buildTables(data, options).map((table) =>
-    renderTerminalTable(table, terminalWidth),
+    renderTerminalTable(table, { terminalWidth, labelStyler }),
   );
   const fitNote = describeTableFit(...tables.map((table) => table.fit));
 

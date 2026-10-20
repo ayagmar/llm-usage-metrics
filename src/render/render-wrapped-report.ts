@@ -210,6 +210,7 @@ function renderTopTable(
   }));
 
   const { output, fit } = renderUnicodeTableWithFit({
+    labelStyler: roles.label,
     headerCells: headerCells.map((header) => roles.header(header)),
     bodyRows: toRows(formatInteger, true),
     measureHeaderCells: headerCells,

@@ -235,6 +235,7 @@ export function renderTerminalSessionTimeline(
     roles,
   );
   const { output, fit } = renderUnicodeTableWithFit({
+    labelStyler: roles.label,
     headerCells: timelineHeaders.map((header) => roles.header(header)),
     bodyRows: full.bodyRows,
     measureHeaderCells: timelineHeaders,

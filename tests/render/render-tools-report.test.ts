@@ -104,12 +104,14 @@ describe('renderToolsReport terminal fit', () => {
 
   it('lists rows in full detail at 44 columns', () => {
     const output = render(44);
-    const valueLines = output.split('\n').filter((line) => line.startsWith('  '));
+    const lines = output.split('\n');
+    const titleStart = lines.findIndex((line) => line.startsWith('mcp__'));
+    const titleLines = lines.slice(titleStart, titleStart + 2);
 
-    // A listed row's title stays whole, so only its value lines must fit.
-    expect(Math.max(...valueLines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(44);
+    expect(widestLine(output)).toBeLessThanOrEqual(44);
     expect(output).not.toContain('╭');
-    expect(output).toContain(LONG_MCP_NAME);
+    // A title wider than the terminal wraps between the name's parts, losing no character.
+    expect(titleLines.join('')).toBe(LONG_MCP_NAME);
     expect(output).toContain('64,494');
     expect(output).toContain('Top Project');
   });

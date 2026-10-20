@@ -264,6 +264,7 @@ function renderTerminalSessionReport(
     listOptions,
   );
   const { output, fit } = renderUnicodeTableWithFit({
+    labelStyler: roles.label,
     headerCells: headers.map((header) => roles.header(header)),
     bodyRows: full.bodyRows,
     measureHeaderCells: headers,

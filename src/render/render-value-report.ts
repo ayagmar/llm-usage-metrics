@@ -28,6 +28,7 @@ import {
   type RenderedReportWithNotes,
   type TableFitChanges,
 } from './table-fit-note.js';
+import { createColorRoles } from './terminal-style-policy.js';
 import { renderUnicodeTableWithFit, type TableRowMeta } from './unicode-table.js';
 
 export type ValueReportFormat = 'terminal' | 'markdown' | 'json';
@@ -241,6 +242,7 @@ function renderTerminalValueReport(
 
     lines.push(useColor ? pc.cyan(description) : description);
     const { output, fit } = renderUnicodeTableWithFit({
+      labelStyler: createColorRoles(useColor).label,
       headerCells,
       bodyRows,
       measureHeaderCells: headerCells,

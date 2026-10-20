@@ -337,6 +337,7 @@ function renderTerminalOptimizeReport(
     : [...optimizeTableHeadersWithoutNotes];
 
   const { output, fit } = renderUnicodeTableWithFit({
+    labelStyler: roles.label,
     headerCells: headerCells.map((cell) => roles.header(cell)),
     bodyRows: tableCells,
     measureHeaderCells: headerCells,

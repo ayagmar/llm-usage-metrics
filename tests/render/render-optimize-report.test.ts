@@ -376,6 +376,32 @@ describe('renderOptimizeReport', () => {
     expect(maxLineWidth(output)).toBeLessThanOrEqual(80);
   });
 
+  it.each([34, 44])(
+    'breaks a listed note code between its words at %i columns',
+    (terminalWidth) => {
+      const data = createOptimizeDataResult();
+      data.rows = data.rows.map((row) =>
+        row.rowType === 'candidate' && row.notes
+          ? { ...row, notes: ['cache_write_priced_as_input'] }
+          : row,
+      );
+
+      const output = renderTerminalAtWidth(data, terminalWidth);
+      const lines = output.split('\n');
+      const noteStart = lines.findIndex((line) => /^ {2}Notes +cache_/u.test(line));
+      const noteLines = lines
+        .slice(
+          noteStart,
+          lines.findIndex((line, index) => index > noteStart && !/^ {3,}\S/u.test(line)),
+        )
+        .map((line) => line.replace(/^ {2}Notes/u, '').trim());
+
+      expect(maxLineWidth(output)).toBeLessThanOrEqual(terminalWidth);
+      expect(noteLines.join('')).toBe('cache_write_priced_as_input');
+      expect(noteLines.slice(0, -1).every((line) => line.endsWith('_'))).toBe(true);
+    },
+  );
+
   it('wraps notes on a terminal but keeps them on one line when piped', () => {
     const data = createOptimizeDataResult();
     data.rows = data.rows.map((row) =>

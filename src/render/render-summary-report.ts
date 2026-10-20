@@ -349,6 +349,7 @@ function renderTerminalSummaryReport(
   }
 
   const { output: table, fit } = renderUnicodeTableWithFit({
+    labelStyler: roles.label,
     headerCells: summaryTableHeaders.map((header) => roles.header(header)),
     bodyRows: toRows(formatInteger, true),
     measureHeaderCells: summaryTableHeaders,

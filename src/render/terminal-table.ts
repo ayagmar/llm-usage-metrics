@@ -12,7 +12,6 @@ import {
   usageTableHeaders,
 } from './row-cells.js';
 import {
-  isValidTerminalWidth,
   measureCellWidth,
   padEndVisible,
   resolveTerminalWidth,
@@ -104,13 +103,6 @@ function colorizeHeader(headerCells: readonly string[], useColor: boolean): stri
 
   // Style each line on its own so a stacked header never carries color across lines.
   return headerCells.map((header) => splitCellLines(header).map(styleHeader).join('\n'));
-}
-
-function measureTableWidth(tableOutput: string): number {
-  return tableOutput
-    .trimEnd()
-    .split('\n')
-    .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
 }
 
 function measureColumnWidth(rows: readonly (readonly string[])[], columnIndex: number): number {
@@ -386,6 +378,7 @@ function renderUsageCells(
   const coloredCells = colorizeUsageBodyRows(cells, rows, { useColor: options.useColor });
 
   return renderUnicodeTable({
+    labelStyler: createColorRoles(options.useColor).label,
     headerCells: selectColumns(colorizeHeader(headerCells, options.useColor), columns),
     bodyRows: coloredCells.map((row) => selectColumns(row, columns)),
     measureHeaderCells: selectColumns(headerCells, columns),
@@ -514,7 +507,6 @@ export function renderTerminalTableWithFit(
 ): { output: string; fit: TerminalTableFit } {
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const tableLayout = options.tableLayout ?? 'compact';
-  const hasExplicitTerminalWidth = isValidTerminalWidth(options.terminalWidth);
   const terminalWidth = resolveTerminalWidth(options.terminalWidth);
   const steps = resolveFitSteps(tableLayout, options.compact ?? false, options.hideCost ?? false);
   const fitted = findFittingStep(
@@ -547,16 +539,6 @@ export function renderTerminalTableWithFit(
           packModels: terminalWidth !== undefined,
           stackedWidth: stacked ? terminalWidth : undefined,
         });
-
-  if (hasExplicitTerminalWidth && terminalWidth !== undefined) {
-    const renderedTableWidth = measureTableWidth(output);
-
-    if (renderedTableWidth > terminalWidth) {
-      throw new Error(
-        `Configured terminal width (${terminalWidth}) is too narrow for table rendering (minimum ${renderedTableWidth}).`,
-      );
-    }
-  }
 
   return {
     output,

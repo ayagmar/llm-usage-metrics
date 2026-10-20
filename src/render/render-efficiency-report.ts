@@ -9,7 +9,7 @@ import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
 import { describeTableFit, type RenderedReportWithNotes } from './table-fit-note.js';
 import { resolveTtyColumns, splitCellLines, visibleWidth } from './table-text-layout.js';
-import { styleDeltaCell } from './terminal-style-policy.js';
+import { createColorRoles, styleDeltaCell } from './terminal-style-policy.js';
 import { selectColumns, type UsageTokenFormat } from './row-cells.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
@@ -355,6 +355,7 @@ function renderTerminalEfficiencyTable(
   // Listed rows have room for every column at full precision.
   const note = describeEfficiencyFit(fittedStep, fittedCells.stackedWidth !== undefined);
   const output = renderUnicodeTable({
+    labelStyler: createColorRoles(options.useColor).label,
     headerCells: fittedCells.headerCells,
     bodyRows: fittedCells.bodyRows,
     measureHeaderCells: fittedCells.headerCells,
