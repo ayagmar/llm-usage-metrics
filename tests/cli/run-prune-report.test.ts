@@ -805,39 +805,13 @@ describe('run-prune-report', () => {
   });
 
   it('strips terminal escapes from stored file paths', () => {
-    const rendered = renderPruneReport({
-      candidates: [
-        {
-          source: 'codex',
-          filePath: '/tmp/\u001B[31mred\u202E.jsonl',
-          eventCount: 1,
-          reasons: ['aged'],
-        },
-      ],
-      summary: {
-        storePath: '/tmp/events.db',
-        applied: false,
-        candidateFileCount: 1,
-        candidateEventCount: 1,
-      },
-    });
-
-    expect(rendered).toContain('/tmp/[31mred.jsonl');
-    expect(rendered).not.toContain('\u001B');
-    expect(rendered).not.toContain('\u202E');
-  });
-
-  it('lists candidates as labelled rows on a terminal narrower than the table', () => {
-    const restoreStdout = overrideStdoutTty(60);
-
-    try {
-      const rendered = renderPruneReport({
+    const rendered = renderPruneReport(
+      {
         candidates: [
           {
             source: 'codex',
-            filePath: '/tmp/old.jsonl',
-            eventCount: 1250,
-            newestTimestamp: '2025-01-01T00:00:00.000Z',
+            filePath: '/tmp/\u001B[31mred\u202E.jsonl',
+            eventCount: 1,
             reasons: ['aged'],
           },
         ],
@@ -845,14 +819,46 @@ describe('run-prune-report', () => {
           storePath: '/tmp/events.db',
           applied: false,
           candidateFileCount: 1,
-          candidateEventCount: 1250,
+          candidateEventCount: 1,
         },
-      });
+      },
+      { useColor: false },
+    );
+
+    expect(rendered).toContain('/tmp/[31mred.jsonl');
+    expect(rendered).not.toContain('\u001B');
+    expect(rendered).not.toContain('\u202E');
+  });
+
+  it('lists candidates as labelled rows on a terminal narrower than the table', () => {
+    const restoreStdout = overrideStdoutTty(44);
+
+    try {
+      const rendered = renderPruneReport(
+        {
+          candidates: [
+            {
+              source: 'codex',
+              filePath: '/tmp/old.jsonl',
+              eventCount: 1250,
+              newestTimestamp: '2025-01-01T00:00:00.000Z',
+              reasons: ['aged'],
+            },
+          ],
+          summary: {
+            storePath: '/tmp/events.db',
+            applied: false,
+            candidateFileCount: 1,
+            candidateEventCount: 1250,
+          },
+        },
+        { useColor: false },
+      );
 
       expect(rendered.split('\n').slice(4, 9)).toEqual([
         'codex · /tmp/old.jsonl',
         '  Events            1,250',
-        '  Newest timestamp  2025-01-01T00:00:00.000Z',
+        '  Newest Timestamp  2025-01-01T00:00:00.000Z',
         '  Reason            aged',
         '',
       ]);
