@@ -6,9 +6,20 @@ import { describe, expect, it } from 'vitest';
 import type { OptimizeDataResult } from '../../src/cli/usage-data-contracts.js';
 import { renderOptimizeReport } from '../../src/render/render-optimize-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+import { overrideStdoutTty } from '../helpers/stdout.js';
 
 function stripAnsi(value: string): string {
   return stripVTControlCharacters(value);
+}
+
+function renderTerminalAtWidth(data: OptimizeDataResult, columns: number): string {
+  const restoreStdout = overrideStdoutTty(columns);
+
+  try {
+    return renderOptimizeReport(data, 'terminal', { granularity: 'daily', useColor: false });
+  } finally {
+    restoreStdout();
+  }
 }
 
 function createOptimizeDataResult(): OptimizeDataResult {
@@ -100,7 +111,7 @@ describe('renderOptimizeReport', () => {
     expect(output).toContain('Weekly Optimize Report');
     expect(output).toContain('Provider scope: openai');
     expect(output).toContain('ALL baseline cost: $1.25');
-    expect(output).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.00%)');
+    expect(output).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.0%)');
     expect(output).toContain(
       'Savings = Baseline - Hypothetical (positive means cheaper candidate)',
     );
@@ -220,7 +231,7 @@ describe('renderOptimizeReport', () => {
       useColor: false,
     });
 
-    expect(output).toContain('ALL best candidate: gpt-4.1 increases cost by $0.25 (-20.00%)');
+    expect(output).toContain('ALL best candidate: gpt-4.1 increases cost by $0.25 (-20.0%)');
   });
 
   it('reports ALL candidate cost matches when savings are neutral', () => {
@@ -312,6 +323,92 @@ describe('renderOptimizeReport', () => {
     expect(output.match(/│\s+│ gpt-4\.1-mini/gu)).toHaveLength(2);
   });
 
+  it('keeps every column when the table fits the terminal', () => {
+    const output = renderTerminalAtWidth(createOptimizeDataResult(), 120);
+
+    expect(output).toContain('│ Hypothetical Cost');
+    expect(output).toContain('│ Notes');
+    expect(output).toContain('│     12.0% │');
+    expect(Math.max(...output.split('\n').map((line) => visibleWidth(line)))).toBeLessThanOrEqual(
+      120,
+    );
+  });
+
+  it('leaves out Hypothetical Cost, then Notes, before listing rows on an 80-column terminal', () => {
+    const output = renderTerminalAtWidth(createOptimizeDataResult(), 80);
+
+    expect(output).toContain('╭');
+    expect(output).not.toContain('Hypothetical Cost');
+    expect(output).not.toContain('│ Notes');
+    expect(output).toContain('│ Baseline Cost');
+    expect(output).toContain('│ Savings %');
+    expect(Math.max(...output.split('\n').map((line) => visibleWidth(line)))).toBeLessThanOrEqual(
+      80,
+    );
+  });
+
+  it('keeps Hypothetical Cost when an incomplete baseline leaves out the savings', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate' && row.periodKey !== 'ALL'
+        ? { ...row, savingsUsd: undefined, savingsRatio: undefined }
+        : row,
+    );
+
+    const output = renderTerminalAtWidth(data, 90);
+
+    expect(output).toContain('│ Hypothetical Cost');
+    expect(output).toContain('│ gpt-4.1   │             $1.10 │');
+    expect(output).not.toContain('│ Notes');
+  });
+
+  it('lists rows and wraps the context lines on a 44-column terminal', () => {
+    const output = renderTerminalAtWidth(createOptimizeDataResult(), 44);
+
+    expect(output).not.toContain('╭');
+    expect(output).toContain('2026-02-10 · gpt-4.1');
+    expect(output).toContain('Hypothetical Cost');
+    expect(output).toContain(
+      'Savings = Baseline - Hypothetical (positive\nmeans cheaper candidate)',
+    );
+    expect(Math.max(...output.split('\n').map((line) => visibleWidth(line)))).toBeLessThanOrEqual(
+      44,
+    );
+  });
+
+  it('colors costs as money and savings by direction', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate' && row.periodKey !== 'ALL'
+        ? { ...row, hypotheticalCostUsd: 1.5, savingsUsd: -0.25, savingsRatio: -0.2 }
+        : row,
+    );
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'daily',
+      useColor: true,
+    });
+
+    expect(output).toContain(pc.yellow('$1.50'));
+    expect(output).toContain(pc.red('-$0.25'));
+    expect(output).toContain(pc.red('-20.0%'));
+    expect(output).toContain(pc.green('$0.15'));
+    expect(output).toContain(pc.bold(pc.yellow('$1.10')));
+  });
+
+  it('names the provider scope above the markdown table', () => {
+    const output = renderOptimizeReport(createOptimizeDataResult(), 'markdown', {
+      granularity: 'daily',
+    });
+
+    expect(output.split('\n').slice(0, 3)).toEqual([
+      'Provider scope: openai',
+      '',
+      expect.stringMatching(/^\| Period/u),
+    ]);
+    expect(output).toContain('12.0%');
+  });
+
   it('renders markdown output with candidate column', () => {
     const output = renderOptimizeReport(createOptimizeDataResult(), 'markdown', {
       granularity: 'daily',
@@ -373,6 +470,6 @@ describe('renderOptimizeReport', () => {
     }
     expect(strippedOutput).toContain('Monthly Optimize Report');
     expect(strippedOutput).toContain('Provider scope: openai');
-    expect(strippedOutput).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.00%)');
+    expect(strippedOutput).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.0%)');
   });
 });

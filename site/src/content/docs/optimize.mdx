@@ -54,7 +54,7 @@ llm-usage optimize monthly \
 ## Output formats
 
 - `--json` emits optimize rows under `data` in the versioned report envelope.
-- `--markdown` emits a Markdown table.
-- Default terminal output renders a titled table.
+- `--markdown` emits a `Provider scope:` line, then a Markdown table.
+- Default terminal output renders a titled table under the provider scope, the `ALL` baseline cost and the best candidate. When the table is wider than the terminal, it leaves out Hypothetical Cost first when every row still shows it as Baseline Cost minus Savings, then Notes, and lists each row on its own only when it still does not fit.
 - `--share` writes an [interactive report](/llm-usage-metrics/share/) `optimize-<granularity>-share.html`, with the candidate comparison as a panel, to the current working directory.
 - Diagnostics and warnings always go to `stderr`.
