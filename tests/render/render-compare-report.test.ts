@@ -303,8 +303,22 @@ describe('renderCompareReport', () => {
   });
 
   it.each([44, 80, 120])('fits every line in %i columns, with and without color', (width) => {
+    const data = createLargeCompareData();
+    // A custom range is named in full, so the title is wider than 44 columns.
+    const customRange: CompareReportData = {
+      ...data,
+      current: {
+        ...data.current,
+        window: { ...data.current.window, label: '2026-06-03 to 2026-06-20' },
+      },
+      baseline: {
+        ...data.baseline,
+        window: { ...data.baseline.window, label: '2026-05-03 to 2026-05-20' },
+      },
+    };
+
     for (const useColor of [false, true]) {
-      const output = renderCompareReport(createLargeCompareData(), 'terminal', {
+      const output = renderCompareReport(customRange, 'terminal', {
         useColor,
         terminalWidth: width,
       });
