@@ -5,18 +5,29 @@ import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { formatDuration } from './format-duration.js';
-import { formatApproxUsd, formatInteger } from './format-number.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
 import { truncateNames } from './truncate-names.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { createColorRoles, type ColorRoles, type TextStyler } from './terminal-style-policy.js';
+import {
+  columnKindsFromAlign,
+  renderUnicodeTableWithFit,
+  type TableRowMeta,
+} from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 import {
   renderMarkdownSessionTimeline,
   renderTerminalSessionTimeline,
 } from './render-session-timeline.js';
-import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
+import { describeTableFit } from './table-fit-note.js';
+import {
+  resolveTtyColumns,
+  splitCellLines,
+  wrapProse,
+  wrapTableColumn,
+} from './table-text-layout.js';
 
 export type SessionReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -26,6 +37,12 @@ export type RenderSessionReportOptions = {
   truncateSessionIds?: boolean;
   /** Whether the command line narrowed the report; names the filters in the empty message. */
   filtered?: boolean;
+};
+
+export type RenderedSessionReport = {
+  output: string;
+  /** stderr notes about what a narrow terminal left out of the table. */
+  notes: string[];
 };
 
 export const MODELS_COLUMN_WIDTH = 32;
@@ -72,11 +89,32 @@ export function formatModels(models: readonly string[]): string {
   return truncateNames(models, MAX_NAMED_MODELS).join('\n');
 }
 
+/**
+ * The models cell wrapped to the Models column, one name per line: the first model in the
+ * default color, the other models and `+N more` styled `secondary`.
+ */
+export function formatModelsCell(cell: string, width: number, secondary: TextStyler): string {
+  return splitCellLines(cell)
+    .map((name, index) =>
+      splitCellLines(wrapProse(name, width))
+        .map((line) => (index === 0 ? line : secondary(line)))
+        .join('\n'),
+    )
+    .join('\n');
+}
+
 type ProjectLabels = ReadonlyMap<string | undefined, string>;
+
+type FormatNumber = (value: number) => string;
 
 function toSessionTableCells(
   row: SessionRow,
-  options: { timezone: string; truncateSessionIds: boolean; projectLabels: ProjectLabels },
+  options: {
+    timezone: string;
+    truncateSessionIds: boolean;
+    projectLabels: ProjectLabels;
+    formatTokens: FormatNumber;
+  },
 ): string[] {
   return [
     options.truncateSessionIds ? truncateSessionId(row.sessionId) : row.sessionId,
@@ -84,7 +122,7 @@ function toSessionTableCells(
     toProjectLabel(row.repoRoot, options.projectLabels),
     getPeriodKey(row.lastActivity, 'daily', options.timezone),
     formatDuration(row.durationMs),
-    formatInteger(row.totalTokens),
+    options.formatTokens(row.totalTokens),
     formatCost(row),
     formatModels(row.models),
   ];
@@ -92,14 +130,13 @@ function toSessionTableCells(
 
 function toRepoTableCells(
   row: SessionRepoRow,
-  timezone: string,
-  projectLabels: ProjectLabels,
+  options: { timezone: string; projectLabels: ProjectLabels; formatTokens: FormatNumber },
 ): string[] {
   return [
-    toProjectLabel(row.repoRoot, projectLabels),
+    toProjectLabel(row.repoRoot, options.projectLabels),
     formatInteger(row.sessionCount),
-    getPeriodKey(row.lastActivity, 'daily', timezone),
-    formatInteger(row.totalTokens),
+    getPeriodKey(row.lastActivity, 'daily', options.timezone),
+    options.formatTokens(row.totalTokens),
     formatCost(row),
     row.sources.join(', '),
   ];
@@ -112,21 +149,27 @@ type SessionTableCells = {
   headers: string[];
   bodyRows: string[][];
   align: ('l' | 'r')[];
+  /** Columns a narrow terminal hides, least useful first. */
+  hideableColumns: number[];
 };
 
 function buildTableCells(
   sessionData: SessionListData,
   options: RenderSessionReportOptions,
+  formatTokens: FormatNumber = formatInteger,
 ): SessionTableCells {
   const { projectLabels } = sessionData;
+  const hideable = (headers: readonly string[], hidden: readonly string[]) =>
+    hidden.map((header) => headers.indexOf(header));
 
   if (sessionData.grouping === 'repo') {
     return {
       headers: [...repoTableHeaders],
       bodyRows: sessionData.rows.map((row) =>
-        toRepoTableCells(row, options.timezone, projectLabels),
+        toRepoTableCells(row, { timezone: options.timezone, projectLabels, formatTokens }),
       ),
       align: ['l', 'r', 'l', 'r', 'r', 'l'],
+      hideableColumns: hideable(repoTableHeaders, ['Sources', 'Last Activity']),
     };
   }
 
@@ -137,9 +180,16 @@ function buildTableCells(
         timezone: options.timezone,
         truncateSessionIds: options.truncateSessionIds ?? true,
         projectLabels,
+        formatTokens,
       }),
     ),
     align: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
+    hideableColumns: hideable(sessionTableHeaders, [
+      'Models',
+      'Duration',
+      'Last Activity',
+      'Source',
+    ]),
   };
 }
 
@@ -150,47 +200,81 @@ function toRowMeta(): TableRowMeta {
   };
 }
 
+/** Plain cells to measure, and the same cells in their role colors; both wrap the last column. */
+function toTerminalRows(
+  headers: readonly string[],
+  rows: string[][],
+  roles: ColorRoles,
+): { bodyRows: string[][]; measureBodyRows: string[][] } {
+  const wrapColumnIndex = headers.length - 1;
+  const styleCell = (cell: string, columnIndex: number): string => {
+    switch (headers[columnIndex]) {
+      case 'Source':
+        return roles.source(cell)(cell);
+      case 'Cost':
+        return roles.money(cell);
+      case 'Models':
+        return formatModelsCell(cell, MODELS_COLUMN_WIDTH, roles.dim);
+      default:
+        return columnIndex === wrapColumnIndex ? wrapProse(cell, MODELS_COLUMN_WIDTH) : cell;
+    }
+  };
+
+  return {
+    bodyRows: rows.map((row) => row.map(styleCell)),
+    measureBodyRows: wrapTableColumn(rows, {
+      columnIndex: wrapColumnIndex,
+      width: MODELS_COLUMN_WIDTH,
+    }),
+  };
+}
+
 function renderTerminalSessionReport(
   sessionData: SessionListData,
   options: RenderSessionReportOptions,
-): string {
+): RenderedSessionReport {
   const useColor = options.useColor ?? shouldUseColorByDefault();
-  const { headers, bodyRows, align } = buildTableCells(sessionData, options);
+  const roles = createColorRoles(useColor);
+  const terminalWidth = resolveTtyColumns(process.stdout);
+  const { headers, bodyRows, align, hideableColumns } = buildTableCells(sessionData, options);
   const outputLines = [
-    renderReportHeader({
-      title: 'Session Usage Report',
-      useColor,
-    }),
+    renderReportHeader({ title: 'Session Usage Report', useColor, terminalWidth }),
     '',
   ];
 
   if (bodyRows.length === 0) {
     outputLines.push(formatNoUsageMessage(options.filtered ?? false));
-    return outputLines.join('\n');
+    return { output: outputLines.join('\n'), notes: [] };
   }
 
-  const modelsColumnIndex = headers.length - 1;
-  const wrappedRows = wrapTableColumn(bodyRows, {
-    columnIndex: modelsColumnIndex,
-    width: MODELS_COLUMN_WIDTH,
-  });
-
-  outputLines.push(
-    renderUnicodeTable({
-      headerCells: headers,
-      bodyRows: wrappedRows,
-      measureHeaderCells: headers,
-      measureBodyRows: wrappedRows,
-      rowMetas: wrappedRows.map(() => toRowMeta()),
-      columnKinds: columnKindsFromAlign(align),
-      multilineColumnIndex: modelsColumnIndex,
-      multilineColumnWidth: MODELS_COLUMN_WIDTH,
-      terminalWidth: resolveTtyColumns(process.stdout),
-      stackedTitleColumnCount: 1,
-    }),
+  const full = toTerminalRows(headers, bodyRows, roles);
+  const abbreviated = toTerminalRows(
+    headers,
+    buildTableCells(sessionData, options, formatAbbreviatedTokenCount).bodyRows,
+    roles,
   );
+  const wrapColumnIndex = headers.length - 1;
+  const { output, fit } = renderUnicodeTableWithFit({
+    headerCells: headers.map((header) => roles.header(header)),
+    bodyRows: full.bodyRows,
+    measureHeaderCells: headers,
+    measureBodyRows: full.measureBodyRows,
+    rowMetas: bodyRows.map(() => toRowMeta()),
+    columnKinds: columnKindsFromAlign(align),
+    multilineColumnIndex: wrapColumnIndex,
+    terminalWidth,
+    fit: {
+      abbreviatedBodyRows: abbreviated.bodyRows,
+      abbreviatedMeasureBodyRows: abbreviated.measureBodyRows,
+      hideableColumns,
+    },
+    stackedTitleColumnCount: 1,
+  });
+  const fitNote = describeTableFit(fit);
 
-  return outputLines.join('\n');
+  outputLines.push(output);
+
+  return { output: outputLines.join('\n'), notes: fitNote ? [fitNote] : [] };
 }
 
 function renderMarkdownSessionReport(
@@ -209,14 +293,14 @@ function renderSessionTimelineReport(
   sessionData: Extract<SessionDataResult, { grouping: 'timeline' }>,
   format: SessionReportFormat,
   options: RenderSessionReportOptions,
-): string {
+): RenderedSessionReport {
   const { session, rows } = sessionData;
 
   switch (format) {
     case 'json':
-      return renderReportJson('session', { session, rows });
+      return { output: renderReportJson('session', { session, rows }), notes: [] };
     case 'markdown':
-      return renderMarkdownSessionTimeline(session, rows, options.timezone);
+      return { output: renderMarkdownSessionTimeline(session, rows, options.timezone), notes: [] };
     case 'terminal':
       return renderTerminalSessionTimeline(session, rows, {
         timezone: options.timezone,
@@ -230,16 +314,16 @@ export function renderSessionReport(
   sessionData: SessionDataResult,
   format: SessionReportFormat,
   options: RenderSessionReportOptions,
-): string {
+): RenderedSessionReport {
   if (sessionData.grouping === 'timeline') {
     return renderSessionTimelineReport(sessionData, format, options);
   }
 
   switch (format) {
     case 'json':
-      return renderReportJson('session', sessionData.rows);
+      return { output: renderReportJson('session', sessionData.rows), notes: [] };
     case 'markdown':
-      return renderMarkdownSessionReport(sessionData, options);
+      return { output: renderMarkdownSessionReport(sessionData, options), notes: [] };
     case 'terminal':
       return renderTerminalSessionReport(sessionData, options);
   }
