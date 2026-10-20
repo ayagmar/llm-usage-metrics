@@ -17,5 +17,5 @@
 
 Blocks are estimated: each starts on the whole UTC hour at or before a source's first event after the previous block and
 lasts 5 hours, across machines. Times are in UTC. A block that overlaps the start of the window counts in full.
-Active block (estimated), claude: ends 2026-06-21 15:00, 3h 0m left, burn rate $0.02/h, 13.1K tokens/h.
-Active block (estimated), codex: ends 2026-06-21 15:00, 3h 0m left, burn rate $0.01/h, 2.65K tokens/h.
+Active block (estimated), claude: ends 2026-06-21 15:00, 3h left, burn rate $0.02/h, 13.1K tokens/h.
+Active block (estimated), codex: ends 2026-06-21 15:00, 3h left, burn rate $0.01/h, 2.65K tokens/h.

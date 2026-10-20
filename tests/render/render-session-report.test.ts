@@ -262,7 +262,7 @@ describe('renderSessionReport', () => {
     expect(output).toContain('| Source');
     expect(output).toContain('| Project');
     expect(output).toContain('| Duration');
-    expect(output).toContain('1h 0m');
+    expect(output).toMatch(/\| +1h \|/);
     expect(output).toContain('…abcdef123456');
     expect(output).toContain('\\[unsafe\\]\\(https\\://example.test\\)<br>&lt;tag&gt;');
     expect(output).not.toContain('[unsafe](https://example.test)');
@@ -562,7 +562,7 @@ describe('renderSessionReport --timeline', () => {
 
     expect(output).toContain('Session Timeline');
     expect(output).toContain('codex · session-abcdef123456 · project-alpha');
-    expect(output).toContain('2026-01-02 01:00-02:00 (1h 0m) · 2 requests · ~$1.23');
+    expect(output).toContain('2026-01-02 01:00-02:00 (1h) · 2 requests · ~$1.23');
   });
 
   it('lists each row as label and value lines on a narrow terminal, and says so', () => {
