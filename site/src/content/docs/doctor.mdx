@@ -31,7 +31,7 @@ llm-usage doctor --json
 
 ## Output
 
-Doctor prints one line per source (a state glyph, the source id, its storage format `jsonl`, `json`, or `sqlite`, and what was found), followed by the paths it searched, then a summary. Each source is in one of four states:
+Doctor prints one line per source (a state glyph, the source id, its storage format `jsonl`, `json`, or `sqlite`, and what was found), followed by the paths it searched, then a summary. Not-installed sources show their paths only with `--verbose` or `--source`. Each source is in one of four states:
 
 | Glyph | State           | Meaning                                                                                                                                                   |
 | ----- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -57,7 +57,7 @@ Illustrative output for `llm-usage doctor --source pi,codex,opencode` (counts de
 Sources: 1 found · 1 failed · 1 not installed
 ```
 
-Without `--source` or `--verbose`, sources with no files in their default paths share one line, such as `○ not installed: droid, amp, qwen`, and the summary says `--verbose` shows where they were searched. A source whose path you set (an override or config `sourceDirs`) always gets its own row.
+Without `--source` or `--verbose`, sources with no files in their default paths share one line, such as `○ not installed: droid, amp, qwen`, and the summary says `--verbose` shows where they were searched. A source whose path you set with a `--*-dir` override or config `sourceDirs` always gets its own row; one redirected by an environment variable such as `CODEX_HOME` is folded like the rest.
 
 Searched paths reflect overrides, config `sourceDirs`, and tool environment variables such as `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME`. The summary counts only source rows; the `event-store` row reports the ledger's event count (usage events, tool calls and messages), departed-file count, schema version, and on-disk size.
 

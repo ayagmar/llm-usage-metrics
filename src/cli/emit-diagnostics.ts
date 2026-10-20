@@ -185,7 +185,7 @@ export function emitDiagnostics(
     const settings = formatSettingsParts(diagnostics);
     const settingsNote = settings.length > 0 ? ` (with ${settings.join(', ')})` : '';
     diagnosticsLogger.warn(
-      `No session files found${settingsNote}. Run \`llm-usage doctor\` to see where each source is searched.`,
+      `No session files found${settingsNote}. Run \`llm-usage doctor --verbose\` to see where each source is searched.`,
     );
   }
 

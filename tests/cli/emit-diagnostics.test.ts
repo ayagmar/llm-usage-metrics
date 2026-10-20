@@ -37,7 +37,7 @@ describe('emitDiagnostics', () => {
     emitDiagnostics(createDiagnostics(), diagnosticsLogger);
 
     expect(diagnosticsLogger.warn).toHaveBeenCalledWith(
-      'No session files found. Run `llm-usage doctor` to see where each source is searched.',
+      'No session files found. Run `llm-usage doctor --verbose` to see where each source is searched.',
     );
     expect(diagnosticsLogger.info).not.toHaveBeenCalled();
   });
@@ -56,7 +56,7 @@ describe('emitDiagnostics', () => {
     );
 
     expect(diagnosticsLogger.warn).toHaveBeenCalledWith(
-      'No session files found (with config /cfg.toml, 1 env override). Run `llm-usage doctor` to see where each source is searched.',
+      'No session files found (with config /cfg.toml, 1 env override). Run `llm-usage doctor --verbose` to see where each source is searched.',
     );
   });
 
