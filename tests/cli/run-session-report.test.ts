@@ -22,6 +22,7 @@ vi.mock('../../src/cli/build-session-data.js', () => ({
         costUsd: 0.01,
       },
     ],
+    rowCount: 2,
     projectLabels: new Map([['/home/user/project-alpha', 'project-alpha']]),
     limitNote: 'Showing top 1 of 2 sessions by cost. Use --top 0 for all.',
     diagnostics: {
@@ -106,9 +107,11 @@ describe('run-session-report', () => {
       const parsed = JSON.parse(stdoutBody) as {
         schemaVersion: number;
         report: string;
+        rowCount: number;
         data: unknown;
       };
-      expect(parsed).toMatchObject({ schemaVersion: 1, report: 'session' });
+      // A script can tell from stdout alone that --top cut the list.
+      expect(parsed).toMatchObject({ schemaVersion: 1, report: 'session', rowCount: 2 });
       expect(Array.isArray(parsed.data)).toBe(true);
       expect(stdoutBody).not.toContain('Showing top');
 
@@ -124,6 +127,7 @@ describe('run-session-report', () => {
     vi.mocked(buildSessionData).mockResolvedValueOnce({
       grouping: 'session',
       rows: [],
+      rowCount: 0,
       projectLabels: new Map(),
       diagnostics: {
         sessionStats: [],

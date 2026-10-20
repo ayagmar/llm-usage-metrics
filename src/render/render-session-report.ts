@@ -321,7 +321,10 @@ export function renderSessionReport(
 
   switch (format) {
     case 'json':
-      return { output: renderReportJson('session', sessionData.rows), notes: [] };
+      return {
+        output: renderReportJson('session', sessionData.rows, { rowCount: sessionData.rowCount }),
+        notes: [],
+      };
     case 'markdown':
       return { output: renderMarkdownSessionReport(sessionData, options), notes: [] };
     case 'terminal':

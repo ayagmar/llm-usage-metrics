@@ -48,6 +48,7 @@ function createSessionData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    rowCount: 1,
     projectLabels: new Map([['/home/user/project-alpha', 'project-alpha']]),
     diagnostics: createDiagnostics('America/New_York'),
   };
@@ -87,6 +88,7 @@ function createRepoData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    rowCount: 2,
     projectLabels: new Map([
       ['/home/user/project-alpha', 'project-alpha'],
       [undefined, '(unattributed)'],
