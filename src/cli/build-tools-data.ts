@@ -89,7 +89,9 @@ export async function buildToolsData(
     bySource: options.bySource,
     byRepo: options.byRepo,
   });
-  const limited = limitRows(rows, resolveTopRowLimit(top), 'tools', 'calls');
+  // A split row is one tool in one source or project, so the count is of rows, not tools.
+  const rowNoun = options.bySource || options.byRepo ? 'tool rows' : 'tools';
+  const limited = limitRows(rows, resolveTopRowLimit(top), rowNoun, 'calls');
   const projectLabels = buildEventProjectLabels(dataset.filteredEvents);
   const failedReads = formatFailedLiveReads('Tool calls', live.failedFilePaths);
 

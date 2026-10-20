@@ -123,6 +123,14 @@ describe('buildToolsData', () => {
     await expect(build({ top: '-1' })).rejects.toThrow('--top must be a non-negative integer');
   });
 
+  it('counts split rows, not tools, in the --top note', async () => {
+    const bySource = await build({ top: '2', bySource: true });
+    const byRepo = await build({ top: '2', byRepo: true });
+
+    expect(bySource.limitNote).toMatch(/^Showing top 2 of \d+ tool rows by calls\./u);
+    expect(byRepo.limitNote).toMatch(/^Showing top 2 of \d+ tool rows by calls\./u);
+  });
+
   it('notes that tool calls come only from files on disk without the event store', async () => {
     const { diagnostics } = await build();
 
