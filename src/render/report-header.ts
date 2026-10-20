@@ -1,10 +1,10 @@
 import pc from 'picocolors';
-import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
+import { resolveTtyColumns, visibleWidth, wrapProse } from './table-text-layout.js';
 
 export type ReportHeaderOptions = {
   title: string;
   useColor?: boolean;
-  /** Defaults to the stdout TTY width; a title too wide for the box prints unboxed. */
+  /** Defaults to the stdout TTY width; a title too wide for the box prints unboxed, wrapped. */
   terminalWidth?: number;
 };
 
@@ -29,7 +29,10 @@ export function renderReportHeader(options: ReportHeaderOptions): string {
   const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
 
   if (terminalWidth !== undefined && boxWidth > terminalWidth) {
-    return useColor ? pc.bold(pc.white(title)) : title;
+    return wrapProse(title, terminalWidth)
+      .split('\n')
+      .map((line) => (useColor ? pc.bold(pc.white(line)) : line))
+      .join('\n');
   }
 
   const lines: string[] = [];
