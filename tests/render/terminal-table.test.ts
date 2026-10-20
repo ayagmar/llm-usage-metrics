@@ -437,10 +437,14 @@ describe('renderTerminalTable', () => {
 
   // picocolors emits nothing without a color terminal, so this runs where color is on (CI).
   it.runIf(pc.isColorSupported)('styles every header cell bold, with no per-column hue', () => {
-    const colored = renderTerminalTable(sampleRows, { useColor: true });
-    const headerLine = colored.split('\n')[1];
+    const lines = renderTerminalTable(sampleRows, { useColor: true }).split('\n');
+    // Header lines sit between the top border and the first rule below the header.
+    const headerSeparatorIndex = lines.findIndex(
+      (line, index) => index > 0 && line.startsWith('├'),
+    );
+    const headerLines = lines.slice(1, headerSeparatorIndex).join('\n');
     const codes = new Set(
-      [...headerLine.matchAll(new RegExp(`${String.fromCharCode(27)}\\[([0-9;]*)m`, 'gu'))].map(
+      [...headerLines.matchAll(new RegExp(`${String.fromCharCode(27)}\\[([0-9;]*)m`, 'gu'))].map(
         (match) => match[1],
       ),
     );

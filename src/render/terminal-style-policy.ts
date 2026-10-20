@@ -13,9 +13,6 @@ export type TerminalStylePalette = {
   green: TextStyler;
   red: TextStyler;
   white: TextStyler;
-  cyanBright: TextStyler;
-  magentaBright: TextStyler;
-  blueBright: TextStyler;
   bold: TextStyler;
   dim: TextStyler;
 };
@@ -28,9 +25,6 @@ export const defaultTerminalStylePalette: TerminalStylePalette = {
   green: pc.green,
   red: pc.red,
   white: pc.white,
-  cyanBright: pc.cyanBright,
-  magentaBright: pc.magentaBright,
-  blueBright: pc.blueBright,
   bold: pc.bold,
   dim: pc.dim,
 };
@@ -125,15 +119,13 @@ function styleCellAtIndex(cells: string[], index: number, styler: TextStyler): s
 
 type SourceStylePolicy = (palette: TerminalStylePalette) => TextStyler;
 
-// Each source gets its own hue, kept clear of the yellow, green and red that money and
-// good/bad use. Sources not listed here stay uncolored.
+// Yellow, green and red mean money and good/bad, which leaves three hues. They go to the
+// sources most often shown side by side; every other source stays uncolored rather than
+// sharing a hue.
 const sourceStylePolicies = new Map<string, SourceStylePolicy>([
   ['pi', (palette) => palette.cyan],
   ['codex', (palette) => palette.magenta],
-  ['opencode', (palette) => palette.blue],
-  ['claude', (palette) => palette.blueBright],
-  ['gemini', (palette) => palette.magentaBright],
-  ['droid', (palette) => palette.cyanBright],
+  ['claude', (palette) => palette.blue],
 ]);
 
 export function resolveSourceStyler(

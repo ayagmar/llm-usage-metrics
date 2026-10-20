@@ -18,16 +18,13 @@ const testPalette: TerminalStylePalette = {
   green: (text) => `<green>${text}</green>`,
   red: (text) => `<red>${text}</red>`,
   white: (text) => `<white>${text}</white>`,
-  cyanBright: (text) => `<cyanBright>${text}</cyanBright>`,
-  magentaBright: (text) => `<magentaBright>${text}</magentaBright>`,
-  blueBright: (text) => `<blueBright>${text}</blueBright>`,
   bold: (text) => `<bold>${text}</bold>`,
   dim: (text) => `<dim>${text}</dim>`,
 };
 
 describe('terminal-style-policy', () => {
-  it('gives each known source its own hue, clear of the money and good/bad colors', () => {
-    const sources = ['pi', 'codex', 'opencode', 'claude', 'gemini', 'droid'];
+  it('gives pi, codex and claude their own hues, clear of the money and good/bad colors', () => {
+    const sources = ['pi', 'codex', 'claude'];
     const hues = sources.map((source) => resolveSourceStyler(source, testPalette)('x'));
 
     expect(new Set(hues).size).toBe(sources.length);
@@ -35,6 +32,7 @@ describe('terminal-style-policy', () => {
       expect(hue).not.toBe('x');
       expect(hue).not.toMatch(/<(?:yellow|green|red)>/u);
     }
+    expect(resolveSourceStyler('gemini', testPalette)('gemini')).toBe('gemini');
     expect(resolveSourceStyler('combined', testPalette)('combined')).toBe('combined');
     expect(resolveSourceStyler('TOTAL', testPalette)('TOTAL')).toBe('TOTAL');
     expect(resolveSourceStyler('other', testPalette)('other')).toBe('other');
