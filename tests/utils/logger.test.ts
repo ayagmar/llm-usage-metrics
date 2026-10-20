@@ -123,4 +123,18 @@ describe('logger', () => {
 
     expect(collectMessages(errorSpy)).toEqual([`⚠ ${longNote}`]);
   });
+
+  it('keeps a path wider than the terminal whole, so it still copies as one line', () => {
+    const errorSpy = spyOnStderr();
+    const path = '/home/someone/.cache/llm-usage-metrics/reports/share-report-daily-abcdef.html';
+    setStderr(true, 40);
+
+    logger.info(`Wrote html share report: ${path} for today`);
+
+    expect(collectMessages(errorSpy)[0]?.split('\n')).toEqual([
+      'ℹ Wrote html share report:',
+      `  ${path}`,
+      '  for today',
+    ]);
+  });
 });

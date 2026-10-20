@@ -46,19 +46,25 @@ export function withLogScrubber<T>(
 }
 
 const iconWidth = 2;
+// Narrower than this, wrapping would leave a word or two per line.
+const minWrapColumns = 20;
 
 /**
  * Wraps to the width of a terminal stderr, indenting continuation lines under the text
- * after the icon; piped stderr is left as it is.
+ * after the icon; piped stderr is left as it is. Words are never split, so a path or
+ * command still copies in one piece.
  */
 function wrapToStderr(text: string): string {
   const columns = resolveTtyColumns(process.stderr);
 
-  if (columns === undefined || columns <= iconWidth) {
+  if (columns === undefined || columns < minWrapColumns) {
     return text;
   }
 
-  return wrapProse(text, columns - iconWidth).replaceAll('\n', `\n${' '.repeat(iconWidth)}`);
+  return wrapProse(text, columns - iconWidth, { breakWords: false }).replaceAll(
+    '\n',
+    `\n${' '.repeat(iconWidth)}`,
+  );
 }
 
 function formatMessage(style: LogStyle, message: string): string {

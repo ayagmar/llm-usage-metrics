@@ -199,7 +199,7 @@ function getFirstGrapheme(value: string): string {
   return '';
 }
 
-function wrapPlainLine(line: string, width: number): string[] {
+function wrapPlainLine(line: string, width: number, breakWords: boolean): string[] {
   if (visibleWidth(line) <= width) {
     return [line];
   }
@@ -214,6 +214,19 @@ function wrapPlainLine(line: string, width: number): string[] {
     if (breakIndex > 0) {
       wrappedLines.push(remaining.slice(0, breakIndex));
       remaining = remaining.slice(breakIndex + 1);
+      continue;
+    }
+
+    if (!breakWords) {
+      // The word overflows the line whole, so a path or URL still copies in one piece.
+      const wordEnd = remaining.indexOf(' ', 1);
+
+      if (wordEnd < 0) {
+        break;
+      }
+
+      wrappedLines.push(remaining.slice(0, wordEnd));
+      remaining = remaining.slice(wordEnd + 1);
       continue;
     }
 
@@ -238,16 +251,20 @@ function wrapPlainLine(line: string, width: number): string[] {
 
 /**
  * Wraps plain prose between words to `width`, breaking a word only when it is wider than
- * a whole line. Without a width (piped output) the text is left as it is. Color the
+ * a whole line; with `breakWords: false` such a word overflows its line instead. Without a width (piped output) the text is left as it is. Color the
  * lines after wrapping: escape codes would count toward the width.
  */
-export function wrapProse(text: string, width: number | undefined): string {
+export function wrapProse(
+  text: string,
+  width: number | undefined,
+  options: { breakWords?: boolean } = {},
+): string {
   if (width === undefined) {
     return text;
   }
 
   return splitCellLines(text)
-    .flatMap((line) => wrapPlainLine(line, width))
+    .flatMap((line) => wrapPlainLine(line, width, options.breakWords ?? true))
     .join('\n');
 }
 
