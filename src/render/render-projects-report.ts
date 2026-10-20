@@ -13,6 +13,7 @@ import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import { formatBulletedList } from './row-cells.js';
 import { resolveTtyColumns } from './table-text-layout.js';
+import { createColorRoles, type TextStyler } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
@@ -177,10 +178,15 @@ function buildTables(data: ProjectsData, options: RenderProjectsReportOptions): 
   return tables;
 }
 
-function renderTerminalTable(table: Table, terminalWidth: number | undefined): string {
+function renderTerminalTable(
+  table: Table,
+  options: { terminalWidth: number | undefined; labelStyler: TextStyler },
+): string {
+  const { terminalWidth, labelStyler } = options;
   const modelsColumnIndex = table.headers.indexOf(MODELS_HEADER);
 
   return renderUnicodeTable({
+    labelStyler,
     headerCells: table.headers,
     bodyRows: table.rows,
     measureHeaderCells: table.headers,
@@ -211,7 +217,12 @@ function renderTerminalProjectsReport(
 
   outputLines.push(
     buildTables(data, options)
-      .map((table) => renderTerminalTable(table, terminalWidth))
+      .map((table) =>
+        renderTerminalTable(table, {
+          terminalWidth,
+          labelStyler: createColorRoles(useColor).label,
+        }),
+      )
       .join('\n\n'),
   );
 

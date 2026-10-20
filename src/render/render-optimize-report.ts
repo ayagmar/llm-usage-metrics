@@ -338,6 +338,7 @@ function renderTerminalOptimizeReport(
     ...resolveTerminalContextLines(optimizeData, { roles, terminalWidth }),
     '',
     renderUnicodeTable({
+      labelStyler: roles.label,
       headerCells: headerCells.map((cell) => roles.header(cell)),
       bodyRows: tableCells,
       measureHeaderCells: headerCells,

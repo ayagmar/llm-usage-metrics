@@ -204,13 +204,14 @@ function renderTerminalTable<Row>(options: {
   useColor: boolean;
   terminalWidth: number | undefined;
 }): string {
-  const { header } = createColorRoles(options.useColor);
+  const { header, label } = createColorRoles(options.useColor);
   const cells = (format: Omit<CellFormat, 'nameWidth'>) =>
     options.rows.map((row) =>
       options.toCells(row, { ...format, nameWidth: NAME_COLUMN_MAX_WIDTH }),
     );
 
   return renderUnicodeTable({
+    labelStyler: label,
     headerCells: options.headerCells.map((cell) => header(cell)),
     bodyRows: cells({ useColor: options.useColor }),
     measureHeaderCells: options.headerCells,

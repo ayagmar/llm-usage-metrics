@@ -115,6 +115,7 @@ function renderCandidateTable(
         );
 
   return renderUnicodeTable({
+    labelStyler: roles.label,
     headerCells: headerCells.map((cell) => roles.header(cell)),
     bodyRows: wrappedRows.map((row, rowIndex) =>
       colorizeRow(row, candidates[rowIndex].source, roles),
