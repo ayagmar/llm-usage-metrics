@@ -22,8 +22,24 @@ describe('renderReportHeader', () => {
   it('prints the title without a box when the box would not fit the terminal', () => {
     const title = 'Usage summary for 2026-10-12 (Africa/Casablanca)';
 
-    expect(renderReportHeader({ title, useColor: false, terminalWidth: 44 })).toBe(title);
+    expect(renderReportHeader({ title, useColor: false, terminalWidth: 48 })).toBe(title);
     expect(renderReportHeader({ title, useColor: false, terminalWidth: 80 })).toContain('┌');
+  });
+
+  it('wraps an unboxed title between words when it is wider than the terminal', () => {
+    // compare names custom ranges in full: 63 columns.
+    const title = 'Compare: 2026-06-03 to 2026-06-20 vs 2026-05-03 to 2026-05-20';
+
+    for (const useColor of [false, true]) {
+      const lines = renderReportHeader({ title, useColor, terminalWidth: 44 }).split('\n');
+
+      expect(lines.length).toBeGreaterThan(1);
+      expect(lines.every((line) => visibleWidth(line) <= 44)).toBe(true);
+    }
+
+    expect(renderReportHeader({ title, useColor: false, terminalWidth: 44 })).toBe(
+      'Compare: 2026-06-03 to 2026-06-20 vs\n2026-05-03 to 2026-05-20',
+    );
   });
 
   it('renders header content when color is enabled', () => {

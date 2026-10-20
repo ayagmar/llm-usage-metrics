@@ -613,7 +613,7 @@ describe('compare lead', () => {
     expect(view.facts).toEqual([
       { label: 'Cost change', value: '+$0.08', detail: '+655.1% · $0.09 against $0.01' },
       {
-        label: 'Total Tokens change',
+        label: 'Total tokens change',
         value: '+30,990',
         detail: '+1,126.9% · 33,740 against 2,750',
       },
@@ -668,6 +668,25 @@ describe('compare lead', () => {
       '+$0.05',
       '+627.8%',
     ]);
+  });
+
+  it('leaves the folded other-projects row out of the biggest changes', () => {
+    // compare --by-repo --top 1: the rest of the projects fold into one row with the most change.
+    const data = record(readGolden('compare-by-repo'));
+    const [first] = data.projects as Record<string, unknown>[];
+    const folded = {
+      ...first,
+      repoRoot: undefined,
+      project: '12 other projects',
+      otherProjects: 12,
+      delta: { ...record(first.delta), costUsd: 99 },
+    };
+    const topOne = withEnvelope('compare', { ...data, projects: [first, folded] });
+    const lead = defined(buildCompareView(topOne, createLabels(topOne, undefined)));
+    const names = (title: string) => tableOf(lead, title).rows.map((cells) => cells[0].text);
+
+    expect(names('Biggest changes (cost)')).not.toContain('12 other projects (project)');
+    expect(names('By project (cost)')).toContain('12 other projects');
   });
 
   it('breaks down by source and project by cost, and by tokens in a file without cost', () => {
