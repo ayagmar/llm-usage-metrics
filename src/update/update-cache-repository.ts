@@ -185,6 +185,45 @@ export async function writeUpdateCheckCachePayload(
   await writeFileAtomic(cacheFilePath, JSON.stringify(payload));
 }
 
+function getRefreshAttemptPath(cacheFilePath: string): string {
+  return `${cacheFilePath}.refresh-attempt`;
+}
+
+/**
+ * Claims the right to refresh the cache in the background: true at most once per
+ * `cacheTtlMs`, so an offline machine or a burst of parallel runs starts one refresh
+ * rather than one per run. The attempt time lives in its own file because a failed
+ * refresh must leave the cache's `checkedAt` alone, and the cache may not exist yet.
+ */
+export async function claimBackgroundRefresh(
+  cacheFilePath: string,
+  cacheTtlMs: number = DEFAULT_UPDATE_CHECK_CACHE_TTL_MS,
+  now: () => number = Date.now,
+): Promise<boolean> {
+  const attemptPath = getRefreshAttemptPath(cacheFilePath);
+  let attemptedAt: number | undefined;
+
+  try {
+    attemptedAt = toNonNegativeNumber(Number(await readRegularTextFile(attemptPath)));
+  } catch {
+    attemptedAt = undefined;
+  }
+
+  if (attemptedAt !== undefined && isCacheFresh({ checkedAt: attemptedAt }, cacheTtlMs, now)) {
+    return false;
+  }
+
+  try {
+    await ensureDirectory(path.dirname(attemptPath));
+    await writeFileAtomic(attemptPath, String(now()));
+  } catch {
+    // Without a record of this attempt every later run would start another one.
+    return false;
+  }
+
+  return true;
+}
+
 async function fetchLatestVersion(
   packageName: string,
   fetchImpl: typeof fetch,
