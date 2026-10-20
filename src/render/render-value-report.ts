@@ -22,6 +22,7 @@ import {
   resolveTtyColumns,
   visibleWidth,
 } from './table-text-layout.js';
+import { createColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
@@ -235,6 +236,7 @@ function renderTerminalValueReport(
     lines.push(useColor ? pc.cyan(description) : description);
     lines.push(
       renderUnicodeTable({
+        labelStyler: createColorRoles(useColor).label,
         headerCells,
         bodyRows,
         measureHeaderCells: headerCells,
