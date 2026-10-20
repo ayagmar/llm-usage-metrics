@@ -2,6 +2,7 @@ import { renderBlocksReport, type BlocksReportFormat } from '../render/render-bl
 import { buildBlocksData } from './build-blocks-data.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
+  emitLimitNote,
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
@@ -23,7 +24,10 @@ async function prepareBlocksReport(options: BlocksCommandOptions, deps: BuildUsa
       validateTableDisplayFlags(options, 'terminal and markdown tables');
     },
     buildData: () => buildBlocksData(options, deps),
-    getDiagnostics: (blocksData) => blocksData.diagnostics,
+    getDiagnostics: (blocksData) => ({
+      ...blocksData.diagnostics,
+      limitNote: blocksData.limitNote,
+    }),
     runtimeProfile: deps.runtimeProfile,
     render: (blocksData, format) =>
       renderBlocksReport(blocksData.data, format, {
@@ -56,5 +60,5 @@ export async function runBlocksReport(
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareBlocksReport(options, { ...deps, runtimeProfile });
 
-  await runStandardPreparedReport({ preparedReport });
+  await runStandardPreparedReport({ preparedReport, emitReportDiagnostics: emitLimitNote });
 }

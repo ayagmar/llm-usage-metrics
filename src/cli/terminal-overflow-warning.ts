@@ -44,7 +44,7 @@ export function warnIfTerminalTableOverflows(
 
   if (overflowColumns !== undefined) {
     warn(
-      `Report table is wider than terminal by ${pluralize(overflowColumns, 'column')}. Use fullscreen/maximized terminal for better readability.`,
+      `Report table is wider than terminal by ${pluralize(overflowColumns, 'column')}. Widen the terminal or use --json.`,
     );
   }
 }

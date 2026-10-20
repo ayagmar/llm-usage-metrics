@@ -24,6 +24,8 @@ import type {
   CompareWindowTotals,
 } from './usage-data-contracts.js';
 import { addUsd } from '../utils/usd-math.js';
+import { formatInteger } from '../render/format-number.js';
+import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import { countDateKeyDays, getMonthEndDateKey, shiftDateKey } from '../utils/date-key.js';
 import { computeDeltaRatio } from '../utils/delta-ratio.js';
 import {
@@ -33,16 +35,26 @@ import {
   type UsageWindowSummary,
 } from './usage-window-summary.js';
 
-/** One project's totals in both windows (`--by-repo`). */
-export type CompareProjectRow = Omit<CompareSourceRow, 'source'> & {
-  /** The project key, `null` for usage without a repository root. */
-  repoRoot: string | null;
-  project: string;
-};
+/** One project's totals in both windows (`--by-repo`), or the projects past --top folded. */
+export type CompareProjectRow = Omit<CompareSourceRow, 'source'> &
+  (
+    | {
+        /** The project key, `null` for usage without a repository root. */
+        repoRoot: string | null;
+        project: string;
+      }
+    | {
+        project: string;
+        /** How many projects past --top this row folds. */
+        otherProjects: number;
+      }
+  );
 
 /** Compare data, with one row per project under `--by-repo`. */
 export type CompareReportData = CompareDataResult & {
   projects?: CompareProjectRow[];
+  /** With --by-repo: names the projects --top folded into the "other projects" row. */
+  limitNote?: string;
 };
 
 type ResolvedCompareWindows = {
@@ -62,12 +74,12 @@ const metricDefinitions: Array<{
   { key: 'inputTokens', label: 'Input', valueType: 'integer' },
   { key: 'outputTokens', label: 'Output', valueType: 'integer' },
   { key: 'reasoningTokens', label: 'Reasoning', valueType: 'integer' },
-  { key: 'cacheReadTokens', label: 'Cache read', valueType: 'integer' },
-  { key: 'cacheWriteTokens', label: 'Cache write', valueType: 'integer' },
-  { key: 'totalTokens', label: 'Total tokens', valueType: 'integer' },
+  { key: 'cacheReadTokens', label: 'Cache Read', valueType: 'integer' },
+  { key: 'cacheWriteTokens', label: 'Cache Write', valueType: 'integer' },
+  { key: 'totalTokens', label: 'Total Tokens', valueType: 'integer' },
   { key: 'costUsd', label: 'Cost', valueType: 'usd' },
   { key: 'events', label: 'Events', valueType: 'integer' },
-  { key: 'activeDays', label: 'Active days', valueType: 'integer' },
+  { key: 'activeDays', label: 'Active Days', valueType: 'integer' },
 ];
 
 function getMonthStart(dateKey: string): string {
@@ -288,7 +300,10 @@ function compareRowsByCostDelta<Row extends { delta: CompareWindowTotals }>(
     return rightSortValue - leftSortValue;
   }
 
-  return compareByCodePoint(toName(left), toName(right));
+  // Without a price, the token change ranks rows that --top may leave out.
+  const tokenChange = Math.abs(right.delta.totalTokens) - Math.abs(left.delta.totalTokens);
+
+  return tokenChange || compareByCodePoint(toName(left), toName(right));
 }
 
 function buildSourceRows(current: UsageWindowSummary, baseline: UsageWindowSummary) {
@@ -299,13 +314,7 @@ function buildSourceRows(current: UsageWindowSummary, baseline: UsageWindowSumma
       const currentTotals = current.sources.get(source) ?? createEmptySideTotals();
       const baselineTotals = baseline.sources.get(source) ?? createEmptySideTotals();
 
-      return {
-        source,
-        current: currentTotals,
-        baseline: baselineTotals,
-        delta: diffTotals(currentTotals, baselineTotals),
-        deltaRatio: buildDeltaRatioMap(currentTotals, baselineTotals),
-      };
+      return { source, ...toWindowsRow(currentTotals, baselineTotals) };
     })
     .sort((left, right) => compareRowsByCostDelta(left, right, (row) => row.source));
 }
@@ -314,6 +323,7 @@ function buildSourceRows(current: UsageWindowSummary, baseline: UsageWindowSumma
 function summarizeProjects(
   events: readonly UsageEvent[],
   timezone: string,
+  toKey: (projectKey: string | undefined) => string | undefined = (projectKey) => projectKey,
 ): Map<string | undefined, CompareWindowTotals> {
   const projects = new Map<
     string | undefined,
@@ -321,7 +331,7 @@ function summarizeProjects(
   >();
 
   for (const event of events) {
-    const key = toProjectKey(event.repoRoot);
+    const key = toKey(toProjectKey(event.repoRoot));
     const entry = projects.get(key) ?? { totals: createEmptyWindowTotals(), days: new Set() };
     const { totals } = entry;
     addEventToTotals(totals, event);
@@ -340,36 +350,90 @@ function summarizeProjects(
  * Per-project rows over both windows. Labels come from one call over both windows' events,
  * so a project has the same label on both sides.
  */
+function toWindowsRow(currentTotals: CompareWindowTotals, baselineTotals: CompareWindowTotals) {
+  return {
+    current: currentTotals,
+    baseline: baselineTotals,
+    delta: diffTotals(currentTotals, baselineTotals),
+    deltaRatio: buildDeltaRatioMap(currentTotals, baselineTotals),
+  };
+}
+
+/** Totals of the projects past the limit together; their active days count once each. */
+function buildOtherProjectsRow(
+  currentEvents: readonly UsageEvent[],
+  baselineEvents: readonly UsageEvent[],
+  timezone: string,
+  otherKeys: ReadonlySet<string | undefined>,
+): CompareProjectRow {
+  const toKey = (projectKey: string | undefined) => (otherKeys.has(projectKey) ? 'other' : 'shown');
+  const current = summarizeProjects(currentEvents, timezone, toKey).get('other');
+  const baseline = summarizeProjects(baselineEvents, timezone, toKey).get('other');
+  const count = otherKeys.size;
+
+  return {
+    project: `${formatInteger(count)} other ${count === 1 ? 'project' : 'projects'}`,
+    otherProjects: count,
+    ...toWindowsRow(current ?? createEmptySideTotals(), baseline ?? createEmptySideTotals()),
+  };
+}
+
+/** The first `limit` rows by cost change, then one row for the others; with the note. */
 function buildProjectRows(
   currentEvents: readonly UsageEvent[],
   baselineEvents: readonly UsageEvent[],
   timezone: string,
-): CompareProjectRow[] {
+  limit: number | undefined,
+): { rows: CompareProjectRow[]; limitNote?: string } {
   const projectLabels = buildEventProjectLabels([...currentEvents, ...baselineEvents]);
   const current = summarizeProjects(currentEvents, timezone);
   const baseline = summarizeProjects(baselineEvents, timezone);
 
-  return [...projectLabels]
-    .map(([key, project]) => {
-      const currentTotals = current.get(key) ?? createEmptySideTotals();
-      const baselineTotals = baseline.get(key) ?? createEmptySideTotals();
-
-      return {
-        repoRoot: key ?? null,
-        project,
-        current: currentTotals,
-        baseline: baselineTotals,
-        delta: diffTotals(currentTotals, baselineTotals),
-        deltaRatio: buildDeltaRatioMap(currentTotals, baselineTotals),
-      };
-    })
+  const rows = [...projectLabels]
+    .map(([key, project]) => ({
+      repoRoot: key ?? null,
+      project,
+      ...toWindowsRow(
+        current.get(key) ?? createEmptySideTotals(),
+        baseline.get(key) ?? createEmptySideTotals(),
+      ),
+    }))
     .sort((left, right) => compareRowsByCostDelta(left, right, (row) => row.project));
+  // Folding a single project would hide its name without saving a row.
+  const limited = limitRows(
+    rows,
+    limit === undefined || rows.length <= limit + 1 ? undefined : limit,
+    'projects',
+    'cost change',
+  );
+
+  if (!limited.limitNote) {
+    return { rows };
+  }
+
+  const otherKeys = new Set(
+    rows.slice(limited.rows.length).map((row) => row.repoRoot ?? undefined),
+  );
+
+  return {
+    rows: [
+      ...limited.rows,
+      buildOtherProjectsRow(currentEvents, baselineEvents, timezone, otherKeys),
+    ],
+    limitNote: limited.limitNote,
+  };
 }
 
 export async function buildCompareData(
   options: CompareCommandOptions,
   deps: BuildCompareDataDeps = {},
 ): Promise<CompareReportData> {
+  const top = parseTopRowsOption(options.top);
+
+  if (top !== undefined && options.byRepo !== true) {
+    throw new Error('--top applies with --by-repo');
+  }
+
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
   const normalizedInputs = normalizeBuildUsageInputs(
@@ -432,6 +496,17 @@ export async function buildCompareData(
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
+  const projects = options.byRepo
+    ? measureRuntimeProfileStageSync(deps.runtimeProfile, 'compare.aggregate.projects', () =>
+        buildProjectRows(
+          currentEvents,
+          baselineEvents,
+          dataset.normalizedInputs.timezone,
+          resolveTopRowLimit(top),
+        ),
+      )
+    : undefined;
+
   return {
     current: {
       window: windows.current,
@@ -443,11 +518,8 @@ export async function buildCompareData(
     },
     totals: buildMetricRows(current.totals, baseline.totals),
     sources: buildSourceRows(current, baseline),
-    projects: options.byRepo
-      ? measureRuntimeProfileStageSync(deps.runtimeProfile, 'compare.aggregate.projects', () =>
-          buildProjectRows(currentEvents, baselineEvents, dataset.normalizedInputs.timezone),
-        )
-      : undefined,
+    projects: projects?.rows,
+    ...(projects?.limitNote ? { limitNote: projects.limitNote } : {}),
     diagnostics,
   };
 }

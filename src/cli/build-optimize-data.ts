@@ -22,7 +22,7 @@ import {
   normalizeCandidateModels,
 } from '../optimize/aggregate-counterfactual.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
-import { parsePositiveTopOption } from './top-option.js';
+import { parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 
 export type BuildOptimizeDataDeps = BuildUsageDataDeps;
 
@@ -86,7 +86,8 @@ export async function buildOptimizeData(
   deps: BuildOptimizeDataDeps = {},
 ): Promise<OptimizeDataResult> {
   const candidateModels = normalizeCandidateModels(options.candidateModel);
-  const top = parsePositiveTopOption(options.top);
+  // The candidates are the ones asked for, so all are shown unless --top N picks the cheapest.
+  const top = resolveTopRowLimit(parseTopRowsOption(options.top), true);
 
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,

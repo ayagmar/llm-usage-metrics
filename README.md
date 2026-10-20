@@ -54,7 +54,7 @@ echo 'source <(llm-usage completion bash)' >> ~/.bashrc
 
 With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, a note when a day of the last 7 cost at least $1 and at least 3 times your median active day, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
 
-If the report is empty, check source discovery. `doctor` lists the paths each source searched and marks it found, not installed, or unparseable:
+If the report is empty, check source discovery. `doctor` marks each source found, not installed, or unparseable and lists the paths it searched (`--verbose` adds the paths of sources that are not installed):
 
 ```bash
 llm-usage doctor
@@ -191,7 +191,7 @@ The config precedence order is CLI flags, environment variables, TOML config, th
 
 ## Pricing
 
-The CLI keeps a valid cost supplied by a source. When a source has no cost, it estimates one from LiteLLM pricing. A source that logs `$0` for a request that used tokens gets an estimate too, and stderr names those sources. `--cost-mode explicit` reports logged costs only and keeps `$0`; `--cost-mode estimated` prices every event from its tokens.
+The CLI keeps a valid cost supplied by a source. When a source has no cost, it estimates one from LiteLLM pricing. A source that logs `$0` for a request that used tokens gets an estimate too, and `--verbose` names those sources on stderr. `--cost-mode explicit` reports logged costs only and keeps `$0`; `--cost-mode estimated` prices every event from its tokens.
 
 Pricing loads from a fresh cache, a network refresh, a stale cache, or the bundled snapshot. Use offline mode to skip the network request:
 
@@ -261,7 +261,7 @@ llm-usage weekly --last 1 --no-cost
 
 Terminal tables fit the terminal width: on a narrow terminal, token counts are abbreviated and less-used columns are hidden, with a `stderr` note saying what was left out. When no table fits, as on a phone, each row is listed as labelled values instead. `--compact` asks for the short table directly. `--last N` covers the last N days, weeks, or months, counting the current one, and `--no-cost` leaves spend out of tables and share reports.
 
-Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plus any warnings, which keeps JSON and Markdown safe to redirect; `--quiet` keeps only warnings and `--verbose` adds per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/upgrading/0-8/).
+Report data goes to `stdout`. Diagnostics go to `stderr`, which keeps JSON and Markdown safe to redirect. By default that is warnings and the notes that explain the numbers, such as the `~` cost marker; `--quiet` keeps only warnings, and `--verbose` adds the scan summary, history and machine notes, and per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/upgrading/0-8/).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ayagmar/llm-usage-metrics/master/site/src/assets/screenshots/share-daily-dark.webp">

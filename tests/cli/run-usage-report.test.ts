@@ -7,6 +7,7 @@ import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+import { setLogLevel } from '../../src/utils/logger.js';
 import { readSharePayload } from '../helpers/share-html.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
@@ -33,6 +34,7 @@ afterEach(async () => {
   tempDirs.length = 0;
 
   restoreParseWorkers();
+  setLogLevel('info');
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -845,13 +847,18 @@ describe('buildUsageReport', () => {
   const explicitZeroNote =
     '2 events logged $0 by pi were estimated from LiteLLM; use --cost-mode explicit to keep $0';
 
-  it('notes the logged $0 events it estimated, by source', async () => {
+  it('notes the logged $0 events it estimated, by source, under --verbose only', async () => {
     const piDir = await writePiSession([
       { model: 'gpt-4.1', cost: 0 },
       { model: 'gpt-4.1', cost: 0 },
       { model: 'gpt-4.1', cost: 0.5 },
     ]);
 
+    const quiet = await runWithBundledPricing(piDir);
+    expect(quiet.stderr.some((line) => line.includes('logged $0'))).toBe(false);
+    vi.restoreAllMocks();
+
+    setLogLevel('debug');
     const { stderr, stdout } = await runWithBundledPricing(piDir);
 
     expect(stderr).toContainEqual(expect.stringContaining(explicitZeroNote));
@@ -863,6 +870,8 @@ describe('buildUsageReport', () => {
       { model: 'gpt-4.1', cost: 0 },
       { model: 'gpt-4.1', cost: 0 },
     ]);
+
+    setLogLevel('debug');
 
     for (const options of [{ costMode: 'both' as const }, { cost: false }]) {
       const { stderr } = await runWithBundledPricing(piDir, options);

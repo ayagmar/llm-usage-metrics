@@ -1,7 +1,7 @@
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { describe, expect, it } from 'vitest';
 
-import { buildCompareData } from '../../src/cli/build-compare-data.js';
+import { buildCompareData, type CompareProjectRow } from '../../src/cli/build-compare-data.js';
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import { renderCompareReport } from '../../src/render/render-compare-report.js';
@@ -53,6 +53,10 @@ function generateEvents(seed: number, count: number): UsageEvent[] {
       cacheReadTokens: next(3_000),
     });
   });
+}
+
+function repoRootOf(row: CompareProjectRow): string | null | undefined {
+  return 'repoRoot' in row ? row.repoRoot : undefined;
 }
 
 function markdownCells(line: string): string[] {
@@ -377,6 +381,52 @@ describe('compare --by-repo', () => {
     }
   });
 
+  it('folds the projects past --top into one row that keeps the window totals', async () => {
+    const events = generateEvents(5, 80);
+    const all = await buildCompareData(
+      { ...options, ...windows, byRepo: true, top: '0' },
+      { createAdapters: adaptersFor(events) },
+    );
+    const top1 = await buildCompareData(
+      { ...options, ...windows, byRepo: true, top: '1' },
+      { createAdapters: adaptersFor(events) },
+    );
+    const allProjects = all.projects ?? [];
+    const projects = top1.projects ?? [];
+    const other = projects.at(-1);
+
+    expect(allProjects.length).toBeGreaterThan(2);
+    expect(all.limitNote).toBeUndefined();
+    expect(projects.slice(0, 1)).toEqual(allProjects.slice(0, 1));
+    expect(other).toMatchObject({
+      project: `${String(allProjects.length - 1)} other projects`,
+      otherProjects: allProjects.length - 1,
+    });
+    expect(other).not.toHaveProperty('repoRoot');
+    expect(top1.limitNote).toBe(
+      `Showing top 1 of ${String(allProjects.length)} projects by cost change. Use --top 0 for all.`,
+    );
+
+    for (const side of ['current', 'baseline'] as const) {
+      for (const key of ['totalTokens', 'events'] as const) {
+        expect(projects.reduce((sum, row) => sum + row[side][key], 0)).toBe(top1[side].totals[key]);
+      }
+
+      // A day two folded projects share counts once.
+      const foldedDays = allProjects.slice(1).map((row) => row[side].activeDays);
+      expect(other?.[side].activeDays).toBeLessThanOrEqual(
+        foldedDays.reduce((sum, days) => sum + days, 0),
+      );
+      expect(other?.[side].activeDays).toBeGreaterThanOrEqual(Math.max(...foldedDays));
+    }
+  });
+
+  it('rejects --top without --by-repo', async () => {
+    await expect(
+      buildCompareData({ ...options, ...windows, top: '5' }, fixtureDeps),
+    ).rejects.toThrow('--top applies with --by-repo');
+  });
+
   it('keeps one label on both sides when a basename collides in only one window', async () => {
     const data = await buildCompareData(
       {
@@ -389,13 +439,13 @@ describe('compare --by-repo', () => {
       },
       fixtureDeps,
     );
-    const aApi = data.projects?.find((row) => row.repoRoot === '/w/a/api');
+    const aApi = data.projects?.find((row) => repoRootOf(row) === '/w/a/api');
 
     // May holds only /w/a/api; June adds /w/b/api, so both windows say `a/api`.
     expect(aApi?.project).toBe('a/api');
     expect(aApi?.baseline.events).toBe(1);
     expect(aApi?.current.events).toBe(2);
-    expect(data.projects?.map((row) => row.repoRoot)).toEqual([
+    expect(data.projects?.map(repoRootOf)).toEqual([
       '/w/b/api',
       '/w/a/api',
       null,
@@ -403,7 +453,7 @@ describe('compare --by-repo', () => {
       '/w/c/tools',
       'C:\\src\\web',
     ]);
-    expect(data.projects?.find((row) => row.repoRoot === '/w/b/api')?.baseline).toMatchObject({
+    expect(data.projects?.find((row) => repoRootOf(row) === '/w/b/api')?.baseline).toMatchObject({
       events: 0,
       costUsd: 0,
     });

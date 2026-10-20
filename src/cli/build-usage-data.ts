@@ -17,6 +17,8 @@ import {
   withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
+import { formatInteger } from '../render/format-number.js';
+import { parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildUsageDataDeps,
@@ -237,6 +239,12 @@ export async function buildUsageData(
   commandOptions: ReportCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<UsageDataResult> {
+  const top = parseTopRowsOption(commandOptions.top);
+
+  if (top !== undefined && commandOptions.byRepo !== true) {
+    throw new Error('--top applies with --by-repo');
+  }
+
   const { options, deps, defaultWindowSince } = await resolveUsageDataRequest(
     granularity,
     commandOptions,
@@ -254,6 +262,8 @@ export async function buildUsageData(
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
 
   const byRepo = options.byRepo === true;
+  const projectCount = byRepo ? resolveTopRowLimit(top) : undefined;
+  const rankedBy = options.cost === false ? 'tokens' : 'cost';
   const rows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'usage.aggregate', () =>
     aggregateUsage(pricedEvents, {
       granularity,
@@ -263,6 +273,9 @@ export async function buildUsageData(
       ...(byRepo
         ? {
             projectLabels: buildEventProjectLabels(pricedEvents),
+            ...(projectCount === undefined
+              ? {}
+              : { projectLimit: { count: projectCount, rankedBy } }),
           }
         : {}),
     }),
@@ -292,5 +305,13 @@ export async function buildUsageData(
       : rows,
     diagnostics,
   );
-  return defaultWindowSince ? { ...result, defaultWindowSince } : result;
+  const limitNote = result.rows.some((row) => row.rowType === 'period_source' && row.otherProjects)
+    ? `Showing the top ${formatInteger(projectCount ?? 0)} projects of each ${granularity === 'hourly' ? 'hour' : getReportPeriodName(granularity)} by ${rankedBy === 'cost' ? 'cost (by tokens where a cost is incomplete)' : rankedBy}; the rest are folded into "other projects" rows. Use --top 0 for all.`
+    : undefined;
+
+  return {
+    ...result,
+    ...(limitNote ? { limitNote } : {}),
+    ...(defaultWindowSince ? { defaultWindowSince } : {}),
+  };
 }
