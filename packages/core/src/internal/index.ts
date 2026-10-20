@@ -18,10 +18,9 @@ export * from '../sources/multi-directory-source-adapter.js';
 export * from '../sources/multi-root-discovery.js';
 export { incrementSkippedReason, recordSkippedRow } from '../sources/parse-diagnostics.js';
 export {
-  getFileByteSize,
   getFileFingerprint,
   getNewestFingerprintMtimeMs,
-  getPrimaryFingerprintByteSize,
+  getParseByteSize,
   type FileDependencyFingerprint,
   type FileFingerprint,
 } from '../sources/parse-fingerprint.js';
