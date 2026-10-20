@@ -671,8 +671,8 @@ Options:
   --markdown                     Render output as markdown table
   --granularity <period>         Add rows per period and project (choices:
                                  "daily", "weekly", "monthly")
-  --top <n>                      Show only the top N projects by cost (positive
-                                 integer)
+  --top <n>                      Show only the top N projects by cost (default
+                                 10; 0 shows all)
   --last <n>                     Report the last N months, counting the current
                                  month
   --all                          Report the full history (the default without
@@ -1615,6 +1615,8 @@ Options:
                                  "chatgpt-pro-500")
   --plan-price <usd>             Monthly plan price in USD to use instead of the
                                  plan's list price (one plan only)
+  --top <n>                      List only the top N projects of each month by
+                                 cost (default 10; 0 lists all)
   --last <n>                     Report the last N months, counting the current
                                  month
   --all                          Report every month since the first usage (the
@@ -2335,7 +2337,7 @@ Search across root and command help. See Command help above to check which flags
 | `--suppressed` | - | - | Select departed files that --history already suppresses \(prune only\) |
 | `--timeline` | - | - | With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns \(session only\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, config only\) |
-| `--top` | - | `<n>` | projects: Show only the top N projects by cost \(positive integer\); optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\); tools: Show only the top N tools by calls \(default 20; 0 shows all\); context: With --by-session, show only the top N sessions \(default 20; 0 shows all\); blocks: Show only the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost \(positive integer\) |
+| `--top` | - | `<n>` | projects: Show only the top N projects by cost \(default 10; 0 shows all\); optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\); tools: Show only the top N tools by calls \(default 20; 0 shows all\); context: With --by-session, show only the top N sessions \(default 20; 0 shows all\); blocks: Show only the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost \(positive integer\); value: List only the top N projects of each month by cost \(default 10; 0 lists all\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, events only\) |
 | `--verbose` | - | - | Print detailed diagnostics on stderr \(per-source counts, routine skips, config, env\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, machine only\) |
 | `--vs-since` | - | `<date>` | Inclusive start date for the baseline comparison window \(compare only\) |
@@ -2368,7 +2370,7 @@ llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --share
 llm-usage monthly --last 3
 llm-usage projects
-llm-usage projects --last 3 --top 10
+llm-usage projects --last 3 --top 0
 llm-usage projects --granularity monthly --json
 llm-usage compare
 llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31

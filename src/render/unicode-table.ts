@@ -343,13 +343,17 @@ function renderStackedRows(options: {
       .filter((cell) => cell.trim().length > 0)
       .join(' · ');
     const valueLines = valueColumnIndexes.flatMap((columnIndex) => {
-      // A value too long for the line is wrapped from its uncolored text.
-      const lines =
-        measureCellWidth(row[columnIndex]) > availableValueWidth
-          ? splitCellLines(options.measureBodyRows[rowIndex][columnIndex]).flatMap((line) =>
-              wrapAtNameBreaks(line, availableValueWidth),
+      // A line too long for the terminal is wrapped from its uncolored text, without the
+      // padding that aligned it in the boxed table; the lines that fit stay as they are.
+      const measureLines = splitCellLines(options.measureBodyRows[rowIndex][columnIndex]);
+      const lines = splitCellLines(row[columnIndex]).flatMap((line, lineIndex) =>
+        visibleWidth(line) > availableValueWidth
+          ? wrapAtNameBreaks(
+              (measureLines[lineIndex] ?? line).replace(/ {2,}/gu, ' '),
+              availableValueWidth,
             )
-          : splitCellLines(row[columnIndex]);
+          : [line],
+      );
 
       if (lines.every((line) => line.trim().length === 0)) {
         return [];

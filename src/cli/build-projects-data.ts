@@ -27,7 +27,7 @@ import type {
   ProjectsCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
-import { parsePositiveTopOption } from './top-option.js';
+import { DEFAULT_PROJECT_ROWS, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 
 const TOP_MODEL_COUNT = 3;
 
@@ -57,7 +57,7 @@ export type ProjectsTotals = UsageTotals & {
 export type ProjectsData = {
   /** Totals over every project in the window, also those `--top` leaves out. */
   totals: ProjectsTotals;
-  /** Costliest first; with `--top`, only the top N. */
+  /** Costliest first; only the top N (`--top`, 10 by default, 0 for all). */
   projects: ProjectRow[];
   /** With `--granularity`: the shown projects' rows per period, each period's in label order. */
   granularity?: ReportGranularity;
@@ -224,7 +224,11 @@ export async function buildProjectsData(
   commandOptions: ProjectsCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<ProjectsDataResult> {
-  const top = parsePositiveTopOption(commandOptions.top);
+  const top = resolveTopRowLimit(
+    parseTopRowsOption(commandOptions.top),
+    false,
+    DEFAULT_PROJECT_ROWS,
+  );
   // Monthly has no default window: full history unless --last N months or dates narrow it.
   const { options, deps } = await resolveUsageDataRequest('monthly', commandOptions, commandDeps);
   const dataset = await measureRuntimeProfileStage(
@@ -259,7 +263,7 @@ export async function buildProjectsData(
   });
   const limitNote =
     data.projects.length < data.totals.projects
-      ? `Showing the top ${String(data.projects.length)} of ${String(data.totals.projects)} projects by cost over the whole window.`
+      ? `Showing the top ${String(data.projects.length)} of ${String(data.totals.projects)} projects by cost over the whole window. Use --top 0 for all.`
       : undefined;
 
   return { ...data, diagnostics, ...(limitNote ? { limitNote } : {}) };

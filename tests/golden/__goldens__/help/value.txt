@@ -45,6 +45,8 @@ Options:
                                  "chatgpt-pro-200", "chatgpt-pro-500")
   --plan-price <usd>             Monthly plan price in USD to use instead of the plan's list price
                                  (one plan only)
+  --top <n>                      List only the top N projects of each month by cost (default 10; 0
+                                 lists all)
   --last <n>                     Report the last N months, counting the current month
   --all                          Report every month since the first usage (the default without date
                                  flags)

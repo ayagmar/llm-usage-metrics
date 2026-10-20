@@ -17,7 +17,7 @@
       "properties": {
         "totals": { "$ref": "#/$defs/totals" },
         "projects": {
-          "description": "Projects by cost, then tokens, then label; with --top, only the top N.",
+          "description": "Projects by cost, then tokens, then label; only the top N with --top (default 10, 0 for all).",
           "type": "array",
           "items": { "$ref": "#/$defs/projectRow" }
         },

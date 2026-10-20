@@ -110,7 +110,7 @@ llm-usage session --id 486c3261 --timeline
 llm-usage tools --by-source
 
 # Cost per project, and daily rows split by project
-llm-usage projects --top 10
+llm-usage projects
 llm-usage daily --by-repo
 
 # Estimated 5-hour blocks for Claude Code today, including the active one

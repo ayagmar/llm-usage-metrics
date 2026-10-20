@@ -222,6 +222,8 @@ export type ValueCommandOptions = RollupCommandOptions & {
   /** Plan ids from `src/value/plans.ts`; undefined when not passed. */
   plan?: string[];
   planPrice?: string;
+  /** Projects listed per month (default 10; 0 lists all). */
+  top?: string;
 };
 
 export type PricingCommandOptions = SharedOptionsForProfile<'pricing'>;

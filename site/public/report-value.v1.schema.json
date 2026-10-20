@@ -137,9 +137,13 @@
           "$ref": "#/$defs/usd"
         },
         "projects": {
-          "description": "The month's projects by cost, then tokens, then label.",
+          "description": "The month's projects by cost, then tokens, then label; only the top N with --top (default 10, 0 for all).",
           "type": "array",
           "items": { "$ref": "#/$defs/project" }
+        },
+        "otherProjects": {
+          "description": "The projects --top left out of projects, summed; null when none were left out.",
+          "oneOf": [{ "$ref": "#/$defs/otherProjects" }, { "type": "null" }]
         }
       },
       "required": [
@@ -151,7 +155,8 @@
         "planPriceUsd",
         "ratio",
         "differenceUsd",
-        "projects"
+        "projects",
+        "otherProjects"
       ],
       "unevaluatedProperties": false
     },
@@ -174,6 +179,27 @@
         }
       },
       "required": ["repoRoot", "project", "totalTokens", "costUsd", "costIncomplete", "costShare"],
+      "unevaluatedProperties": false
+    },
+    "otherProjects": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/costFlags" }],
+      "properties": {
+        "projects": {
+          "description": "How many projects were left out.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "totalTokens": { "type": "integer", "minimum": 0 },
+        "costUsd": { "type": "number", "minimum": 0 },
+        "costShare": {
+          "description": "Share of the month's cost (0-1), rounded to 6 decimal places; null when the month cost nothing.",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["projects", "totalTokens", "costUsd", "costIncomplete", "costShare"],
       "unevaluatedProperties": false
     },
     "total": {

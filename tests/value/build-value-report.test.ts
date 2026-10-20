@@ -144,6 +144,34 @@ describe('buildValueReport', () => {
     expect(projects.reduce((sum, project) => sum + (project.costShare ?? 0), 0)).toBeCloseTo(1, 9);
   });
 
+  it('lists the costliest projects up to the limit and sums the rest, so the month adds up', () => {
+    const events = [
+      claudeEvent('2026-06-01T10:00:00.000Z', 4, '/w/d'),
+      claudeEvent('2026-06-02T10:00:00.000Z', 3, '/w/c'),
+      claudeEvent('2026-06-03T10:00:00.000Z', 2, '/w/b'),
+      claudeEvent('2026-06-04T10:00:00.000Z', 1, '/w/a'),
+      claudeEvent('2026-06-05T10:00:00.000Z', undefined, '/w/a'),
+    ];
+    const [month] = build(events, { projectLimit: 2 }).plans[0].months;
+
+    expect(month.projects.map((project) => project.project)).toEqual(['d', 'c']);
+    expect(month.otherProjects).toEqual({
+      projects: 2,
+      totalTokens: 330,
+      costUsd: 3,
+      costIncomplete: true,
+      costShare: 0.3,
+    });
+    expect(
+      month.projects.reduce((sum, project) => sum + project.totalTokens, 0) +
+        (month.otherProjects?.totalTokens ?? 0),
+    ).toBe(month.totalTokens);
+    expect(build(events).plans[0].months[0]).toMatchObject({ otherProjects: null });
+    expect(build(events, { projectLimit: 4 }).plans[0].months[0]).toMatchObject({
+      otherProjects: null,
+    });
+  });
+
   it('gives no share when the month cost nothing', () => {
     const [plan] = build([claudeEvent('2026-06-01T10:00:00.000Z', 0, '/w/api')]).plans;
 

@@ -24,6 +24,7 @@ import {
   withPricingNotes,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { DEFAULT_PROJECT_ROWS, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import type {
   BuildUsageDataDeps,
   UsageDiagnostics,
@@ -33,6 +34,8 @@ import type {
 export type ValueDataResult = {
   data: ValueReportData;
   diagnostics: UsageDiagnostics;
+  /** Set when `--top` left projects out of a month. */
+  limitNote?: string;
 };
 
 /**
@@ -92,6 +95,11 @@ export async function buildValueData(
   commandOptions: ValueCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<ValueDataResult> {
+  const projectLimit = resolveTopRowLimit(
+    parseTopRowsOption(commandOptions.top),
+    false,
+    DEFAULT_PROJECT_ROWS,
+  );
   const userConfigResolution = await resolveUserConfigForOptions(commandOptions, commandDeps);
   const { timezone, sourceFilter, sourceFilterLabel } = normalizeBuildUsageInputs(
     userConfigResolution.options,
@@ -138,6 +146,7 @@ export async function buildValueData(
       since: window.since,
       until: window.until,
       projectLabels: buildEventProjectLabels(pricedEvents),
+      projectLimit,
     }),
   );
 
@@ -167,5 +176,11 @@ export async function buildValueData(
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
-  return { data, diagnostics };
+  const limitNote = data.plans.some((plan) =>
+    plan.months.some((month) => month.otherProjects !== null),
+  )
+    ? `Showing the top ${String(projectLimit)} projects of each month by cost. Use --top 0 for all.`
+    : undefined;
+
+  return { data, diagnostics, ...(limitNote ? { limitNote } : {}) };
 }
