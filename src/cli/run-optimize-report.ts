@@ -40,11 +40,13 @@ async function prepareOptimizeReport(
     runtimeProfile: deps.runtimeProfile,
     buildShare: async (bundle, { runtimeProfile }) => {
       const window = toShareDateRange(options.since, options.until);
+      const { inferredProvider } = bundle.optimizeData.diagnostics;
 
       return buildShareReportArtifact(
         {
           command: 'optimize',
-          options,
+          // The usage views cover the provider the candidates panel prices.
+          options: inferredProvider ? { ...options, provider: inferredProvider } : options,
           window,
           initialView: { ...window, granularity: toShareGranularity(granularity) },
           envelope: parseReportJsonEnvelope(
@@ -65,6 +67,12 @@ async function prepareOptimizeReport(
 }
 
 function emitOptimizeReportDiagnostics(diagnostics: OptimizeDiagnostics): void {
+  if (diagnostics.inferredProvider) {
+    logger.info(
+      `Scoped to ${diagnostics.inferredProvider}, the provider of the candidate models; other providers' usage is not compared. Pass --provider to choose.`,
+    );
+  }
+
   if (diagnostics.candidatesWithMissingPricing.length > 0) {
     logger.warn(
       `Missing pricing for candidate model(s): ${diagnostics.candidatesWithMissingPricing.join(', ')}`,

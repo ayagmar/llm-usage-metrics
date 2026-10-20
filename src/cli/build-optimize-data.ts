@@ -30,7 +30,8 @@ function resolveOptimizeProvider(
   providers: Set<string>,
   providerFilter: string | undefined,
   candidateModels: string[],
-): string {
+  canScopeTo: (provider: string) => boolean,
+): { provider: string; inferredFromCandidates: boolean } {
   const distinctProviders = collectCanonicalProviderRoots(providers);
   const normalizedProviderFilter = normalizeProviderFilter(providerFilter);
 
@@ -41,7 +42,7 @@ function resolveOptimizeProvider(
       );
 
       if (matchingProviders.length === 1) {
-        return matchingProviders[0];
+        return { provider: matchingProviders[0], inferredFromCandidates: false };
       }
 
       if (matchingProviders.length === 0) {
@@ -58,26 +59,29 @@ function resolveOptimizeProvider(
     }
 
     const candidateProviders = inferCanonicalProviderRootsFromModels(candidateModels);
-    // --provider matches by substring, so only suggest a value that selects one provider.
-    const suggestedProvider =
+
+    // With no --provider, the candidates' provider scopes the run when, as a --provider
+    // value (a substring match), it selects exactly one of the detected providers.
+    if (
       candidateProviders?.length === 1 &&
       distinctProviders.includes(candidateProviders[0]) &&
       distinctProviders.filter((provider) =>
         matchesCanonicalProviderFilter(provider, candidateProviders[0]),
-      ).length === 1
-        ? ` ${candidateProviders[0]}`
-        : '';
+      ).length === 1 &&
+      canScopeTo(candidateProviders[0])
+    ) {
+      return { provider: candidateProviders[0], inferredFromCandidates: true };
+    }
 
     throw new Error(
-      `Optimize requires a single provider; found providers: ${distinctProviders.join(', ')}. Narrow with --provider${suggestedProvider}.`,
+      `Optimize requires a single provider; found providers: ${distinctProviders.join(', ')}. Narrow with --provider.`,
     );
   }
 
-  if (distinctProviders.length === 1) {
-    return distinctProviders[0];
-  }
+  const provider =
+    distinctProviders.length === 1 ? distinctProviders[0] : (normalizedProviderFilter ?? 'unknown');
 
-  return normalizedProviderFilter ?? 'unknown';
+  return { provider, inferredFromCandidates: false };
 }
 
 export async function buildOptimizeData(
@@ -89,26 +93,48 @@ export async function buildOptimizeData(
   // The candidates are the ones asked for, so all are shown unless --top N picks the cheapest.
   const top = resolveTopRowLimit(parseTopRowsOption(options.top), true);
 
-  const dataset = await measureRuntimeProfileStage(
+  const unscopedDataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'optimize.dataset.total',
     () => buildUsageEventDataset(options, deps),
   );
   const detectedProviders = new Set(
-    dataset.filteredEvents
+    unscopedDataset.filteredEvents
       .map((event) => normalizeProviderFilter(event.provider))
       .filter((provider): provider is string => provider !== undefined),
   );
-  const provider = measureRuntimeProfileStageSync(
+  const { provider, inferredFromCandidates } = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
     'optimize.resolve_provider',
     () =>
       resolveOptimizeProvider(
         detectedProviders,
-        dataset.normalizedInputs.providerFilter,
+        unscopedDataset.normalizedInputs.providerFilter,
         candidateModels,
+        // A source named with --source that only has another provider would fail the
+        // scoped run, which the user did not ask for.
+        (candidateProvider) =>
+          unscopedDataset.adaptersToParse.every((adapter) => {
+            const fixedProviderRoots = adapter.capabilities?.fixedProviderRoots;
+
+            return (
+              !unscopedDataset.normalizedInputs.explicitSourceIds.has(adapter.id.toLowerCase()) ||
+              !fixedProviderRoots ||
+              fixedProviderRoots.length === 0 ||
+              fixedProviderRoots.includes(candidateProvider)
+            );
+          }),
       ),
   );
+
+  // Rebuilt as if --provider had been passed, so --model rules, filter warnings and the
+  // pricing load resolve over that provider's usage alone. The first build already
+  // refreshed other machines.
+  const dataset = inferredFromCandidates
+    ? await measureRuntimeProfileStage(deps.runtimeProfile, 'optimize.dataset.scoped', () =>
+        buildUsageEventDataset({ ...options, provider, sync: false }, deps),
+      )
+    : unscopedDataset;
 
   // Candidates are priced from period totals at base rates, so the baseline skips
   // per-request tier rates too; otherwise a tier premium would read as savings.
@@ -179,6 +205,7 @@ export async function buildOptimizeData(
     diagnostics: {
       ...usageDiagnostics,
       provider,
+      ...(inferredFromCandidates ? { inferredProvider: provider } : {}),
       baselineCostIncomplete: counterfactual.baselineCostIncomplete,
       candidatesWithMissingPricing: counterfactual.candidatesWithMissingPricing,
       warning: counterfactual.warning,
