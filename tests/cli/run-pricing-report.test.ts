@@ -9,8 +9,18 @@ vi.mock('../../src/persistence/event-store.js', async (importOriginal) => {
   return { ...original, openEventStore: vi.fn(original.openEventStore) };
 });
 
+import {
+  explainModelPricing,
+  LiteLLMPricingFetcher,
+  loadPricingOverrides,
+  PricingOverrideSource,
+} from '@ayagmar/agent-sessions/pricing';
+
+import { noNetworkFetch } from '../../packages/core/tests/helpers/no-network.js';
+import { resolvePricingSource } from '../../src/cli/build-usage-data-pricing.js';
 import { createCli } from '../../src/cli/create-cli.js';
 import { buildPricingData, buildPricingReport } from '../../src/cli/run-pricing-report.js';
+import { getPricingFetcherRuntimeConfig } from '../../src/config/runtime-overrides.js';
 import { openEventStore } from '../../src/persistence/event-store.js';
 import { setLogLevel } from '../../src/utils/logger.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
@@ -81,6 +91,25 @@ describe('pricing report', () => {
     }
 
     expect(pricing.fetch).not.toHaveBeenCalled();
+  });
+
+  it('composes overrides over the bundled prices as the library stack does', async () => {
+    // The core explain tests build this stack themselves; the CLI must build the same one.
+    const { source } = await resolvePricingSource(
+      { pricingOffline: true, pricingOverrides: overridesPath },
+      getPricingFetcherRuntimeConfig(),
+    );
+    const fetcher = new LiteLLMPricingFetcher({
+      offline: true,
+      cacheFilePath: path.join(environment.rootDir, 'library-cache.json'),
+      fetchImpl: noNetworkFetch,
+    });
+    await fetcher.load();
+    const library = new PricingOverrideSource(await loadPricingOverrides(overridesPath), fetcher);
+
+    for (const name of ['ACME-internal-model', 'claude-opus-4-8-thinking', 'gpt-5.4', 'nope']) {
+      expect(explainModelPricing(source, name), name).toEqual(explainModelPricing(library, name));
+    }
   });
 
   it('fails when prices cannot load, as reports do', async () => {

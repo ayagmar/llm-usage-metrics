@@ -4,9 +4,13 @@ import { createPricedUsageEvent } from '../helpers/priced-usage-event.js';
 import {
   applyPricingToEvents,
   calculateEstimatedCostUsd,
+  costUnderPolicy,
+  createModelPricingLookup,
   createPricingRunStats,
   DEFAULT_PRICING_POLICY,
+  estimateLongContextExtraUsd,
   resolveRatesForEvent,
+  type PricingCostMode,
 } from '../../src/pricing/cost-engine.js';
 import type { ModelPricing, PricingSource } from '../../src/pricing/types.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';
@@ -689,6 +693,15 @@ describe('cost engine', () => {
       });
     }
 
+    it('reports what a tier added to a per-request estimate, and 0 below every tier', () => {
+      expect(estimateLongContextExtraUsd(promptOf({ input: 100_000 }), tieredPricing)).toBe(0);
+      // 150k input at $2 instead of $1, 1k output at $10 instead of $5, per 1M.
+      expect(estimateLongContextExtraUsd(promptOf({ input: 150_000 }), tieredPricing)).toBeCloseTo(
+        0.15 + 0.005,
+        10,
+      );
+    });
+
     it('applies a tier only to a prompt strictly above its threshold', () => {
       expect(resolveRatesForEvent(promptOf({ input: 100_000 }), tieredPricing, true)).toBe(
         tieredPricing,
@@ -775,5 +788,48 @@ describe('cost engine', () => {
       // 100k*$2 + 6k*$2.50 + 4k*$4, per 1M.
       expect(priced.costUsd).toBeCloseTo(0.2 + 0.015 + 0.016, 10);
     });
+  });
+  describe('costUnderPolicy', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: { 'gpt-5-codex': { inputPer1MUsd: 1, outputPer1MUsd: 2 } },
+    });
+    const base = {
+      source: 'pi',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      inputTokens: 100,
+      outputTokens: 50,
+    };
+    // One event per outcome: kept, relabelled, unpriced and priced, under some policy.
+    const events = [
+      createPricedUsageEvent({ ...base, model: 'gpt-5-codex', costUsd: 1.23 }),
+      createPricedUsageEvent({ ...base, model: 'gpt-5-codex', costUsd: 0 }),
+      createPricedUsageEvent({ ...base, model: 'unknown-model', costUsd: 0.5 }),
+      createPricedUsageEvent({
+        ...base,
+        model: 'unknown-model',
+        costUsd: 0.5,
+        costMode: 'estimated',
+      }),
+      createPricedUsageEvent({ ...base, model: 'unknown-model' }),
+      createPricedUsageEvent({ ...base, model: 'gpt-5-codex' }),
+      createPricedUsageEvent({ ...base }),
+    ];
+
+    it.each<PricingCostMode>(['both', 'explicit', 'estimated'])(
+      'gives the cost applyPricingToEvents gives under %s',
+      (costMode) => {
+        const policy = { ...DEFAULT_PRICING_POLICY, costMode };
+        const lookupPricing = createModelPricingLookup(source, costMode);
+        const priced = applyPricingToEvents(events, source, {
+          policy,
+          stats: createPricingRunStats(),
+        });
+
+        expect(events.map((event) => costUnderPolicy(event, lookupPricing(event), policy))).toEqual(
+          priced.map((event) => event.costUsd),
+        );
+      },
+    );
   });
 });
