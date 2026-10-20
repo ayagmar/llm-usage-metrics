@@ -146,6 +146,7 @@ describe('render-wrapped-report', () => {
 
   it('fits the monthly strip and top tables to 44, 80, and 120 columns', () => {
     const recap = createRecap({
+      timezone: 'America/Argentina/Buenos_Aires',
       topModels: [
         { name: 'claude-opus-5-5', totalTokens: 24_664_225_687, costUsd: 9_397.54 },
         { name: 'claude-fable-5-1', totalTokens: 1_599_077_630, costUsd: 2_065.42 },

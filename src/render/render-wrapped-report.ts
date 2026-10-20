@@ -242,7 +242,9 @@ function renderWrappedTerminalReport(
   const heading = [
     renderReportHeader({ title: `Wrapped ${recap.year}`, useColor, terminalWidth }),
     '',
-    paint(palette.dim)(`${recap.from} to ${recap.to} (${recap.timezone})`),
+    ...wrapProse(`${recap.from} to ${recap.to} (${recap.timezone})`, terminalWidth)
+      .split('\n')
+      .map((line) => roles.dim(line)),
     '',
   ];
   const emptyMessage = toEmptyMessage(recap, options.filtered ?? false);

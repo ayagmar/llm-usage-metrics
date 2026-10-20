@@ -41,8 +41,8 @@ export type RenderSummaryReportOptions = {
 
 const summaryTableHeaders = ['Period', 'Cost', 'Tokens', 'Top source'] as const;
 const TOP_SOURCE_COLUMN = 3;
-// `2026-10-14 · ~$1,525.77`: the best day wraps after its cost, not inside a word.
-const MIN_WRAPPED_VALUE_WIDTH = 24;
+// `~$110,334.21`: the best day's widest word, so it wraps between words, not inside one.
+const MIN_WRAPPED_VALUE_WIDTH = 12;
 
 function formatCost(period: SummaryPeriod): string {
   // A `~` marks totals that leave out events whose model has no known price.

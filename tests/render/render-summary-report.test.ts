@@ -298,9 +298,11 @@ describe('renderSummaryReport', () => {
       .filter((line) => /^(?:Today|Last 7 days|Month to date| {2}\S)/u.test(line));
 
     expect(periodLines.length).toBeGreaterThanOrEqual(12);
-    for (const line of periodLines) {
+    // The activity stats too: the best day wraps under itself.
+    for (const line of output.split('\n')) {
       expect(visibleWidth(line), line).toBeLessThanOrEqual(34);
     }
+    expect(output).toMatch(/^Best day {8}2026-03-10 · \$3\.00\n {16}· 3K tokens$/mu);
   });
 
   it('labels every month above the heatmap, even when the first month is cut off', () => {
