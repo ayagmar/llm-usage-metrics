@@ -35,7 +35,7 @@ From median runtime, the two were level in fresh application state (ccusage 1.01
 
 A second full run of each scenario gave medians within 3% of every cell above.
 
-These are runtime comparisons of similar report commands, not byte-for-byte output-equivalence claims. The tools use different output schemas and normalization rules. On this snapshot both tools reported the same number of days for each source. Their grand totals agreed within 0.06% for Codex and within 0.01% for Claude Code, for both tokens and cost.
+These are runtime comparisons of similar report commands, not byte-for-byte output-equivalence claims. The tools use different output schemas and normalization rules. A `daily --json` report from each tool on the same logs gave the same number of days (31 for Codex, 18 for Claude Code). Their grand totals agreed within 0.06% for Codex and within 0.01% for Claude Code, for both tokens and cost. The Claude Code check read the live logs later the same day.
 
 ## The `npx` launcher scenario
 
@@ -47,13 +47,13 @@ The usual shell commands do not have equivalent launch paths: `llm-usage` is alr
 | `ccusage codex monthly`                                    | package executable (launcher)    |      0.149 |    0.150 |   0.141 |   0.161 |
 | `npx --yes ccusage@20.0.37 codex monthly`                  | npm + launcher + native binary   |      0.592 |    0.588 |   0.561 |   0.600 |
 
-From median runtime, the installed `llm-usage` command was 1.48x faster than ccusage's package executable and 5.86x faster than the `npx` command. `npx` added about 0.44 s to ccusage.
+From median runtime, the installed `llm-usage` command was 1.48x faster than ccusage's package executable and 5.87x faster than the `npx` command. `npx` added about 0.44 s to ccusage.
 
 The `llm-usage` row runs `dist/bin.js`, the entry the installed command uses, with its default event store, so after the warm-up it reads parsed events from the store. ccusage has no equivalent store and reads the logs on every run. Both report the full history (five months on this snapshot).
 
 Each command received one untimed warm-up, then 8 timed runs in rotating order, so no command always ran first. Output was discarded through non-TTY pipes, and the system timezone plus default online pricing and update behavior were left in place. ccusage 20.0.37 was already in npm's package cache before the timed `npx` runs.
 
-The `llm-usage` update check had a fresh cached answer during these runs, which is the usual case: the cache lasts an hour. When the cache is stale, the check waits at most 50 ms after the report before giving up, and a fetch it gives up on does not refresh the cache. On this machine the npm registry took about 0.3 s to answer, so with a stale cache every run of this short command paid the wait: the `llm-usage` median rose to 0.190 s. A longer command, such as a report over the Claude Code logs, gave the fetch time to finish and refreshed the cache.
+The `llm-usage` update check had a fresh cached answer during these runs, which is the usual case: the cache lasts an hour. In 0.12.1, when that cache is stale, a short command like this one gives up on the registry fetch without refreshing the cache, so every run pays for the attempt. On a smaller Codex tree on this machine, that raised the `llm-usage` median from 0.081 s to 0.190 s. A longer command, such as a report over the Claude Code logs, gave the fetch time to finish and refreshed the cache.
 
 ## What the application states mean
 
@@ -82,7 +82,7 @@ Other jobs shared the machine, so each timed scenario started only once the 1-mi
 | codex  | 166 JSONL session files                | ≈ 287 MiB    |
 | claude | 1,822 JSONL files (projects + subagents) | ≈ 5.30 GiB   |
 
-The source trees were copied to a read-only snapshot immediately before the run, so active sessions could not grow between samples.
+The source trees were copied to a read-only snapshot before the runs, so active sessions could not grow between samples.
 
 Codex had compressed 153 of its 166 rollouts to `.jsonl.zst` (95.5 MiB on disk). ccusage reads those files; `llm-usage` 0.12.1 does not, and skips them. To time both tools on the same data, the snapshot holds those rollouts decompressed to plain `.jsonl`, which is what the table above measures. On the compressed tree, `llm-usage` would read 13 files and report a small part of the Codex history.
 
@@ -142,7 +142,7 @@ The synthetic corpus above has dense usage lines. Real logs are mostly conversat
 | Warm `tools --json`   | not in 0.11.0 | 0.66–0.69 s |
 | Event store size      |         87 MB |       69 MB |
 
-A warm `daily --json` is about 10% faster in 0.12.1. The 0.12.1 store is smaller although it also holds tool calls and messages.
+A warm `daily --json` is about 9% faster in 0.12.1. The 0.12.1 store is smaller although it also holds tool calls and messages.
 
 Most of the cold gain comes from parsing Claude Code and pi files on the worker pool. The cost is memory, because a cold run keeps several parse workers busy at once. Cold runs happen only on the first run and after a parser update; a lower `parseWorkers` lowers the peak. Warm runs read unchanged files from the event store, parse only files that changed, and read only the appended lines of a claude, pi or qwen file that grew.
 
@@ -158,7 +158,7 @@ CCUSAGE_BIN="$HOME/.cache/ccusage-bench/node_modules/.bin/ccusage"
 node scripts/perf-production-benchmark.mjs --runs 8 --scenario all --ccusage-bin "$CCUSAGE_BIN"
 ```
 
-Stop Codex and Claude while the benchmark runs, or point `HOME` at a stable snapshot containing `.codex/sessions` and `.claude/projects`. Decompress any `.jsonl.zst` Codex rollouts in the snapshot first, or the two tools read different data. Replace the pinned ccusage version only when intentionally creating a new baseline. The script also accepts `--json-output <path>` and `--markdown-output <path>` to export artifacts.
+Stop Codex and Claude while the benchmark runs, or point `HOME` at a stable snapshot containing `.codex/sessions` and `.claude/projects`. With `llm-usage` 0.12.1 or earlier, decompress any `.jsonl.zst` Codex rollouts in the snapshot first, or the two tools read different data. Replace the pinned ccusage version only when intentionally creating a new baseline. The script also accepts `--json-output <path>` and `--markdown-output <path>` to export artifacts.
 
 The script does not run the `npx` scenario. To repeat it, time the three commands from its table with the same `HOME`, one untimed warm-up each first.
 
