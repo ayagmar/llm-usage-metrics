@@ -2,7 +2,7 @@
 │ Daily Token Usage Trend (181 days) │
 └────────────────────────────────────┘
 
-Compressed 10 empty days after last activity (Jun 21-Jun 30).
+Compressed 10 empty days after last activity (Jun 21 to Jun 30).
  1K ┤                                                                                                      ▇
 750 ┤                                                                                                      █
 500 ┤   ▂                                                                                                  █

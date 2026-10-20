@@ -42,6 +42,10 @@ export type RenderTrendsReportOptions = {
 };
 
 const minimumCompressedEmptyEdgeDays = 7;
+/** The most columns one day takes when a short range is drawn on a wide terminal. */
+const maximumColumnsPerDay = 4;
+/** The most spike days the legend names; the rest are counted. */
+const maximumListedSpikes = 5;
 const NO_RESOLVED_COST_NOTE =
   'No resolved cost data for the selected range; use pricing or switch to --metric tokens.';
 
@@ -63,7 +67,7 @@ function formatAxisValue(value: number, metric: TrendsMetric): string {
   }
 
   if (metric === 'active-hours') {
-    return formatDuration(value);
+    return value === 0 ? '0h' : formatDuration(value);
   }
 
   return formatAbbreviatedTokenCount(value);
@@ -87,14 +91,27 @@ function resolveTokenTickStep(rawStep: number): number {
   return magnitude * multiplier;
 }
 
-function formatDateLabel(date: string): string {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
+type DateLabelFormatter = (date: string) => string;
 
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: '2-digit',
-    timeZone: 'UTC',
-  }).format(parsed);
+const shortDateFormat = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: '2-digit',
+  timeZone: 'UTC',
+});
+
+function formatShortDate(date: string): string {
+  return shortDateFormat.format(new Date(`${date}T00:00:00.000Z`));
+}
+
+/**
+ * Dates as `Mar 06`, or as `2025-03-06` when the range crosses a year, so a label never
+ * leaves its year in doubt.
+ */
+function resolveDateLabelFormatter(series: TrendSeries): DateLabelFormatter {
+  const firstDate = series.buckets[0]?.date ?? '';
+  const lastDate = series.buckets.at(-1)?.date ?? '';
+
+  return firstDate.slice(0, 4) === lastDate.slice(0, 4) ? formatShortDate : (date) => date;
 }
 
 function getMetricTitleLabel(metric: TrendsMetric): string {
@@ -147,7 +164,11 @@ function shouldShowNoResolvedCostDataNote(trendsData: TrendsReportData): boolean
   );
 }
 
-function renderSummary(series: TrendSeries, metric: TrendsMetric): string {
+function renderSummary(
+  series: TrendSeries,
+  metric: TrendsMetric,
+  formatDate: DateLabelFormatter,
+): string {
   const summaryApproximate = metric === 'cost' && series.summary.incomplete;
   const items = [
     `Total: ${formatMetricValue(series.summary.total, metric, summaryApproximate)}`,
@@ -155,7 +176,7 @@ function renderSummary(series: TrendSeries, metric: TrendsMetric): string {
   ];
 
   if (series.summary.observedDayCount > 0) {
-    const peakDateLabel = formatDateLabel(series.summary.peak.date);
+    const peakDateLabel = formatDate(series.summary.peak.date);
     items.push(
       `Peak: ${formatMetricValue(series.summary.peak.value, metric, isApproximatePeak(series, metric))} (${peakDateLabel})`,
     );
@@ -164,31 +185,39 @@ function renderSummary(series: TrendSeries, metric: TrendsMetric): string {
   return items.join('  |  ');
 }
 
-/** The legend of the chart's spend spikes, or undefined without any. */
-function formatSpikeLine(
-  series: TrendSeries,
-  formatDate: (date: string) => string,
-): string | undefined {
+/**
+ * The legend of the chart's spend spikes, or undefined without any: the largest few in date
+ * order, then how many other spike days there are (JSON flags every one).
+ */
+function formatSpikeLine(series: TrendSeries, formatDate: DateLabelFormatter): string | undefined {
   const spikes = series.buckets.filter((bucket) => bucket.spike === true);
 
   if (spikes.length === 0) {
     return undefined;
   }
 
-  const days = spikes.map(
-    (bucket) =>
-      `${formatDate(bucket.date)} ${formatMetricValue(bucket.value, 'cost', bucket.incomplete)}`,
+  const listedSpikes = new Set(
+    [...spikes].sort((left, right) => right.value - left.value).slice(0, maximumListedSpikes),
   );
+  const days = spikes
+    .filter((bucket) => listedSpikes.has(bucket))
+    .map(
+      (bucket) =>
+        `${formatDate(bucket.date)} ${formatMetricValue(bucket.value, 'cost', bucket.incomplete)}`,
+    );
+  const hiddenCount = spikes.length - listedSpikes.size;
+  const moreLabel = hiddenCount > 0 ? `, +${formatInteger(hiddenCount)} more` : '';
 
-  return `Spend spikes (${SPIKE_MIN_MULTIPLE}× or more the median active day of the ${SPIKE_BASELINE_DAYS} days before, ${formatUsd(SPIKE_MIN_COST_USD)} minimum): ${days.join(', ')}`;
+  return `Spend spikes (${SPIKE_MIN_MULTIPLE}× or more the median active day of the ${SPIKE_BASELINE_DAYS} days before, ${formatUsd(SPIKE_MIN_COST_USD)} minimum): ${days.join(', ')}${moreLabel}`;
 }
 
 /** The totals line, then the spike legend when the chart has spikes. */
 function renderSummaryLines(trendsData: TrendsReportData): string[] {
-  const spikeLine = formatSpikeLine(trendsData.totalSeries, formatDateLabel);
+  const formatDate = resolveDateLabelFormatter(trendsData.totalSeries);
+  const spikeLine = formatSpikeLine(trendsData.totalSeries, formatDate);
 
   return [
-    renderSummary(trendsData.totalSeries, trendsData.metric),
+    renderSummary(trendsData.totalSeries, trendsData.metric, formatDate),
     ...(spikeLine === undefined ? [] : [spikeLine]),
   ];
 }
@@ -254,17 +283,21 @@ function formatCompressedEdgeNote(
   startDate: string,
   endDate: string,
   position: 'before' | 'after',
+  formatDate: DateLabelFormatter,
 ): string {
   const rangeLabel =
     startDate === endDate
-      ? formatDateLabel(startDate)
-      : `${formatDateLabel(startDate)}-${formatDateLabel(endDate)}`;
+      ? formatDate(startDate)
+      : `${formatDate(startDate)} to ${formatDate(endDate)}`;
   const activityLabel = position === 'before' ? 'before first activity' : 'after last activity';
 
   return `Compressed ${pluralize(count, 'empty day')} ${activityLabel} (${rangeLabel}).`;
 }
 
-function getCombinedChartView(series: TrendSeries): {
+function getCombinedChartView(
+  series: TrendSeries,
+  formatDate: DateLabelFormatter,
+): {
   chartSeries: TrendSeries;
   notes: string[];
 } {
@@ -293,6 +326,7 @@ function getCombinedChartView(series: TrendSeries): {
         firstCompressedBucket.date,
         lastCompressedBucket.date,
         'before',
+        formatDate,
       ),
     );
     startIndex = leadingInactiveBucketCount;
@@ -311,6 +345,7 @@ function getCombinedChartView(series: TrendSeries): {
         firstCompressedBucket.date,
         lastCompressedBucket.date,
         'after',
+        formatDate,
       ),
     );
     endIndex = series.buckets.length - trailingInactiveBucketCount - 1;
@@ -332,9 +367,15 @@ function renderCombinedChart(
   series: TrendSeries,
   metric: TrendsMetric,
   plotWidth: number,
+  formatDate: DateLabelFormatter,
 ): string[] {
+  // A range shorter than the plot draws each day several columns wide, up to a cap.
+  const columnsPerDay = Math.max(
+    1,
+    Math.min(maximumColumnsPerDay, Math.floor(plotWidth / Math.max(1, series.buckets.length))),
+  );
   const columns = downsamplePeaks(
-    series.buckets.map((bucket) => bucket.value),
+    series.buckets.flatMap((bucket) => Array.from({ length: columnsPerDay }, () => bucket.value)),
     plotWidth,
   );
   const lines: string[] = [];
@@ -374,11 +415,11 @@ function renderCombinedChart(
     );
   });
 
-  const startLabel = formatDateLabel(series.buckets[0]?.date ?? '');
-  const endLabel = formatDateLabel(series.buckets.at(-1)?.date ?? '');
+  const startLabel = formatDate(series.buckets[0]?.date ?? '');
+  const endLabel = formatDate(series.buckets.at(-1)?.date ?? '');
   const middleLabel =
     series.buckets.length > 2
-      ? formatDateLabel(series.buckets[Math.floor(series.buckets.length / 2)]?.date ?? '')
+      ? formatDate(series.buckets[Math.floor(series.buckets.length / 2)]?.date ?? '')
       : '';
   const xAxisWidth = Math.max(
     columns.length,
@@ -416,10 +457,15 @@ function renderCombinedChart(
 /** A series drawn as one sparkline row, under its source id or project label. */
 type LabelledSeries = Pick<TrendSeries, 'buckets' | 'summary'> & { label: string };
 
-/** The per-source or per-project series to draw one row each, if the report is split. */
+/**
+ * The per-source or per-project series to draw one row each, if the report is split, highest
+ * total first. Projects already come in that order; sources come in adapter order.
+ */
 function getSplitSeries(trendsData: TrendsReportData): LabelledSeries[] {
   if (trendsData.sourceSeries && trendsData.sourceSeries.length > 0) {
-    return trendsData.sourceSeries.map((series) => ({ ...series, label: series.source }));
+    return trendsData.sourceSeries
+      .map((series) => ({ ...series, label: series.source }))
+      .sort((left, right) => right.summary.total - left.summary.total);
   }
 
   return (trendsData.projectSeries ?? []).map((series) => ({ ...series, label: series.project }));
@@ -488,14 +534,18 @@ function renderTerminalTrendsReport(
   if (splitSeries.length > 0) {
     lines.push(...renderSplitLines(splitSeries, trendsData.metric, terminalWidth ?? 80));
   } else {
-    const chartView = getCombinedChartView(trendsData.totalSeries);
+    const formatDate = resolveDateLabelFormatter(trendsData.totalSeries);
+    const chartView = getCombinedChartView(trendsData.totalSeries, formatDate);
     if (chartView.notes.length > 0) {
       lines.push(...chartView.notes);
     }
     const plotWidth = Math.max(16, (terminalWidth ?? 80) - 14);
-    const chartLines = renderCombinedChart(chartView.chartSeries, trendsData.metric, plotWidth).map(
-      (line) => (useColor ? accent(line) : line),
-    );
+    const chartLines = renderCombinedChart(
+      chartView.chartSeries,
+      trendsData.metric,
+      plotWidth,
+      formatDate,
+    ).map((line) => (useColor ? accent(line) : line));
     lines.push(...chartLines);
   }
 
