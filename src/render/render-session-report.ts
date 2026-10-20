@@ -23,6 +23,7 @@ import {
 } from './render-session-timeline.js';
 import { describeTableFit } from './table-fit-note.js';
 import {
+  measureWrappedColumnWidth,
   resolveTtyColumns,
   splitCellLines,
   wrapProse,
@@ -93,7 +94,7 @@ export function formatModels(models: readonly string[]): string {
  * The models cell wrapped to the Models column, one name per line: the first model in the
  * default color, the other models and `+N more` styled `secondary`.
  */
-export function formatModelsCell(cell: string, width: number, secondary: TextStyler): string {
+function formatModelsCell(cell: string, width: number, secondary: TextStyler): string {
   return splitCellLines(cell)
     .map((name, index) =>
       splitCellLines(wrapProse(name, width))
@@ -200,32 +201,43 @@ function toRowMeta(): TableRowMeta {
   };
 }
 
-/** Plain cells to measure, and the same cells in their role colors; both wrap the last column. */
-function toTerminalRows(
+/**
+ * A session or context list for the terminal: the cells in their role colors with the
+ * wrap column wrapped to the Models width, and the plain cells unwrapped, so a listed row
+ * reads its text whole; the wrap sets the column's width.
+ */
+export function toListTableRows(
   headers: readonly string[],
   rows: string[][],
   roles: ColorRoles,
-): { bodyRows: string[][]; measureBodyRows: string[][] } {
-  const wrapColumnIndex = headers.length - 1;
+  options: { moneyHeaders: readonly string[]; wrapColumnIndex: number },
+): { bodyRows: string[][]; measureBodyRows: string[][]; wrapColumnWidth: number } {
   const styleCell = (cell: string, columnIndex: number): string => {
-    switch (headers[columnIndex]) {
-      case 'Source':
-        return roles.source(cell)(cell);
-      case 'Cost':
-        return roles.money(cell);
-      case 'Models':
-        return formatModelsCell(cell, MODELS_COLUMN_WIDTH, roles.dim);
-      default:
-        return columnIndex === wrapColumnIndex ? wrapProse(cell, MODELS_COLUMN_WIDTH) : cell;
+    const header = headers[columnIndex];
+
+    if (header === 'Source') {
+      return roles.source(cell)(cell);
     }
+
+    if (options.moneyHeaders.includes(header)) {
+      return roles.money(cell);
+    }
+
+    if (header === 'Models') {
+      return formatModelsCell(cell, MODELS_COLUMN_WIDTH, roles.dim);
+    }
+
+    return columnIndex === options.wrapColumnIndex ? wrapProse(cell, MODELS_COLUMN_WIDTH) : cell;
   };
+  const wrappedRows = wrapTableColumn(rows, {
+    columnIndex: options.wrapColumnIndex,
+    width: MODELS_COLUMN_WIDTH,
+  });
 
   return {
     bodyRows: rows.map((row) => row.map(styleCell)),
-    measureBodyRows: wrapTableColumn(rows, {
-      columnIndex: wrapColumnIndex,
-      width: MODELS_COLUMN_WIDTH,
-    }),
+    measureBodyRows: rows,
+    wrapColumnWidth: measureWrappedColumnWidth(headers, wrappedRows, options.wrapColumnIndex),
   };
 }
 
@@ -247,13 +259,14 @@ function renderTerminalSessionReport(
     return { output: outputLines.join('\n'), notes: [] };
   }
 
-  const full = toTerminalRows(headers, bodyRows, roles);
-  const abbreviated = toTerminalRows(
+  const listOptions = { moneyHeaders: ['Cost'], wrapColumnIndex: headers.length - 1 };
+  const full = toListTableRows(headers, bodyRows, roles, listOptions);
+  const abbreviated = toListTableRows(
     headers,
     buildTableCells(sessionData, options, formatAbbreviatedTokenCount).bodyRows,
     roles,
+    listOptions,
   );
-  const wrapColumnIndex = headers.length - 1;
   const { output, fit } = renderUnicodeTableWithFit({
     headerCells: headers.map((header) => roles.header(header)),
     bodyRows: full.bodyRows,
@@ -261,7 +274,8 @@ function renderTerminalSessionReport(
     measureBodyRows: full.measureBodyRows,
     rowMetas: bodyRows.map(() => toRowMeta()),
     columnKinds: columnKindsFromAlign(align),
-    multilineColumnIndex: wrapColumnIndex,
+    multilineColumnIndex: listOptions.wrapColumnIndex,
+    multilineColumnWidth: full.wrapColumnWidth,
     terminalWidth,
     fit: {
       abbreviatedBodyRows: abbreviated.bodyRows,

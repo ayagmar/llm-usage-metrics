@@ -16,21 +16,10 @@ import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './f
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportJson } from './report-json.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
-import {
-  formatModels,
-  formatModelsCell,
-  MODELS_COLUMN_WIDTH,
-  truncateSessionId,
-} from './render-session-report.js';
+import { formatModels, toListTableRows, truncateSessionId } from './render-session-report.js';
 import { describeTableFit } from './table-fit-note.js';
-import {
-  measureCellWidth,
-  resolveTtyColumns,
-  splitCellLines,
-  wrapProse,
-  wrapTableColumn,
-} from './table-text-layout.js';
-import { createColorRoles, type ColorRoles } from './terminal-style-policy.js';
+import { resolveTtyColumns, splitCellLines, wrapProse } from './table-text-layout.js';
+import { createColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTableWithFit } from './unicode-table.js';
 
@@ -149,26 +138,6 @@ function formatAggregatedSourcesLine(
   return `Aggregated, not per request: ${listed}. Their records sum several requests, so they have no peak or tier counts.`;
 }
 
-/** The cells in their role colors, wrapped like the table wraps them. */
-function styleContextRows(table: ContextTable, rows: string[][], roles: ColorRoles): string[][] {
-  return rows.map((row) =>
-    row.map((cell, columnIndex) => {
-      switch (table.headers[columnIndex]) {
-        case 'Source':
-          return roles.source(cell)(cell);
-        case 'Tier Extra':
-          return roles.money(cell);
-        case 'Models':
-          return formatModelsCell(cell, MODELS_COLUMN_WIDTH, roles.dim);
-        default:
-          return columnIndex === table.wrapColumnIndex
-            ? wrapProse(cell, MODELS_COLUMN_WIDTH)
-            : cell;
-      }
-    }),
-  );
-}
-
 function renderTerminalContextReport(
   data: ContextDataResult,
   options: RenderContextReportOptions,
@@ -190,28 +159,27 @@ function renderTerminalContextReport(
   }
 
   if (table.bodyRows.length > 0) {
-    const abbreviatedRows = buildTable(data, formatAbbreviatedTokenCount).bodyRows;
-    // Measured unwrapped, so a listed row's title reads whole; the wrap sets the width.
-    const wrapColumnWidth = [
+    const listOptions = { moneyHeaders: ['Tier Extra'], wrapColumnIndex: table.wrapColumnIndex };
+    const full = toListTableRows(table.headers, table.bodyRows, roles, listOptions);
+    const abbreviated = toListTableRows(
       table.headers,
-      ...wrapTableColumn(table.bodyRows, {
-        columnIndex: table.wrapColumnIndex,
-        width: MODELS_COLUMN_WIDTH,
-      }),
-    ].reduce((width, row) => Math.max(width, measureCellWidth(row[table.wrapColumnIndex])), 0);
+      buildTable(data, formatAbbreviatedTokenCount).bodyRows,
+      roles,
+      listOptions,
+    );
     const { output, fit } = renderUnicodeTableWithFit({
       headerCells: table.headers.map((header) => roles.header(header)),
-      bodyRows: styleContextRows(table, table.bodyRows, roles),
+      bodyRows: full.bodyRows,
       measureHeaderCells: table.headers,
-      measureBodyRows: table.bodyRows,
+      measureBodyRows: full.measureBodyRows,
       rowMetas: table.bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
       columnKinds: columnKindsFromAlign(table.align),
       multilineColumnIndex: table.wrapColumnIndex,
-      multilineColumnWidth: wrapColumnWidth,
+      multilineColumnWidth: full.wrapColumnWidth,
       terminalWidth,
       fit: {
-        abbreviatedBodyRows: styleContextRows(table, abbreviatedRows, roles),
-        abbreviatedMeasureBodyRows: abbreviatedRows,
+        abbreviatedBodyRows: abbreviated.bodyRows,
+        abbreviatedMeasureBodyRows: abbreviated.measureBodyRows,
         hideableColumns: table.hideableColumns,
       },
       stackedTitleColumnCount: table.titleColumnCount,

@@ -450,6 +450,25 @@ function describeHiddenColumns(
   );
 }
 
+/** Whether a step's abbreviated cells differ from the full ones in a column it shows. */
+function abbreviatesVisibleCells(options: RenderUnicodeTableOptions, step: FitStep): boolean {
+  const abbreviatedRows = step.measureBodyRows ?? step.bodyRows;
+
+  if (abbreviatedRows === undefined) {
+    return false;
+  }
+
+  const hiddenColumns = new Set(step.hiddenColumns);
+
+  return abbreviatedRows.some((row, rowIndex) =>
+    row.some(
+      (cell, columnIndex) =>
+        !hiddenColumns.has(columnIndex) &&
+        cell !== options.measureBodyRows[rowIndex]?.[columnIndex],
+    ),
+  );
+}
+
 export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
   return renderUnicodeTableWithFit(options).output;
 }
@@ -541,7 +560,7 @@ export function renderUnicodeTableWithFit(options: RenderUnicodeTableOptions): {
   return {
     output: outputLines.join('\n'),
     fit: {
-      abbreviatedTokens: fitted.prepared.step.bodyRows !== undefined,
+      abbreviatedTokens: abbreviatesVisibleCells(options, fitted.prepared.step),
       hiddenHeaders: describeHiddenColumns(options, fitted.prepared.step.hiddenColumns),
       stacked: false,
     },

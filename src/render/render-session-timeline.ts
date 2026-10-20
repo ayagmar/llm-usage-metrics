@@ -20,6 +20,7 @@ import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { describeTableFit } from './table-fit-note.js';
 import {
+  measureWrappedColumnWidth,
   resolveTtyColumns,
   splitCellLines,
   wrapProse,
@@ -173,18 +174,20 @@ function buildBodyRows(
 }
 
 /**
- * Plain cells to measure, and the same cells in their role colors: folded tool calls and
- * turns are secondary to the requests, and both cost columns are money.
+ * The cells in their role colors with the Event column wrapped, and the plain cells
+ * unwrapped, so a listed row reads its event whole. Folded tool calls and turns are
+ * secondary to the requests, and both cost columns are money.
  */
 function toTerminalRows(
   rows: readonly { kind: DisplayRow['kind']; cells: string[] }[],
   roles: ColorRoles,
-): { bodyRows: string[][]; measureBodyRows: string[][] } {
-  const measureBodyRows = wrapTableColumn(
-    rows.map((row) => row.cells),
-    { columnIndex: EVENT_COLUMN_INDEX, width: EVENT_COLUMN_WIDTH },
-  );
-  const bodyRows = measureBodyRows.map((cells, rowIndex) =>
+): { bodyRows: string[][]; measureBodyRows: string[][]; eventColumnWidth: number } {
+  const measureBodyRows = rows.map((row) => row.cells);
+  const wrappedRows = wrapTableColumn(measureBodyRows, {
+    columnIndex: EVENT_COLUMN_INDEX,
+    width: EVENT_COLUMN_WIDTH,
+  });
+  const bodyRows = wrappedRows.map((cells, rowIndex) =>
     cells.map((cell, columnIndex) => {
       if (columnIndex === EVENT_COLUMN_INDEX && rows[rowIndex].kind === 'folded') {
         return splitCellLines(cell).map(roles.dim).join('\n');
@@ -194,7 +197,11 @@ function toTerminalRows(
     }),
   );
 
-  return { bodyRows, measureBodyRows };
+  return {
+    bodyRows,
+    measureBodyRows,
+    eventColumnWidth: measureWrappedColumnWidth(timelineHeaders, wrappedRows, EVENT_COLUMN_INDEX),
+  };
 }
 
 /** `claude · <id> · <project>` and the span, request count and cost. */
@@ -235,6 +242,7 @@ export function renderTerminalSessionTimeline(
     rowMetas: full.bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
     columnKinds: columnKindsFromAlign(timelineAlign),
     multilineColumnIndex: EVENT_COLUMN_INDEX,
+    multilineColumnWidth: full.eventColumnWidth,
     terminalWidth,
     fit: {
       abbreviatedBodyRows: abbreviated.bodyRows,

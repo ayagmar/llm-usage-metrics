@@ -425,6 +425,59 @@ describe('renderSessionReport on a terminal narrower than the full table', () =>
     ]);
   });
 
+  it('does not claim abbreviated counts that read the same in full', () => {
+    const data = createWideSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    data.rows[0].totalTokens = 220;
+
+    const { output, notes } = renderAtWidth(data, 80);
+
+    expect(output).toContain('│   220 │');
+    expect(notes).toEqual([
+      'Fitted the table to the terminal: hid Models, Duration and Last Activity. Widen the terminal or use --json for full detail.',
+    ]);
+  });
+
+  it('hides Sources, then Last Activity, from the project list', () => {
+    const data = createRepoData();
+    const restoreStdout = overrideStdoutTty(60);
+
+    try {
+      const { output, notes } = renderSessionReport(data, 'terminal', {
+        timezone: 'UTC',
+        useColor: false,
+      });
+
+      expect(output.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
+      expect(output).toMatch(/^│ Project +│ Sessions │ Total │ +Cost │$/mu);
+      expect(notes).toEqual([
+        'Fitted the table to the terminal: abbreviated token counts, hid Sources and Last Activity. Widen the terminal or use --json for full detail.',
+      ]);
+    } finally {
+      restoreStdout();
+    }
+  });
+
+  it('lists a model name too long for the column on whole lines, broken at its dashes', () => {
+    const data = createWideSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    data.rows[0].models = ['claude-opus-4-8-20260101-extended-thinking-preview'];
+
+    const { output } = renderAtWidth(data, 44);
+
+    expect(output).toContain(
+      '  Models         claude-opus-4-8-20260101-\n                 extended-thinking-preview',
+    );
+  });
+
   it('adds no note when the full table fits', () => {
     expect(renderAtWidth(createWideSessionData(), 200).notes).toEqual([]);
   });
@@ -512,18 +565,21 @@ describe('renderSessionReport --timeline', () => {
     expect(output).toContain('2026-01-02 01:00-02:00 (1h 0m) · 2 requests · ~$1.23');
   });
 
-  it('lists each row as label and value lines on a narrow terminal', () => {
+  it('lists each row as label and value lines on a narrow terminal, and says so', () => {
     const restoreStdout = overrideStdoutTty(60);
 
     try {
-      const output = renderSessionOutput(createTimelineData(rows), 'terminal', {
+      const { output, notes } = renderSessionReport(createTimelineData(rows), 'terminal', {
         timezone: 'UTC',
         useColor: false,
       });
 
+      expect(notes).toEqual([
+        'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
+      ]);
       expect(output.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
       expect(output).toContain(
-        '01:01:00\n  Event        6 tool calls: Bash ×4, Read ×2,\n               1 error',
+        '01:01:00\n  Event        6 tool calls: Bash ×4, Read ×2, 1 error\n',
       );
     } finally {
       restoreStdout();

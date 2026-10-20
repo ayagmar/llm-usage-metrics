@@ -42,8 +42,7 @@ claude · evt-session · demo
   Running      $0.00
 
 10:00:14
-  Event        1 user turn · 1 tool call: Grep
-               ×1
+  Event        1 user turn · 1 tool call: Grep ×1
 
 10:00:21
   Event        claude-sonnet-4-5
