@@ -11,6 +11,7 @@ export type TerminalStylePalette = {
   blue: TextStyler;
   yellow: TextStyler;
   green: TextStyler;
+  red: TextStyler;
   white: TextStyler;
   bold: TextStyler;
   dim: TextStyler;
@@ -22,6 +23,7 @@ export const defaultTerminalStylePalette: TerminalStylePalette = {
   blue: pc.blue,
   yellow: pc.yellow,
   green: pc.green,
+  red: pc.red,
   white: pc.white,
   bold: pc.bold,
   dim: pc.dim,
@@ -117,13 +119,13 @@ function styleCellAtIndex(cells: string[], index: number, styler: TextStyler): s
 
 type SourceStylePolicy = (palette: TerminalStylePalette) => TextStyler;
 
+// Yellow, green and red mean money and good/bad, which leaves three hues. They go to the
+// sources most often shown side by side; every other source stays uncolored rather than
+// sharing a hue.
 const sourceStylePolicies = new Map<string, SourceStylePolicy>([
   ['pi', (palette) => palette.cyan],
   ['codex', (palette) => palette.magenta],
-  ['gemini', (palette) => palette.yellow],
-  ['droid', (palette) => palette.green],
-  ['opencode', (palette) => palette.blue],
-  ['claude', (palette) => palette.cyan],
+  ['claude', (palette) => palette.blue],
 ]);
 
 export function resolveSourceStyler(
@@ -137,6 +139,66 @@ export function resolveSourceStyler(
   }
 
   return stylePolicy(palette);
+}
+
+/** One styler per meaning, so every renderer colors the same kind of text the same way. */
+export type ColorRoles = {
+  /** Table header cells: bold, the same for every column. */
+  header: TextStyler;
+  /** Labels in stacked lists and stat lines. */
+  label: TextStyler;
+  /** Values next to a label, and token measures: the terminal's default color. */
+  value: TextStyler;
+  /** Cost cells and cost stats. */
+  money: TextStyler;
+  /** Cost on a total row. */
+  moneyTotal: TextStyler;
+  /** A change in the good direction, such as savings or a cost decrease. */
+  positive: TextStyler;
+  /** A change in the bad direction, such as a cost increase. */
+  negative: TextStyler;
+  /** Warning lines and failed-sync notes. */
+  warning: TextStyler;
+  /** Secondary text: secondary models, idle cells, footnotes. */
+  dim: TextStyler;
+  /** The hue for a source name; unknown sources stay uncolored. */
+  source: (source: string) => TextStyler;
+};
+
+const uncoloredRoles: ColorRoles = {
+  header: passthroughStyler,
+  label: passthroughStyler,
+  value: passthroughStyler,
+  money: passthroughStyler,
+  moneyTotal: passthroughStyler,
+  positive: passthroughStyler,
+  negative: passthroughStyler,
+  warning: passthroughStyler,
+  dim: passthroughStyler,
+  source: () => passthroughStyler,
+};
+
+/** Without color every role returns its text unchanged, so NO_COLOR output has no escapes. */
+export function createColorRoles(
+  useColor: boolean,
+  palette: TerminalStylePalette = defaultTerminalStylePalette,
+): ColorRoles {
+  if (!useColor) {
+    return uncoloredRoles;
+  }
+
+  return {
+    header: palette.bold,
+    label: palette.dim,
+    value: passthroughStyler,
+    money: palette.yellow,
+    moneyTotal: (text) => palette.bold(palette.yellow(text)),
+    positive: palette.green,
+    negative: palette.red,
+    warning: palette.yellow,
+    dim: palette.dim,
+    source: (source) => resolveSourceStyler(source, palette),
+  };
 }
 
 type RowTypeStylePolicy = (cells: string[], palette: TerminalStylePalette) => string[];
@@ -295,23 +357,31 @@ export function colorizeUsageBodyRows(
   });
 }
 
-/** Green for a positive delta, red for a negative one, dim for zero; plain without color. */
+/**
+ * Colors a delta by direction: an increase is positive (green) and a decrease negative
+ * (red), or the reverse with `lowerIsBetter`, as for cost. Zero is dim; plain without color.
+ */
 export function styleDeltaCell(
   value: number | undefined,
   formattedValue: string,
   useColor: boolean,
+  options: { lowerIsBetter?: boolean; palette?: TerminalStylePalette } = {},
 ): string {
   if (!useColor || value === undefined) {
     return formattedValue;
   }
 
-  if (value > 0) {
-    return pc.green(formattedValue);
+  const roles = createColorRoles(true, options.palette);
+
+  const direction = options.lowerIsBetter === true ? -value : value;
+
+  if (direction > 0) {
+    return roles.positive(formattedValue);
   }
 
-  if (value < 0) {
-    return pc.red(formattedValue);
+  if (direction < 0) {
+    return roles.negative(formattedValue);
   }
 
-  return pc.dim(formattedValue);
+  return roles.dim(formattedValue);
 }
