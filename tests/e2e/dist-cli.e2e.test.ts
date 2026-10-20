@@ -401,17 +401,23 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 `,
       );
 
+      // Each turns off the check or its background refresh: the opt-out, CI, and npx (pnpm sets
+      // npm_command). Windows env names are case-insensitive and arrive there as NPM_COMMAND.
+      const disablingEnvNames = new Set([
+        'llm_usage_skip_update_check',
+        'ci',
+        'npm_command',
+        'npm_execpath',
+      ]);
       const env: NodeJS.ProcessEnv = {
-        ...createSmokeEnv(),
+        ...Object.fromEntries(
+          Object.entries(createSmokeEnv()).filter(
+            ([name]) => !disablingEnvNames.has(name.toLowerCase()),
+          ),
+        ),
         XDG_CACHE_HOME: cacheDir,
         NODE_OPTIONS: `--import=${pathToFileURL(registryPath).href}`,
       };
-      // Each turns off the check or its background refresh: the opt-out, CI, and npx (pnpm sets
-      // npm_command).
-      delete env.LLM_USAGE_SKIP_UPDATE_CHECK;
-      delete env.CI;
-      delete env.npm_command;
-      delete env.npm_execpath;
 
       const { stdout } = await execFileAsync(
         process.execPath,
