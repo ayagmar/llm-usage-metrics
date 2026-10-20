@@ -7,6 +7,7 @@ import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
+import { describeTableFit } from './table-fit-note.js';
 import { resolveTtyColumns, splitCellLines, visibleWidth } from './table-text-layout.js';
 import { styleDeltaCell } from './terminal-style-policy.js';
 import { selectColumns, type UsageTokenFormat } from './row-cells.js';
@@ -325,27 +326,13 @@ function fitEfficiencyStep(
 }
 
 function describeEfficiencyFit(step: EfficiencyFitStep, stacked: boolean): string | undefined {
-  if (stacked) {
-    return 'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.';
-  }
-
-  const changes: string[] = [];
-
-  if (step.tokenFormat === 'abbreviated') {
-    changes.push('abbreviated token counts');
-  }
-
-  const hiddenHeaders = step.hiddenColumnIndexes.map(
-    (columnIndex) => efficiencyTableHeaders[columnIndex],
-  );
-
-  if (hiddenHeaders.length > 0) {
-    changes.push(`hid ${hiddenHeaders.slice(0, -1).join(', ')} and ${hiddenHeaders.at(-1) ?? ''}`);
-  }
-
-  return changes.length > 0
-    ? `Fitted the table to the terminal: ${changes.join(', ')}. Widen the terminal or use --json for full detail.`
-    : undefined;
+  return describeTableFit({
+    abbreviatedTokens: step.tokenFormat === 'abbreviated',
+    hiddenHeaders: step.hiddenColumnIndexes.map(
+      (columnIndex) => efficiencyTableHeaders[columnIndex],
+    ),
+    stacked,
+  });
 }
 
 function renderTerminalEfficiencyTable(

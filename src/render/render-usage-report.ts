@@ -3,6 +3,7 @@ import type { UsageGranularity } from '../utils/time-buckets.js';
 import { renderMarkdownTable } from './markdown-table.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
+import { describeTableFit } from './table-fit-note.js';
 import {
   compactHiddenUsageColumns,
   getUsageTableHeader,
@@ -48,49 +49,25 @@ function getReportTitle(granularity: UsageGranularity): string {
   }
 }
 
-function joinWithAnd(items: readonly string[]): string {
-  return items.length <= 1
-    ? items.join('')
-    : `${items.slice(0, -1).join(', ')} and ${items.at(-1) ?? ''}`;
-}
-
 /** Describes what the terminal fit changed beyond what --compact and --no-cost asked for. */
-export function describeTableFit(
+export function describeUsageTableFit(
   fit: TerminalTableFit,
   compact: boolean,
   hideCost = false,
 ): string | undefined {
-  const changes: string[] = [];
-
-  if (!compact && fit.tokenFormat === 'abbreviated') {
-    changes.push('abbreviated token counts');
-  }
-
   const impliedHiddenColumns = [
     ...(compact ? compactHiddenUsageColumns : []),
     ...(hideCost ? (['cost'] as const) : []),
   ];
-  const hiddenHeaders = fit.hiddenColumns
-    .filter((column) => !impliedHiddenColumns.includes(column))
-    .map((column) => getUsageTableHeader(column));
 
-  if (hiddenHeaders.length > 0) {
-    changes.push(`hid ${joinWithAnd(hiddenHeaders)}`);
-  }
-
-  if (fit.truncatedModelNames) {
-    changes.push('shortened model names');
-  }
-
-  if (changes.length === 0) {
-    return undefined;
-  }
-
-  const layout = fit.stacked
-    ? 'Listed rows instead of a table to fit the terminal'
-    : 'Fitted the table to the terminal';
-
-  return `${layout}: ${changes.join(', ')}. Widen the terminal or use --json for full detail.`;
+  return describeTableFit({
+    abbreviatedTokens: !compact && fit.tokenFormat === 'abbreviated',
+    hiddenHeaders: fit.hiddenColumns
+      .filter((column) => !impliedHiddenColumns.includes(column))
+      .map((column) => getUsageTableHeader(column)),
+    shortenedModelNames: fit.truncatedModelNames,
+    stacked: fit.stacked,
+  });
 }
 
 function renderTerminalUsageReport(
@@ -124,7 +101,7 @@ function renderTerminalUsageReport(
     hideCost: options.hideCost,
     terminalWidth: options.terminalWidth,
   });
-  const fitNote = describeTableFit(fit, options.compact ?? false, options.hideCost);
+  const fitNote = describeUsageTableFit(fit, options.compact ?? false, options.hideCost);
 
   outputLines.push(output);
 

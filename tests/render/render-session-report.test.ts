@@ -1,10 +1,16 @@
+import pc from 'picocolors';
 import { describe, expect, it } from 'vitest';
 
 import type { SessionDataResult } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+import { createColorRoles } from '../../src/render/terminal-style-policy.js';
 import { renderSessionReport } from '../../src/render/render-session-report.js';
 import type { SessionTimelineRow } from '../../src/session/session-timeline.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
+
+function renderSessionOutput(...args: Parameters<typeof renderSessionReport>): string {
+  return renderSessionReport(...args).output;
+}
 
 function createDiagnostics(timezone: string): SessionDataResult['diagnostics'] {
   return {
@@ -42,6 +48,7 @@ function createSessionData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    rowCount: 1,
     projectLabels: new Map([['/home/user/project-alpha', 'project-alpha']]),
     diagnostics: createDiagnostics('America/New_York'),
   };
@@ -81,6 +88,7 @@ function createRepoData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    rowCount: 2,
     projectLabels: new Map([
       ['/home/user/project-alpha', 'project-alpha'],
       [undefined, '(unattributed)'],
@@ -91,7 +99,7 @@ function createRepoData(): SessionDataResult {
 
 describe('renderSessionReport', () => {
   it('renders slim terminal output with repo basename and truncated session id', () => {
-    const output = renderSessionReport(createSessionData(), 'terminal', {
+    const output = renderSessionOutput(createSessionData(), 'terminal', {
       timezone: 'America/New_York',
       useColor: false,
     });
@@ -108,7 +116,7 @@ describe('renderSessionReport', () => {
   });
 
   it('renders full session ids when truncation is disabled', () => {
-    const output = renderSessionReport(createSessionData(), 'terminal', {
+    const output = renderSessionOutput(createSessionData(), 'terminal', {
       timezone: 'UTC',
       useColor: false,
       truncateSessionIds: false,
@@ -127,7 +135,7 @@ describe('renderSessionReport', () => {
 
     data.rows[0].models = ['gpt-4.1', 'gpt-5-codex', 'o4-mini', 'o3'];
 
-    const output = renderSessionReport(data, 'terminal', {
+    const output = renderSessionOutput(data, 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
@@ -147,7 +155,7 @@ describe('renderSessionReport', () => {
 
     data.rows[0].models = ['openrouter/some-provider/a-very-long-model-identifier-v1'];
 
-    const output = renderSessionReport(data, 'terminal', {
+    const output = renderSessionOutput(data, 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
@@ -171,7 +179,7 @@ describe('renderSessionReport', () => {
 
     data.rows[0].durationMs = 134 * 60 * 1000;
 
-    const output = renderSessionReport(data, 'terminal', {
+    const output = renderSessionOutput(data, 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
@@ -191,7 +199,7 @@ describe('renderSessionReport', () => {
     data.rows[0].activeMs = 0;
     data.rows[0].eventCount = 1;
 
-    const output = renderSessionReport(data, 'terminal', {
+    const output = renderSessionOutput(data, 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
@@ -209,7 +217,7 @@ describe('renderSessionReport', () => {
 
     delete data.rows[0].repoRoot;
 
-    const output = renderSessionReport(data, 'terminal', {
+    const output = renderSessionOutput(data, 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
@@ -232,7 +240,7 @@ describe('renderSessionReport', () => {
       ['/home/user/oss/app', 'oss/app'],
     ]);
 
-    const output = renderSessionReport(data, 'markdown', { timezone: 'UTC' });
+    const output = renderSessionOutput(data, 'markdown', { timezone: 'UTC' });
 
     expect(output).toContain('| work/app');
   });
@@ -246,7 +254,7 @@ describe('renderSessionReport', () => {
 
     data.rows[0].models = ['[unsafe](https://example.test)', '<tag>'];
 
-    const output = renderSessionReport(data, 'markdown', {
+    const output = renderSessionOutput(data, 'markdown', {
       timezone: 'UTC',
     });
 
@@ -261,7 +269,7 @@ describe('renderSessionReport', () => {
   });
 
   it('renders JSON as full data rows only', () => {
-    const output = renderSessionReport(createSessionData(), 'json', {
+    const output = renderSessionOutput(createSessionData(), 'json', {
       timezone: 'UTC',
     });
     const parsed = JSON.parse(output) as {
@@ -286,7 +294,7 @@ describe('renderSessionReport', () => {
   });
 
   it('renders repo rows with project labels, an unattributed bucket, and comma-joined sources', () => {
-    const output = renderSessionReport(createRepoData(), 'terminal', {
+    const output = renderSessionOutput(createRepoData(), 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
@@ -302,7 +310,7 @@ describe('renderSessionReport', () => {
   });
 
   it('renders repo JSON rows with full repo paths', () => {
-    const output = renderSessionReport(createRepoData(), 'json', {
+    const output = renderSessionOutput(createRepoData(), 'json', {
       timezone: 'UTC',
     });
     const parsed = JSON.parse(output) as {
@@ -326,11 +334,11 @@ describe('renderSessionReport', () => {
     const data = createSessionData();
     data.rows = [];
 
-    const output = renderSessionReport(data, 'terminal', {
+    const output = renderSessionOutput(data, 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
-    const filteredOutput = renderSessionReport(data, 'terminal', {
+    const filteredOutput = renderSessionOutput(data, 'terminal', {
       timezone: 'UTC',
       useColor: false,
       filtered: true,
@@ -340,6 +348,148 @@ describe('renderSessionReport', () => {
     // Without filters, the message must not blame filters the user never passed.
     expect(output).toContain('No usage data found.');
     expect(filteredOutput).toContain('No usage data found for the selected filters.');
+  });
+});
+
+/** A session list as wide as real ones: billions of tokens, a two-part project, two models. */
+function createWideSessionData(): SessionDataResult {
+  const data = createSessionData();
+
+  if (data.grouping !== 'session') {
+    throw new Error('expected session grouping');
+  }
+
+  data.rows[0] = {
+    ...data.rows[0],
+    repoRoot: '/home/user/Personal/llm-usage-metrics',
+    models: ['claude-opus-4-8', 'claude-fable-5'],
+    totalTokens: 1_070_183_758,
+    costUsd: 405.34,
+  };
+  data.projectLabels = new Map([
+    ['/home/user/Personal/llm-usage-metrics', 'Personal/llm-usage-metrics'],
+  ]);
+
+  return data;
+}
+
+function renderAtWidth(data: SessionDataResult, columns: number, useColor = false) {
+  const restoreStdout = overrideStdoutTty(columns);
+
+  try {
+    return renderSessionReport(data, 'terminal', { timezone: 'UTC', useColor });
+  } finally {
+    restoreStdout();
+  }
+}
+
+function headerCells(output: string): string[] {
+  const headerLine = output.split('\n').find((line) => /^│ Session +│/u.test(line)) ?? '';
+  return headerLine
+    .split('│')
+    .map((cell) => cell.trim())
+    .filter(Boolean);
+}
+
+describe('renderSessionReport on a terminal narrower than the full table', () => {
+  it.each([120, 80, 44])('keeps every line within %i columns', (columns) => {
+    const { output } = renderAtWidth(createWideSessionData(), columns, true);
+
+    expect(output.split('\n').every((line) => visibleWidth(line) <= columns)).toBe(true);
+  });
+
+  it('abbreviates token counts before it hides a column', () => {
+    const { output, notes } = renderAtWidth(createWideSessionData(), 120);
+
+    expect(headerCells(output)).toContain('Models');
+    expect(output).toContain('1.07B');
+    expect(notes).toEqual([
+      'Fitted the table to the terminal: abbreviated token counts. Widen the terminal or use --json for full detail.',
+    ]);
+  });
+
+  it('hides Models, Duration and Last Activity to stay a table at 80 columns', () => {
+    const { output, notes } = renderAtWidth(createWideSessionData(), 80);
+
+    expect(headerCells(output)).toEqual(['Session', 'Source', 'Project', 'Total', 'Cost']);
+    expect(notes[0]).toContain('hid Models, Duration and Last Activity');
+  });
+
+  it('lists rows in full detail when no table fits, and says so', () => {
+    const { output, notes } = renderAtWidth(createWideSessionData(), 44);
+
+    expect(output).not.toContain('╭');
+    expect(output).toContain('Total          1,070,183,758');
+    expect(notes).toEqual([
+      'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
+    ]);
+  });
+
+  it('does not claim abbreviated counts that read the same in full', () => {
+    const data = createWideSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    data.rows[0].totalTokens = 220;
+
+    const { output, notes } = renderAtWidth(data, 80);
+
+    expect(output).toContain('│   220 │');
+    expect(notes).toEqual([
+      'Fitted the table to the terminal: hid Models, Duration and Last Activity. Widen the terminal or use --json for full detail.',
+    ]);
+  });
+
+  it('hides Sources, then Last Activity, from the project list', () => {
+    const data = createRepoData();
+    const restoreStdout = overrideStdoutTty(60);
+
+    try {
+      const { output, notes } = renderSessionReport(data, 'terminal', {
+        timezone: 'UTC',
+        useColor: false,
+      });
+
+      expect(output.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
+      expect(output).toMatch(/^│ Project +│ Sessions │ Total │ +Cost │$/mu);
+      expect(notes).toEqual([
+        'Fitted the table to the terminal: abbreviated token counts, hid Sources and Last Activity. Widen the terminal or use --json for full detail.',
+      ]);
+    } finally {
+      restoreStdout();
+    }
+  });
+
+  it('lists a model name too long for the column on whole lines, broken at its dashes', () => {
+    const data = createWideSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    data.rows[0].models = ['claude-opus-4-8-20260101-extended-thinking-preview'];
+
+    const { output } = renderAtWidth(data, 44);
+
+    expect(output).toContain(
+      '  Models         claude-opus-4-8-20260101-\n                 extended-thinking-preview',
+    );
+  });
+
+  it('adds no note when the full table fits', () => {
+    expect(renderAtWidth(createWideSessionData(), 200).notes).toEqual([]);
+  });
+
+  // Escape codes exist only where the terminal supports color (not under CI=1).
+  it.runIf(pc.isColorSupported)('colors cost as money and later models as secondary', () => {
+    const roles = createColorRoles(true);
+    const { output } = renderAtWidth(createWideSessionData(), 200, true);
+
+    expect(output).toContain(roles.money('~$405.34'));
+    expect(output).toContain(roles.dim('claude-fable-5'));
+    expect(output).not.toContain(roles.dim('claude-opus-4-8'));
   });
 });
 
@@ -390,7 +540,7 @@ describe('renderSessionReport --timeline', () => {
   ];
 
   it('folds the tool calls between two requests into one line, most-called tool first', () => {
-    const output = renderSessionReport(createTimelineData(rows), 'markdown', { timezone: 'UTC' });
+    const output = renderSessionOutput(createTimelineData(rows), 'markdown', { timezone: 'UTC' });
     // Markdown pads cells; one space apart is enough to read the cells.
     const lines = output
       .split('\n')
@@ -405,7 +555,7 @@ describe('renderSessionReport --timeline', () => {
   });
 
   it('heads the terminal table with the session, its span, requests and cost', () => {
-    const output = renderSessionReport(createTimelineData(rows), 'terminal', {
+    const output = renderSessionOutput(createTimelineData(rows), 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
@@ -415,26 +565,48 @@ describe('renderSessionReport --timeline', () => {
     expect(output).toContain('2026-01-02 01:00-02:00 (1h) · 2 requests · ~$1.23');
   });
 
-  it('lists each row as label and value lines on a narrow terminal', () => {
+  it('lists each row as label and value lines on a narrow terminal, and says so', () => {
     const restoreStdout = overrideStdoutTty(60);
 
     try {
-      const output = renderSessionReport(createTimelineData(rows), 'terminal', {
+      const { output, notes } = renderSessionReport(createTimelineData(rows), 'terminal', {
         timezone: 'UTC',
         useColor: false,
       });
 
+      expect(notes).toEqual([
+        'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.',
+      ]);
       expect(output.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
       expect(output).toContain(
-        '01:01:00\n  Event        6 tool calls: Bash ×4, Read ×2,\n               1 error',
+        '01:01:00\n  Event        6 tool calls: Bash ×4, Read ×2, 1 error\n',
       );
     } finally {
       restoreStdout();
     }
   });
 
+  it('stays a table at 80 columns by hiding the minor token and cost columns', () => {
+    const restoreStdout = overrideStdoutTty(80);
+
+    try {
+      const { output, notes } = renderSessionReport(createTimelineData(rows), 'terminal', {
+        timezone: 'UTC',
+        useColor: false,
+      });
+
+      expect(output).toContain('╭');
+      expect(output.split('\n').every((line) => visibleWidth(line) <= 80)).toBe(true);
+      expect(notes).toEqual([
+        'Fitted the table to the terminal: abbreviated token counts, hid Cache Write, Running and Input. Widen the terminal or use --json for full detail.',
+      ]);
+    } finally {
+      restoreStdout();
+    }
+  });
+
   it('prints times of day, with the date on the first row of each later day', () => {
-    const output = renderSessionReport(
+    const output = renderSessionOutput(
       createTimelineData([
         usageRow('2026-01-02T23:59:00.000Z', 0.5, 0.5),
         usageRow('2026-01-03T00:01:00.000Z', 0.25, 0.75),
@@ -453,7 +625,7 @@ describe('renderSessionReport --timeline', () => {
   });
 
   it('renders JSON with every row and its kind, unfolded', () => {
-    const output = renderSessionReport(createTimelineData(rows), 'json', { timezone: 'UTC' });
+    const output = renderSessionOutput(createTimelineData(rows), 'json', { timezone: 'UTC' });
     const data = (JSON.parse(output) as { data: { rows: { kind: string }[] } }).data;
 
     expect(data.rows.map((row) => row.kind)).toEqual(rows.map((row) => row.kind));

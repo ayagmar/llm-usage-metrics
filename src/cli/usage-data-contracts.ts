@@ -418,6 +418,8 @@ export type SessionDataResult =
   | {
       grouping: 'session';
       rows: SessionRow[];
+      /** Rows before --top. */
+      rowCount: number;
       /** Labels over every project in the report's events, not only the shown rows. */
       projectLabels: ReadonlyMap<string | undefined, string>;
       limitNote?: string;
@@ -426,6 +428,8 @@ export type SessionDataResult =
   | {
       grouping: 'repo';
       rows: SessionRepoRow[];
+      /** Rows before --top. */
+      rowCount: number;
       projectLabels: ReadonlyMap<string | undefined, string>;
       limitNote?: string;
       diagnostics: UsageDiagnostics;
