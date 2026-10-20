@@ -30,6 +30,10 @@ const COLUMNS = 120;
 const TIMEZONE = 'UTC';
 const WEBP_QUALITY = 86;
 
+// The CLI reads its width from a TTY stdout and ignores COLUMNS when piped, so each
+// capture runs with stdout reporting itself as a COLUMNS-wide terminal.
+const TERMINAL_PRELOAD = `data:text/javascript,process.stdout.isTTY=true;process.stdout.columns=${COLUMNS};`;
+
 // Flags every report command gets: the demo window, offline pricing, no machine sync.
 const REPORT_FLAGS = ['--timezone', TIMEZONE, '--pricing-offline', '--no-sync'];
 
@@ -83,7 +87,6 @@ function createCliEnv(home, configPath) {
     LLM_USAGE_CONFIG_PATH: configPath,
     LLM_USAGE_SKIP_UPDATE_CHECK: '1',
     FORCE_COLOR: '1',
-    COLUMNS: String(COLUMNS),
     TZ: TIMEZONE,
   };
 }
@@ -98,11 +101,15 @@ function sourceFlags(dirs) {
 
 async function runCli(args, { env, cwd }) {
   try {
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, ...args], {
-      env,
-      cwd,
-      maxBuffer: 32 * 1024 * 1024,
-    });
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      ['--import', TERMINAL_PRELOAD, cliPath, ...args],
+      {
+        env,
+        cwd,
+        maxBuffer: 32 * 1024 * 1024,
+      },
+    );
     if (stdout.trim() === '') throw new Error('empty stdout');
     return stdout;
   } catch (error) {
