@@ -39,32 +39,37 @@ function getExtensionTasksDir(codeRoot: string, extensionId: string): string {
   return path.join(codeRoot, 'User', 'globalStorage', extensionId, 'tasks');
 }
 
-function getWindowsCodeRoot(context: SourceContext): string {
+/** Editors whose user data dirs hold Cline-family storage, named as their app data folder. */
+const EDITOR_APP_DIRS = ['Code', 'Cursor'] as const;
+
+function getWindowsAppDataRoot(context: SourceContext): string {
   const appDataRoot =
     readEnvPath(context, 'APPDATA') ??
     readEnvPath(context, 'USERPROFILE') ??
     path.join(context.homeDir, 'AppData', 'Roaming');
 
+  // An APPDATA that already points at VS Code's own dir stands for its parent.
   if (appDataRoot.endsWith(`${path.sep}Code`) || path.basename(appDataRoot) === 'Code') {
-    return appDataRoot;
+    return path.dirname(appDataRoot);
   }
 
-  return path.join(appDataRoot, 'Code');
+  return appDataRoot;
 }
 
-function getPlatformCodeRoots(context: SourceContext): string[] {
+function getPlatformAppDataRoot(context: SourceContext): string {
   switch (context.platform) {
     case 'win32':
-      return [getWindowsCodeRoot(context)];
+      return getWindowsAppDataRoot(context);
     case 'darwin':
-      return [path.join(context.homeDir, 'Library', 'Application Support', 'Code')];
+      return path.join(context.homeDir, 'Library', 'Application Support');
     default:
-      return [path.join(context.homeDir, '.config', 'Code')];
+      return path.join(context.homeDir, '.config');
   }
 }
 
 export function getDefaultClineTaskRootCandidates(options: ClineTaskRootResolverOptions): string[] {
-  const localRoots = getPlatformCodeRoots(options.context);
+  const appDataRoot = getPlatformAppDataRoot(options.context);
+  const localRoots = EDITOR_APP_DIRS.map((appDir) => path.join(appDataRoot, appDir));
   const remoteRoots = [path.join(options.context.homeDir, '.vscode-server', 'data')];
   const tasksDirs = [...localRoots, ...remoteRoots].map((root) =>
     getExtensionTasksDir(root, options.extensionId),
@@ -80,8 +85,8 @@ async function discoverUiMessageFiles(rootDir: string): Promise<string[]> {
 
 /**
  * Cline, Roo Code or Kilo Code tasks (`ui_messages.json`, with the model from
- * `api_conversation_history.json`), from the extension's VS Code global storage, local and
- * `~/.vscode-server`.
+ * `api_conversation_history.json`), from the extension's global storage in VS Code and Cursor,
+ * and in `~/.vscode-server`.
  */
 export class ClineFamilyAdapter implements SourceAdapter {
   public readonly id: SourceId;

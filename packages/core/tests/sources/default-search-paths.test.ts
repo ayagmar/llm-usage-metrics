@@ -103,14 +103,17 @@ const EXPECTED: Record<Platform, Record<'noOverrides' | 'allOverrides', SearchPa
       kimi: ['/home/tester/.kimi/sessions', '/home/tester/.kimi-code/sessions'],
       cline: [
         '/home/tester/.config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks',
+        '/home/tester/.config/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks',
       ],
       roocode: [
         '/home/tester/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
+        '/home/tester/.config/Cursor/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
       ],
       kilocode: [
         '/home/tester/.config/Code/User/globalStorage/kilocode.kilo-code/tasks',
+        '/home/tester/.config/Cursor/User/globalStorage/kilocode.kilo-code/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks',
       ],
       antigravity: ['/home/tester/.gemini/antigravity-cli/conversations'],
@@ -150,14 +153,17 @@ const EXPECTED: Record<Platform, Record<'noOverrides' | 'allOverrides', SearchPa
       kimi: ['/home/tester/.kimi/sessions', '/home/tester/.kimi-code/sessions'],
       cline: [
         '/home/tester/.config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks',
+        '/home/tester/.config/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks',
       ],
       roocode: [
         '/home/tester/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
+        '/home/tester/.config/Cursor/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
       ],
       kilocode: [
         '/home/tester/.config/Code/User/globalStorage/kilocode.kilo-code/tasks',
+        '/home/tester/.config/Cursor/User/globalStorage/kilocode.kilo-code/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks',
       ],
       antigravity: ['/env/gemini-home/antigravity-cli/conversations'],
@@ -193,14 +199,17 @@ const EXPECTED: Record<Platform, Record<'noOverrides' | 'allOverrides', SearchPa
       kimi: ['/home/tester/.kimi/sessions', '/home/tester/.kimi-code/sessions'],
       cline: [
         '/home/tester/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/tasks',
+        '/home/tester/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks',
       ],
       roocode: [
         '/home/tester/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
+        '/home/tester/Library/Application Support/Cursor/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
       ],
       kilocode: [
         '/home/tester/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks',
+        '/home/tester/Library/Application Support/Cursor/User/globalStorage/kilocode.kilo-code/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks',
       ],
       antigravity: ['/home/tester/.gemini/antigravity-cli/conversations'],
@@ -240,14 +249,17 @@ const EXPECTED: Record<Platform, Record<'noOverrides' | 'allOverrides', SearchPa
       kimi: ['/home/tester/.kimi/sessions', '/home/tester/.kimi-code/sessions'],
       cline: [
         '/home/tester/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/tasks',
+        '/home/tester/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks',
       ],
       roocode: [
         '/home/tester/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
+        '/home/tester/Library/Application Support/Cursor/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
       ],
       kilocode: [
         '/home/tester/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks',
+        '/home/tester/Library/Application Support/Cursor/User/globalStorage/kilocode.kilo-code/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks',
       ],
       antigravity: ['/env/gemini-home/antigravity-cli/conversations'],
@@ -275,14 +287,17 @@ const EXPECTED: Record<Platform, Record<'noOverrides' | 'allOverrides', SearchPa
       kimi: ['/home/tester/.kimi/sessions', '/home/tester/.kimi-code/sessions'],
       cline: [
         '/home/tester/AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev/tasks',
+        '/home/tester/AppData/Roaming/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks',
       ],
       roocode: [
         '/home/tester/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
+        '/home/tester/AppData/Roaming/Cursor/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
       ],
       kilocode: [
         '/home/tester/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/tasks',
+        '/home/tester/AppData/Roaming/Cursor/User/globalStorage/kilocode.kilo-code/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks',
       ],
       antigravity: ['/home/tester/.gemini/antigravity-cli/conversations'],
@@ -322,14 +337,17 @@ const EXPECTED: Record<Platform, Record<'noOverrides' | 'allOverrides', SearchPa
       kimi: ['/home/tester/.kimi/sessions', '/home/tester/.kimi-code/sessions'],
       cline: [
         '/env/appdata/Code/User/globalStorage/saoudrizwan.claude-dev/tasks',
+        '/env/appdata/Cursor/User/globalStorage/saoudrizwan.claude-dev/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks',
       ],
       roocode: [
         '/env/appdata/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
+        '/env/appdata/Cursor/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks',
       ],
       kilocode: [
         '/env/appdata/Code/User/globalStorage/kilocode.kilo-code/tasks',
+        '/env/appdata/Cursor/User/globalStorage/kilocode.kilo-code/tasks',
         '/home/tester/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks',
       ],
       antigravity: ['/env/gemini-home/antigravity-cli/conversations'],
