@@ -42,9 +42,8 @@ import {
 } from './parse/stored-session-events.js';
 import {
   compareByCodePoint,
-  getFileByteSize,
   getNewestFingerprintMtimeMs,
-  getPrimaryFingerprintByteSize,
+  getParseByteSize,
   pluralize,
 } from '@ayagmar/agent-sessions/internal';
 import { getSinceFileSkipCutoffMs } from './parse/since-file-skip.js';
@@ -527,9 +526,7 @@ export async function parseAdapterEvents(
         filePath,
         fileFingerprint: lookup.fileFingerprint,
         growth: lookup.growth,
-        byteSize:
-          getPrimaryFingerprintByteSize(lookup.fileFingerprint) ??
-          (await getFileByteSize(filePath)),
+        byteSize: await getParseByteSize(filePath, lookup.fileFingerprint),
       });
     } catch (error) {
       recordParseFailure(fileIndex, error);

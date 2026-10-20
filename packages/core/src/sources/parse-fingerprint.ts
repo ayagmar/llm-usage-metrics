@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises';
 import { USAGE_EVENT_NORMALIZATION_VERSION } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { hasErrorCode } from '../utils/error-code.js';
+import { isZstdFilePath, readZstdContentSize } from '../utils/read-zstd-file-chunks.js';
 import type { SourceAdapter } from './source-adapter.js';
 
 /** Version of the normalized event shape; part of every parse cache key. */
@@ -195,6 +196,26 @@ export function getPrimaryFingerprintByteSize(
   }
 
   return Math.max(0, primaryFingerprint.size);
+}
+
+/**
+ * Bytes a parse of the file reads: the decoded size a `.zst` frame header declares, else
+ * the primary fingerprint size, else the file size. Sizes parse-worker eligibility and
+ * order, so a compressed file counts for the work it takes, not its 3-5x smaller size.
+ */
+export async function getParseByteSize(
+  filePath: string,
+  fingerprint: FileFingerprint | undefined,
+): Promise<number> {
+  if (isZstdFilePath(filePath)) {
+    const contentSize = await readZstdContentSize(filePath).catch(() => undefined);
+
+    if (contentSize !== undefined) {
+      return contentSize;
+    }
+  }
+
+  return getPrimaryFingerprintByteSize(fingerprint) ?? (await getFileByteSize(filePath));
 }
 
 /** Newest mtime among the file and its parse dependencies that exist. */

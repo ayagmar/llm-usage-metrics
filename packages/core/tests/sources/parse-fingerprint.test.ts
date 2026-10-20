@@ -1,6 +1,7 @@
-import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { constants, zstdCompressSync } from 'node:zlib';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -10,6 +11,7 @@ import {
   getFileByteSize,
   getNewestFingerprintMtimeMs,
   getFileFingerprint,
+  getParseByteSize,
   getParserVersion,
   getPrimaryFingerprintByteSize,
   type FileFingerprint,
@@ -185,6 +187,38 @@ describe('fingerprint size and mtime helpers', () => {
     expect(
       getPrimaryFingerprintByteSize(fingerprintOf([{ path: '/a', exists: true, size: -5 }])),
     ).toBe(0);
+  });
+
+  it('sizes a .zst file by the decoded size its frame declares, else by its own size', async () => {
+    const tempDir = await createTempDir();
+    const content = Buffer.from('{"line":1}\n'.repeat(1_000));
+    const declared = path.join(tempDir, 'declared.jsonl.zst');
+    const undeclared = path.join(tempDir, 'undeclared.jsonl.zst');
+    const notZstd = path.join(tempDir, 'not-zstd.jsonl.zst');
+    const plain = path.join(tempDir, 'plain.jsonl');
+    await writeFile(declared, zstdCompressSync(content));
+    await writeFile(
+      undeclared,
+      zstdCompressSync(content, { params: { [constants.ZSTD_c_contentSizeFlag]: 0 } }),
+    );
+    await writeFile(notZstd, 'abcd', 'utf8');
+    await writeFile(plain, content);
+
+    await expect(getParseByteSize(declared, undefined)).resolves.toBe(content.length);
+    // A stored fingerprint holds the compressed size; the header still wins.
+    await expect(
+      getParseByteSize(declared, fingerprintOf([{ path: declared, exists: true, size: 40 }])),
+    ).resolves.toBe(content.length);
+    await expect(getParseByteSize(undeclared, undefined)).resolves.toBe(
+      (await stat(undeclared)).size,
+    );
+    await expect(getParseByteSize(notZstd, undefined)).resolves.toBe(4);
+    await expect(getParseByteSize(path.join(tempDir, 'gone.jsonl.zst'), undefined)).resolves.toBe(
+      0,
+    );
+    await expect(
+      getParseByteSize(plain, fingerprintOf([{ path: plain, exists: true, size: 7 }])),
+    ).resolves.toBe(7);
   });
 
   it('takes the newest mtime among existing dependencies', () => {

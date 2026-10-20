@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { zstdCompressSync } from 'node:zlib';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -1028,6 +1029,39 @@ describe('build-usage-data-parsing', () => {
 
     expect(createPool).not.toHaveBeenCalled();
     expect(result.events.map((event) => event.sessionId)).toEqual(['small']);
+  });
+
+  it('sizes a compressed codex miss by its decoded bytes for the worker threshold', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'worker-threshold-zst-'));
+    tempDirs.push(tempDir);
+
+    // Repetitive JSONL compresses far below the threshold, but decodes well above it.
+    const filePath = path.join(tempDir, 'rollout.jsonl.zst');
+    await writeFile(filePath, zstdCompressSync(Buffer.from('{"line":1}\n'.repeat(1_000))));
+
+    const createPool = vi.fn(() => createInlineWorkerPool());
+    const adapter = createAdapterWithDiagnostics('codex', {
+      [filePath]: {
+        events: [
+          createUsageEvent({
+            source: 'codex',
+            sessionId: 'compressed',
+            timestamp: '2026-02-01T00:00:00.000Z',
+            totalTokens: 1,
+          }),
+        ],
+        skippedRows: 0,
+      },
+    });
+
+    const result = await parseAdapterEvents(adapter, 1, undefined, undefined, undefined, {
+      workerCount: 2,
+      minBytes: 5_000,
+      createPool,
+    });
+
+    expect(createPool).toHaveBeenCalledTimes(1);
+    expect(result.events.map((event) => event.sessionId)).toEqual(['compressed']);
   });
 
   it('does not create a worker pool when parse workers are disabled', async () => {
