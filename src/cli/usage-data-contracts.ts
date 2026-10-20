@@ -377,6 +377,8 @@ export type EfficiencyDiagnostics = UsageDiagnostics & {
   gitLinesDeleted: number;
   gitMalformedCommitLines: number;
   repoMatchedUsageEvents: number;
+  /** Days with token or cost usage in the repository; commits are only counted on these. */
+  repoUsageDays: number;
   repoExcludedUsageEvents: number;
   repoUnattributedUsageEvents: number;
   scopeNote?: string;

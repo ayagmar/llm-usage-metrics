@@ -409,8 +409,19 @@ function hasNoEfficiencyPeriods(efficiencyData: EfficiencyDataResult): boolean {
   return efficiencyData.rows.every((row) => row.rowType === 'grand_total');
 }
 
-function formatNoEfficiencyUsageMessage(options: RenderEfficiencyReportOptions): string {
-  return formatNoUsageMessage(options.filtered ?? false, 'in periods with commits');
+/** Names the missing half: usage in the repository, or your commits on the days it had usage. */
+function formatNoEfficiencyUsageMessage(
+  efficiencyData: EfficiencyDataResult,
+  options: RenderEfficiencyReportOptions,
+  formatPath: (path: string) => string = (path) => path,
+): string {
+  const filtered = options.filtered ?? false;
+  const { repoUsageDays, gitCommitCount } = efficiencyData.diagnostics;
+  const repoDir = formatPath(efficiencyData.diagnostics.repoDir);
+
+  return repoUsageDays > 0 && gitCommitCount === 0
+    ? formatNoUsageMessage(filtered, `in ${repoDir} on days with usage`, 'commits by you')
+    : formatNoUsageMessage(filtered, `in ${repoDir}`);
 }
 
 function renderTerminalEfficiencyReport(
@@ -428,7 +439,7 @@ function renderTerminalEfficiencyReport(
   );
 
   if (hasNoEfficiencyPeriods(efficiencyData)) {
-    outputLines.push('', formatNoEfficiencyUsageMessage(options));
+    outputLines.push('', formatNoEfficiencyUsageMessage(efficiencyData, options));
     return { output: outputLines.join('\n'), notes: [] };
   }
 
@@ -455,7 +466,7 @@ export function renderEfficiencyReportWithNotes(
     case 'markdown':
       return {
         output: hasNoEfficiencyPeriods(efficiencyData)
-          ? formatNoEfficiencyUsageMessage(options)
+          ? formatNoEfficiencyUsageMessage(efficiencyData, options, toMarkdownSafeCell)
           : renderMarkdownEfficiencyTable(efficiencyData.rows),
         notes: [],
       };

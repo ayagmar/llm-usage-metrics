@@ -9,7 +9,6 @@ import {
   formatEnvelopeCost,
   getEnvelopeData,
   isRecord,
-  LOWER_BOUND_NOTE,
   readNumber,
   readRecords,
   readString,
@@ -28,39 +27,9 @@ function costCell(row: Record<string, unknown>, key: string): PanelCell {
   return formatEnvelopeCost(readNumber(row, key), row.costIncomplete === true);
 }
 
-let rateFormatter: Intl.NumberFormat | undefined;
-
-/** A cost per commit or per 1k lines with four decimals, as the terminal prints it. */
-function rateCell(row: Record<string, unknown>, key: string): PanelCell {
-  const value = readNumber(row, key);
-
-  if (value === undefined) {
-    return { text: NO_VALUE };
-  }
-
-  rateFormatter ??= new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  });
-  const text = rateFormatter.format(value);
-  return row.costIncomplete === true ? { text: `~${text}`, note: LOWER_BOUND_NOTE } : { text };
-}
-
-let decimalFormatter: Intl.NumberFormat | undefined;
-
-/** Tokens per commit with two decimals, as the terminal prints it: `4,699.80`. */
+/** Tokens per commit in whole tokens, as the terminal prints it: `4,700`. */
 function formatTokenRate(value: number | undefined): string {
-  if (value === undefined) {
-    return NO_VALUE;
-  }
-
-  decimalFormatter ??= new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return decimalFormatter.format(value);
+  return formatCountOrNone(value === undefined ? undefined : Math.round(value));
 }
 
 function rowCells(row: Record<string, unknown>, bySource: boolean): PanelCell[] {
@@ -81,8 +50,8 @@ function rowCells(row: Record<string, unknown>, bySource: boolean): PanelCell[] 
     { text: formatCountOrNone(readNumber(row, 'linesDeleted')) },
     { text: formatCountOrNone(readNumber(row, 'totalTokens')) },
     costCell(row, 'costUsd'),
-    rateCell(row, 'usdPerCommit'),
-    rateCell(row, 'usdPer1kLinesChanged'),
+    costCell(row, 'usdPerCommit'),
+    costCell(row, 'usdPer1kLinesChanged'),
     { text: formatTokenRate(readNumber(row, 'tokensPerCommit')) },
   ];
 }
@@ -98,13 +67,13 @@ function buildFacts(total: Record<string, unknown>): PanelFact[] {
       value: formatCountOrNone(readNumber(total, 'linesChanged')),
       detail: `${formatInteger(added)} added, ${formatInteger(deleted)} deleted`,
     },
-    { label: 'Cost per commit', value: rateCell(total, 'usdPerCommit').text },
-    { label: 'Cost per 1k lines', value: rateCell(total, 'usdPer1kLinesChanged').text },
+    { label: 'Cost per commit', value: costCell(total, 'usdPerCommit').text },
+    { label: 'Cost per 1k lines', value: costCell(total, 'usdPer1kLinesChanged').text },
     { label: 'Tokens per commit', value: formatTokenRate(readNumber(total, 'tokensPerCommit')) },
   ];
 }
 
-/** `3 commits for $0.12: $0.0400 a commit, 1,200.00 tokens a commit.`, or one commit's cost and tokens. */
+/** `3 commits for $0.12: $0.04 a commit, 1,200 tokens a commit.`, or one commit's cost and tokens. */
 function buildLede(total: Record<string, unknown>): LedePart[] {
   const commits = readNumber(total, 'commitCount') ?? 0;
   const cost = costCell(total, 'costUsd').text;
@@ -131,7 +100,7 @@ function buildLede(total: Record<string, unknown>): LedePart[] {
     words(' commits for '),
     figure(cost),
     words(': '),
-    figure(rateCell(total, 'usdPerCommit').text),
+    figure(costCell(total, 'usdPerCommit').text),
     words(' a commit, '),
     tokens,
     words(' tokens a commit.'),

@@ -258,6 +258,7 @@ export async function buildEfficiencyData(
       gitLinesDeleted: gitOutcomes.diagnostics.linesDeleted,
       gitMalformedCommitLines: gitOutcomes.diagnostics.malformedCommitLines,
       repoMatchedUsageEvents: attribution.matchedEventCount,
+      repoUsageDays: activeUsageDays.size,
       repoExcludedUsageEvents: attribution.excludedEventCount,
       repoUnattributedUsageEvents: attribution.unattributedEventCount,
       scopeNote: resolveScopeNote(options),
