@@ -13,7 +13,7 @@ import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import { formatBulletedList } from './row-cells.js';
 import { resolveTtyColumns } from './table-text-layout.js';
-import { createColorRoles, type TextStyler } from './terminal-style-policy.js';
+import { createColorRoles, type ColorRoles } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
@@ -180,14 +180,14 @@ function buildTables(data: ProjectsData, options: RenderProjectsReportOptions): 
 
 function renderTerminalTable(
   table: Table,
-  options: { terminalWidth: number | undefined; labelStyler: TextStyler },
+  options: { terminalWidth: number | undefined; roles: ColorRoles },
 ): string {
-  const { terminalWidth, labelStyler } = options;
+  const { terminalWidth, roles } = options;
   const modelsColumnIndex = table.headers.indexOf(MODELS_HEADER);
 
   return renderUnicodeTable({
-    labelStyler,
-    headerCells: table.headers,
+    labelStyler: roles.label,
+    headerCells: table.headers.map((header) => roles.header(header)),
     bodyRows: table.rows,
     measureHeaderCells: table.headers,
     measureBodyRows: table.rows,
@@ -220,7 +220,7 @@ function renderTerminalProjectsReport(
       .map((table) =>
         renderTerminalTable(table, {
           terminalWidth,
-          labelStyler: createColorRoles(useColor).label,
+          roles: createColorRoles(useColor),
         }),
       )
       .join('\n\n'),

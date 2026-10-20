@@ -358,9 +358,13 @@ function renderTerminalEfficiencyTable(
 
   // Listed rows have room for every column at full precision.
   const note = describeEfficiencyFit(fittedStep, fittedCells.stackedWidth !== undefined);
+  const roles = createColorRoles(options.useColor);
   const output = renderUnicodeTable({
-    labelStyler: createColorRoles(options.useColor).label,
-    headerCells: fittedCells.headerCells,
+    labelStyler: roles.label,
+    // Style each line on its own so a wrapped header never carries color across lines.
+    headerCells: fittedCells.headerCells.map((header) =>
+      splitCellLines(header).map(roles.header).join('\n'),
+    ),
     bodyRows: fittedCells.bodyRows,
     measureHeaderCells: fittedCells.headerCells,
     measureBodyRows: fittedCells.bodyRows,
