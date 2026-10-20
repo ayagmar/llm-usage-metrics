@@ -268,6 +268,10 @@ describe('renderSummaryReport', () => {
       palette: {
         cyan: (text) => text,
         magenta: (text) => text,
+        red: (text) => text,
+        cyanBright: (text) => text,
+        magentaBright: (text) => text,
+        blueBright: (text) => text,
         blue: (text) => text,
         yellow: (text) => text,
         white: (text) => text,
@@ -392,6 +396,10 @@ describe('renderSummaryReport', () => {
         palette: {
           cyan: (text) => text,
           magenta: (text) => text,
+          red: (text) => text,
+          cyanBright: (text) => text,
+          magentaBright: (text) => text,
+          blueBright: (text) => text,
           blue: (text) => text,
           yellow: (text) => `<y>${text}</y>`,
           white: (text) => text,

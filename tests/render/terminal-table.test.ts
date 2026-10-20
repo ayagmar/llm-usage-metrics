@@ -1,5 +1,6 @@
 import { stripVTControlCharacters } from 'node:util';
 
+import pc from 'picocolors';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
@@ -432,6 +433,20 @@ describe('renderTerminalTable', () => {
     const colored = renderTerminalTable(sampleRows, { useColor: true });
 
     expect(stripAnsi(colored)).toBe(uncolored);
+  });
+
+  // picocolors emits nothing without a color terminal, so this runs where color is on (CI).
+  it.runIf(pc.isColorSupported)('styles every header cell bold, with no per-column hue', () => {
+    const colored = renderTerminalTable(sampleRows, { useColor: true });
+    const headerLine = colored.split('\n')[1];
+    const codes = new Set(
+      [...headerLine.matchAll(new RegExp(`${String.fromCharCode(27)}\\[([0-9;]*)m`, 'gu'))].map(
+        (match) => match[1],
+      ),
+    );
+
+    expect(codes.size).toBeGreaterThan(0);
+    expect([...codes].every((code) => code === '1' || code === '22')).toBe(true);
   });
 
   it('keeps unknown sources unchanged and still renders output', () => {
