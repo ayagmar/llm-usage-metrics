@@ -1,7 +1,5 @@
-import pc from 'picocolors';
-
 import type { UsageReportRow } from '../domain/usage-report-row.js';
-import { colorizeUsageBodyRows } from './terminal-style-policy.js';
+import { colorizeUsageBodyRows, createColorRoles } from './terminal-style-policy.js';
 import {
   compactHiddenUsageColumns,
   getVisibleUsageColumnIndexes,
@@ -101,40 +99,11 @@ export function shouldUseColorByDefault(): boolean {
   return stdoutIsTTY === true;
 }
 
-function styleHeader(header: string, index: number): string {
-  switch (index) {
-    case 1:
-      return pc.bold(pc.cyan(header));
-    case 2:
-      return pc.bold(pc.magenta(header));
-    case 3:
-    case 6:
-      return pc.bold(pc.blue(header));
-    case 4:
-    case 7:
-      return pc.bold(pc.cyan(header));
-    case 5:
-      return pc.bold(pc.magenta(header));
-    case 8:
-      return pc.bold(pc.green(header));
-    case 9:
-      return pc.bold(pc.yellow(header));
-    default:
-      return pc.bold(pc.white(header));
-  }
-}
-
 function colorizeHeader(headerCells: readonly string[], useColor: boolean): string[] {
-  if (!useColor) {
-    return [...headerCells];
-  }
+  const { header: styleHeader } = createColorRoles(useColor);
 
   // Style each line on its own so a stacked header never carries color across lines.
-  return headerCells.map((header, index) =>
-    splitCellLines(header)
-      .map((line) => styleHeader(line, index))
-      .join('\n'),
-  );
+  return headerCells.map((header) => splitCellLines(header).map(styleHeader).join('\n'));
 }
 
 function measureTableWidth(tableOutput: string): number {
