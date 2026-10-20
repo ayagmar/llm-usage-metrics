@@ -47,6 +47,11 @@ function normalizeAbsolutePath(value: string): string {
   return normalizeSeparators(root + path.posix.normalize(`/${value.slice(root.length)}`));
 }
 
+/** A `--repo` path, folded like project keys so a path inside a worktree or dependency selects its project. */
+function toPathValue(input: string, value: string): RepoFilterValue {
+  return { kind: 'path', input, path: toProjectKey(value) ?? value };
+}
+
 function toRepoFilterValue(input: string, context: RepoFilterContext): RepoFilterValue {
   if (input === UNATTRIBUTED_PROJECT_LABEL) {
     return { kind: 'unattributed', input };
@@ -55,26 +60,25 @@ function toRepoFilterValue(input: string, context: RepoFilterContext): RepoFilte
   const value = input.replaceAll('\\', '/');
 
   if (RELATIVE_PATTERN.test(value)) {
-    return {
-      kind: 'path',
+    return toPathValue(
       input,
-      path: normalizeSeparators(path.resolve(context.cwd ?? process.cwd(), value)),
-    };
+      normalizeSeparators(path.resolve(context.cwd ?? process.cwd(), value)),
+    );
   }
 
   if (HOME_PATTERN.test(value)) {
-    return {
-      kind: 'path',
+    return toPathValue(
       input,
-      path: normalizeSeparators(path.join(context.homeDir ?? os.homedir(), value.slice(1))),
-    };
+      normalizeSeparators(path.join(context.homeDir ?? os.homedir(), value.slice(1))),
+    );
   }
 
   if (ABSOLUTE_PATTERN.test(value)) {
-    return { kind: 'path', input, path: normalizeAbsolutePath(value) };
+    return toPathValue(input, normalizeAbsolutePath(value));
   }
 
-  return { kind: 'suffix', input, suffix: normalizeSeparators(value) };
+  const suffix = normalizeSeparators(value);
+  return { kind: 'suffix', input, suffix: toProjectKey(suffix) ?? suffix };
 }
 
 /**
