@@ -58,4 +58,4 @@ console.log(explained.pricingKey, explained.rule, explained.rates);
 
 Only `fetchLiteLLMPricing` calls the network, and only when you call it. `loadBundledPricing` reads the package's own data files from `dist/data/`; if the first read fails, the next call tries again. Nothing in `./pricing` writes a file or reads the environment, and importing it reads nothing.
 
-If you bundle your code, the files are read from a `data/` directory next to the bundled module. The reader uses literal `new URL('./data/…', import.meta.url)` paths, which webpack 5 copies as assets. Other bundlers, esbuild among them, leave them alone: copy `node_modules/@ayagmar/agent-sessions/dist/data/` to `data/` beside your bundle, or price with `createPricingSource`.
+The reader uses literal `new URL('./data/…', import.meta.url)` paths. If you bundle your code with a bundler that leaves those alone, esbuild among them, copy `node_modules/@ayagmar/agent-sessions/dist/data/` to a `data/` directory next to the bundled module, or price with `createPricingSource`.

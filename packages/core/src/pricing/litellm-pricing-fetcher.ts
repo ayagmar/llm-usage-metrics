@@ -530,7 +530,7 @@ export const packagedPricingData = new BundledPricingData(async (file) => {
   return JSON.parse(content) as unknown;
 });
 
-// Literal URLs, which a bundler such as webpack 5 can find and copy as assets.
+// Literal URLs, so a bundler that handles `new URL(..., import.meta.url)` can find the files.
 function packagedPricingFileUrl(file: BundledPricingFile): URL {
   switch (file) {
     case 'snapshot':

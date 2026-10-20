@@ -258,7 +258,7 @@ const priced = priceEvents(usageEvents, await loadBundledPricing(), { costMode: 
 - `estimateEventCostUsd(event, pricing)`: one event at one model's rates; `undefined` when a bucket the event used has no rate.
 - `explainModelPricing(source, model)`: the matched key and rule, override, origin, retired flag, rates and tiers, as `llm-usage pricing --json` prints them.
 
-Rates are USD per 1M tokens. The rates a source returns are shared with later calls: copy them before changing them. When you bundle the package, `loadBundledPricing` reads a `data/` directory next to the bundled module: webpack 5 copies the files from their literal `new URL()` paths, but with esbuild and most other bundlers, copy `dist/data/` there yourself. The site's [Pricing events](https://ayagmar.github.io/llm-usage-metrics/library/pricing/) page has a longer walk-through.
+Rates are USD per 1M tokens. The rates a source returns are shared with later calls: copy them before changing them. The data is read through literal `new URL('./data/…', import.meta.url)` paths. If you bundle the package with a bundler that leaves those alone, such as esbuild, copy `dist/data/` to a `data/` directory next to the bundled module. The site's [Pricing events](https://ayagmar.github.io/llm-usage-metrics/library/pricing/) page has a longer walk-through.
 
 ## Example: session forensics
 
