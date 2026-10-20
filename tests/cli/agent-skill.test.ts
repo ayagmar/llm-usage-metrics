@@ -34,26 +34,21 @@ function allLongFlags(command: Command): string[] {
   return [...longFlags(command), ...command.commands.flatMap(allLongFlags)];
 }
 
-// Spans that invoke the CLI: `llm-usage <command> ...`, or a bare `<command> ...` whose first
-// word names a top-level command, as the command table and the prose write them.
-function commandReferences(markdown: string, commandNames: Set<string>): CommandReference[] {
+// Words that start a code span without naming a command: metric values and other programs.
+const NON_COMMAND_WORDS = new Set(['active-hours', 'tokens', 'npm', 'npx']);
+
+// Spans that invoke the CLI: `llm-usage <command> ...`, or a bare `<command> ...` as the
+// command table and the prose write them. A bare lowercase first word counts as a command
+// even when the CLI does not know it, so a renamed command is reported instead of skipped.
+function commandReferences(markdown: string): CommandReference[] {
   return codeSpans(markdown).flatMap((span) => {
     const words = span.split(/\s+/u);
     if (words[0] === 'llm-usage') {
       return [{ span, words: words.slice(1) }];
     }
-    return commandNames.has(words[0] ?? '') ? [{ span, words }] : [];
+    const first = words[0] ?? '';
+    return /^[a-z][a-z-]*$/u.test(first) && !NON_COMMAND_WORDS.has(first) ? [{ span, words }] : [];
   });
-}
-
-// The second cell of each row of the "Pick the command" table must start with a command.
-function tableCommandCells(markdown: string): string[] {
-  return markdown
-    .split('\n')
-    .filter((line) => line.startsWith('| ') && !line.startsWith('| Question'))
-    .filter((line) => !line.startsWith('| -'))
-    .map((line) => line.split('|')[2]?.trim() ?? '')
-    .filter((cell) => cell.length > 0);
 }
 
 function resolveCommand(root: Command, words: string[]): { command: Command; rest: string[] } {
@@ -69,48 +64,55 @@ function resolveCommand(root: Command, words: string[]): { command: Command; res
   return { command, rest: words.slice(index) };
 }
 
+// Problems in one span: an unknown command or subcommand, a flag the command does not take,
+// or a value outside the flag's choices.
+function referenceProblems(root: Command, { span, words }: CommandReference): string[] {
+  const { command, rest } = resolveCommand(root, words);
+  const next = rest[0] ?? '';
+  if (command.commands.length > 0 && /^[a-z][a-z-]*$/u.test(next)) {
+    return [`${span}: unknown command ${next}`];
+  }
+
+  return rest.flatMap((word, index) => {
+    if (!word.startsWith('--')) {
+      return [];
+    }
+    const [flag, ...inlineValue] = word.split('=');
+    if (flag === '--help') {
+      return [];
+    }
+    const option = command.options.find((candidate) => candidate.long === flag);
+    if (!option) {
+      return [`${span}: ${flag}`];
+    }
+    const value = inlineValue.length > 0 ? inlineValue.join('=') : (rest.at(index + 1) ?? '');
+    const choices = option.argChoices;
+    return choices && !value.startsWith('<') && !choices.includes(value)
+      ? [`${span}: ${flag} ${value}`]
+      : [];
+  });
+}
+
 describe('agent skill', () => {
   const markdown = readFileSync(skillPath, 'utf8');
   const cli = createCli();
-  const commandNames = new Set(cli.commands.map((command) => command.name()));
 
   it('keeps the frontmatter name equal to the skill directory name', () => {
     expect(markdown).toMatch(/^---\nname: llm-usage-metrics\n/u);
   });
 
-  it('fails when a command the skill tells agents to run is renamed or removed', () => {
-    const cells = tableCommandCells(markdown);
-    expect(cells.length).toBeGreaterThan(10);
+  it('fails when a command, flag, or flag value the skill tells agents to use is renamed or removed', () => {
+    const references = commandReferences(markdown);
+    expect(references.length).toBeGreaterThan(40);
 
-    const unknown = cells.filter((cell) => {
-      const firstWord = (codeSpans(cell)[0] ?? '').split(/\s+/u)[0] ?? '';
-      return !commandNames.has(firstWord) && firstWord !== 'llm-usage';
-    });
-
-    expect(unknown).toEqual([]);
-  });
-
-  it('fails when a flag the skill passes to a command is renamed or removed from that command', () => {
-    const references = commandReferences(markdown, commandNames);
-    expect(references.length).toBeGreaterThan(20);
-
-    const unknown = references.flatMap(({ span, words }) => {
-      const { command, rest } = resolveCommand(cli, words);
-      const flags = new Set([...longFlags(command), '--help']);
-      return rest
-        .filter((word) => word.startsWith('--'))
-        .filter((flag) => !flags.has(flag.split('=')[0] ?? flag))
-        .map((flag) => `${span}: ${flag}`);
-    });
-
-    expect(unknown).toEqual([]);
+    expect(references.flatMap((reference) => referenceProblems(cli, reference))).toEqual([]);
   });
 
   it('fails when a flag the skill names on its own no longer exists on any command', () => {
     const flags = new Set(allLongFlags(cli));
     const unknown = codeSpans(markdown)
       .filter((span) => span.startsWith('--'))
-      .map((span) => span.split(/\s+/u)[0] ?? span)
+      .map((span) => span.split(/[\s=]/u)[0])
       .filter((flag) => !flags.has(flag));
 
     expect(unknown).toEqual([]);

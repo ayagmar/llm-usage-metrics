@@ -12,7 +12,7 @@ compatibility: Requires Node.js 22.16+ (not 23) or 24+, and npx or a global inst
 ## Run it
 
 - If `llm-usage --version` works, use `llm-usage`. Otherwise run `npx --yes llm-usage-metrics@latest <command>` (pin `llm-usage-metrics@<version>` in scripts). The examples below write `llm-usage`.
-- Add `--json` whenever you read the numbers yourself. Stdout is `{"schemaVersion": 1, "report": "<name>", "data": ...}`; diagnostics go to stderr. `llm-usage schema <name>` prints the JSON Schema of the installed version (`schema --list` names them). Don't parse the terminal tables: they drop columns on narrow terminals.
+- Add `--json` whenever you read the numbers yourself (`events` writes JSONL instead). Stdout is `{"schemaVersion": 1, "report": "<name>", "data": ...}`; diagnostics go to stderr. `llm-usage schema <name>` prints the JSON Schema of the installed version (`schema --list` names them). Don't parse the terminal tables: they drop columns on narrow terminals.
 - An empty report or a missing tool: run `llm-usage doctor`, which lists each source's search paths and whether it found usable logs.
 - Before using a flag not shown here, check `llm-usage <command> --help`. Flags differ per command.
 
@@ -30,7 +30,7 @@ compatibility: Requires Node.js 22.16+ (not 23) or 24+, and npx or a global inst
 | Month to date against the same days last month                | `compare`; pick other windows with `--since`, `--until`, `--vs-since`, and `--vs-until`                                  |
 | Am I near my plan window                                      | `blocks --source claude --last 1`                                                                                        |
 | Is my subscription worth its price                            | `value --plan claude-max-5x` (other plan ids are listed in `value --help`)                                               |
-| Which tools my agents call and which fail                     | `tools` (`--by-source`, `--by-repo`; Claude Code, Codex, and Pi only)                                                    |
+| Which tools my agents call and which fail                     | `tools` (`tools --by-source`, `tools --by-repo`; Claude Code, Codex, and Pi only)                                        |
 | Which sessions send the largest prompts                       | `context --by-session`                                                                                                   |
 | Cost or tokens over time                                      | `trends --metric cost --last 14` (`tokens`, `active-hours`)                                                              |
 | Usage against Git output                                      | `efficiency weekly --repo-dir <path>` (defaults to the repository containing the current directory)                      |
@@ -41,7 +41,7 @@ compatibility: Requires Node.js 22.16+ (not 23) or 24+, and npx or a global inst
 
 ## Scope it
 
-- Dates: `--since YYYY-MM-DD` and `--until YYYY-MM-DD` are inclusive, in the system timezone unless `--timezone <iana>`. `--last N` counts N days, weeks, or months (whichever the report uses), including the current one. `--all` covers the full history. Each report has its own default window, as in the table above.
+- Dates: `--since YYYY-MM-DD` and `--until YYYY-MM-DD` are inclusive, in the system timezone unless `--timezone <iana>`. `--last N` counts N days, weeks, or months (whichever the report uses; `hourly` counts days), including the current one. `--all` covers the full history. Each report has its own default window, as in the table above.
 - Tools: `--source claude,codex` filters by the tool that wrote the log. `--provider anthropic` filters by billing provider, so a Codex session can be `source=codex` and `provider=openai`. `--model` filters by model name, exact if one matches, otherwise by substring.
 - Projects: `--repo <path or name>` filters by the working directory the tool recorded. A path matches that directory and those under it; a name such as `work/api` matches the end of a directory.
 - Other machines: `llm-usage machine add <name> [ssh-target]` registers one (it needs llm-usage-metrics installed there and ssh without a prompt). Reports then include it and fetch its usage again when the cached copy is more than 10 minutes old. `--machine local` counts only this machine, `--no-sync` uses cached usage without ssh, `machine list` shows each machine's last sync, and `sync` fetches now.
