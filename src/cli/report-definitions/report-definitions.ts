@@ -984,7 +984,7 @@ const projectsReportDefinition: ReportRuntimeDefinition = {
         includeInCliReference: true,
       },
       {
-        command: 'llm-usage projects --last 3 --top 10',
+        command: 'llm-usage projects --last 3 --top 0',
         includeInCliReference: true,
       },
       {
@@ -1000,7 +1000,7 @@ const projectsReportDefinition: ReportRuntimeDefinition = {
           GRANULARITY_ARGUMENT_VALUES,
         ),
       )
-      .option('--top <n>', 'Show only the top N projects by cost (positive integer)')
+      .option('--top <n>', 'Show only the top N projects by cost (default 10; 0 shows all)')
       .option('--last <n>', 'Report the last N months, counting the current month');
     addFullHistoryOption(command);
     addTableDisplayOptions(command, 'the table', ROLLUP_COMPACT_DESCRIPTION);
@@ -1106,6 +1106,10 @@ const valueReportDefinition: ReportRuntimeDefinition = {
       .option(
         '--plan-price <usd>',
         "Monthly plan price in USD to use instead of the plan's list price (one plan only)",
+      )
+      .option(
+        '--top <n>',
+        'List only the top N projects of each month by cost (default 10; 0 lists all)',
       )
       .option('--last <n>', 'Report the last N months, counting the current month')
       .option('--all', 'Report every month since the first usage (the default without date flags)');

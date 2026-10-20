@@ -1,8 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { aggregateProjects } from '../../src/cli/build-projects-data.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+
+import { aggregateProjects, buildProjectsData } from '../../src/cli/build-projects-data.js';
 import { buildProjectsReport } from '../../src/cli/run-projects-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import { readFrom } from '../helpers/fake-read.js';
 import { freezeDate } from '../golden/golden-harness.js';
 import { createProjectFixtureAdapters } from '../golden/m9-project-fixture.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
@@ -254,7 +257,7 @@ describe('projects report', () => {
     expect(await countEvents({ last: '2' })).toBe(12);
   });
 
-  it('rejects --last with dates or --all, and a --top that is not a positive integer', async () => {
+  it('rejects --last with dates or --all, and a --top that is not a non-negative integer', async () => {
     await expect(
       buildProjectsReport({ ...options, last: '2', since: '2026-01-01' }, deps),
     ).rejects.toThrow('--last cannot be combined');
@@ -262,9 +265,9 @@ describe('projects report', () => {
       '--last cannot be combined',
     );
 
-    for (const top of ['0', '-1', '1.5', 'x']) {
+    for (const top of ['-1', '1.5', 'x']) {
       await expect(buildProjectsReport({ ...options, top }, deps)).rejects.toThrow(
-        '--top must be a positive integer',
+        '--top must be a non-negative integer',
       );
     }
   });
@@ -299,6 +302,37 @@ describe('projects report', () => {
     expect(output).toContain('| Week ');
     expect(output).toContain('2026-W25');
     expect(output).not.toContain('tools');
+  });
+
+  it('shows the top 10 projects by default, in JSON too, and every project with --top 0', async () => {
+    const createAdapters = (): SourceAdapter[] => [
+      {
+        id: 'claude',
+        discoverFiles: async () => ['/projects-test/claude.jsonl'],
+        read: readFrom(async () =>
+          Array.from({ length: 12 }, (_, index) =>
+            event({
+              timestamp: '2026-06-01T10:00:00.000Z',
+              repoRoot: `/w/p${String(index)}`,
+              costUsd: index + 1,
+            }),
+          ),
+        ),
+      },
+    ];
+    const byDefault = await buildProjectsData({ ...options, json: true }, { createAdapters });
+
+    expect(byDefault.projects.map((project) => project.project)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `p${String(11 - index)}`),
+    );
+    expect(byDefault.totals).toMatchObject({ projects: 12, costUsd: 78 });
+    expect(byDefault.limitNote).toBe(
+      'Showing the top 10 of 12 projects by cost over the whole window. Use --top 0 for all.',
+    );
+
+    const all = await buildProjectsData({ ...options, top: '0' }, { createAdapters });
+    expect(all.projects).toHaveLength(12);
+    expect(all.limitNote).toBeUndefined();
   });
 
   it('prints the empty message when filters match nothing', async () => {

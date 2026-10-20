@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildValueData } from '../../src/cli/build-value-data.js';
 import { buildValueReportOutput, runValueReport } from '../../src/cli/run-value-report.js';
+import { renderValueReport } from '../../src/render/render-value-report.js';
 import type { ValueCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { ValueReportData } from '../../src/value/build-value-report.js';
@@ -267,6 +268,67 @@ describe('value report', () => {
     await expect(
       buildValueReportOutput({ ...baseOptions, json: true, cost: false }, deps),
     ).rejects.toThrow('--no-cost applies to tables');
+  });
+
+  it('lists the top 10 projects of each month by default, in JSON too, and all with --top 0', async () => {
+    const createAdapters = (): SourceAdapter[] => [
+      {
+        id: 'claude',
+        discoverFiles: async () => ['/value-test/claude.jsonl'],
+        read: readFrom(async () =>
+          Array.from({ length: 12 }, (_, index) =>
+            createUsageEvent({
+              source: 'claude',
+              sessionId: `s${String(index)}`,
+              timestamp: '2026-06-01T10:00:00.000Z',
+              model: 'claude-sonnet-4-5',
+              inputTokens: 10 * (index + 1),
+              outputTokens: 1,
+              costUsd: index + 1,
+              repoRoot: `/w/p${String(index)}`,
+            }),
+          ),
+        ),
+      },
+    ];
+    const [month] = (await buildJson({}, { createAdapters })).plans[0].months;
+
+    expect(month.projects.map((project) => project.project)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `p${String(11 - index)}`),
+    );
+    expect(month.otherProjects).toMatchObject({ projects: 2, costUsd: 3 });
+
+    const all = await buildJson({ top: '0' }, { createAdapters });
+    expect(all.plans[0]?.months[0]).toMatchObject({ otherProjects: null });
+    expect(all.plans[0]?.months[0]?.projects).toHaveLength(12);
+
+    const limited = await buildValueData({ ...baseOptions, top: '3' }, { createAdapters });
+    expect(limited.limitNote).toBe(
+      'Showing the top 3 projects of each month by cost. Use --top 0 for all.',
+    );
+    const table = renderValueReport(limited.data, 'terminal', { useColor: false });
+    expect(table).toContain('and 9 more');
+    expect((await buildValueData(baseOptions, deps)).limitNote).toBeUndefined();
+
+    for (const top of ['-1', '1.5', 'x']) {
+      await expect(buildJson({ top }, { createAdapters })).rejects.toThrow(
+        '--top must be a non-negative integer',
+      );
+    }
+  });
+
+  it('lists each project on its own line in terminals too narrow for the table', async () => {
+    const { data } = await buildValueData(baseOptions, deps);
+    const output = renderValueReport(data, 'terminal', { useColor: false, terminalWidth: 60 });
+    const lines = output.split('\n');
+
+    expect(output).not.toContain('╭');
+    expect(lines).toContain('2026-06*');
+    const projectLines = lines.filter((line) => line.includes('•'));
+
+    // One line for May's project, four for June's, never two projects on a line.
+    expect(projectLines).toHaveLength(5);
+    expect(projectLines.every((line) => line.split('•').length === 2)).toBe(true);
   });
 
   it('says there is no usage instead of printing empty tables', async () => {

@@ -42,7 +42,8 @@
                 "costIncomplete": false,
                 "costShare": 1
               }
-            ]
+            ],
+            "otherProjects": null
           },
           {
             "month": "2026-06",
@@ -86,7 +87,8 @@
                 "costIncomplete": false,
                 "costShare": 0.068702
               }
-            ]
+            ],
+            "otherProjects": null
           }
         ],
         "total": {
@@ -132,7 +134,8 @@
                 "costIncomplete": false,
                 "costShare": 1
               }
-            ]
+            ],
+            "otherProjects": null
           },
           {
             "month": "2026-06",
@@ -176,7 +179,8 @@
                 "costIncomplete": false,
                 "costShare": 0.058149
               }
-            ]
+            ],
+            "otherProjects": null
           }
         ],
         "total": {

@@ -16,7 +16,12 @@ import {
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { resolveTtyColumns } from './table-text-layout.js';
+import {
+  padEndVisible,
+  padStartVisible,
+  resolveTtyColumns,
+  visibleWidth,
+} from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
@@ -30,6 +35,7 @@ export type RenderValueReportOptions = {
   /** Whether filters were passed, for the empty-report message. */
   filtered?: boolean;
   useColor?: boolean;
+  terminalWidth?: number;
 };
 
 type ValueColumn = 'month' | 'projects' | 'tokens' | 'apiCost' | 'plan' | 'ratio' | 'difference';
@@ -59,16 +65,48 @@ function resolveColumns(options: RenderValueReportOptions): ValueColumn[] {
   return options.compact ? columns : [...columns, 'difference'];
 }
 
-function formatProjects(month: ValueMonthRow, options: RenderValueReportOptions): string {
-  if (month.projects.length === 0) {
+/** One line per listed project, then one for the projects --top left out. */
+function formatProjects(
+  month: ValueMonthRow,
+  options: RenderValueReportOptions & { align: boolean },
+): string {
+  const entries = month.projects.map((project) => ({
+    label: project.project,
+    cost: formatApproxUsd(project.costUsd, project.costIncomplete),
+    share: `(${formatSharePercent(project.costShare)})`,
+  }));
+  const { otherProjects } = month;
+
+  if (otherProjects !== null) {
+    entries.push({
+      label: `and ${formatInteger(otherProjects.projects)} more`,
+      cost: formatApproxUsd(otherProjects.costUsd, otherProjects.costIncomplete),
+      share: `(${formatSharePercent(otherProjects.costShare)})`,
+    });
+  }
+
+  if (entries.length === 0) {
     return '-';
   }
 
-  return month.projects
-    .map((project) =>
-      options.hideCost
-        ? `• ${project.project}`
-        : `• ${project.project} ${formatApproxUsd(project.costUsd, project.costIncomplete)} (${formatSharePercent(project.costShare)})`,
+  if (options.hideCost) {
+    return entries.map((entry) => `• ${entry.label}`).join('\n');
+  }
+
+  if (!options.align) {
+    return entries.map((entry) => `• ${entry.label} ${entry.cost} ${entry.share}`).join('\n');
+  }
+
+  const widest = (values: string[]): number =>
+    values.reduce((max, value) => Math.max(max, visibleWidth(value)), 0);
+  const labelWidth = widest(entries.map((entry) => entry.label));
+  const costWidth = widest(entries.map((entry) => entry.cost));
+  const shareWidth = widest(entries.map((entry) => entry.share));
+
+  return entries
+    .map(
+      (entry) =>
+        `• ${padEndVisible(entry.label, labelWidth)}  ${padStartVisible(entry.cost, costWidth)} ${padStartVisible(entry.share, shareWidth)}`,
     )
     .join('\n');
 }
@@ -80,7 +118,7 @@ type ValueTableRow = {
 
 function toTableRows(
   plan: ValuePlanReport,
-  options: RenderValueReportOptions & { useColor: boolean },
+  options: RenderValueReportOptions & { useColor: boolean; align: boolean },
 ): ValueTableRow[] {
   const formatTokens = options.compact ? formatAbbreviatedTokenCount : formatInteger;
   const styleDifference = (value: number, formatted: string): string => {
@@ -115,7 +153,7 @@ function toTableRows(
       meta: { periodKey: 'ALL', periodGroup: 'summary', rowKind: 'total' },
       cells: {
         month: totalLabel,
-        projects: 'TOTAL',
+        projects: '',
         tokens: formatTokens(total.totalTokens),
         apiCost: formatApproxUsd(total.apiCostUsd, total.costIncomplete),
         plan: formatUsd(total.planPriceUsd),
@@ -190,7 +228,7 @@ function renderTerminalValueReport(
   }
 
   for (const plan of data.plans) {
-    const rows = toTableRows(plan, { ...options, useColor });
+    const rows = toTableRows(plan, { ...options, useColor, align: true });
     const bodyRows = rows.map((row) => columns.map((column) => row.cells[column]));
     const description = describePlan(plan, data.asOf, options.hideCost === true);
 
@@ -207,7 +245,9 @@ function renderTerminalValueReport(
           column === 'month' || column === 'projects' ? 'text' : 'measure',
         ),
         multilineColumnIndex: 1,
-        terminalWidth: resolveTtyColumns(process.stdout),
+        // Narrow terminals list each project on its own line, not in the month's title.
+        stackedTitleColumnCount: 1,
+        terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
       }),
     );
     lines.push('');
@@ -231,7 +271,7 @@ function renderMarkdownValueReport(
   const headerCells = columns.map((column) => COLUMN_HEADERS[column]);
   const alignment = columns.map((_, index) => (index <= 1 ? 'l' : 'r'));
   const sections = data.plans.map((plan) => {
-    const bodyRows = toTableRows(plan, { ...options, useColor: false }).map((row) =>
+    const bodyRows = toTableRows(plan, { ...options, useColor: false, align: false }).map((row) =>
       columns.map((column) => toMarkdownSafeCell(row.cells[column])),
     );
 
