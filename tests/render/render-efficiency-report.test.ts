@@ -99,6 +99,7 @@ function createEfficiencyDataResult(
       gitLinesAdded: 20,
       gitLinesDeleted: 8,
       repoMatchedUsageEvents: 2,
+      repoUsageDays: 1,
       repoExcludedUsageEvents: 0,
       repoUnattributedUsageEvents: 0,
     },
@@ -187,7 +188,7 @@ describe('renderEfficiencyReport', () => {
   it('escapes the repository path in the Markdown empty message', () => {
     const data = createEfficiencyDataResult();
     data.rows = data.rows.filter((row) => row.rowType === 'grand_total');
-    data.diagnostics.repoMatchedUsageEvents = 0;
+    data.diagnostics.repoUsageDays = 0;
     data.diagnostics.repoDir = '/home/me/my_repo_x';
 
     const output = renderEfficiencyReport(data, 'markdown', { granularity: 'monthly' });
@@ -240,10 +241,10 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('│ ALL');
   });
 
-  it('says the repository had no usage instead of printing a table of zeros', () => {
+  it('says the repository had no usage when its attributed events carry no tokens or cost', () => {
     const data = createEfficiencyDataResult();
     data.rows = data.rows.filter((row) => row.rowType === 'grand_total');
-    data.diagnostics.repoMatchedUsageEvents = 0;
+    data.diagnostics.repoUsageDays = 0;
     data.diagnostics.gitCommitCount = 0;
 
     const output = renderEfficiencyReport(data, 'terminal', {

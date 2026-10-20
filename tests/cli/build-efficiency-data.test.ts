@@ -268,6 +268,7 @@ describe('buildEfficiencyData', () => {
       gitLinesDeleted: 20,
       gitMalformedCommitLines: 3,
       repoMatchedUsageEvents: 1,
+      repoUsageDays: 1,
       repoExcludedUsageEvents: 1,
       repoUnattributedUsageEvents: 1,
     });

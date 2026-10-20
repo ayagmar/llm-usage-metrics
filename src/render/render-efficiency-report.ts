@@ -416,10 +416,10 @@ function formatNoEfficiencyUsageMessage(
   formatPath: (path: string) => string = (path) => path,
 ): string {
   const filtered = options.filtered ?? false;
-  const { repoMatchedUsageEvents, gitCommitCount } = efficiencyData.diagnostics;
+  const { repoUsageDays, gitCommitCount } = efficiencyData.diagnostics;
   const repoDir = formatPath(efficiencyData.diagnostics.repoDir);
 
-  return repoMatchedUsageEvents > 0 && gitCommitCount === 0
+  return repoUsageDays > 0 && gitCommitCount === 0
     ? formatNoUsageMessage(filtered, `in ${repoDir} on days with usage`, 'commits by you')
     : formatNoUsageMessage(filtered, `in ${repoDir}`);
 }
