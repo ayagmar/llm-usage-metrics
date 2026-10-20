@@ -1192,6 +1192,40 @@ describe('renderTerminalTable', () => {
     expect(plainLines.some((line) => /^ {2}Output +\S/u.test(line))).toBe(true);
   });
 
+  it.each([34, 44, 80])(
+    'wraps a listed title wider than %i columns instead of failing, with color on and off',
+    (terminalWidth) => {
+      const repoName = 'github.com/example-organization/a-really-long-repository-name-for-tests';
+      const rows = sampleRows.map((row) =>
+        row.rowType === 'period_source' ? { ...row, source: repoName } : row,
+      );
+
+      for (const useColor of [true, false]) {
+        const { output, fit } = renderTerminalTableWithFit(rows, { useColor, terminalWidth });
+        const plainLines = output.split('\n').map((line) => stripVTControlCharacters(line));
+        const titleStart = plainLines.findIndex((line) => line.startsWith('2026-02-10 · github'));
+        const titleLines = plainLines.slice(
+          titleStart,
+          plainLines.findIndex((line, index) => index > titleStart && line.startsWith('  ')),
+        );
+
+        expect(fit.stacked).toBe(true);
+        expect(maxLineWidth(output)).toBeLessThanOrEqual(terminalWidth);
+        expect(titleLines.join('')).toBe(`2026-02-10 · ${repoName}`);
+      }
+    },
+  );
+
+  it.skipIf(!pc.isColorSupported)('dims the labels of listed rows rather than bolding them', () => {
+    const { output } = renderTerminalTableWithFit(sampleRows, {
+      useColor: true,
+      terminalWidth: 30,
+    });
+
+    expect(output).toContain(`  ${pc.dim('Cost')}`);
+    expect(output).not.toContain(pc.bold('Cost'));
+  });
+
   it('lists each model as its own record when no per-model table fits', () => {
     const { output, fit } = renderTerminalTableWithFit(sampleRows, {
       useColor: true,

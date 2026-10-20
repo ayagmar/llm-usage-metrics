@@ -45,12 +45,19 @@ function render(
 }
 
 describe('renderPruneReport', () => {
-  it('lists a long path whole on a narrow terminal, with no space where the table wrapped it', () => {
+  it('wraps a listed path title wider than the terminal after its slashes, keeping every character', () => {
     restoreStdout = overrideStdoutTty(44);
 
-    const output = render([createCandidate(longPath)]);
+    const lines = render([createCandidate(longPath)]).split('\n');
+    const titleStart = lines.findIndex((line) => line.startsWith('claude · '));
+    const titleLines = lines
+      .slice(titleStart, lines.indexOf('', titleStart))
+      .filter((line) => !line.startsWith('  '));
 
-    expect(output.split('\n')).toContain(`claude · ${longPath}`);
+    expect(titleLines.length).toBeGreaterThan(1);
+    expect(titleLines.join('')).toBe(`claude · ${longPath}`);
+    expect(titleLines.slice(0, -1).every((line) => /[/_-]$/u.test(line))).toBe(true);
+    expect(Math.max(...titleLines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(44);
   });
 
   it('keeps a path on one line when the terminal has room for it', () => {
@@ -79,13 +86,13 @@ describe('renderPruneReport', () => {
   });
 
   // A listed row's title is the one exception: it keeps the path whole, to copy it.
-  it.each([44, 80, 120])('keeps every line but a path title within %i columns', (terminalWidth) => {
+  it.each([44, 80, 120])('keeps every line within %i columns', (terminalWidth) => {
     const output = render([createCandidate(longPath), createCandidate('/tmp/old.jsonl')], {
       terminalWidth,
     });
     const tooWide = output.split('\n').filter((line) => visibleWidth(line) > terminalWidth);
 
-    expect(tooWide).toEqual(terminalWidth < 80 ? [`claude · ${longPath}`] : []);
+    expect(tooWide).toEqual([]);
   });
 
   it('wraps a path to the room the terminal leaves, keeping every character', () => {

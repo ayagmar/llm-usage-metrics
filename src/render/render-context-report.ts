@@ -168,6 +168,7 @@ function renderTerminalContextReport(
       listOptions,
     );
     const { output, fit } = renderUnicodeTableWithFit({
+      labelStyler: roles.label,
       headerCells: table.headers.map((header) => roles.header(header)),
       bodyRows: full.bodyRows,
       measureHeaderCells: table.headers,

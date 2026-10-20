@@ -250,6 +250,7 @@ function renderTerminalBlocksReport(
 
   outputLines.push(
     renderUnicodeTable({
+      labelStyler: roles.label,
       headerCells: headers.map(roles.header),
       bodyRows: styleBodyRows(data, columns, bodyRows, roles),
       measureHeaderCells: headers,

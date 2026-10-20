@@ -1,3 +1,5 @@
+import { stripVTControlCharacters } from 'node:util';
+
 import {
   measureCellWidth,
   splitCellLines,
@@ -5,6 +7,7 @@ import {
   wrapTableColumn,
 } from './table-text-layout.js';
 import type { TableFitChanges } from './table-fit-note.js';
+import type { TextStyler } from './terminal-style-policy.js';
 
 type TableAlignment = 'left' | 'right';
 
@@ -62,6 +65,8 @@ type RenderUnicodeTableOptions = {
    * listed as label/value lines when it still does not fit.
    */
   terminalWidth?: number;
+  /** Styles the labels of a listed row; pass the `label` color role. */
+  labelStyler: TextStyler;
   fit?: UnicodeTableFit;
   /** Leading columns that name a listed row; defaults to those up to the multiline column. */
   stackedTitleColumnCount?: number;
@@ -326,13 +331,13 @@ function joinCellLines(cell: string): string {
 }
 
 /**
- * Wraps a plain line after spaces, `/`, or `-` so model names and paths break between
- * their parts; a part wider than the line is broken by width.
+ * Wraps a plain line after spaces, `/`, `-`, or `_` so model names, paths, and note codes
+ * break between their parts; a part wider than the line is broken by width.
  */
 export function wrapAtNameBreaks(line: string, width: number): string[] {
   const lines: string[] = [];
 
-  for (const piece of line.split(/(?<=[\s/-])/u)) {
+  for (const piece of line.split(/(?<=[\s/_-])/u)) {
     const lastLine = lines.at(-1);
 
     if (lastLine !== undefined && visibleWidth((lastLine + piece).trimEnd()) <= width) {
@@ -351,6 +356,8 @@ export function wrapAtNameBreaks(line: string, width: number): string[] {
  * Lists each row as a title line (the identifying columns) followed by one label/value
  * line per remaining column, for terminals too narrow for the boxed table. Measure
  * values share one right edge, the widest measure value in the list; text is unpadded.
+ * A title stays whole, so a path can be copied, unless it is wider than the terminal:
+ * then it wraps at name breaks, uncolored.
  */
 function renderStackedRows(options: {
   headerCells: readonly string[];
@@ -360,6 +367,7 @@ function renderStackedRows(options: {
   titleColumnCount: number;
   columnKinds: readonly TableColumnKind[];
   terminalWidth: number;
+  labelStyler: TextStyler;
 }): string {
   const valueColumnIndexes = options.headerCells
     .map((_, columnIndex) => columnIndex)
@@ -399,6 +407,10 @@ function renderStackedRows(options: {
       )
       .filter((cell) => cell.trim().length > 0)
       .join(' · ');
+    const titleLines =
+      visibleWidth(title) > options.terminalWidth
+        ? wrapAtNameBreaks(stripVTControlCharacters(title), options.terminalWidth)
+        : [title];
     const valueLines = valueColumnIndexes.flatMap((columnIndex) => {
       // A line too long for the terminal is wrapped from its uncolored text, without the
       // padding that aligned it in the boxed table; the lines that fit stay as they are.
@@ -423,7 +435,7 @@ function renderStackedRows(options: {
 
       const alignment = getColumnAlignment(options.columnKinds[columnIndex]);
       const label = alignCellLine(
-        joinCellLines(options.headerCells[columnIndex]),
+        options.labelStyler(joinCellLines(options.measureHeaderCells[columnIndex])),
         labelWidth,
         'left',
       );
@@ -434,7 +446,7 @@ function renderStackedRows(options: {
       });
     });
 
-    return [title, ...valueLines].join('\n');
+    return [...titleLines, ...valueLines].join('\n');
   });
 
   return records.join('\n\n');
@@ -501,6 +513,7 @@ export function renderUnicodeTableWithFit(options: RenderUnicodeTableOptions): {
       titleColumnCount: options.stackedTitleColumnCount ?? options.multilineColumnIndex + 1,
       terminalWidth,
       columnKinds: fullTable.columnKinds,
+      labelStyler: options.labelStyler,
     });
 
     return { output, fit: { abbreviatedTokens: false, hiddenHeaders: [], stacked: true } };
