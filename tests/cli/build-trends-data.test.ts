@@ -4,7 +4,7 @@ import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { createDefaultOpenAiPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 import { shiftDateKey } from '../../src/utils/date-key.js';
 import { readFrom } from '../helpers/fake-read.js';
 

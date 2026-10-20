@@ -5,7 +5,7 @@ import { computeUnionActiveMs, getEventSessionKey } from '@ayagmar/agent-session
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
-import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../pricing/cost-engine.js';
+import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/pricing';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';

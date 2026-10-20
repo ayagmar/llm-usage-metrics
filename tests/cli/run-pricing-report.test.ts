@@ -16,7 +16,7 @@ import { setLogLevel } from '../../src/utils/logger.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 
-const overridesPath = path.resolve('tests/fixtures/pricing/explain-overrides.json');
+const overridesPath = path.resolve('packages/core/tests/fixtures/pricing/explain-overrides.json');
 
 describe('pricing report', () => {
   const environment = useIsolatedEnvironment();

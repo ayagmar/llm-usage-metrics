@@ -1,11 +1,10 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { resolvePricingSource } from '../../src/cli/build-usage-data-pricing.js';
-import { getPricingFetcherRuntimeConfig } from '../../src/config/runtime-overrides.js';
 import { explainModelPricing } from '../../src/pricing/explain-model-pricing.js';
 import {
   explainCanonicalModelKey,
@@ -18,16 +17,20 @@ import {
 } from '../../src/pricing/litellm-pricing-fetcher.js';
 import litellmPricingSnapshot from '../../src/pricing/litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricing from '../../src/pricing/litellm-retired-pricing.json' with { type: 'json' };
-import { PricingOverrideSource } from '../../src/pricing/pricing-override-source.js';
+import {
+  loadPricingOverrides,
+  PricingOverrideSource,
+} from '../../src/pricing/pricing-override-source.js';
 import type {
   CanonicalModelKeyExplanation,
   ModelPricing,
   PricingSource,
 } from '../../src/pricing/types.js';
-import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
-import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
+import { noNetworkFetch } from '../helpers/no-network.js';
 
-const overridesPath = path.resolve('tests/fixtures/pricing/explain-overrides.json');
+const overridesPath = fileURLToPath(
+  new URL('../fixtures/pricing/explain-overrides.json', import.meta.url),
+);
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -47,7 +50,7 @@ const retiredKeys = Object.keys(litellmRetiredPricing.pricingByModel);
 /** The model names of the resolution reference table, read from that test file as is. */
 async function readReferenceModelNames(): Promise<string[]> {
   const text = await readFile(
-    path.resolve('tests/pricing/model-resolution-reference.test.ts'),
+    new URL('./model-resolution-reference.test.ts', import.meta.url),
     'utf8',
   );
   return [...text.matchAll(/^\s*\['([^']+)', (?:'[^']*'|null)\],$/gmu)].map((match) => match[1]);
@@ -110,16 +113,18 @@ function expectRuleHolds(normalizedModel: string, match: CanonicalModelKeyExplan
 }
 
 describe('explaining a name through the composed pricing source', () => {
-  useIsolatedEnvironment();
-  useBundledPricingOnly();
   let source: PricingSource;
   let names: string[];
 
   beforeAll(async () => {
-    ({ source } = await resolvePricingSource(
-      { pricingOffline: true, pricingOverrides: overridesPath },
-      getPricingFetcherRuntimeConfig(),
-    ));
+    // What the CLI composes for `--pricing-offline --pricing-overrides` with no cache file.
+    const fetcher = new LiteLLMPricingFetcher({
+      offline: true,
+      cacheFilePath: path.join(await createTempDir(), 'cache.json'),
+      fetchImpl: noNetworkFetch,
+    });
+    await fetcher.load();
+    source = new PricingOverrideSource(await loadPricingOverrides(overridesPath), fetcher);
     const referenceNames = await readReferenceModelNames();
     const overrideNames = await readOverrideNames();
     // Spellings that reach the matcher in other forms: case, padding, aliases of overrides.
@@ -240,6 +245,7 @@ describe('LiteLLMPricingFetcher explanations', () => {
     const fetcher = new LiteLLMPricingFetcher({
       cacheFilePath,
       offline: true,
+      fetchImpl: noNetworkFetch,
       now: () => fetchedAt + 1000,
     });
 

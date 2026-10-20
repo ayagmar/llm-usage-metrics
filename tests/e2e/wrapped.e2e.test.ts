@@ -9,7 +9,7 @@ import { buildWrappedData } from '../../src/cli/build-wrapped-data.js';
 import type { WrappedCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
-import { StaticPricingSource } from '../helpers/static-pricing-source.js';
+import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 
 type OpenCodeMessageFixture = {
   id: string;

@@ -12,10 +12,31 @@ import { pruneRetiredPricing } from './lib/prune-retired-pricing.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
-const snapshotPath = join(rootDir, 'src', 'pricing', 'litellm-pricing-snapshot.json');
-const retiredPricingPath = join(rootDir, 'src', 'pricing', 'litellm-retired-pricing.json');
-const modelMapPath = join(rootDir, 'src', 'pricing', 'litellm-model-map.json');
-const contextLimitsPath = join(rootDir, 'src', 'pricing', 'litellm-context-limits.json');
+const snapshotPath = join(
+  rootDir,
+  'packages',
+  'core',
+  'src',
+  'pricing',
+  'litellm-pricing-snapshot.json',
+);
+const retiredPricingPath = join(
+  rootDir,
+  'packages',
+  'core',
+  'src',
+  'pricing',
+  'litellm-retired-pricing.json',
+);
+const modelMapPath = join(rootDir, 'packages', 'core', 'src', 'pricing', 'litellm-model-map.json');
+const contextLimitsPath = join(
+  rootDir,
+  'packages',
+  'core',
+  'src',
+  'pricing',
+  'litellm-context-limits.json',
+);
 // Retired prices the live pricing already covers. They are not bundled, but each refresh
 // considers them again, and tests/pricing/retired-pricing-prune.test.ts checks that
 // dropping them changes no resolved price.
@@ -34,9 +55,12 @@ const {
   normalizeLiteLLMCachePayload,
   normalizeLitellmContextLimits,
   normalizeLitellmPricingPayload,
-} = await tsImport(join(rootDir, 'src', 'pricing', 'litellm-pricing-fetcher.ts'), import.meta.url);
+} = await tsImport(
+  join(rootDir, 'packages', 'core', 'src', 'pricing', 'litellm-pricing-fetcher.ts'),
+  import.meta.url,
+);
 const { resolveCanonicalModelKey } = await tsImport(
-  join(rootDir, 'src', 'pricing', 'litellm-model-matching.ts'),
+  join(rootDir, 'packages', 'core', 'src', 'pricing', 'litellm-model-matching.ts'),
   import.meta.url,
 );
 

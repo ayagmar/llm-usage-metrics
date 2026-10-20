@@ -12,6 +12,7 @@ import {
   type LiteLLMPricingFetcherOptions,
 } from '../../src/pricing/litellm-pricing-fetcher.js';
 import type { PricingTier } from '../../src/pricing/types.js';
+import { noNetworkFetch } from '../helpers/no-network.js';
 
 const tempDirs: string[] = [];
 
@@ -29,9 +30,13 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
-function createFetcher(options: LiteLLMPricingFetcherOptions = {}): LiteLLMPricingFetcher {
+function createFetcher(
+  options: Partial<LiteLLMPricingFetcherOptions> &
+    Pick<LiteLLMPricingFetcherOptions, 'cacheFilePath'>,
+): LiteLLMPricingFetcher {
   return new LiteLLMPricingFetcher({
     sourceUrl: 'https://example.test/litellm-pricing.json',
+    fetchImpl: noNetworkFetch,
     ...options,
   });
 }
@@ -842,7 +847,11 @@ describe('LiteLLMPricingFetcher', () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-bundled-limits-'));
     tempDirs.push(rootDir);
     const cacheFilePath = path.join(rootDir, 'cache.json');
-    const snapshotFetcher = new LiteLLMPricingFetcher({ cacheFilePath, offline: true });
+    const snapshotFetcher = new LiteLLMPricingFetcher({
+      cacheFilePath,
+      offline: true,
+      fetchImpl: noNetworkFetch,
+    });
     await snapshotFetcher.load();
 
     // A current-format default-URL cache written before the cache kept limits.
@@ -856,7 +865,11 @@ describe('LiteLLMPricingFetcher', () => {
       }),
       'utf8',
     );
-    const cacheFetcher = new LiteLLMPricingFetcher({ cacheFilePath, offline: true });
+    const cacheFetcher = new LiteLLMPricingFetcher({
+      cacheFilePath,
+      offline: true,
+      fetchImpl: noNetworkFetch,
+    });
     await cacheFetcher.load();
 
     expect(snapshotFetcher.getLoadOrigin()).toBe('bundled-snapshot');

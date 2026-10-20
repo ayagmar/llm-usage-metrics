@@ -1,3 +1,5 @@
+import type { CostMode, UsageEvent } from '../domain/usage-event.js';
+
 export type ReasoningBillingMode = 'included-in-output' | 'separate';
 
 /**
@@ -87,3 +89,6 @@ export type ModelPricingExplanation = {
   /** The pricing the cost engine applies; absent when the name is unpriced. */
   pricing?: ModelPricing;
 };
+
+/** A usage event with the cost mode the pricing engine reads and sets. */
+export type PricedUsageEvent = UsageEvent & { costMode: CostMode };

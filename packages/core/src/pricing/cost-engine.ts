@@ -1,6 +1,11 @@
-import type { UsageEvent } from '../domain/usage-event.js';
-import { isPriceableEvent, type BillableTokenUsage } from '@ayagmar/agent-sessions/internal';
-import type { ModelPricing, PriorityFallbackBucket, PricingSource, PricingTier } from './types.js';
+import { isPriceableEvent, type BillableTokenUsage } from '../domain/usage-event.js';
+import type {
+  ModelPricing,
+  PricedUsageEvent,
+  PriorityFallbackBucket,
+  PricingSource,
+  PricingTier,
+} from './types.js';
 
 const ONE_MILLION = 1_000_000;
 
@@ -23,9 +28,9 @@ export type PricingPolicy = {
  */
 export type PricingRunStats = {
   /** Events that logged $0 with tokens and were estimated instead. */
-  reestimatedExplicitZero: WeakSet<UsageEvent>;
+  reestimatedExplicitZero: WeakSet<PricedUsageEvent>;
   /** Events priced at a model's priority rates because it lists no standard rate. */
-  priorityPriced: WeakSet<UsageEvent>;
+  priorityPriced: WeakSet<PricedUsageEvent>;
 };
 
 export const DEFAULT_PRICING_POLICY: PricingPolicy = {
@@ -76,7 +81,7 @@ function splitOutputForBilling(
   };
 }
 
-export function calculateEstimatedCostUsd(event: UsageEvent, pricing: ModelPricing): number {
+export function calculateEstimatedCostUsd(event: PricedUsageEvent, pricing: ModelPricing): number {
   const billedOutput = splitOutputForBilling(event, pricing);
 
   const inputCost = estimateTokenGroupCost(event.inputTokens, pricing.inputPer1MUsd);
@@ -130,7 +135,7 @@ function toFlatTierRates(pricing: ModelPricing, tier: PricingTier): ModelPricing
 
 /** Whether `policy` prices `event` at per-request rates: it applies them and the event is one request. */
 export function usesPerRequestRates(
-  event: UsageEvent,
+  event: PricedUsageEvent,
   policy: Pick<PricingPolicy, 'perRequestRates'>,
 ): boolean {
   return policy.perRequestRates && event.singleRequest === true;
@@ -168,7 +173,7 @@ export function resolveRatesForEvent(
  * cannot be estimated at either.
  */
 export function estimateLongContextExtraUsd(
-  event: UsageEvent,
+  event: PricedUsageEvent,
   pricing: ModelPricing,
 ): number | undefined {
   const rates = resolveRatesForEvent(event, pricing, true);
@@ -243,10 +248,12 @@ export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPr
 }
 
 /** The event with no cost: reports leave it out of cost totals and mark them with `~`. */
-function withoutCost(event: UsageEvent): UsageEvent {
+function withoutCost<E extends PricedUsageEvent>(event: E): E {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- dropped on purpose
   const { costUsd, ...unpricedEvent } = event;
-  return { ...unpricedEvent, costMode: 'estimated' };
+  // `costUsd` is optional, so the event without it is still an `E`.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return { ...unpricedEvent, costMode: 'estimated' } as E;
 }
 
 /** What a policy does to one event, decided without building the priced event. */
@@ -270,7 +277,7 @@ const RELABELLED: PricingOutcome = { type: 'relabelled' };
 const UNPRICED: PricingOutcome = { type: 'unpriced' };
 
 function resolvePricingOutcome(
-  event: UsageEvent,
+  event: PricedUsageEvent,
   pricing: ModelPricing | undefined,
   policy: PricingPolicy,
 ): PricingOutcome {
@@ -317,11 +324,11 @@ function resolvePricingOutcome(
   };
 }
 
-function applyResolvedPricingToEvent(
-  event: UsageEvent,
+function applyResolvedPricingToEvent<E extends PricedUsageEvent>(
+  event: E,
   pricing: ModelPricing | undefined,
   { policy, stats }: PricingRun,
-): UsageEvent {
+): E {
   const outcome = resolvePricingOutcome(event, pricing, policy);
 
   switch (outcome.type) {
@@ -332,7 +339,7 @@ function applyResolvedPricingToEvent(
     case 'unpriced':
       return withoutCost(event);
     case 'priced': {
-      const pricedEvent: UsageEvent = { ...event, costUsd: outcome.costUsd, costMode: 'estimated' };
+      const pricedEvent: E = { ...event, costUsd: outcome.costUsd, costMode: 'estimated' };
 
       if (outcome.reestimatedExplicitZero) {
         stats.reestimatedExplicitZero.add(pricedEvent);
@@ -353,7 +360,7 @@ function applyResolvedPricingToEvent(
  * the model's rates from `createModelPricingLookup`, undefined when pricing did not load.
  */
 export function costUnderPolicy(
-  event: UsageEvent,
+  event: PricedUsageEvent,
   pricing: ModelPricing | undefined,
   policy: PricingPolicy,
 ): number | undefined {
@@ -373,7 +380,7 @@ export function costUnderPolicy(
 /** A bucket's tokens billed at the model's base rate, not a tier rate or the 1h write rate. */
 const TOKENS_AT_BASE_RATE: Record<
   PriorityFallbackBucket,
-  (event: UsageEvent, pricing: ModelPricing, rates: ModelPricing) => number
+  (event: PricedUsageEvent, pricing: ModelPricing, rates: ModelPricing) => number
 > = {
   input: (event, pricing, rates) =>
     rates.inputPer1MUsd === pricing.inputPer1MUsd ? event.inputTokens : 0,
@@ -400,7 +407,7 @@ const TOKENS_AT_BASE_RATE: Record<
  * a fallback bucket priced at the base rate, not by a long-context tier or the 1h write rate.
  */
 function usesPriorityFallbackRate(
-  event: UsageEvent,
+  event: PricedUsageEvent,
   pricing: ModelPricing,
   rates: ModelPricing,
 ): boolean {
@@ -418,7 +425,7 @@ function usesPriorityFallbackRate(
 export function createModelPricingLookup(
   pricingSource: PricingSource,
   costMode: PricingCostMode,
-): (event: UsageEvent) => ModelPricing | undefined {
+): (event: PricedUsageEvent) => ModelPricing | undefined {
   const pricingByModel = new Map<string, ModelPricing | undefined>();
   // A run repeats a few model names, so each name's rates are kept too: most events skip
   // the alias lookup.
@@ -447,11 +454,11 @@ export function createModelPricingLookup(
   };
 }
 
-export function applyPricingToEvents(
-  events: UsageEvent[],
+export function applyPricingToEvents<E extends PricedUsageEvent>(
+  events: E[],
   pricingSource: PricingSource,
   run: PricingRun = { policy: DEFAULT_PRICING_POLICY, stats: createPricingRunStats() },
-): UsageEvent[] {
+): E[] {
   const lookupPricing = createModelPricingLookup(pricingSource, run.policy.costMode);
 
   return events.map((event) => applyResolvedPricingToEvent(event, lookupPricing(event), run));

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { createPricedUsageEvent } from '../helpers/priced-usage-event.js';
 import {
   applyPricingToEvents,
   calculateEstimatedCostUsd,
@@ -19,7 +19,7 @@ describe('cost engine', () => {
       },
     });
 
-    const explicitEvent = createUsageEvent({
+    const explicitEvent = createPricedUsageEvent({
       source: 'pi',
       sessionId: 'session-1',
       timestamp: '2026-02-16T10:00:00Z',
@@ -43,7 +43,7 @@ describe('cost engine', () => {
       },
     });
 
-    const explicitZeroEvent = createUsageEvent({
+    const explicitZeroEvent = createPricedUsageEvent({
       source: 'pi',
       sessionId: 'session-1',
       timestamp: '2026-02-16T10:00:00Z',
@@ -74,10 +74,25 @@ describe('cost engine', () => {
       outputTokens: 50,
     };
     const events = [
-      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costUsd: 0, costMode: 'explicit' }),
-      createUsageEvent({ ...baseEvent, model: 'unknown-model', costUsd: 0, costMode: 'explicit' }),
-      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costUsd: 1.5, costMode: 'explicit' }),
-      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
+      createPricedUsageEvent({
+        ...baseEvent,
+        model: 'gpt-5-codex',
+        costUsd: 0,
+        costMode: 'explicit',
+      }),
+      createPricedUsageEvent({
+        ...baseEvent,
+        model: 'unknown-model',
+        costUsd: 0,
+        costMode: 'explicit',
+      }),
+      createPricedUsageEvent({
+        ...baseEvent,
+        model: 'gpt-5-codex',
+        costUsd: 1.5,
+        costMode: 'explicit',
+      }),
+      createPricedUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
     ];
     const stats = createPricingRunStats();
 
@@ -121,12 +136,26 @@ describe('cost engine', () => {
       outputTokens: 50,
     };
     const events = [
-      createUsageEvent({ ...baseEvent, model: 'priority-only', costMode: 'estimated' }),
-      createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 0, costMode: 'explicit' }),
-      createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 2, costMode: 'explicit' }),
-      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
-      createUsageEvent({ ...baseEvent, model: 'priority-cache-write', costMode: 'estimated' }),
-      createUsageEvent({
+      createPricedUsageEvent({ ...baseEvent, model: 'priority-only', costMode: 'estimated' }),
+      createPricedUsageEvent({
+        ...baseEvent,
+        model: 'priority-only',
+        costUsd: 0,
+        costMode: 'explicit',
+      }),
+      createPricedUsageEvent({
+        ...baseEvent,
+        model: 'priority-only',
+        costUsd: 2,
+        costMode: 'explicit',
+      }),
+      createPricedUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
+      createPricedUsageEvent({
+        ...baseEvent,
+        model: 'priority-cache-write',
+        costMode: 'estimated',
+      }),
+      createPricedUsageEvent({
         ...baseEvent,
         model: 'priority-cache-write',
         cacheWriteTokens: 10,
@@ -183,15 +212,15 @@ describe('cost engine', () => {
     const tiered = { ...baseEvent, model: 'priority-tiered' };
     const events = [
       // Above the tier: input and cache writes bill at the tier's standard rates.
-      createUsageEvent({ ...tiered, inputTokens: 150_000, cacheWriteTokens: 60_000 }),
+      createPricedUsageEvent({ ...tiered, inputTokens: 150_000, cacheWriteTokens: 60_000 }),
       // Below the tier, all cache writes at the 1h rate, which is not a priority rate.
-      createUsageEvent({ ...tiered, cacheWriteTokens: 1_000, cacheWrite1hTokens: 1_000 }),
+      createPricedUsageEvent({ ...tiered, cacheWriteTokens: 1_000, cacheWrite1hTokens: 1_000 }),
       // Below the tier, 5m cache writes at the priority rate.
-      createUsageEvent({ ...tiered, cacheWriteTokens: 1_000 }),
+      createPricedUsageEvent({ ...tiered, cacheWriteTokens: 1_000 }),
       // Above the tier, which sets no cache-read rate: those bill at the priority rate.
-      createUsageEvent({ ...tiered, inputTokens: 150_000, cacheReadTokens: 60_000 }),
+      createPricedUsageEvent({ ...tiered, inputTokens: 150_000, cacheReadTokens: 60_000 }),
       // No 1h rate: 1h writes bill at the priority 5m rate.
-      createUsageEvent({
+      createPricedUsageEvent({
         ...baseEvent,
         model: 'priority-no-1h-rate',
         cacheWriteTokens: 1_000,
@@ -229,7 +258,7 @@ describe('cost engine', () => {
       },
     });
 
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'codex',
       sessionId: 'session-2',
       timestamp: '2026-02-16T10:00:00Z',
@@ -267,7 +296,7 @@ describe('cost engine', () => {
 
     const [pricedEvent] = applyPricingToEvents(
       [
-        createUsageEvent({
+        createPricedUsageEvent({
           source: 'codex',
           sessionId: 'alias-single-event',
           timestamp: '2026-02-16T10:00:00Z',
@@ -288,7 +317,7 @@ describe('cost engine', () => {
   });
 
   it('bills the reasoning share of output at the reasoning rate when configured', () => {
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'codex',
       sessionId: 'session-3',
       timestamp: '2026-02-16T10:00:00Z',
@@ -312,7 +341,7 @@ describe('cost engine', () => {
   });
 
   it('bills one-hour cache writes at the one-hour rate and the rest at the cache-write rate', () => {
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'claude',
       sessionId: 'session-1h',
       timestamp: '2026-02-16T10:00:00Z',
@@ -333,7 +362,7 @@ describe('cost engine', () => {
   });
 
   it('charges separately billed reasoning only once when its rate equals the output rate', () => {
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'gemini',
       sessionId: 'session-flash',
       timestamp: '2026-02-16T10:00:00Z',
@@ -365,7 +394,7 @@ describe('cost engine', () => {
       },
     });
 
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'codex',
       sessionId: 'session-4',
       timestamp: '2026-02-16T10:00:00Z',
@@ -391,7 +420,7 @@ describe('cost engine', () => {
       },
     });
 
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'opencode',
       sessionId: 'session-total-only',
       timestamp: '2026-02-16T10:00:00Z',
@@ -416,7 +445,7 @@ describe('cost engine', () => {
       },
     });
 
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'opencode',
       sessionId: 'session-reasoning-only',
       timestamp: '2026-02-16T10:00:00Z',
@@ -444,7 +473,7 @@ describe('cost engine', () => {
       },
     });
 
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'codex',
       sessionId: 'session-reasoning-only-separate',
       timestamp: '2026-02-16T10:00:00Z',
@@ -470,7 +499,7 @@ describe('cost engine', () => {
       },
     });
 
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'codex',
       sessionId: 'session-cache-read-only',
       timestamp: '2026-02-16T10:00:00Z',
@@ -496,7 +525,7 @@ describe('cost engine', () => {
       },
     });
 
-    const event = createUsageEvent({
+    const event = createPricedUsageEvent({
       source: 'codex',
       sessionId: 'session-cache-write-only',
       timestamp: '2026-02-16T10:00:00Z',
@@ -530,7 +559,7 @@ describe('cost engine', () => {
     };
 
     const events = [
-      createUsageEvent({
+      createPricedUsageEvent({
         source: 'codex',
         sessionId: 'session-a',
         timestamp: '2026-02-16T10:00:00Z',
@@ -539,7 +568,7 @@ describe('cost engine', () => {
         outputTokens: 50,
         costMode: 'estimated',
       }),
-      createUsageEvent({
+      createPricedUsageEvent({
         source: 'codex',
         sessionId: 'session-b',
         timestamp: '2026-02-16T10:01:00Z',
@@ -548,7 +577,7 @@ describe('cost engine', () => {
         outputTokens: 100,
         costMode: 'estimated',
       }),
-      createUsageEvent({
+      createPricedUsageEvent({
         source: 'codex',
         sessionId: 'session-c',
         timestamp: '2026-02-16T10:02:00Z',
@@ -557,7 +586,7 @@ describe('cost engine', () => {
         outputTokens: 150,
         costMode: 'estimated',
       }),
-      createUsageEvent({
+      createPricedUsageEvent({
         source: 'codex',
         sessionId: 'session-d',
         timestamp: '2026-02-16T10:03:00Z',
@@ -597,7 +626,7 @@ describe('cost engine', () => {
 
     const pricedEvents = applyPricingToEvents(
       [
-        createUsageEvent({
+        createPricedUsageEvent({
           source: 'codex',
           sessionId: 'session-a',
           timestamp: '2026-02-16T10:00:00Z',
@@ -606,7 +635,7 @@ describe('cost engine', () => {
           outputTokens: 50,
           costMode: 'estimated',
         }),
-        createUsageEvent({
+        createPricedUsageEvent({
           source: 'codex',
           sessionId: 'session-b',
           timestamp: '2026-02-16T10:01:00Z',
@@ -646,7 +675,7 @@ describe('cost engine', () => {
     };
 
     function promptOf(tokens: { input?: number; cacheRead?: number; cacheWrite?: number }) {
-      return createUsageEvent({
+      return createPricedUsageEvent({
         source: 'claude',
         sessionId: 'session-1',
         timestamp: '2026-02-16T10:00:00Z',
@@ -725,7 +754,7 @@ describe('cost engine', () => {
 
     it('bills one-hour cache writes at the tier one-hour rate', () => {
       const source = new StaticPricingSource({ pricingByModel: { 'tiered-model': tieredPricing } });
-      const event = createUsageEvent({
+      const event = createPricedUsageEvent({
         source: 'claude',
         sessionId: 'session-1',
         timestamp: '2026-02-16T10:00:00Z',
