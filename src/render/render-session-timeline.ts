@@ -191,7 +191,6 @@ export function renderTerminalSessionTimeline(
       measureHeaderCells: timelineHeaders,
       measureBodyRows: bodyRows,
       rowMetas: bodyRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
-      layout: 'top_aligned',
       columnKinds: columnKindsFromAlign(timelineAlign),
       multilineColumnIndex: EVENT_COLUMN_INDEX,
       multilineColumnWidth: EVENT_COLUMN_WIDTH,

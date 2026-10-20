@@ -2,28 +2,13 @@
 │ Context Pressure Report │
 └─────────────────────────┘
 
-gemini-2.5-pro
-  Requests            2
-  Peak          250,000
-  >200k               1
-  Tier extra      $0.31
-  Limit       1,048,576
-  >80% limit          0
+╭───────────────────┬──────────┬──────┬───────┬────────────╮
+│ Model             │ Requests │ Peak │ >200k │ >80% limit │
+├───────────────────┼──────────┼──────┼───────┼────────────┤
+│ gemini-2.5-pro    │        2 │ 250K │     1 │          0 │
+│ claude-sonnet-4-5 │        2 │ 175K │     0 │          1 │
+│ acme-internal-1   │        1 │   9K │     0 │          - │
+╰───────────────────┴──────────┴──────┴───────┴────────────╯
 
-claude-sonnet-4-5
-  Requests            2
-  Peak          175,000
-  >200k               0
-  Tier extra      $0.00
-  Limit         200,000
-  >80% limit          1
-
-acme-internal-1
-  Requests            1
-  Peak            9,000
-  >200k               0
-  Tier extra          -
-  Limit               -
-  >80% limit          -
-
-Aggregated, not per request: codex (1 record). Their records sum several requests, so they have no peak or tier counts.
+Aggregated, not per request: codex (1 record). Their records
+sum several requests, so they have no peak or tier counts.

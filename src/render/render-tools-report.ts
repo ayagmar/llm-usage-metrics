@@ -111,7 +111,6 @@ function renderTerminalToolsReport(
       measureHeaderCells: table.headers,
       measureBodyRows: table.rows,
       rowMetas: table.rowMetas,
-      layout: 'top_aligned',
       columnKinds: columnKindsFromAlign(table.align),
       multilineColumnIndex: 0,
       terminalWidth,

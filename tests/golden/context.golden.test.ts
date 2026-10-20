@@ -17,6 +17,7 @@ const [
   bySessionTerminal,
   allJson,
   narrowTerminal,
+  bySessionNarrowTerminal,
   emptyTerminal,
 ] = M12_CONTEXT_GOLDEN_NAMES;
 
@@ -62,6 +63,7 @@ describe('context goldens', () => {
     [contextTerminal, {}, TERMINAL_COLUMNS],
     [bySessionTerminal, { bySession: true }, TERMINAL_COLUMNS],
     [narrowTerminal, {}, 60],
+    [bySessionNarrowTerminal, { bySession: true }, 80],
     [emptyTerminal, { repo: 'no-such-project' }, TERMINAL_COLUMNS],
   ] as const)('freezes %s', async (name, extra, columns) => {
     const output = await renderTerminal(extra, columns);

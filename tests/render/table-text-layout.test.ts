@@ -5,6 +5,7 @@ import {
   truncateMiddle,
   truncateTableColumn,
   visibleWidth,
+  wrapProse,
   wrapTableColumn,
 } from '../../src/render/table-text-layout.js';
 
@@ -119,5 +120,29 @@ describe('table-text-layout', () => {
         width: 9,
       }),
     ).toEqual([['2026-01', 'alph…name\nbeta', '10']]);
+  });
+
+  describe('wrapProse', () => {
+    const note =
+      'Aggregated, not per request: codex (1 record). Their records sum several requests.';
+
+    it('wraps between words to the width and keeps every word', () => {
+      const lines = wrapProse(note, 30).split('\n');
+
+      expect(lines.every((line) => visibleWidth(line) <= 30)).toBe(true);
+      expect(lines.join(' ')).toBe(note);
+    });
+
+    it('wraps each paragraph on its own', () => {
+      expect(wrapProse('one two three\nfour', 9)).toBe('one two\nthree\nfour');
+    });
+
+    it('breaks a word only when it is wider than a whole line', () => {
+      expect(wrapProse('see /a/very/long/path/name', 10)).toBe('see\n/a/very/lo\nng/path/na\nme');
+    });
+
+    it('leaves the text as it is without a width, as for piped output', () => {
+      expect(wrapProse(note, undefined)).toBe(note);
+    });
   });
 });

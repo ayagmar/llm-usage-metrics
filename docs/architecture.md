@@ -281,7 +281,9 @@ This removes unnecessary work and avoids leaking usage-table-specific model meta
 - `periodKey`
 - `rowKind` (`detail`, `combined`, `total`)
 
-That keeps sorting and separator behavior deterministic without coupling the generic table renderer to `UsageReportRow`.
+That keeps sorting and separator behavior deterministic without coupling the generic table renderer to `UsageReportRow`. A rule separates period groups and sets off the `total` row; rows of one group (and every row of a flat list) share it. Every cell starts on its row's first line.
+
+With a terminal width, a caller's `fit` (abbreviated body rows and an ordered list of hideable columns) gives the table its fit ladder: the full table, then abbreviated values, then those values with one more hideable column left out per step. The first step that fits is boxed. Only when the last step is too wide are rows listed as label/value lines, with every column in full detail; a title cell the table wrapped is taken from its measure cell, so callers pass that text unwrapped. The usage table (`terminal-table.ts`) runs its own steps through the same `findFittingStep` loop.
 
 ## Module map
 
