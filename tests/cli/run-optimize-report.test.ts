@@ -342,4 +342,32 @@ describe('run-optimize-report', () => {
     expect(stderrLines.some((line) => line.includes('Wrote optimize share report'))).toBe(true);
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('states an inferred provider and scopes the share usage to it', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'optimize-share-inferred-'));
+    tempDirs.push(tempDir);
+    const previousCwd = process.cwd();
+    process.chdir(tempDir);
+    const optimizeData = await buildOptimizeData('weekly', { candidateModel: ['gpt-4.1'] });
+    vi.mocked(buildOptimizeData).mockResolvedValueOnce({
+      ...optimizeData,
+      diagnostics: { ...optimizeData.diagnostics, inferredProvider: 'openai' },
+    });
+    vi.mocked(buildShareReport).mockResolvedValue({ data: readFixturePayload().data });
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runOptimizeReport('weekly', { candidateModel: ['gpt-4.1'], share: true });
+    } finally {
+      process.chdir(previousCwd);
+    }
+
+    const [request] = vi.mocked(buildShareReport).mock.calls.at(-1) ?? [];
+    expect(request?.options).toMatchObject({ provider: 'openai' });
+    // The narrowed scope is stated, since the baseline leaves other providers out.
+    expect(consoleErrorSpy.mock.calls.map((call) => String(call[0]))).toContainEqual(
+      expect.stringContaining('Scoped to openai, the provider of the candidate models'),
+    );
+  });
 });

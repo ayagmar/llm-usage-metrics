@@ -37,8 +37,7 @@ llm-usage optimize monthly \
 
 - Uses the same source discovery and filtering pipeline as usage reports.
 - Requires at least one `--candidate-model`.
-- Enforces a single provider context after filtering.
-- If multiple providers remain, narrow with `--provider`.
+- Prices one provider's usage. When several providers remain after filtering and no `--provider` is given, the provider of the candidate models is used if it is one of them; otherwise narrow with `--provider`.
 - `--provider` matches canonical billing entities after provider normalization.
 - Provider aliases are normalized to billing roots first (for example, `openai-codex` is treated as `openai`).
 - Candidate ranking is deterministic and based on `ALL` period hypothetical cost; every candidate you pass is listed; `--top N` keeps the N cheapest (`--top 0` lists all).

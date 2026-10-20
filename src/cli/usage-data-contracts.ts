@@ -390,6 +390,8 @@ export type EfficiencyDataResult = {
 
 export type OptimizeDiagnostics = UsageDiagnostics & {
   provider: string;
+  /** Set when, with no --provider, the candidates' provider scoped a multi-provider run. */
+  inferredProvider?: string;
   baselineCostIncomplete: boolean;
   candidatesWithMissingPricing: string[];
   warning?: string;
