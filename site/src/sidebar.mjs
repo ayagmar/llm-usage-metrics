@@ -51,6 +51,7 @@ export const sidebar = [
     items: [
       { label: 'Overview', slug: 'library' },
       { label: 'Reading and composing', slug: 'library/guide' },
+      { label: 'Pricing events', slug: 'library/pricing' },
       { label: 'Versioning and cursors', slug: 'library/contracts' },
     ],
   },

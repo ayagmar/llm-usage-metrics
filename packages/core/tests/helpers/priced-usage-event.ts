@@ -3,21 +3,17 @@ import {
   type CostMode,
   type UsageEventInput,
 } from '../../src/domain/usage-event.js';
+import { resolveCostMode } from '../../src/pricing/cost-engine.js';
 import type { PricedUsageEvent } from '../../src/pricing/types.js';
 
 export type PricedUsageEventInput = UsageEventInput & { costMode?: CostMode };
 
 /**
- * A usage event as the pricing engine receives it: a logged cost is explicit by default.
- * Mirrors the CLI's `createUsageEvent` (src/domain/usage-event.ts); keep the two in step.
+ * A usage event as the pricing engine receives it: a logged cost is explicit by default, by
+ * the rule the CLI's `createUsageEvent` applies too.
  */
 export function createPricedUsageEvent(input: PricedUsageEventInput): PricedUsageEvent {
   const event = createUsageEvent(input);
-  const costMode = input.costMode ?? (event.costUsd === undefined ? 'estimated' : 'explicit');
 
-  if (costMode === 'explicit' && event.costUsd === undefined) {
-    throw new Error('UsageEvent with costMode "explicit" requires costUsd');
-  }
-
-  return { ...event, costMode };
+  return { ...event, costMode: resolveCostMode(input.costMode, event.costUsd) };
 }

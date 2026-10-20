@@ -7,10 +7,10 @@ import {
   pruneRetiredPricing,
   pricingProbeNames,
 } from '../../scripts/lib/prune-retired-pricing.mjs';
-import { normalizeKey, resolveCanonicalModelKey } from '@ayagmar/agent-sessions/pricing';
-import snapshotPayload from '../../packages/core/src/pricing/litellm-pricing-snapshot.json' with { type: 'json' };
-import retiredPricingPayload from '../../packages/core/src/pricing/litellm-retired-pricing.json' with { type: 'json' };
-import type { ModelPricing } from '@ayagmar/agent-sessions/pricing';
+import { normalizeKey, resolveCanonicalModelKey } from '@ayagmar/agent-sessions/internal';
+import snapshotPayload from '../../packages/core/src/pricing/data/litellm-pricing-snapshot.json' with { type: 'json' };
+import retiredPricingPayload from '../../packages/core/src/pricing/data/litellm-retired-pricing.json' with { type: 'json' };
+import type { ModelPricing } from '@ayagmar/agent-sessions/internal';
 import prunedRetiredPricingPayload from '../fixtures/pricing/pruned-retired-pricing.json' with { type: 'json' };
 
 function toPricingMap(pricingByModel: Record<string, ModelPricing>): Map<string, ModelPricing> {

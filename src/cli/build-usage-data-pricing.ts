@@ -1,5 +1,4 @@
 import type { UsageEvent } from '../domain/usage-event.js';
-import { isPriceableEvent } from '@ayagmar/agent-sessions/internal';
 import {
   getPricingFetcherRuntimeConfig,
   type PricingFetcherRuntimeConfig,
@@ -8,6 +7,7 @@ import {
   applyPricingToEvents,
   createPricingRunStats,
   DEFAULT_PRICING_POLICY,
+  isPriceableEvent,
   loadPricingOverrides,
   PricingOverrideSource,
   type ModelPricing,
@@ -15,7 +15,7 @@ import {
   type PricingPolicy,
   type PricingRunStats,
   type PricingSource,
-} from '@ayagmar/agent-sessions/pricing';
+} from '@ayagmar/agent-sessions/internal';
 import { createLiteLLMPricingFetcher } from '../pricing/cli-pricing-fetcher.js';
 
 import type {

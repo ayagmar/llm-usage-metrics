@@ -15,8 +15,8 @@ import {
   DEFAULT_LITELLM_PRICING_URL,
   LiteLLMPricingFetcher,
 } from '../../src/pricing/litellm-pricing-fetcher.js';
-import litellmPricingSnapshot from '../../src/pricing/litellm-pricing-snapshot.json' with { type: 'json' };
-import litellmRetiredPricing from '../../src/pricing/litellm-retired-pricing.json' with { type: 'json' };
+import litellmPricingSnapshot from '../../src/pricing/data/litellm-pricing-snapshot.json' with { type: 'json' };
+import litellmRetiredPricing from '../../src/pricing/data/litellm-retired-pricing.json' with { type: 'json' };
 import {
   loadPricingOverrides,
   PricingOverrideSource,

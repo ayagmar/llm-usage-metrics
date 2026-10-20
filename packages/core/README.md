@@ -2,7 +2,7 @@
 
 Parsers for the session logs that local coding agents (Claude Code, Codex, Gemini CLI, OpenCode and others) write to disk. Each source turns its agent's files into one normalized usage event shape, so tools can count tokens, sessions and active time across agents without knowing each log format. It is the parsing layer of [llm-usage-metrics](https://github.com/ayagmar/llm-usage-metrics), split out so other tools can use it.
 
-The package is read-only: it makes no network calls, never writes to the agents' stores, and reads nothing (environment, home directory, files) at import. See [Security posture](#security-posture).
+The package is read-only: it never writes to the agents' stores, reads nothing (environment, home directory, files) at import, and calls the network only when you call `fetchLiteLLMPricing`. See [Security posture](#security-posture).
 
 The package is at 0.x: see [Versioning](#versioning) for what is stable. Install it with `npm install @ayagmar/agent-sessions`.
 
@@ -14,9 +14,10 @@ The site has a guided introduction: [Reading and composing](https://ayagmar.gith
 - `@ayagmar/agent-sessions/registry`: every source registered in a fixed order, with `createDefaultAdapters`, `getDefaultSourceIds`, `getSourceStorageFormat` and `readSources`.
 - `@ayagmar/agent-sessions/sources/<id>`: one adapter per entry (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity`, `dsh`). Importing one entry loads no other source's code, except that `roocode` and `kilocode` load `cline`, whose family adapter builds them.
 - `@ayagmar/agent-sessions/otel`: experimental OpenTelemetry GenAI attributes for events. See [OpenTelemetry attributes](#opentelemetry-attributes).
-- `@ayagmar/agent-sessions/internal`: helpers the CLI still uses (parsing and discovery utilities, the SQLite loader, fingerprint and hash-count helpers, provider normalization, terminal text helpers). Not a public API.
+- `@ayagmar/agent-sessions/pricing`: experimental, prices usage events with LiteLLM rates as the CLI does. See [Pricing](#pricing).
+- `@ayagmar/agent-sessions/internal`: helpers the CLI still uses (parsing and discovery utilities, the SQLite loader, fingerprint and hash-count helpers, provider normalization, terminal text helpers, the pricing engine and the CLI's caching pricing fetcher). Not a public API.
 
-Importing `.` or `./internal` loads no source module; `./registry` loads them all.
+Importing `.`, `./pricing` or `./internal` loads no source module; `./registry` loads them all.
 
 The main entry also exports these helpers:
 
@@ -29,8 +30,9 @@ The main entry also exports these helpers:
 
 ## Security posture
 
-- **Read-only.** Adapters open files and databases for reading only. SQLite databases are opened with `readOnly: true`; SQLite itself may still update a WAL database's `-shm` index, as any reader does. The core writes no data to an agent's store and no files of its own. `./internal` also ships the CLI's file-writing helpers (`ensureDirectory`, `writeFileAtomic`), which no published entry calls yet.
-- **No network.** The core imports no network module and calls no network API; lint enforces both.
+- **Read-only.** Adapters open files and databases for reading only. SQLite databases are opened with `readOnly: true`; SQLite itself may still update a WAL database's `-shm` index, as any reader does. The core writes no data to an agent's store, and no public entry point writes a file. `./internal` also ships the CLI's file-writing helpers (`ensureDirectory`, `writeFileAtomic`) and its pricing fetcher, `LiteLLMPricingFetcher`, which writes the `cacheFilePath` its caller passes and fetches with the `fetchImpl` its caller injects.
+- **Network only on request.** `fetchLiteLLMPricing` on `./pricing` makes one GET with the global `fetch` (two retries) when you call it; it is the one file lint lets use `fetch`. Nothing else imports a network module or calls a network API, and lint enforces both.
+- **Bundled data.** `./pricing` reads its own files under `dist/data/` (the LiteLLM snapshot, retired prices and context limits) on the first call that needs them, never at import.
 - **Nothing read at import.** Importing any entry reads no file, environment variable or home directory. Host state comes from a `SourceContext`, filled when you call `createSourceContext()` or build an adapter.
 - **Private text is opt-in.** Message text and session titles are set only with `text: true`, and the parsed source record only with `raw: true`. Without them, events carry counts, ids, models, timestamps, `cwd`, `repoRoot` and `gitBranch`. See [Privacy](#privacy).
 - **No console output.** Problems an adapter does not throw for go to `context.onDiagnostic`.
@@ -63,6 +65,7 @@ Outside that promise:
 
 - `./internal`: helpers for the CLI, changed whenever the CLI needs to.
 - `./otel`: experimental, see [OpenTelemetry attributes](#opentelemetry-attributes).
+- `./pricing`: experimental, see [Pricing](#pricing). The bundled prices change with every snapshot refresh.
 - Names tagged `@internal` on a public subpath: `canParseSourceOnWorker`, `createWorkerParseAdapter`, `getParseWorkerRoots` and `sourceSupportsDirectories` on `./registry`, `LEGACY_CODEX_MODEL_FALLBACK` on `./sources/codex`, and the test seams in the adapter options types (`defaultRootDirs`, `resolveDefaultDbPaths`, `pathExists`, `pathReadable`, `pathIsDirectory`, `pathIsFile`, `loadSqliteModule`, `sleep`).
 
 Two versions tell a cache when stored events are stale:
@@ -72,7 +75,7 @@ Two versions tell a cache when stored events are stale:
 
 `getParserVersion(adapter)` combines both. Key stored events on it, on the file, and on the files `getParseDependencies` returns.
 
-The published tarball holds `dist`, `README.md`, `LICENSE`, `package.json` and, once versioned, `CHANGELOG.md`; `pnpm run core:pack:check` verifies that, that the package has no dependencies, and that each subpath loads on its own from an installed tarball.
+The published tarball holds `dist`, `README.md`, `LICENSE`, `package.json` and, once versioned, `CHANGELOG.md`; `pnpm run core:pack:check` verifies that, that the package has no dependencies, that each subpath loads on its own from an installed tarball, and that `./pricing` prices an event from it under Node and, when installed, Bun.
 
 ## Reading a file
 
@@ -236,6 +239,26 @@ A usage event with `singleRequest: true` records exactly one model request, so p
 ## OpenTelemetry attributes
 
 `@ayagmar/agent-sessions/otel` maps events to OpenTelemetry GenAI semantic-convention attributes: `usageRecordAttributes`, `toolCallAttributes` and `sessionAttributes`, each returning a plain `Record<string, string | number | boolean>`. It is experimental: the GenAI conventions have no release, so names follow the commit pinned in `SEMCONV_GENAI_REF` and can change when the pin moves, in any version. The helpers never emit message text, titles or raw records; paths and the git branch appear only with `includePaths: true`. `toolCallAttributes` marks a failed call with `error.type` = `_OTHER`.
+
+## Pricing
+
+`@ayagmar/agent-sessions/pricing` prices usage events the way `llm-usage` reports do. It is experimental: names and shapes can change in any version.
+
+```ts
+import { loadBundledPricing, priceEvents } from '@ayagmar/agent-sessions/pricing';
+
+const priced = priceEvents(usageEvents, await loadBundledPricing(), { costMode: 'both' });
+```
+
+- `loadBundledPricing()`: the LiteLLM snapshot in the package, with retired models back-filled and context limits. Reads `dist/data/` on the first call and returns the same `PricingSource` after that. No network.
+- `fetchLiteLLMPricing({ url?, signal?, maxBytes? })`: current prices, fetched with the global `fetch`. Retries a timeout (4 s per attempt), a network error or a 408/425/429/5xx twice, then rejects; it writes no file and does not fall back on the bundled prices. From the default URL, the bundled retired prices and context limits fill in what LiteLLM no longer lists.
+- `createPricingSource(rates, { maxInputTokensByModel?, origin? })`: a source over your own `Map` of model to `ModelPricing`, resolved with the same model matcher.
+- `withOverrides(base, overrides)`: your rates for some models on top of a source, matched like `--pricing-overrides` (the exact name, case-insensitive, or a name `base` resolves to the key; never fuzzily).
+- `priceEvents(events, source, { costMode? })`: new events with `costUsd` and `costMode` set. `both` (default) keeps a logged cost and estimates the rest, `explicit` keeps logged costs only, `estimated` estimates every event. A `singleRequest` event above a long-context threshold bills at that tier's rates. An event the source cannot price has no `costUsd`.
+- `estimateEventCostUsd(event, pricing)`: one event at one model's rates; `undefined` when a bucket the event used has no rate.
+- `explainModelPricing(source, model)`: the matched key and rule, override, origin, retired flag, rates and tiers, as `llm-usage pricing --json` prints them.
+
+Rates are USD per 1M tokens. The site's [Pricing events](https://ayagmar.github.io/llm-usage-metrics/library/pricing/) page has a longer walk-through.
 
 ## Example: session forensics
 

@@ -13,7 +13,7 @@ import type {
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import { resolveAndApplyPricingToEvents } from '../../src/cli/build-usage-data-pricing.js';
 import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
-import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/pricing';
+import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/internal';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
 

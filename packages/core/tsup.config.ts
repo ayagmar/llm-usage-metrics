@@ -1,3 +1,5 @@
+import { cp } from 'node:fs/promises';
+
 import { defineConfig } from 'tsup';
 
 import packageJson from './package.json' with { type: 'json' };
@@ -21,4 +23,10 @@ export default defineConfig({
   dts: { compilerOptions: { ignoreDeprecations: '6.0' } },
   sourcemap: true,
   clean: true,
+  // The pricing data, read at runtime from `./data/` next to the module that reads it. Both
+  // `./internal` and `./pricing` use that module, so it lands in a shared chunk at the root of
+  // dist/. `core:pack:check` prices an event from the installed tarball, so a move breaks it.
+  onSuccess: async () => {
+    await cp('src/pricing/data', 'dist/data', { recursive: true });
+  },
 });

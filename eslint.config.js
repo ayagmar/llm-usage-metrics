@@ -181,6 +181,17 @@ export default tseslint.config(
     },
   },
   {
+    // The one network call: `fetchLiteLLMPricing` fetches prices with the global `fetch` when
+    // its caller asks. Everything else in the core block still applies.
+    files: ['packages/core/src/pricing/fetch-litellm-pricing.ts'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        ...coreNetworkGlobals.filter((global) => global.name !== 'fetch'),
+      ],
+    },
+  },
+  {
     files: ['tests/**/*.{ts,tsx,mts,cts}', 'packages/*/tests/**/*.{ts,tsx,mts,cts}'],
     rules: {
       '@typescript-eslint/no-unsafe-type-assertion': 'off',

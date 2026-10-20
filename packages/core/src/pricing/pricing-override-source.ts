@@ -261,3 +261,18 @@ export class PricingOverrideSource implements PricingSource {
     };
   }
 }
+
+/**
+ * `base` with your rates for some models on top, as `--pricing-overrides` applies them: an
+ * override prices a name equal to its key (case-insensitive), and any name `base` resolves
+ * to its key. Overrides are never matched fuzzily. Context limits still come from `base`.
+ */
+export function withOverrides(
+  base: PricingSource,
+  overrides: ReadonlyMap<string, ModelPricing>,
+): PricingSource {
+  return new PricingOverrideSource(
+    new Map([...overrides].map(([model, pricing]) => [normalizeKey(model), pricing])),
+    base,
+  );
+}

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, it, vi } from 'vitest';
 
 import { runConfigShow } from '../../src/cli/create-config-command.js';
 import type { ConfigShowCommandOptions } from '../../src/cli/usage-data-contracts.js';
-import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/pricing';
+import { DEFAULT_LITELLM_PRICING_URL } from '@ayagmar/agent-sessions/internal';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import {
   captureStdout,

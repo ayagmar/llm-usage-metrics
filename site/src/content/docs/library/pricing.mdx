@@ -1,0 +1,59 @@
+---
+title: 'Pricing events'
+description: 'Price usage events with the LiteLLM rates bundled in @ayagmar/agent-sessions/pricing.'
+---
+
+`@ayagmar/agent-sessions/pricing` prices usage events the way `llm-usage` reports do: the same LiteLLM rates, model matching, cost modes and long-context tiers. It is **experimental**: its names and shapes can change in any version until it is promoted to a public entry point.
+
+```ts
+import { collect, createSourceContext, kinds, pipe } from '@ayagmar/agent-sessions';
+import { readSources } from '@ayagmar/agent-sessions/registry';
+import { loadBundledPricing, priceEvents } from '@ayagmar/agent-sessions/pricing';
+
+const usage = await collect(pipe(readSources(createSourceContext(), ['claude', 'codex']), kinds('usage')));
+const pricing = await loadBundledPricing();
+
+let total = 0;
+for (const event of priceEvents(usage, pricing)) {
+  total += event.costUsd ?? 0;
+}
+console.log(`$${total.toFixed(2)}`);
+```
+
+## Where the prices come from
+
+- `loadBundledPricing()` returns the LiteLLM snapshot shipped in the package, with retired models back-filled and the bundled context limits. It reads the data files under `dist/data/` on the first call and returns the same source after that. It makes no network call.
+- `fetchLiteLLMPricing({ url?, signal?, maxBytes? })` fetches current prices with the global `fetch`: one GET, retried twice on a timeout (4 s per attempt), a network error or a 408, 425, 429 or 5xx status. It rejects when every attempt fails and does not fall back on the bundled prices, so catch it and call `loadBundledPricing()` if you want that. It writes no file. From the default URL, the bundled retired prices and context limits fill in what LiteLLM no longer lists; a custom `url` gets none of them.
+- `createPricingSource(rates, { maxInputTokensByModel?, origin? })` builds a source from your own `Map` of model name to `ModelPricing`. Names resolve to your keys with the same matcher, so `claude-sonnet-4-5-20250929` finds a `claude-sonnet-4-5` key.
+- `withOverrides(base, overrides)` puts your rates for some models on top of any source, as `--pricing-overrides` does: an override prices a name equal to its key (case-insensitive) and any name `base` resolves to that key. Overrides are never matched fuzzily.
+
+Rates are in USD per 1M tokens (`inputPer1MUsd`, `outputPer1MUsd`, and optional cache read, cache write, 1-hour cache write and reasoning rates).
+
+## Pricing events
+
+`priceEvents(events, source, { costMode? })` returns new events in the same order with `costUsd` and `costMode` set; the input is not changed.
+
+| `costMode`       | What each event costs                                                    |
+| ---------------- | ------------------------------------------------------------------------ |
+| `both` (default) | the cost its source logged, else an estimate from its tokens             |
+| `explicit`       | the cost its source logged, or none                                      |
+| `estimated`      | an estimate from its tokens, replacing any logged cost                   |
+
+A logged cost of $0 on an event with tokens is estimated under `both`. An event the source cannot price (an unknown model, or a token bucket with no rate) has no `costUsd`. A `singleRequest` event whose prompt is above a long-context threshold bills at that tier's rates; an event that sums several requests always bills at the base rates.
+
+`estimateEventCostUsd(event, pricing)` prices one event at one model's rates, which you get with `source.getPricing(source.resolveModelAlias(event.model))`. It returns `undefined` when the rates lack a bucket the event used.
+
+## Explaining a price
+
+`explainModelPricing(source, model)` returns one entry of `llm-usage pricing --json`: the normalized name, the matched key and the rule that found it, whether an override applied, where the prices came from, whether the key is a retired model, the rates and the long-context tiers.
+
+```ts
+import { explainModelPricing, loadBundledPricing } from '@ayagmar/agent-sessions/pricing';
+
+const explained = explainModelPricing(await loadBundledPricing(), 'claude-sonnet-4-5-20250929');
+console.log(explained.pricingKey, explained.rule, explained.rates);
+```
+
+## Network and files
+
+Only `fetchLiteLLMPricing` calls the network, and only when you call it. `loadBundledPricing` reads the package's own data files. Nothing in `./pricing` writes a file or reads the environment, and importing it reads nothing.

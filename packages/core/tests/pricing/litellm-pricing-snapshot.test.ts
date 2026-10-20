@@ -14,8 +14,8 @@ import {
   LiteLLMPricingFetcher,
   normalizeLiteLLMCachePayload,
 } from '../../src/pricing/litellm-pricing-fetcher.js';
-import snapshotPayload from '../../src/pricing/litellm-pricing-snapshot.json' with { type: 'json' };
-import retiredPricingPayload from '../../src/pricing/litellm-retired-pricing.json' with { type: 'json' };
+import snapshotPayload from '../../src/pricing/data/litellm-pricing-snapshot.json' with { type: 'json' };
+import retiredPricingPayload from '../../src/pricing/data/litellm-retired-pricing.json' with { type: 'json' };
 import type { ModelPricing, PricingTier } from '../../src/pricing/types.js';
 import { noNetworkFetch } from '../helpers/no-network.js';
 

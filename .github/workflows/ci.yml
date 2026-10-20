@@ -263,10 +263,14 @@ jobs:
           node-version: '24.21.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run core:build
       # Packs core, checks its files, zero dependencies and exports targets, then installs the
-      # tarball and checks that every subpath loads alone and bundles no other source.
+      # tarball and checks that every subpath loads alone and bundles no other source, and
+      # that ./pricing prices an event from the bundled data under Node and Bun.
       - run: pnpm run core:pack:check
       - run: pnpm run core:lint
       - run: pnpm run core:typecheck

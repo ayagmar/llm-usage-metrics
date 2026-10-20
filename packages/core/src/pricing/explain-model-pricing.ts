@@ -30,6 +30,7 @@ export type ExplainedTier = {
   cacheWrite1hPer1MUsd: number | null;
 };
 
+/** One model name's prices and how they were found, as `llm-usage pricing --json` prints them. */
 export type ExplainedModelPricing = {
   /** The name as given. */
   model: string;

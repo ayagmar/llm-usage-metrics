@@ -5,7 +5,10 @@
 // - installed offline into a temp project, each subpath loads alone in a fresh Node process;
 // - each subpath's built code covers no other source's modules. Like the dist half of
 //   packages/core/tests/subpath-isolation.test.ts, this follows each entry's static imports
-//   and reads which source files their source maps cover.
+//   and reads which source files their source maps cover;
+// - `./pricing` prices an event from the bundled data files, under Node and, when it is on
+//   the PATH, Bun. The files are read at runtime, so only an installed tarball shows they ship
+//   where the code looks for them.
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
@@ -196,6 +199,56 @@ function checkSubpath(manifest, subpath, projectDir, sourceIds, failures) {
   console.log(`ok ${specifier}`);
 }
 
+// Prices one Claude event (1M input and 1M output tokens) from the bundled data with the
+// network stubbed out, and prints the cost.
+const PRICE_FIXTURE_EVENT = `
+globalThis.fetch = () => { throw new Error('the bundled prices must not fetch'); };
+const { createUsageEvent } = await import('@ayagmar/agent-sessions');
+const { loadBundledPricing, priceEvents } = await import('@ayagmar/agent-sessions/pricing');
+const event = createUsageEvent({
+  source: 'claude',
+  sessionId: 'pack-check',
+  timestamp: '2026-01-01T00:00:00Z',
+  model: 'claude-sonnet-4-5-20250929',
+  inputTokens: 1000000,
+  outputTokens: 1000000,
+});
+const [priced] = priceEvents([event], await loadBundledPricing());
+console.log(JSON.stringify({ costUsd: priced.costUsd, costMode: priced.costMode }));
+`;
+const EXPECTED_FIXTURE_PRICE = JSON.stringify({ costUsd: 18, costMode: 'estimated' });
+
+function hasBun() {
+  try {
+    run('bun', ['--version'], repoRoot);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function checkPricing(projectDir, failures) {
+  const runtimes = [['node', process.execPath, ['--input-type=module', '-e']]];
+  if (hasBun()) {
+    runtimes.push(['bun', 'bun', ['-e']]);
+  } else {
+    console.log('bun is not on the PATH: ./pricing checked under Node only');
+  }
+
+  for (const [name, command, args] of runtimes) {
+    try {
+      const output = run(command, [...args, PRICE_FIXTURE_EVENT], projectDir).trim();
+      if (output !== EXPECTED_FIXTURE_PRICE) {
+        failures.push(`./pricing under ${name} priced the fixture event as ${output}`);
+        continue;
+      }
+      console.log(`ok ./pricing prices an event under ${name}`);
+    } catch (error) {
+      failures.push(`./pricing under ${name}: ${String(error.stderr ?? error).trim()}`);
+    }
+  }
+}
+
 function main() {
   if (!existsSync(path.join(coreRoot, 'dist'))) {
     console.error('packages/core/dist is missing: run `pnpm run core:build` first.');
@@ -223,6 +276,7 @@ function main() {
     for (const subpath of subpaths) {
       checkSubpath(manifest, subpath, projectDir, sourceIds, failures);
     }
+    checkPricing(projectDir, failures);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

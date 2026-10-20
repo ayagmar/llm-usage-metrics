@@ -13,7 +13,7 @@ import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js'
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
-import type { PricingCostMode, PricingSource } from '@ayagmar/agent-sessions/pricing';
+import type { PricingCostMode, PricingSource } from '@ayagmar/agent-sessions/internal';
 import type {
   EventStoreHistoryResult,
   LoadHistoryEventsInput,

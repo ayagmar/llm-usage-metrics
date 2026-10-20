@@ -14,7 +14,7 @@ import {
   LiteLLMPricingFetcher,
   loadPricingOverrides,
   PricingOverrideSource,
-} from '@ayagmar/agent-sessions/pricing';
+} from '@ayagmar/agent-sessions/internal';
 
 import { noNetworkFetch } from '../../packages/core/tests/helpers/no-network.js';
 import { resolvePricingSource } from '../../src/cli/build-usage-data-pricing.js';

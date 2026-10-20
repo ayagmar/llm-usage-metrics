@@ -29,6 +29,10 @@
       "types": "./dist/otel/index.d.ts",
       "import": "./dist/otel/index.js"
     },
+    "./pricing": {
+      "types": "./dist/pricing/index.d.ts",
+      "import": "./dist/pricing/index.js"
+    },
     "./registry": {
       "types": "./dist/registry/index.d.ts",
       "import": "./dist/registry/index.js"

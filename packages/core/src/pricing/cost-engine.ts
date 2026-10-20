@@ -1,4 +1,9 @@
-import { isPriceableEvent, type BillableTokenUsage } from '../domain/usage-event.js';
+import {
+  isPriceableEvent,
+  type BillableTokenUsage,
+  type CostMode,
+  type UsageEvent,
+} from '../domain/usage-event.js';
 import type {
   ModelPricing,
   PricedUsageEvent,
@@ -42,6 +47,25 @@ export function createPricingRunStats(): PricingRunStats {
   return { reestimatedExplicitZero: new WeakSet(), priorityPriced: new WeakSet() };
 }
 
+/**
+ * An event's cost mode: `costMode` when given, else `explicit` when the source logged a cost
+ * and `estimated` when it did not. An `explicit` mode without a cost throws.
+ */
+export function resolveCostMode(
+  costMode: CostMode | undefined,
+  costUsd: number | undefined,
+): CostMode {
+  if (costMode === 'explicit' && costUsd === undefined) {
+    throw new Error('UsageEvent with costMode "explicit" requires costUsd');
+  }
+
+  if (costMode) {
+    return costMode;
+  }
+
+  return costUsd === undefined ? 'estimated' : 'explicit';
+}
+
 /** One pricing run: the policy it applies and the stats it records. */
 export type PricingRun = {
   policy: PricingPolicy;
@@ -81,7 +105,7 @@ function splitOutputForBilling(
   };
 }
 
-export function calculateEstimatedCostUsd(event: PricedUsageEvent, pricing: ModelPricing): number {
+export function calculateEstimatedCostUsd(event: UsageEvent, pricing: ModelPricing): number {
   const billedOutput = splitOutputForBilling(event, pricing);
 
   const inputCost = estimateTokenGroupCost(event.inputTokens, pricing.inputPer1MUsd);
@@ -247,13 +271,21 @@ export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPr
   return hasNonReasoningPricedBuckets(usage);
 }
 
+/**
+ * `E` with the cost fields as the engine writes them: `costUsd` may be dropped and `costMode`
+ * may become `estimated`, whatever `E` narrowed them to.
+ */
+export type WithEngineCost<E extends PricedUsageEvent> = Omit<E, 'costUsd' | 'costMode'> &
+  Pick<PricedUsageEvent, 'costUsd' | 'costMode'>;
+
 /** The event with no cost: reports leave it out of cost totals and mark them with `~`. */
-function withoutCost<E extends PricedUsageEvent>(event: E): E {
+function withoutCost<E extends PricedUsageEvent>(event: E): WithEngineCost<E> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- dropped on purpose
   const { costUsd, ...unpricedEvent } = event;
-  // `costUsd` is optional, so the event without it is still an `E`.
+  // Spread over the event without `costUsd`, so `costMode` keeps its key position. TypeScript
+  // cannot see that `Omit<E, 'costUsd'>` covers `Omit<E, 'costUsd' | 'costMode'>`.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return { ...unpricedEvent, costMode: 'estimated' } as E;
+  return { ...unpricedEvent, costMode: 'estimated' } as WithEngineCost<E>;
 }
 
 /** What a policy does to one event, decided without building the priced event. */
@@ -328,7 +360,7 @@ function applyResolvedPricingToEvent<E extends PricedUsageEvent>(
   event: E,
   pricing: ModelPricing | undefined,
   { policy, stats }: PricingRun,
-): E {
+): WithEngineCost<E> {
   const outcome = resolvePricingOutcome(event, pricing, policy);
 
   switch (outcome.type) {
@@ -339,7 +371,11 @@ function applyResolvedPricingToEvent<E extends PricedUsageEvent>(
     case 'unpriced':
       return withoutCost(event);
     case 'priced': {
-      const pricedEvent: E = { ...event, costUsd: outcome.costUsd, costMode: 'estimated' };
+      const pricedEvent: WithEngineCost<E> = {
+        ...event,
+        costUsd: outcome.costUsd,
+        costMode: 'estimated',
+      };
 
       if (outcome.reestimatedExplicitZero) {
         stats.reestimatedExplicitZero.add(pricedEvent);
@@ -455,11 +491,56 @@ export function createModelPricingLookup(
 }
 
 export function applyPricingToEvents<E extends PricedUsageEvent>(
-  events: E[],
+  events: readonly E[],
   pricingSource: PricingSource,
   run: PricingRun = { policy: DEFAULT_PRICING_POLICY, stats: createPricingRunStats() },
-): E[] {
+): WithEngineCost<E>[] {
   const lookupPricing = createModelPricingLookup(pricingSource, run.policy.costMode);
 
   return events.map((event) => applyResolvedPricingToEvent(event, lookupPricing(event), run));
+}
+
+/** Options for {@link priceEvents}. */
+export type PriceEventsOptions = {
+  /** Which costs the events keep; `both` by default. See {@link PricingCostMode}. */
+  costMode?: PricingCostMode;
+};
+
+/**
+ * Prices usage events the way `llm-usage` reports do. Each event gets a `costMode`: one it
+ * already has, else `explicit` when its source logged `costUsd` and `estimated` otherwise.
+ * Under `both`, a logged cost stays and the rest are estimated from tokens; `estimated`
+ * replaces every cost with an estimate; `explicit` keeps logged costs only. A logged $0 with
+ * tokens is estimated under `both`. A `singleRequest` event above a long-context threshold
+ * bills at that tier's rates. An event the source cannot price is left without `costUsd`.
+ * Returns new events in the same order; the input is not changed.
+ */
+export function priceEvents(
+  events: ReadonlyArray<UsageEvent & { costMode?: CostMode }>,
+  source: PricingSource,
+  options: PriceEventsOptions = {},
+): PricedUsageEvent[] {
+  const withCostModes = events.map((event) => ({
+    ...event,
+    costMode: resolveCostMode(event.costMode, event.costUsd),
+  }));
+
+  return applyPricingToEvents(withCostModes, source, {
+    policy: {
+      costMode: options.costMode ?? DEFAULT_PRICING_POLICY.costMode,
+      perRequestRates: true,
+    },
+    stats: createPricingRunStats(),
+  });
+}
+
+/**
+ * One event's cost in USD at `pricing`, from its tokens, as `priceEvents` estimates it: a
+ * `singleRequest` event above a long-context threshold bills at that tier's rates. Undefined
+ * when `pricing` lacks a rate for a bucket the event used, or the event used none.
+ */
+export function estimateEventCostUsd(event: UsageEvent, pricing: ModelPricing): number | undefined {
+  const rates = resolveRatesForEvent(event, pricing, event.singleRequest === true);
+
+  return canEstimateUsageCost(event, rates) ? calculateEstimatedCostUsd(event, rates) : undefined;
 }

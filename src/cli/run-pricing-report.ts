@@ -1,5 +1,5 @@
 import { getPricingFetcherRuntimeConfig } from '../config/runtime-overrides.js';
-import { explainModelPricing, type PricingReportData } from '@ayagmar/agent-sessions/pricing';
+import { explainModelPricing, type PricingReportData } from '@ayagmar/agent-sessions/internal';
 import { renderPricingReport, type PricingReportFormat } from '../render/render-pricing-report.js';
 import { logger } from '../utils/logger.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';

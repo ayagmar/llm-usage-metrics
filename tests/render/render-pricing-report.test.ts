@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ExplainedModelPricing } from '@ayagmar/agent-sessions/pricing';
+import type { ExplainedModelPricing } from '@ayagmar/agent-sessions/internal';
 
 import { renderPricingReport } from '../../src/render/render-pricing-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';

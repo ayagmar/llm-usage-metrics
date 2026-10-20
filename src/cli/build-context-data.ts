@@ -5,7 +5,7 @@ import {
   type ContextModelRow,
   type ContextSessionRow,
 } from '../context/context-pressure.js';
-import { createModelPricingLookup } from '@ayagmar/agent-sessions/pricing';
+import { createModelPricingLookup } from '@ayagmar/agent-sessions/internal';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import {

@@ -40,7 +40,7 @@ import {
   resolvePricingSource,
 } from '../../src/cli/build-usage-data-pricing.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/pricing';
+import { DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/internal';
 import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 
 const tempDirs: string[] = [];
