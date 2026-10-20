@@ -247,7 +247,9 @@ async function buildMachineDoctorResults(
           fileCount: status?.fileCount ?? 0,
           eventCount: status?.eventCount ?? 0,
         };
-        const detail = `${machine.ssh}: ${describeMachineStatus(entry, now)}`;
+        // The row id already names the machine; repeat the ssh target only when it differs.
+        const target = machine.ssh === name ? '' : `${machine.ssh}: `;
+        const detail = `${target}${describeMachineStatus(entry, now)}`;
         const { state } = entry;
         const lastSyncFailed =
           state?.lastError !== undefined && (state.attemptedAt ?? 0) >= (state.syncedAt ?? -1);
@@ -417,7 +419,12 @@ export async function runDoctorReport(
     supportedFormats: ['terminal', 'json'] as const,
     buildData: async () => results,
     render: (data, format) =>
-      format === 'json' ? renderReportJson('doctor', { sources: data }) : renderDoctorText(data),
+      format === 'json'
+        ? renderReportJson('doctor', { sources: data })
+        : // Asking for specific sources means asking where they are searched.
+          renderDoctorText(data, {
+            showAllPaths: options.verbose === true || options.source !== undefined,
+          }),
     getDiagnostics: () => undefined,
   });
   await runPreparedReport({ preparedReport });

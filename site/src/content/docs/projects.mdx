@@ -1,6 +1,6 @@
 ---
 title: 'Projects'
-description: 'Cost, tokens, and activity per recorded working directory.'
+description: 'Cost, tokens, and activity per project, from the working directory each tool recorded.'
 ---
 
 import TerminalShot from '../../components/TerminalShot.astro';
@@ -40,6 +40,8 @@ llm-usage projects
 
 A project is the working directory that the coding tool recorded for the session. Events store it as `repoRoot`, but the CLI does not look for a `.git` folder, so a session started in a subfolder counts as its own project. Claude Code, Codex, Droid, dsh, Gemini, OpenClaw, OpenCode, and pi record a working directory. Usage from the other sources, and sessions where the tool recorded none, is listed as `(unattributed)`.
 
+Two kinds of directory count as the project that holds them. A directory inside `node_modules`, where a session `cd`s into a dependency, counts as the folder above `node_modules`. A Claude Code worktree, `<repo>/.claude/worktrees/<name>` or any folder inside it, counts as `<repo>`. A folder named `worktrees` anywhere else is left alone.
+
 The label is the last folder name of the path. When two projects end in the same folder name, both labels gain parent folders until they differ: `/work/a/api` and `/work/b/api` become `a/api` and `b/api`. A label stays the same across every period of one report. `session`, `value`, `trends --by-repo`, `compare --by-repo`, the `--by-repo` splits of the usage reports, and the interactive report label projects the same way.
 
 ## Set the window
@@ -70,7 +72,7 @@ llm-usage projects --repo api
 llm-usage projects --repo ~/work --granularity weekly
 ```
 
-A path (absolute, or starting with `./`, `../`, or `~/`) matches that directory and every project under it. A name or path tail such as `api` or `work/api` matches projects whose path ends with it. `(unattributed)` matches usage without a project. The same flag works on most reports; see each command's `--help`.
+A path (absolute, or starting with `./`, `../`, or `~/`) matches that directory and every project under it; a path inside a Claude Code worktree or a `node_modules` folder matches the project that holds it, as do a name or path tail that ends inside one. A name or path tail such as `api` or `work/api` matches projects whose path ends with it. `(unattributed)` matches usage without a project. The same flag works on most reports; see each command's `--help`.
 
 ## Output
 

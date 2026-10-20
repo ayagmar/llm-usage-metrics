@@ -45,4 +45,29 @@ describe('optimize report e2e', () => {
     expect(candidateRows.every((row) => row.notes?.includes('missing_pricing'))).toBe(true);
     expect(candidateRows.find((row) => row.periodKey === 'ALL')?.totalTokens).toBeGreaterThan(0);
   });
+
+  it('lists every candidate asked for by default and with --top 0, the cheapest with --top N', async () => {
+    const candidatesFor = async (top?: string) => {
+      const report = await buildOptimizeReport('monthly', {
+        piDir,
+        codexDir,
+        source: 'pi,codex',
+        provider: 'openai',
+        timezone: 'UTC',
+        since: '2026-01-01',
+        until: '2026-02-28',
+        candidateModel: ['missing-model-a', 'missing-model-b'],
+        ...(top === undefined ? {} : { top }),
+        json: true,
+        ignorePricingFailures: true,
+      });
+      const rows = (JSON.parse(report) as { data: OptimizeRow[] }).data;
+
+      return rows.filter((row) => row.rowType === 'candidate' && row.periodKey === 'ALL').length;
+    };
+
+    expect(await candidatesFor()).toBe(2);
+    expect(await candidatesFor('0')).toBe(2);
+    expect(await candidatesFor('1')).toBe(1);
+  });
 });

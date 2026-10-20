@@ -153,6 +153,34 @@ describe('applyRepoFilter', () => {
     expect(select('API')).toEqual([]);
   });
 
+  it('selects Claude Code worktrees with their repository, by name, path or worktree path', () => {
+    const worktreeEvents = [
+      { repoRoot: '/w/app' },
+      { repoRoot: '/w/app/.claude/worktrees/fix' },
+      { repoRoot: '/w/app/.claude/worktrees/fix/src' },
+      { repoRoot: 'C:\\src\\app\\.claude\\worktrees\\fix' },
+      { repoRoot: '/w/other' },
+    ];
+    const selectWorktrees = (value: string) =>
+      applyRepoFilter(worktreeEvents, normalizeRepoFilter(value, context)).map(
+        (event) => event.repoRoot,
+      );
+    const posixApp = ['/w/app', '/w/app/.claude/worktrees/fix', '/w/app/.claude/worktrees/fix/src'];
+
+    expect(selectWorktrees('app')).toEqual([...posixApp, 'C:\\src\\app\\.claude\\worktrees\\fix']);
+    expect(selectWorktrees('/w/app')).toEqual(posixApp);
+    expect(selectWorktrees('/w/app/.claude/worktrees/fix/src')).toEqual(posixApp);
+    expect(selectWorktrees('C:\\src\\app\\.claude\\worktrees\\fix\\')).toEqual([
+      'C:\\src\\app\\.claude\\worktrees\\fix',
+    ]);
+    expect(selectWorktrees('app/.claude/worktrees/fix')).toEqual([
+      ...posixApp,
+      'C:\\src\\app\\.claude\\worktrees\\fix',
+    ]);
+    expect(selectWorktrees('/w/app/node_modules/dep')).toEqual(posixApp);
+    expect(selectWorktrees('fix')).toEqual([]);
+  });
+
   it('selects events without a root with (unattributed)', () => {
     expect(select('(unattributed)')).toEqual([undefined]);
     expect(select('(unattributed)', 'myapi')).toEqual(['/w/a/myapi', undefined]);

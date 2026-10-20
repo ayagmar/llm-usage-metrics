@@ -3,6 +3,7 @@ import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 import type { AdapterParseResult } from './build-usage-data-parsing.js';
 import type {
+  ReportNote,
   UsageDataResult,
   UsageDiagnostics,
   UsagePricingOrigin,
@@ -16,7 +17,7 @@ type BuildUsageDiagnosticsParams = {
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   warnings?: string[];
-  notes?: string[];
+  notes?: ReportNote[];
   activeEnvOverrides: UsageDiagnostics['activeEnvOverrides'];
   activeConfig?: UsageDiagnostics['activeConfig'];
   timezone: string;

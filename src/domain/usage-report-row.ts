@@ -28,6 +28,8 @@ export type PeriodSourceRow = UsageTotals & {
   repoRoot?: string | null;
   /** With --by-repo: the project's display label. */
   project?: string;
+  /** With --by-repo, on the row that folds the projects past --top: how many it holds. */
+  otherProjects?: number;
   /** Hourly only: the local hour occurred twice (a DST fall-back) and the row covers both. */
   repeatedHour?: true;
   models: string[];

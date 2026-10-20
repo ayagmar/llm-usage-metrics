@@ -12,6 +12,7 @@ import type {
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type UsageGranularity } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
+import { formatInteger } from '../render/format-number.js';
 import { toProjectKey } from './project-key.js';
 
 export type AggregateUsageOptions = {
@@ -31,7 +32,19 @@ export type AggregateUsageOptions = {
    * with `split.repo` or `primary: 'repo'`.
    */
   projectLabels?: ReadonlyMap<string | undefined, string>;
+  /**
+   * With `split.repo`: each period keeps its `count` projects ranked first and folds the
+   * others into one row per source (and machine).
+   */
+  projectLimit?: ProjectLimit;
 };
+
+/**
+ * Projects per period by cost (then tokens), or by tokens alone when cost is hidden. A period
+ * where a project's cost is incomplete is ranked by tokens, so an unpriced project is not
+ * folded as if it cost nothing.
+ */
+export type ProjectLimit = { count: number; rankedBy: 'cost' | 'tokens' };
 
 /** What a row groups by, taken from its first event. */
 type RowGroup = {
@@ -39,6 +52,8 @@ type RowGroup = {
   machine?: string;
   /** Present when the row is per project; `key` is undefined for unattributed usage. */
   project?: { key: string | undefined; label: string };
+  /** Set on the row that folds the projects past `projectLimit`: how many it holds. */
+  otherProjects?: number;
 };
 
 type RowAccumulator = {
@@ -247,16 +262,121 @@ function toRowGroup(
   return group;
 }
 
-/** Projects by label, unattributed usage last. */
-function compareProjects(left: RowGroup['project'], right: RowGroup['project']): number {
-  if (!left || !right) {
+/** Projects by label, unattributed usage next to last, the folded other projects last. */
+function compareProjects(left: RowGroup, right: RowGroup): number {
+  if (!left.project || !right.project) {
     return 0;
   }
 
   return (
-    Number(left.key === undefined) - Number(right.key === undefined) ||
-    compareByCodePoint(left.label, right.label)
+    Number(left.otherProjects !== undefined) - Number(right.otherProjects !== undefined) ||
+    Number(left.project.key === undefined) - Number(right.project.key === undefined) ||
+    compareByCodePoint(left.project.label, right.project.label)
   );
+}
+
+function compareRankedTotals(
+  left: UsageTotals,
+  right: UsageTotals,
+  rankedBy: ProjectLimit['rankedBy'],
+): number {
+  return (
+    (rankedBy === 'cost' ? (right.costUsd ?? 0) - (left.costUsd ?? 0) : 0) ||
+    right.totalTokens - left.totalTokens
+  );
+}
+
+/** A period's rows with the projects past `limit` folded into one row per source and machine. */
+function foldOtherProjects(
+  accumulators: RowAccumulator[],
+  limit: ProjectLimit,
+  includeModelBreakdown: boolean,
+): RowAccumulator[] {
+  const projects = new Map<string | undefined, { label: string; totals: UsageTotals }>();
+
+  for (const { group, totals } of accumulators) {
+    if (!group.project) {
+      return accumulators;
+    }
+
+    let project = projects.get(group.project.key);
+
+    if (!project) {
+      project = { label: group.project.label, totals: createEmptyTotals() };
+      projects.set(group.project.key, project);
+    }
+
+    addTotals(project.totals, totals);
+  }
+
+  // Folding a single project would hide its name without saving a row.
+  if (projects.size <= limit.count + 1) {
+    return accumulators;
+  }
+
+  const rankedBy = [...projects.values()].some(({ totals }) => totals.costIncomplete)
+    ? 'tokens'
+    : limit.rankedBy;
+  const keptKeys = new Set(
+    [...projects]
+      .sort(
+        ([, left], [, right]) =>
+          compareRankedTotals(left.totals, right.totals, rankedBy) ||
+          compareByCodePoint(left.label, right.label),
+      )
+      .slice(0, limit.count)
+      .map(([key]) => key),
+  );
+  const kept: RowAccumulator[] = [];
+  const others = new Map<
+    string,
+    { accumulator: RowAccumulator; projectKeys: Set<string | undefined> }
+  >();
+
+  for (const accumulator of accumulators) {
+    const { group } = accumulator;
+
+    if (keptKeys.has(group.project?.key)) {
+      kept.push(accumulator);
+      continue;
+    }
+
+    const otherKey = `${group.source}\0${group.machine ?? ''}`;
+    let other = others.get(otherKey);
+
+    if (!other) {
+      other = {
+        accumulator: createRowAccumulator(
+          {
+            source: group.source,
+            ...(group.machine === undefined ? {} : { machine: group.machine }),
+          },
+          includeModelBreakdown,
+        ),
+        projectKeys: new Set(),
+      };
+      others.set(otherKey, other);
+    }
+
+    other.projectKeys.add(group.project?.key);
+    addTotals(other.accumulator.totals, accumulator.totals);
+
+    if (other.accumulator.modelTotals && accumulator.modelTotals) {
+      mergeModelTotals(other.accumulator.modelTotals, accumulator.modelTotals);
+    }
+  }
+
+  for (const { accumulator, projectKeys } of others.values()) {
+    const count = projectKeys.size;
+    accumulator.group.project = {
+      key: undefined,
+      label: `${formatInteger(count)} other ${count === 1 ? 'project' : 'projects'}`,
+    };
+    accumulator.group.otherProjects = count;
+    kept.push(accumulator);
+  }
+
+  return kept;
 }
 
 /** Sources in their usual order; with --by-machine, this machine before the others. */
@@ -267,7 +387,7 @@ function compareRowGroups(
   split: RowSplit,
 ): number {
   if (split.primaryRepo) {
-    return compareProjects(left.project, right.project);
+    return compareProjects(left, right);
   }
 
   return (
@@ -275,7 +395,7 @@ function compareRowGroups(
     Number(left.machine !== undefined && left.machine !== LOCAL_MACHINE_NAME) -
       Number(right.machine !== undefined && right.machine !== LOCAL_MACHINE_NAME) ||
     compareByCodePoint(left.machine ?? '', right.machine ?? '') ||
-    compareProjects(left.project, right.project)
+    compareProjects(left, right)
   );
 }
 
@@ -286,16 +406,12 @@ function toGroupRow(
   totals: UsageTotals,
   primaryRepo: boolean,
 ): PeriodSourceRow | PeriodProjectRow {
-  const project = group.project && {
-    repoRoot: group.project.key ?? null,
-    project: group.project.label,
-  };
-
-  if (primaryRepo && project) {
+  if (primaryRepo && group.project) {
     return {
       rowType: 'period_project',
       periodKey,
-      ...project,
+      repoRoot: group.project.key ?? null,
+      project: group.project.label,
       models: rankedModelUsage.models,
       modelBreakdown: rankedModelUsage.modelBreakdown,
       ...totals,
@@ -307,7 +423,11 @@ function toGroupRow(
     periodKey,
     source: group.source,
     ...(group.machine === undefined ? {} : { machine: group.machine }),
-    ...project,
+    ...(group.project === undefined
+      ? {}
+      : group.otherProjects === undefined
+        ? { repoRoot: group.project.key ?? null, project: group.project.label }
+        : { project: group.project.label, otherProjects: group.otherProjects }),
     models: rankedModelUsage.models,
     modelBreakdown: rankedModelUsage.modelBreakdown,
     ...totals,
@@ -377,7 +497,11 @@ export function aggregateUsage(
     const periodCombinedTotals = createEmptyTotals();
     const periodCombinedModelTotals = new Map<string, UsageTotals>();
 
-    const sortedAccumulators = [...sourceMap.values()].sort((left, right) =>
+    const periodAccumulators =
+      split.repo && !primaryRepo && options.projectLimit !== undefined
+        ? foldOtherProjects([...sourceMap.values()], options.projectLimit, includeModelBreakdown)
+        : [...sourceMap.values()];
+    const sortedAccumulators = periodAccumulators.sort((left, right) =>
       compareRowGroups(left.group, right.group, compareSources, split),
     );
 

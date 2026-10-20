@@ -63,6 +63,7 @@ import type { PricingCostMode } from '@ayagmar/agent-sessions/pricing';
 import type {
   BuildUsageDataDeps,
   ReportCommandOptions,
+  ReportNote,
   UsageSourceFailure,
 } from './usage-data-contracts.js';
 import { dedupeCopiedSessions, type SourceAdapter } from '@ayagmar/agent-sessions';
@@ -165,7 +166,7 @@ export type UsageEventDataset = {
   successfulParseResults: AdapterParseResult[];
   sourceFailures: UsageSourceFailure[];
   warnings: string[];
-  notes: string[];
+  notes: ReportNote[];
   filteredEvents: UsageEvent[];
   /**
    * With `lookbackSince`, the events from that date to the day before `since`, filtered with
@@ -350,7 +351,7 @@ export async function buildUsageEventDataset(
         }
       : undefined;
     const historyWarnings: string[] = [];
-    const historyNotes: string[] = [];
+    const historyNotes: ReportNote[] = [];
 
     const historyStore = openedEventStore;
     const failedFileKeys = new Set(failedFiles.map((file) => `${file.source}\0${file.filePath}`));
@@ -401,9 +402,11 @@ export async function buildUsageEventDataset(
           historyResult.events,
         );
         ledger?.historyFiles.push(...historyResult.servedFiles);
-        // Default history stays quiet unless it changes the numbers.
-        if (historyRequested || historyResult.servedFileCount > 0) {
+        // An explicit --history reports its totals; default history is detail for --verbose.
+        if (historyRequested) {
           historyNotes.push(formatHistoryNote(historyResult));
+        } else if (historyResult.servedFileCount > 0) {
+          historyNotes.push({ verbose: formatHistoryNote(historyResult) });
         }
       } catch (error) {
         historyWarnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
@@ -411,7 +414,7 @@ export async function buildUsageEventDataset(
     }
 
     const machineWarnings: string[] = [];
-    const machineNotes: string[] = [];
+    const machineNotes: ReportNote[] = [];
     let machines: MachineUsageSummary[] | undefined;
 
     if (!machineSelection.includeLocal) {
@@ -476,13 +479,13 @@ export async function buildUsageEventDataset(
         }
       }
       if (machineUsage.machines.length > 0) {
-        machineNotes.push(
-          formatMachinesNote(
+        machineNotes.push({
+          verbose: formatMachinesNote(
             machineUsage.machines,
             nowMs(),
             loadPackageMetadataFromRuntime().packageVersion,
           ),
-        );
+        });
       }
     }
 
@@ -690,13 +693,14 @@ type PricingNotesInput = Pick<
  * `pricingResult` gives the policy and stats of the run that priced them.
  */
 export function withPricingNotes(
-  notes: readonly string[],
+  notes: readonly ReportNote[],
   shownEvents: readonly UsageEvent[],
   pricingResult: PricingNotesInput,
-): string[] {
+): ReportNote[] {
+  const reestimatedNote = describeReestimatedExplicitZero(shownEvents, pricingResult);
   const pricingNotes = [
     describeUnpricedEvents(shownEvents, pricingResult.pricingPolicy.costMode),
-    describeReestimatedExplicitZero(shownEvents, pricingResult),
+    reestimatedNote === undefined ? undefined : { verbose: reestimatedNote },
     describePriorityPricedEvents(shownEvents, pricingResult.pricingStats.priorityPriced),
   ].filter((note) => note !== undefined);
 

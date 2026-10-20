@@ -45,7 +45,10 @@ describe('withPricingNotes logged $0 note', () => {
 
     expect(withPricingNotes(['dataset note'], shownEvents, pricingResult)).toEqual([
       'dataset note',
-      '3 events logged $0 by codex, pi were estimated from LiteLLM; use --cost-mode explicit to keep $0',
+      {
+        verbose:
+          '3 events logged $0 by codex, pi were estimated from LiteLLM; use --cost-mode explicit to keep $0',
+      },
     ]);
   });
 });

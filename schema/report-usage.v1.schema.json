@@ -64,6 +64,11 @@
           "description": "With --by-repo, per-source rows only: the project's display label.",
           "type": "string"
         },
+        "otherProjects": {
+          "description": "With --by-repo, on the per-source row that folds a period's projects past --top (default 20): how many projects it holds. That row has no repoRoot.",
+          "type": "integer",
+          "minimum": 1
+        },
         "repeatedHour": {
           "description": "Hourly only, on period rows: the local hour occurred twice (a DST fall-back), and the row covers both occurrences.",
           "const": true

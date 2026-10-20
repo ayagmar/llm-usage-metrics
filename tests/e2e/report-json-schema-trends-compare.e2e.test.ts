@@ -52,6 +52,14 @@ describe('trends and compare --by-repo JSON schema', () => {
     expect(parsed.data.projects.map((row) => row.repoRoot)).toContain(null);
   });
 
+  it('validates the compare row folding the projects past --top', async () => {
+    const output = await buildCompareReport({ ...options, ...compareWindows, top: '1' }, deps);
+    const parsed = validateReportOutput(validators, 'compare', output) as CompareJson;
+
+    expect(parsed.data.projects).toHaveLength(2);
+    expect(parsed.data.projects[1]).toHaveProperty('otherProjects');
+  });
+
   it('rejects a project row of the wrong shape', async () => {
     const trends = JSON.parse(
       await buildTrendsReport({ ...options, since: '2026-06-15', until: '2026-06-15' }, deps),
@@ -64,6 +72,12 @@ describe('trends and compare --by-repo JSON schema', () => {
     compare.data.projects[0] = { ...compare.data.projects[0], repoRoot: 42 };
 
     expect(validators.get('trends')?.(trends)).toBe(false);
+    expect(validators.get('compare')?.(compare)).toBe(false);
+
+    // A project row names its project, or counts the projects it folds.
+    const unnamed = { ...compare.data.projects[1] };
+    delete unnamed.repoRoot;
+    compare.data.projects = [unnamed];
     expect(validators.get('compare')?.(compare)).toBe(false);
   });
 });
