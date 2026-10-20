@@ -137,7 +137,7 @@ describe('machine bundle from an older parser version', () => {
     ]);
   });
 
-  it('matches by timestamp, with a note, for an export that records no parser versions', async () => {
+  it('matches by timestamp, with a --verbose note, for an export that records no parser versions', async () => {
     // A sync that recorded versions first, so the older export must clear them.
     await syncAndReport(() => bundleText);
     const usageData = await syncAndReport(() =>

@@ -201,7 +201,8 @@ export function formatRefreshFailure(
 
 /**
  * Describes a failed sync a report did not retry (it was recent, or --no-sync), from the
- * machine's stored state, with the same note/warning split as a refresh failure.
+ * machine's stored state, with the same note/warning split as a refresh failure. A machine
+ * never synced gets a note too, since the report counts none of its usage.
  */
 export function formatStoredSyncFailure(
   machine: MachineUsageSummary,
@@ -209,8 +210,17 @@ export function formatStoredSyncFailure(
 ): { text: string; stale: boolean } | undefined {
   const { state } = machine;
 
-  if (!machine.enabled || state?.lastError === undefined) {
+  if (!machine.enabled) {
     return undefined;
+  }
+
+  if (state?.lastError === undefined) {
+    return state?.syncedAt === undefined
+      ? {
+          text: `${machine.name}: never synced. Run llm-usage sync ${machine.name} to count its usage.`,
+          stale: false,
+        }
+      : undefined;
   }
 
   if (state.syncedAt === undefined) {

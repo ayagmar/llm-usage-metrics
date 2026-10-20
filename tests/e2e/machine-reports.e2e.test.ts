@@ -372,6 +372,21 @@ describe('reports with other machines', () => {
     ]);
   });
 
+  it('say by default that a machine never synced counts no usage under --no-sync', async () => {
+    const configPath = path.join(rootDir, 'local', 'config.toml');
+    await writeFile(
+      configPath,
+      `${await readFile(configPath, 'utf8')}[machines.vps]\nssh = "vps"\n`,
+    );
+
+    const dataset = await buildDataset({ timezone: 'UTC', sync: false });
+
+    expect(dataset.notes.filter((note) => typeof note === 'string')).toEqual([
+      'vps: never synced. Run llm-usage sync vps to count its usage.',
+    ]);
+    expect(dataset.warnings).toEqual([]);
+  });
+
   it('print no machines note when every machine was left out', async () => {
     const unreachable = createInProcessRemote({
       ...remote,
