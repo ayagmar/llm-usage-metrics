@@ -182,7 +182,6 @@ function renderTerminalSessionReport(
       measureHeaderCells: headers,
       measureBodyRows: wrappedRows,
       rowMetas: wrappedRows.map(() => toRowMeta()),
-      layout: 'top_aligned',
       columnKinds: columnKindsFromAlign(align),
       multilineColumnIndex: modelsColumnIndex,
       multilineColumnWidth: MODELS_COLUMN_WIDTH,

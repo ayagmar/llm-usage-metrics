@@ -92,7 +92,7 @@ Every report that reads usage builds its events through `buildUsageEventDataset`
 
 `events` and `statusline` have their own runners (`run-events-report.ts`, `run-statusline.ts`): `events` exports the priced events as JSONL, CSV, or OTLP traces or metrics, and `statusline` prints one line for a status bar. `--share` builds its own dataset; see [Share report](/llm-usage-metrics/architecture/share-report/).
 
-`aggregateUsage` keeps per-model breakdowns by default; `trends`, `optimize`, and `efficiency` turn them off. `src/render/unicode-table.ts` lays out rows from explicit metadata (`periodKey`, and `rowKind`: `detail`, `combined`, or `total`), so sorting and separators stay deterministic without the table knowing report types.
+`aggregateUsage` keeps per-model breakdowns by default; `trends`, `optimize`, and `efficiency` turn them off. `src/render/unicode-table.ts` lays out rows from explicit metadata (`periodKey`, and `rowKind`: `detail`, `combined`, or `total`), so sorting and separators stay deterministic without the table knowing report types. Given a terminal width and a `fit`, it abbreviates values and then hides columns before it lists rows as labelled values.
 
 ## Invariants
 

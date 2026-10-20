@@ -6,7 +6,6 @@ import {
 } from './table-text-layout.js';
 
 type TableAlignment = 'left' | 'right';
-type TableVerticalAlignment = 'top' | 'middle';
 
 /**
  * `text` columns (keys, labels, names, dates) align left; `measure` columns (counts,
@@ -14,29 +13,55 @@ type TableVerticalAlignment = 'top' | 'middle';
  */
 export type TableColumnKind = 'text' | 'measure';
 
-export type UnicodeTableLayout = 'compact' | 'top_aligned';
-
 export type TableRowMeta = {
   periodKey: string;
   periodGroup?: 'normal' | 'summary';
   rowKind: 'detail' | 'combined' | 'total';
 };
 
+/**
+ * How a table too wide for the terminal gives up detail. The full table comes first,
+ * then the abbreviated cells, then the abbreviated cells with the hideable columns left
+ * out one more at a time. Rows are listed only when even the last of these is too wide.
+ */
+export type UnicodeTableFit = {
+  /** The body cells with abbreviated measures, such as `24.3K` for `24,312` tokens. */
+  abbreviatedBodyRows?: string[][];
+  /** Uncolored `abbreviatedBodyRows`, to measure; those rows when omitted. */
+  abbreviatedMeasureBodyRows?: string[][];
+  /** Minor columns (indexes in the full table), hidden in this order. */
+  hideableColumns?: readonly number[];
+};
+
+/** One version of the table, from the full table down to the narrowest. */
+type FitStep = {
+  bodyRows?: string[][];
+  measureBodyRows?: string[][];
+  hiddenColumns?: readonly number[];
+};
+
 type RenderUnicodeTableOptions = {
   headerCells: readonly string[];
   bodyRows: string[][];
   measureHeaderCells: readonly string[];
+  /**
+   * Uncolored `bodyRows`, to measure. A listed row takes its title from these cells, so
+   * hold text here unwrapped when the table wraps it, and fix `multilineColumnWidth`.
+   */
   measureBodyRows: string[][];
   rowMetas: TableRowMeta[];
-  layout: UnicodeTableLayout;
   /** One kind per column; it sets the column's alignment. */
   columnKinds: readonly TableColumnKind[];
   /** The column that holds wrapped multi-line text. */
   multilineColumnIndex: number;
   /** Fixed width for the multiline column; measured from its content when omitted. */
   multilineColumnWidth?: number;
-  /** When the boxed table is wider than this, each row is listed as label/value lines. */
+  /**
+   * When the boxed table is wider than this, it is fitted (see `fit`), and each row is
+   * listed as label/value lines when it still does not fit.
+   */
   terminalWidth?: number;
+  fit?: UnicodeTableFit;
   /** Leading columns that name a listed row; defaults to those up to the multiline column. */
   stackedTitleColumnCount?: number;
 };
@@ -47,11 +72,14 @@ type BorderChars = {
   right: string;
 };
 
-type RenderableTableRow = {
-  rowMeta: TableRowMeta;
-  bodyRow: string[];
-  measureBodyRow: string[];
-  originalIndex: number;
+/** The table's cells at one fit step: rows in display order, hidden columns left out. */
+type PreparedTable = {
+  headerRow: string[];
+  measureHeaderRow: string[];
+  bodyRows: string[][];
+  measureBodyRows: string[][];
+  columnKinds: TableColumnKind[];
+  widths: number[];
 };
 
 /** Converts markdown-style column alignment (`l`/`r`) to column kinds. */
@@ -61,17 +89,6 @@ export function columnKindsFromAlign(align: readonly ('l' | 'r')[]): TableColumn
 
 function getColumnAlignment(kind: TableColumnKind): TableAlignment {
   return kind === 'measure' ? 'right' : 'left';
-}
-
-function getVerticalAlignment(
-  kind: TableColumnKind,
-  layout: UnicodeTableLayout,
-): TableVerticalAlignment {
-  if (kind === 'text') {
-    return 'top';
-  }
-
-  return layout === 'top_aligned' ? 'top' : 'middle';
 }
 
 function alignCellLine(value: string, width: number, alignment: TableAlignment): string {
@@ -84,36 +101,21 @@ function alignCellLine(value: string, width: number, alignment: TableAlignment):
   return `${value}${' '.repeat(padding)}`;
 }
 
-function padCellLines(
-  lines: string[],
-  rowHeight: number,
-  verticalAlignment: TableVerticalAlignment,
-): string[] {
+/** Every cell starts on the row's first line, so a value sits beside its row's name. */
+function padCellLines(lines: string[], rowHeight: number): string[] {
   const missingLineCount = rowHeight - lines.length;
 
   if (missingLineCount <= 0) {
     return lines;
   }
 
-  if (verticalAlignment === 'top') {
-    return [...lines, ...Array.from({ length: missingLineCount }, () => '')];
-  }
-
-  const topPadding = Math.floor(missingLineCount / 2);
-  const bottomPadding = missingLineCount - topPadding;
-
-  return [
-    ...Array.from({ length: topPadding }, () => ''),
-    ...lines,
-    ...Array.from({ length: bottomPadding }, () => ''),
-  ];
+  return [...lines, ...Array.from({ length: missingLineCount }, () => '')];
 }
 
 function toRenderableRowLines(
   row: readonly string[],
   options: {
     widths: number[];
-    layout: UnicodeTableLayout;
     columnKinds: readonly TableColumnKind[];
   },
 ): string[] {
@@ -121,9 +123,8 @@ function toRenderableRowLines(
   const rowHeight = cellLines.reduce((max, lines) => Math.max(max, lines.length), 1);
 
   const paddedAlignedColumns = cellLines.map((lines, columnIndex) => {
-    const kind = options.columnKinds[columnIndex];
-    const alignedLines = padCellLines(lines, rowHeight, getVerticalAlignment(kind, options.layout));
-    const horizontalAlignment = getColumnAlignment(kind);
+    const alignedLines = padCellLines(lines, rowHeight);
+    const horizontalAlignment = getColumnAlignment(options.columnKinds[columnIndex]);
 
     return alignedLines.map((line) =>
       alignCellLine(line, options.widths[columnIndex], horizontalAlignment),
@@ -141,6 +142,7 @@ function buildBorderLine(widths: number[], chars: BorderChars): string {
   return `${chars.left}${segments.join(chars.join)}${chars.right}`;
 }
 
+/** A rule separates period groups and sets off the TOTAL row; rows within a group share it. */
 function shouldDrawBodySeparator(index: number, rowMetas: TableRowMeta[]): boolean {
   if (index < 0 || index >= rowMetas.length - 1) {
     return false;
@@ -149,14 +151,7 @@ function shouldDrawBodySeparator(index: number, rowMetas: TableRowMeta[]): boole
   const previousRow = rowMetas[index];
   const nextRow = rowMetas[index + 1];
 
-  return (
-    (previousRow.rowKind === 'detail' &&
-      (nextRow.rowKind === 'detail' || nextRow.rowKind === 'combined') &&
-      previousRow.periodKey === nextRow.periodKey) ||
-    previousRow.rowKind === 'combined' ||
-    nextRow.rowKind === 'total' ||
-    previousRow.periodKey !== nextRow.periodKey
-  );
+  return nextRow.rowKind === 'total' || previousRow.periodKey !== nextRow.periodKey;
 }
 
 function getRowKindWeight(rowKind: TableRowMeta['rowKind']): number {
@@ -187,19 +182,6 @@ function compareRowMetas(left: TableRowMeta, right: TableRowMeta): number {
   return getRowKindWeight(left.rowKind) - getRowKindWeight(right.rowKind);
 }
 
-function padRowToColumnCount(row: string[] | undefined, columnCount: number): string[] {
-  const normalizedRow = row ?? [];
-
-  if (normalizedRow.length >= columnCount) {
-    return normalizedRow;
-  }
-
-  return [
-    ...normalizedRow,
-    ...Array.from({ length: columnCount - normalizedRow.length }, () => ''),
-  ];
-}
-
 function getMaxRowColumnCount(
   rows: readonly (readonly string[])[],
   minimumColumnCount: number,
@@ -210,36 +192,24 @@ function getMaxRowColumnCount(
   );
 }
 
-function normalizeRenderableRows(options: {
-  rowMetas: TableRowMeta[];
-  bodyRows: string[][];
-  measureBodyRows: string[][];
-  columnCount: number;
-}): RenderableTableRow[] {
+/**
+ * Row indexes in display order: grouped by period, details before their combined row,
+ * TOTAL last. Rows keep their given order when their counts disagree with the metas.
+ */
+function resolveRowOrder(options: RenderUnicodeTableOptions): number[] {
+  const indexes = options.rowMetas.map((_, index) => index);
   const hasAlignedRowCounts =
     options.rowMetas.length === options.bodyRows.length &&
     options.rowMetas.length === options.measureBodyRows.length;
 
-  const rows = options.rowMetas.map((rowMeta, index) => ({
-    rowMeta,
-    bodyRow: padRowToColumnCount(options.bodyRows[index], options.columnCount),
-    measureBodyRow: padRowToColumnCount(options.measureBodyRows[index], options.columnCount),
-    originalIndex: index,
-  }));
-
   if (!hasAlignedRowCounts) {
-    return rows;
+    return indexes;
   }
 
-  return rows.sort((left, right) => {
-    const comparison = compareRowMetas(left.rowMeta, right.rowMeta);
-
-    if (comparison !== 0) {
-      return comparison;
-    }
-
-    return left.originalIndex - right.originalIndex;
-  });
+  return indexes.sort(
+    (left, right) =>
+      compareRowMetas(options.rowMetas[left], options.rowMetas[right]) || left - right,
+  );
 }
 
 function computeColumnWidths(
@@ -260,11 +230,90 @@ function computeColumnWidths(
     }
   }
 
-  if (options.multilineColumnWidth !== undefined) {
+  if (options.multilineColumnWidth !== undefined && options.multilineColumnIndex >= 0) {
     widths[options.multilineColumnIndex] = options.multilineColumnWidth;
   }
 
   return widths;
+}
+
+function prepareTable(
+  options: RenderUnicodeTableOptions,
+  rowOrder: readonly number[],
+  step: FitStep,
+): PreparedTable {
+  const bodyRows = step.bodyRows ?? options.bodyRows;
+  const measureBodyRows = step.measureBodyRows ?? step.bodyRows ?? options.measureBodyRows;
+  const columnCount = Math.max(
+    getMaxRowColumnCount(bodyRows, options.headerCells.length),
+    getMaxRowColumnCount(measureBodyRows, options.measureHeaderCells.length),
+  );
+  const hiddenColumns = new Set(step.hiddenColumns);
+  const visibleColumnIndexes = Array.from({ length: columnCount }, (_, index) => index).filter(
+    (columnIndex) => !hiddenColumns.has(columnIndex),
+  );
+  // Short or missing rows (ragged input) get empty cells.
+  const selectVisible = (row: readonly string[] | undefined): string[] =>
+    visibleColumnIndexes.map((columnIndex) => row?.[columnIndex] ?? '');
+  const measureHeaderRow = selectVisible(options.measureHeaderCells);
+  const orderedMeasureRows = rowOrder.map((rowIndex) => selectVisible(measureBodyRows[rowIndex]));
+  const multilineColumnIndex = visibleColumnIndexes.indexOf(options.multilineColumnIndex);
+
+  return {
+    headerRow: selectVisible(options.headerCells),
+    measureHeaderRow,
+    bodyRows: rowOrder.map((rowIndex) => selectVisible(bodyRows[rowIndex])),
+    measureBodyRows: orderedMeasureRows,
+    // Cells past the declared kinds (ragged rows) are treated as text.
+    columnKinds: visibleColumnIndexes.map(
+      (columnIndex): TableColumnKind => options.columnKinds[columnIndex] ?? 'text',
+    ),
+    widths: computeColumnWidths([measureHeaderRow, ...orderedMeasureRows], {
+      multilineColumnIndex,
+      multilineColumnWidth: options.multilineColumnWidth,
+    }),
+  };
+}
+
+/** The full table, then each step of `fit`; see `UnicodeTableFit`. */
+function resolveFitSteps(fit: UnicodeTableFit | undefined): FitStep[] {
+  const abbreviated = {
+    bodyRows: fit?.abbreviatedBodyRows,
+    measureBodyRows: fit?.abbreviatedMeasureBodyRows,
+  };
+  const hideableColumns = fit?.hideableColumns ?? [];
+
+  return [
+    {},
+    ...(abbreviated.bodyRows ? [abbreviated] : []),
+    ...hideableColumns.map((_, index) => ({
+      ...abbreviated,
+      hiddenColumns: hideableColumns.slice(0, index + 1),
+    })),
+  ];
+}
+
+/**
+ * Prepares steps in order, from most to least detail, and returns the first that fits;
+ * when none does, the last one with `fits: false`. A step is only prepared when every
+ * step before it was too wide.
+ */
+export function findFittingStep<Step, Prepared>(
+  steps: readonly Step[],
+  prepare: (step: Step) => Prepared,
+  fits: (prepared: Prepared) => boolean,
+): { prepared: Prepared; fits: boolean } {
+  let prepared = prepare(steps[0]);
+
+  for (const step of steps.slice(1)) {
+    if (fits(prepared)) {
+      return { prepared, fits: true };
+    }
+
+    prepared = prepare(step);
+  }
+
+  return { prepared, fits: fits(prepared) };
 }
 
 function measureBoxedTableWidth(widths: readonly number[]): number {
@@ -337,16 +386,28 @@ function renderStackedRows(options: {
   );
 
   const records = options.bodyRows.map((row, rowIndex) => {
+    // A cell the table wrapped is titled from its measure cell, so it reads whole; a
+    // one-line cell keeps its color.
     const title = row
       .slice(0, options.titleColumnCount)
-      .map(joinCellLines)
+      .map((cell, columnIndex) =>
+        joinCellLines(
+          (splitCellLines(cell).length > 1 && options.measureBodyRows[rowIndex][columnIndex]) ||
+            cell,
+        ),
+      )
       .filter((cell) => cell.trim().length > 0)
       .join(' · ');
     const valueLines = valueColumnIndexes.flatMap((columnIndex) => {
       // A line too long for the terminal is wrapped from its uncolored text, without the
       // padding that aligned it in the boxed table; the lines that fit stay as they are.
-      const measureLines = splitCellLines(options.measureBodyRows[rowIndex][columnIndex]);
-      const lines = splitCellLines(row[columnIndex]).flatMap((line, lineIndex) =>
+      // A cell the table wrapped (its measure cell has other lines) is listed unwrapped.
+      const measureCell = options.measureBodyRows[rowIndex][columnIndex];
+      const measureLines = splitCellLines(measureCell);
+      const bodyLines = splitCellLines(row[columnIndex]);
+      const listedLines =
+        measureCell && measureLines.length !== bodyLines.length ? measureLines : bodyLines;
+      const lines = listedLines.flatMap((line, lineIndex) =>
         visibleWidth(line) > availableValueWidth
           ? wrapAtNameBreaks(
               (measureLines[lineIndex] ?? line).replace(/ {2,}/gu, ' '),
@@ -379,59 +440,33 @@ function renderStackedRows(options: {
 }
 
 export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
-  const bodyColumnCount = getMaxRowColumnCount(options.bodyRows, options.headerCells.length);
-  const measureColumnCount = getMaxRowColumnCount(
-    options.measureBodyRows,
-    options.measureHeaderCells.length,
+  const rowOrder = resolveRowOrder(options);
+  const rowMetas = rowOrder.map((rowIndex) => options.rowMetas[rowIndex]);
+  const steps = resolveFitSteps(options.fit);
+  const prepare = (step: FitStep) => prepareTable(options, rowOrder, step);
+  const { terminalWidth } = options;
+  const fitted = findFittingStep(
+    steps,
+    prepare,
+    (table) => terminalWidth === undefined || measureBoxedTableWidth(table.widths) <= terminalWidth,
   );
-  const columnCount = Math.max(
-    options.headerCells.length,
-    options.measureHeaderCells.length,
-    bodyColumnCount,
-    measureColumnCount,
-  );
-  const renderableRows = normalizeRenderableRows({
-    rowMetas: options.rowMetas,
-    bodyRows: options.bodyRows,
-    measureBodyRows: options.measureBodyRows,
-    columnCount,
-  });
-  // Cells past the declared kinds (ragged rows) are treated as text.
-  const columnKinds = Array.from(
-    { length: columnCount },
-    (_, columnIndex): TableColumnKind => options.columnKinds[columnIndex] ?? 'text',
-  );
-  const normalizedHeaderRow = padRowToColumnCount([...options.headerCells], columnCount);
-  const normalizedMeasureHeaderRow = padRowToColumnCount(
-    [...options.measureHeaderCells],
-    columnCount,
-  );
-  const measureRows = [
-    normalizedMeasureHeaderRow,
-    ...renderableRows.map((row) => row.measureBodyRow),
-  ];
-  const widths = computeColumnWidths(measureRows, {
-    multilineColumnIndex: options.multilineColumnIndex,
-    multilineColumnWidth: options.multilineColumnWidth,
-  });
-  const normalizedBodyRows = renderableRows.map((row) => row.bodyRow);
-  const normalizedRowMetas = renderableRows.map((row) => row.rowMeta);
 
-  if (
-    options.terminalWidth !== undefined &&
-    measureBoxedTableWidth(widths) > options.terminalWidth
-  ) {
+  if (terminalWidth !== undefined && !fitted.fits) {
+    // A list has no column budget, so it shows every column in full detail.
+    const fullTable = steps.length === 1 ? fitted.prepared : prepare(steps[0]);
+
     return renderStackedRows({
-      headerCells: normalizedHeaderRow,
-      measureHeaderCells: normalizedMeasureHeaderRow,
-      bodyRows: normalizedBodyRows,
-      measureBodyRows: renderableRows.map((row) => row.measureBodyRow),
+      headerCells: fullTable.headerRow,
+      measureHeaderCells: fullTable.measureHeaderRow,
+      bodyRows: fullTable.bodyRows,
+      measureBodyRows: fullTable.measureBodyRows,
       titleColumnCount: options.stackedTitleColumnCount ?? options.multilineColumnIndex + 1,
-      terminalWidth: options.terminalWidth,
-      columnKinds,
+      terminalWidth,
+      columnKinds: fullTable.columnKinds,
     });
   }
 
+  const { headerRow, bodyRows, columnKinds, widths } = fitted.prepared;
   const outputLines: string[] = [];
 
   outputLines.push(
@@ -442,9 +477,8 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     }),
   );
   outputLines.push(
-    ...toRenderableRowLines(normalizedHeaderRow, {
+    ...toRenderableRowLines(headerRow, {
       widths,
-      layout: options.layout,
       columnKinds,
     }),
   );
@@ -456,16 +490,15 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     }),
   );
 
-  normalizedBodyRows.forEach((row, rowIndex) => {
+  bodyRows.forEach((row, rowIndex) => {
     outputLines.push(
       ...toRenderableRowLines(row, {
         widths,
-        layout: options.layout,
         columnKinds,
       }),
     );
 
-    if (shouldDrawBodySeparator(rowIndex, normalizedRowMetas)) {
+    if (shouldDrawBodySeparator(rowIndex, rowMetas)) {
       outputLines.push(
         buildBorderLine(widths, {
           left: '├',

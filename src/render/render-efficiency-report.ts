@@ -377,7 +377,6 @@ function renderTerminalEfficiencyTable(
     measureHeaderCells: fittedCells.headerCells,
     measureBodyRows: fittedCells.bodyRows,
     rowMetas,
-    layout: 'compact',
     columnKinds: fittedCells.headerCells.map((_, index) =>
       index === periodColumnIndex ? 'text' : 'measure',
     ),

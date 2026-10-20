@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { visibleWidth, wrapTableColumn } from '../../src/render/table-text-layout.js';
 import { renderUnicodeTable, type TableRowMeta } from '../../src/render/unicode-table.js';
 
 function createRowMeta(overrides: Partial<TableRowMeta> = {}): TableRowMeta {
@@ -20,7 +21,6 @@ describe('renderUnicodeTable', () => {
       measureHeaderCells: ['Session', 'Model'],
       measureBodyRows: [['…3b0277334e93', model]],
       rowMetas: [createRowMeta()],
-      layout: 'top_aligned',
       columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       terminalWidth: 30,
@@ -44,7 +44,6 @@ describe('renderUnicodeTable', () => {
       measureHeaderCells: ['Month', 'Projects'],
       measureBodyRows: [['2026-06', cell]],
       rowMetas: [createRowMeta()],
-      layout: 'top_aligned',
       columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       terminalWidth: 36,
@@ -66,7 +65,6 @@ describe('renderUnicodeTable', () => {
       measureHeaderCells: ['Session', 'Source', 'Cost', 'Models'],
       measureBodyRows: [['…3b0277334e93', 'codex', '', 'gpt-5.4\nclaude-opus-4-8']],
       rowMetas: [createRowMeta()],
-      layout: 'top_aligned',
       columnKinds: ['text', 'text', 'measure', 'text'],
       multilineColumnIndex: 3,
       terminalWidth: 30,
@@ -88,7 +86,6 @@ describe('renderUnicodeTable', () => {
       measureHeaderCells: ['Period', 'Source'],
       measureBodyRows: [],
       rowMetas: [createRowMeta()],
-      layout: 'compact',
       columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
@@ -105,7 +102,6 @@ describe('renderUnicodeTable', () => {
       measureHeaderCells: ['Period', 'Source'],
       measureBodyRows: [['2026-02-22']],
       rowMetas: [createRowMeta()],
-      layout: 'compact',
       columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
@@ -127,7 +123,6 @@ describe('renderUnicodeTable', () => {
         ['2026-02-22', 'opencode', 'extra-cell'],
       ],
       rowMetas: [createRowMeta(), createRowMeta()],
-      layout: 'compact',
       columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
@@ -143,7 +138,6 @@ describe('renderUnicodeTable', () => {
       measureHeaderCells: ['Period', 'Source'],
       measureBodyRows: [['2026-02-22', 'opencode']],
       rowMetas: [createRowMeta()],
-      layout: 'compact',
       columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
@@ -167,14 +161,12 @@ describe('renderUnicodeTable', () => {
         ['b', '1,250', 'claude-sonnet-4-5', 'today'],
       ],
       rowMetas: [createRowMeta(), createRowMeta()],
-      layout: 'compact',
       columnKinds: ['text', 'measure', 'text', 'text'],
       multilineColumnIndex: 2,
     });
 
-    expect(rendered.split('\n').slice(3, 6)).toEqual([
+    expect(rendered.split('\n').slice(3, 5)).toEqual([
       '│ a       │     5 │ gpt-5             │ 2026-06-15 │',
-      '├─────────┼───────┼───────────────────┼────────────┤',
       '│ b       │ 1,250 │ claude-sonnet-4-5 │ today      │',
     ]);
   });
@@ -190,7 +182,6 @@ describe('renderUnicodeTable', () => {
       measureHeaderCells: ['Period', 'Cost', 'Events', 'Notes'],
       measureBodyRows: rows,
       rowMetas: [createRowMeta(), createRowMeta()],
-      layout: 'compact',
       columnKinds: ['text', 'measure', 'measure', 'text'],
       multilineColumnIndex: 0,
       terminalWidth: 60,
@@ -206,6 +197,195 @@ describe('renderUnicodeTable', () => {
       '  Cost    $12.25',
       '  Events      10',
       '  Notes   -',
+    ]);
+  });
+
+  describe('fitting a table to the terminal', () => {
+    const headers = ['Tool', 'Calls', 'Tokens', 'Top Project'];
+    const tool = 'mcp__github__create_pull_request';
+    const fullRows = [[tool, '1,250', '1,234,567', 'llm-usage-metrics']];
+    const abbreviatedRows = [[tool, '1,250', '1.23M', 'llm-usage-metrics']];
+
+    function renderAt(terminalWidth: number | undefined): string {
+      return renderUnicodeTable({
+        headerCells: headers,
+        bodyRows: fullRows,
+        measureHeaderCells: headers,
+        measureBodyRows: fullRows,
+        rowMetas: [createRowMeta()],
+        columnKinds: ['text', 'measure', 'measure', 'text'],
+        multilineColumnIndex: 0,
+        terminalWidth,
+        fit: { abbreviatedBodyRows: abbreviatedRows, hideableColumns: [3, 1] },
+        stackedTitleColumnCount: 1,
+      });
+    }
+
+    function columnsOf(rendered: string): string[] {
+      return (rendered.split('\n')[1] ?? '')
+        .split('│')
+        .map((cell) => cell.trim())
+        .filter((cell) => cell.length > 0);
+    }
+
+    it('keeps full values while the full table fits, and without a terminal width', () => {
+      for (const width of [undefined, 76]) {
+        const rendered = renderAt(width);
+
+        expect(columnsOf(rendered)).toEqual(headers);
+        expect(rendered).toContain('1,234,567');
+      }
+    });
+
+    it('abbreviates measures before hiding any column', () => {
+      const rendered = renderAt(75);
+
+      expect(columnsOf(rendered)).toEqual(headers);
+      expect(rendered).toContain('│  1.23M │');
+    });
+
+    it('hides the hideable columns one at a time, in their given order', () => {
+      expect(columnsOf(renderAt(72))).toEqual(['Tool', 'Calls', 'Tokens']);
+      expect(columnsOf(renderAt(52))).toEqual(['Tool', 'Tokens']);
+    });
+
+    it('lists rows in full detail only when the narrowest step is still too wide', () => {
+      expect(renderAt(44).split('\n')).toEqual([
+        tool,
+        '  Calls            1,250',
+        '  Tokens       1,234,567',
+        '  Top Project  llm-usage-metrics',
+      ]);
+    });
+
+    it('never renders a boxed line wider than the terminal', () => {
+      for (let width = 20; width <= 80; width += 1) {
+        const lines = renderAt(width).split('\n');
+        const isBoxed = lines[0]?.startsWith('╭') ?? false;
+
+        if (isBoxed) {
+          expect(Math.max(...lines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(width);
+        }
+      }
+    });
+  });
+
+  it('titles a listed row with its unwrapped text, so a wrapped path is not split by a space', () => {
+    const path = '/home/user/.claude/projects/-home-user-projects-demo/session.jsonl';
+    const wrappedPath = wrapTableColumn([[path]], { columnIndex: 0, width: 24 })[0][0];
+    const rendered = renderUnicodeTable({
+      headerCells: ['Path', 'Events'],
+      bodyRows: [[wrappedPath, '12']],
+      measureHeaderCells: ['Path', 'Events'],
+      measureBodyRows: [[path, '12']],
+      rowMetas: [createRowMeta()],
+      columnKinds: ['text', 'measure'],
+      multilineColumnIndex: 0,
+      multilineColumnWidth: 24,
+      terminalWidth: 20,
+    });
+
+    expect(rendered.split('\n')[0]).toBe(path);
+  });
+
+  it('keeps the fixed multiline width on its column when a column before it is hidden', () => {
+    const rows = [['…3b0277334e93', '1,250', 'gpt-5']];
+    const rendered = renderUnicodeTable({
+      headerCells: ['Session', 'Calls', 'Models'],
+      bodyRows: rows,
+      measureHeaderCells: ['Session', 'Calls', 'Models'],
+      measureBodyRows: rows,
+      rowMetas: [createRowMeta()],
+      columnKinds: ['text', 'measure', 'text'],
+      multilineColumnIndex: 2,
+      multilineColumnWidth: 12,
+      terminalWidth: 30,
+      fit: { hideableColumns: [0] },
+    });
+
+    expect(rendered.split('\n')[1]).toBe('│ Calls │ Models       │');
+  });
+
+  it('titles a listed row from its body cell when its measure row is short', () => {
+    const rendered = renderUnicodeTable({
+      headerCells: ['Name', 'Total'],
+      bodyRows: [['alpha\nbeta', '1,234,567']],
+      measureHeaderCells: ['Name', 'Total'],
+      measureBodyRows: [[]],
+      rowMetas: [createRowMeta()],
+      columnKinds: ['text', 'measure'],
+      multilineColumnIndex: 0,
+      terminalWidth: 10,
+    });
+
+    expect(rendered.split('\n')[0]).toBe('alpha beta');
+  });
+
+  it('lists a value cell the table wrapped from its unwrapped lines, keeping every name whole', () => {
+    const models = '• anthropic/claude-sonnet-4-5-20250929-thinking\n• gpt-5';
+    const wrappedModels = wrapTableColumn([[models]], { columnIndex: 0, width: 32 })[0][0];
+    const rendered = renderUnicodeTable({
+      headerCells: ['Session', 'Models'],
+      bodyRows: [['…3b0277334e93', wrappedModels]],
+      measureHeaderCells: ['Session', 'Models'],
+      measureBodyRows: [['…3b0277334e93', models]],
+      rowMetas: [createRowMeta()],
+      columnKinds: ['text', 'text'],
+      multilineColumnIndex: 1,
+      multilineColumnWidth: 32,
+      terminalWidth: 40,
+      stackedTitleColumnCount: 1,
+    });
+
+    expect(rendered.split('\n')).toEqual([
+      '…3b0277334e93',
+      '  Models  • anthropic/claude-sonnet-4-5-',
+      '          20250929-thinking',
+      '          • gpt-5',
+    ]);
+  });
+
+  it('keeps the color of a one-line title when it lists rows', () => {
+    const coloredSource = '\u001B[36mpi\u001B[39m';
+    const rendered = renderUnicodeTable({
+      headerCells: ['Source', 'Total'],
+      bodyRows: [[coloredSource, '1,234,567']],
+      measureHeaderCells: ['Source', 'Total'],
+      measureBodyRows: [['pi', '1,234,567']],
+      rowMetas: [createRowMeta()],
+      columnKinds: ['text', 'measure'],
+      multilineColumnIndex: 0,
+      terminalWidth: 10,
+    });
+
+    expect(rendered.split('\n')[0]).toBe(coloredSource);
+  });
+
+  it('draws no rules between the rows of a flat list, only above its TOTAL row', () => {
+    const rows = [
+      ['a', '1'],
+      ['b', '2'],
+      ['TOTAL', '3'],
+    ];
+    const rendered = renderUnicodeTable({
+      headerCells: ['Name', 'Count'],
+      bodyRows: rows,
+      measureHeaderCells: ['Name', 'Count'],
+      measureBodyRows: rows,
+      rowMetas: [
+        createRowMeta({ periodKey: '' }),
+        createRowMeta({ periodKey: '' }),
+        createRowMeta({ periodKey: '', rowKind: 'total' }),
+      ],
+      columnKinds: ['text', 'measure'],
+      multilineColumnIndex: 0,
+    });
+
+    expect(rendered.split('\n').slice(3, -1)).toEqual([
+      '│ a     │     1 │',
+      '│ b     │     2 │',
+      '├───────┼───────┤',
+      '│ TOTAL │     3 │',
     ]);
   });
 });
