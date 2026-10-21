@@ -1,4 +1,5 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { resolveLastPeriodsRequest } from './build-usage-data.js';
 import { aggregateEfficiency } from '../efficiency/aggregate-efficiency.js';
 import { assertGitRepositoryDir, collectGitOutcomes } from '../efficiency/git-outcome-collector.js';
 import {
@@ -156,9 +157,15 @@ export function hasMeaningfulEfficiencyUsageSignal(event: UsageEvent): boolean {
 
 export async function buildEfficiencyData(
   granularity: ReportGranularity,
-  options: EfficiencyCommandOptions,
-  deps: BuildEfficiencyDataDeps = {},
+  commandOptions: EfficiencyCommandOptions,
+  commandDeps: BuildEfficiencyDataDeps = {},
 ): Promise<EfficiencyDataResult> {
+  // Full history by default; `--last N` covers the last N periods, as on daily/weekly/monthly.
+  const { options, deps } = await resolveLastPeriodsRequest(
+    granularity,
+    commandOptions,
+    commandDeps,
+  );
   const buildDataset = deps.buildUsageEventDataset ?? buildUsageEventDataset;
   const applyPricing = deps.applyPricingToUsageEventDataset ?? applyPricingToUsageEventDataset;
   const collectOutcomes = deps.collectGitOutcomes ?? collectGitOutcomes;
@@ -261,7 +268,7 @@ export async function buildEfficiencyData(
       repoUsageDays: activeUsageDays.size,
       repoExcludedUsageEvents: attribution.excludedEventCount,
       repoUnattributedUsageEvents: attribution.unattributedEventCount,
-      scopeNote: resolveScopeNote(options),
+      scopeNote: resolveScopeNote(commandOptions),
     },
   };
 }

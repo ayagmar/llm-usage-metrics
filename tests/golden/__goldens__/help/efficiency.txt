@@ -46,6 +46,8 @@ Options:
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
+  --last <n>                     Report the last N periods of <granularity> (days, weeks or months),
+                                 counting the current one
   --all                          Report the full history (the default without date flags)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
