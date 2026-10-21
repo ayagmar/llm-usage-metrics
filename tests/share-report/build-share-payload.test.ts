@@ -225,6 +225,17 @@ describe('listShareSizeWarnings', () => {
 });
 
 describe('buildSharePayload sessions', () => {
+  it('lists a session under the root of its earliest event, as session does', () => {
+    // Read out of order: the later event, logged outside the root, comes first.
+    const events = [
+      event({ timestamp: at(5), repoRoot: '/w/other' }),
+      event({ timestamp: at(0), repoRoot: '/w/app' }),
+    ];
+    const { sessions, dictionaries } = buildSharePayload(payloadInput(events));
+
+    expect(sessions.rows.map((row) => dictionaries.projects[row.project])).toEqual(['app']);
+  });
+
   it('keeps the newest sessions per project and counts the rest', () => {
     const events = [
       ...Array.from({ length: 5 }, (_, index) =>

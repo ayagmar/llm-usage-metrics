@@ -146,7 +146,7 @@
           "type": "string"
         },
         "repoRoot": {
-          "description": "Working directory the tool recorded for the session; omitted when unknown.",
+          "description": "The session's project: the directory it started in; omitted when unknown.",
           "type": "string"
         },
         "models": {

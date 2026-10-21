@@ -42,7 +42,7 @@ Options:
                                  local or path-shaped models model-N
   --vs-since <date>              Inclusive start date for the baseline comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison window
-  --by-repo                      Also compare each project (the working directory the tool recorded)
+  --by-repo                      Also compare each project (the directory its session started in)
   --top <n>                      With --by-repo, show the top N projects by cost change and fold the
                                  rest into one "other projects" row (default 20; 0 shows all)
   --all                          No effect: compare reads its two windows from the date flags

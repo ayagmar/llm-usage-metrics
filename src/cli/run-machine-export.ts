@@ -59,7 +59,10 @@ export async function runMachineExport(
   const stdout = deps.stdout ?? process.stdout;
   const knownFiles = await readKnownFiles(options.known, deps.stdin ?? process.stdin);
   // Only this machine's own usage: other machines export theirs themselves.
-  const dataset = await buildUsageEventDataset({ machine: LOCAL_MACHINE_NAME }, deps);
+  // Exports from the store: no projects to attribute.
+  const dataset = await buildUsageEventDataset({ machine: LOCAL_MACHINE_NAME }, deps, {
+    recordedRepoRoots: true,
+  });
 
   emitReportRunDiagnostics(
     buildUsageDiagnostics({

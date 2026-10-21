@@ -89,11 +89,11 @@
       "additionalProperties": false
     },
     "projectTrendSeries": {
-      "description": "One project's (recorded working directory's) daily series.",
+      "description": "One project's (the directory its session started in) daily series.",
       "type": "object",
       "properties": {
         "repoRoot": {
-          "description": "Project key (recorded working directory without trailing separators), or null for usage without one.",
+          "description": "Project key (the directory its session started in, without trailing separators), or null for usage without one.",
           "type": ["string", "null"]
         },
         "project": {

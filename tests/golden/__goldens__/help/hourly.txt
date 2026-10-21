@@ -44,8 +44,8 @@ Options:
                                  columns (terminal/markdown)
   --no-cost                      Leave cost out of the table, e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage came from
-  --by-repo                      Split each source row by project (the working directory the tool
-                                 recorded)
+  --by-repo                      Split each source row by project (the directory its session started
+                                 in)
   --top <n>                      With --by-repo, show the top N projects of each hour by cost (by
                                  tokens when a cost is incomplete or with --no-cost) and fold the
                                  rest into one "other projects" row per source (default 20; 0 shows

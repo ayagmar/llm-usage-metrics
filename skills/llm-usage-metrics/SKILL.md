@@ -43,7 +43,7 @@ compatibility: Requires Node.js 22.16+ (not 23) or 24+, and npx or a global inst
 
 - Dates: `--since YYYY-MM-DD` and `--until YYYY-MM-DD` are inclusive, in the system timezone unless `--timezone <iana>`. `--last N` counts N days, weeks, or months (whichever the report uses; `hourly` counts days), including the current one. `--all` covers the full history. Each report has its own default window, as in the table above.
 - Tools: `--source claude,codex` filters by the tool that wrote the log. `--provider anthropic` filters by billing provider, so a Codex session can be `source=codex` and `provider=openai`. `--model` filters by model name, exact if one matches, otherwise by substring.
-- Projects: `--repo <path or name>` filters by the working directory the tool recorded. A path matches that directory and those under it; a name such as `work/api` matches the end of a directory.
+- Projects: `--repo <path or name>` filters by project, the directory a session started in (usage after changing into a subfolder stays with it; on `events`, the directory each event recorded). A path matches that directory and those under it; a name such as `work/api` matches the end of a directory.
 - Other machines: `llm-usage machine add <name> [ssh-target]` registers one (it needs llm-usage-metrics installed there and ssh without a prompt). Reports then include it and fetch its usage again when the cached copy is more than 10 minutes old. `--machine local` counts only this machine, `--no-sync` uses cached usage without ssh, `machine list` shows each machine's last sync, and `sync` fetches now.
 
 ## Read the numbers

@@ -49,7 +49,8 @@ Options:
                                  it; a name or path tail such as work/api matches the end of a
                                  project directory, not the projects under it; (unattributed)
                                  matches usage without a recorded directory. Applied after --model
-                                 picks exact or substring matching
+                                 picks exact or substring matching. Here a project is the directory
+                                 each event recorded, which events exports as repoRoot
   -h, --help                     display help for command
 
 Per-source path flags (--claude-dir, ...)

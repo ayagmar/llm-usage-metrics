@@ -21,7 +21,7 @@ Commands:
                                       unless --last, --since, --until, or --all)
   monthly [options]                   Show monthly usage report
   projects [options]                  Show cost, tokens, events, active days and top models per
-                                      project (the working directory the tool recorded), costliest
+                                      project (the directory its session started in), costliest
                                       first (full history unless --last, --since, or --until)
   compare [options]                   Compare usage and cost between two date windows
   efficiency [options] <granularity>  Show efficiency report by correlating usage metrics with local

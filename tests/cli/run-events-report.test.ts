@@ -116,6 +116,44 @@ afterEach(() => {
 });
 
 describe('run-events-report', () => {
+  it('exports the directory each event logged, not its session root', async () => {
+    const drifted = (timestamp: string, repoRoot: string) =>
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 'drift',
+        timestamp,
+        repoRoot,
+        provider: 'openai',
+        model: 'gpt-4.1',
+        inputTokens: 10,
+        outputTokens: 5,
+      });
+    const output = captureOutput();
+
+    try {
+      await runEventsReport(
+        { timezone: 'UTC' },
+        runtimeDeps([
+          createAdapter('pi', {
+            '/tmp/drift.jsonl': [
+              drifted('2026-01-01T10:00:00.000Z', '/w/app'),
+              drifted('2026-01-01T10:05:00.000Z', '/w/app/site'),
+            ],
+          }),
+        ]),
+      );
+    } finally {
+      output.restore();
+    }
+
+    const lines = output.stdout().trimEnd().split('\n');
+
+    expect(lines.map((line) => (JSON.parse(line) as { repoRoot: string }).repoRoot)).toEqual([
+      '/w/app',
+      '/w/app/site',
+    ]);
+  });
+
   it('streams jsonl lines sorted by timestamp, source, session id', async () => {
     const output = captureOutput();
 

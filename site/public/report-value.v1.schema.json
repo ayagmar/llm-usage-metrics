@@ -165,7 +165,7 @@
       "allOf": [{ "$ref": "#/$defs/costFlags" }],
       "properties": {
         "repoRoot": {
-          "description": "Project key (the recorded working directory); null for usage without one.",
+          "description": "Project key (the directory its session started in); null for usage without one.",
           "type": ["string", "null"]
         },
         "project": { "description": "Display label of the project.", "type": "string" },

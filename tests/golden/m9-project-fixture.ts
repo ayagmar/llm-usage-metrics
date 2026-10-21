@@ -7,7 +7,8 @@ import { readFrom } from '../helpers/fake-read.js';
  * Synthetic usage across projects, for the M9 report goldens; read-only for their tests.
  *
  * - two sources, `claude` and `codex`, each with several repository roots;
- * - `/w/a/api/src`, a root under `/w/a/api`;
+ * - `/w/a/api/src`, a root under `/w/a/api` that a session started in, so it stays its own
+ *   project;
  * - `/w/a/api` and `/w/b/api`, which share a basename;
  * - `/w/b/api/` with a trailing separator, the same project as `/w/b/api`;
  * - `C:\src\web`, a Windows-style root;
@@ -50,7 +51,7 @@ const FIXTURE_INPUTS: Record<FixtureSource, readonly FixtureEventInput[]> = {
       cacheReadTokens: 10_000,
     },
     {
-      sessionId: 'claude-api',
+      sessionId: 'claude-api-src',
       timestamp: '2026-06-15T09:40:00.000Z',
       repoRoot: '/w/a/api/src',
       inputTokens: 800,

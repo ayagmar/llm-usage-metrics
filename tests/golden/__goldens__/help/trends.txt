@@ -46,8 +46,8 @@ Options:
   --metric <name>                Trend metric: cost | tokens | active-hours (default: "cost")
   --by-source                    Render one sparkline row per source instead of a single combined
                                  chart
-  --by-repo                      Render one sparkline row per project (the working directory the
-                                 tool recorded); not with --by-source
+  --by-repo                      Render one sparkline row per project (the directory its session
+                                 started in); not with --by-source
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
                                  this machine) matches that project directory and the projects under

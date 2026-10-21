@@ -146,7 +146,8 @@ export async function runEventsReport(
   const pushTarget = resolveOtlpPushTarget(commandOptions);
   // Full history by default; `--last N` covers the last N days, counting today, as on daily.
   const { options, deps } = await resolveLastPeriodsRequest('daily', commandOptions, commandDeps);
-  const dataset = await buildUsageEventDataset(options, deps);
+  // The logged directory, not the session's project: events exports what was recorded.
+  const dataset = await buildUsageEventDataset(options, deps, { recordedRepoRoots: true });
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,
     deps,
