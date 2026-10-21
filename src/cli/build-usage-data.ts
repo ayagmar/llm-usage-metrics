@@ -192,6 +192,27 @@ export async function resolveUsageDataRequest(
 }
 
 /**
+ * `--last N` periods on a report that has no default window: full history without it.
+ * Keeps the caller's own options and deps.
+ */
+export async function resolveLastPeriodsRequest<
+  TOptions extends ReportCommandOptions,
+  TDeps extends BuildUsageDataDeps,
+>(
+  granularity: UsageGranularity,
+  options: TOptions,
+  deps: TDeps,
+): Promise<{ options: TOptions; deps: TDeps }> {
+  if (options.last === undefined) {
+    return { options, deps };
+  }
+
+  const request = await resolveUsageDataRequest(granularity, options, deps);
+
+  return { options: { ...options, ...request.options }, deps: { ...deps, ...request.deps } };
+}
+
+/**
  * The hourly keys that combine two occurrences of a local hour (a DST fall-back), sorted.
  */
 export function findRepeatedLocalHours(

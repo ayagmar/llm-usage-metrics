@@ -16,8 +16,13 @@ import { StaticPricingSource } from '../../packages/core/tests/helpers/static-pr
 import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/internal';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
+import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 
-type CollectGitOutcomesFn = (options: { activeUsageDays?: ReadonlySet<string> }) => Promise<{
+type CollectGitOutcomesFn = (options: {
+  activeUsageDays?: ReadonlySet<string>;
+  since?: string;
+  until?: string;
+}) => Promise<{
   periodOutcomes: Map<
     string,
     { commitCount: number; linesAdded: number; linesDeleted: number; linesChanged: number }
@@ -833,6 +838,58 @@ describe('buildEfficiencyData', () => {
         'efficiency.aggregate_usage',
         'efficiency.aggregate',
       ]),
+    );
+  });
+});
+
+describe('buildEfficiencyData --last', () => {
+  useIsolatedEnvironment();
+
+  async function outcomeWindow(options: Parameters<typeof buildEfficiencyData>[1]) {
+    const collectGitOutcomesMock = vi.fn<CollectGitOutcomesFn>(async () => ({
+      periodOutcomes: new Map(),
+      totalOutcomes: { commitCount: 0, linesAdded: 0, linesDeleted: 0, linesChanged: 0 },
+      diagnostics: {
+        repoDir: '/tmp/repo',
+        includeMergeCommits: false,
+        commitsCollected: 0,
+        malformedCommitLines: 0,
+        linesAdded: 0,
+        linesDeleted: 0,
+      },
+    }));
+
+    await buildEfficiencyData(
+      'weekly',
+      { timezone: 'UTC', ...options },
+      {
+        buildUsageEventDataset: async (datasetOptions) => createUsageEventDataset(datasetOptions),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
+        collectGitOutcomes: collectGitOutcomesMock,
+        resolveRepoRoot: async () => undefined,
+        // A Wednesday.
+        now: () => new Date('2026-03-11T12:00:00.000Z'),
+      },
+    );
+
+    const { since, until } = collectGitOutcomesMock.mock.calls[0]?.[0] ?? {};
+    return { since, until };
+  }
+
+  it('covers the full history without it', async () => {
+    expect(await outcomeWindow({})).toEqual({ since: undefined, until: undefined });
+  });
+
+  it('covers the last N periods of the granularity, counting the current one', async () => {
+    expect(await outcomeWindow({ last: '2' })).toEqual({
+      since: '2026-03-02',
+      until: '2026-03-11',
+    });
+  });
+
+  it('rejects --last combined with --since', async () => {
+    await expect(outcomeWindow({ last: '2', since: '2026-03-01' })).rejects.toThrow(
+      '--last cannot be combined with --since, --until, or --all',
     );
   });
 });

@@ -73,6 +73,10 @@ const reportReferenceExamples: readonly ReportHelpExample[] = [
   },
 ];
 
+/** `--last N` on efficiency and optimize, whose period comes from `<granularity>`. */
+const LAST_GRANULARITY_PERIODS_DESCRIPTION =
+  'Report the last N periods of <granularity> (days, weeks or months), counting the current one';
+
 /** The `<granularity>` values of efficiency and optimize. */
 export const GRANULARITY_ARGUMENT_VALUES = [
   'daily',
@@ -480,7 +484,8 @@ const efficiencyReportDefinition: ReportRuntimeDefinition = {
     addGranularityArgument(command)
       .option('--repo-dir <path>', 'Path to repository for Git outcome metrics')
       .option('--include-merge-commits', 'Include merge commits in Git outcome metrics')
-      .option('--by-source', 'Include per-source usage rows under each period');
+      .option('--by-source', 'Include per-source usage rows under each period')
+      .option('--last <n>', LAST_GRANULARITY_PERIODS_DESCRIPTION);
     addFullHistoryOption(command);
     addRepoFilterOption(
       command,
@@ -559,7 +564,8 @@ const optimizeReportDefinition: ReportRuntimeDefinition = {
         'Candidate model for counterfactual pricing (repeatable or comma-separated)',
         collectRepeatedOption,
       )
-      .option('--top <n>', 'Show only the top N cheapest candidates (default: all; 0 shows all)');
+      .option('--top <n>', 'Show only the top N cheapest candidates (default: all; 0 shows all)')
+      .option('--last <n>', LAST_GRANULARITY_PERIODS_DESCRIPTION);
     addFullHistoryOption(command);
     addRepoFilterOption(command).action(
       (granularity: ReportGranularity, options: OptimizeCommandOptions) =>
@@ -665,7 +671,8 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
       .option(
         '--timeline',
         'With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns',
-      );
+      )
+      .option('--last <n>', 'Report the last N days, counting today');
     addFullHistoryOption(command);
     addRepoFilterOption(command).action((options: SessionCommandOptions) =>
       runSessionReport(options),
