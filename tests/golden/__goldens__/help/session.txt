@@ -43,6 +43,7 @@ Options:
                                  instead of by session
   --timeline                     With --id naming one session: list its requests in time order with
                                  a running cost, between its tool calls and turns
+  --last <n>                     Report the last N days, counting today
   --all                          Report the full history (the default without date flags)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on

@@ -916,6 +916,9 @@ Options:
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
+  --last <n>                     Report the last N periods of <granularity>
+                                 (days, weeks or months), counting the current
+                                 one
   --all                          Report the full history (the default without
                                  date flags)
   --repo <project>               Count only these projects (repeatable or
@@ -1027,6 +1030,9 @@ Options:
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
                                  (default: all; 0 shows all)
+  --last <n>                     Report the last N periods of <granularity>
+                                 (days, weeks or months), counting the current
+                                 one
   --all                          Report the full history (the default without
                                  date flags)
   --repo <project>               Count only these projects (repeatable or
@@ -1243,6 +1249,7 @@ Options:
   --timeline                     With --id naming one session: list its requests
                                  in time order with a running cost, between its
                                  tool calls and turns
+  --last <n>                     Report the last N days, counting today
   --all                          Report the full history (the default without
                                  date flags)
   --repo <project>               Count only these projects (repeatable or
@@ -2326,7 +2333,7 @@ Search across root and command help. See Command help above to check which flags
 | `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--known` | - | `<path>` | Leave out files already held at the same revision, as listed in this JSON file \(- for stdin\) \(machine only\) |
-| `--last` | - | `<n>` | hourly: Report the last N days hour by hour \(1-31\), counting today; daily, context: Report the last N days, counting today; weekly: Report the last N weeks, counting the current week; monthly, projects, value: Report the last N months, counting the current month; trends: Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided; tools, blocks: Report the last N days, counting today \(default 7\); events: Export the last N days, counting today |
+| `--last` | - | `<n>` | hourly: Report the last N days hour by hour \(1-31\), counting today; daily, session, context: Report the last N days, counting today; weekly: Report the last N weeks, counting the current week; monthly, projects, value: Report the last N months, counting the current month; efficiency, optimize: Report the last N periods of &lt;granularity&gt; \(days, weeks or months\), counting the current one; trends: Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided; tools, blocks: Report the last N days, counting today \(default 7\); events: Export the last N days, counting today |
 | `--list` | - | - | List available schema names \(the default without a name\) \(schema only\) |
 | `--machine` | - | `<name>` | Count only these machines \(repeatable or comma-separated; local is this one; default: all\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, pricing only\) |

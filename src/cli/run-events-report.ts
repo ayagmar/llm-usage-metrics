@@ -14,7 +14,7 @@ import {
 } from '../otel-export/otlp-push.js';
 import { buildOtlpTraces } from '../otel-export/otlp-traces.js';
 import { logger } from '../utils/logger.js';
-import { resolveUsageDataRequest } from './build-usage-data.js';
+import { resolveLastPeriodsRequest } from './build-usage-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
@@ -145,10 +145,7 @@ export async function runEventsReport(
   const format = resolveEventsFormat(commandOptions);
   const pushTarget = resolveOtlpPushTarget(commandOptions);
   // Full history by default; `--last N` covers the last N days, counting today, as on daily.
-  const { options, deps } =
-    commandOptions.last === undefined
-      ? { options: commandOptions, deps: commandDeps }
-      : await resolveUsageDataRequest('daily', commandOptions, commandDeps);
+  const { options, deps } = await resolveLastPeriodsRequest('daily', commandOptions, commandDeps);
   // The logged directory, not the session's project: events exports what was recorded.
   const dataset = await buildUsageEventDataset(options, deps, { recordedRepoRoots: true });
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(

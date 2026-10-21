@@ -1,4 +1,5 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { resolveLastPeriodsRequest } from './build-usage-data.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { normalizeProviderFilter } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
@@ -86,9 +87,15 @@ function resolveOptimizeProvider(
 
 export async function buildOptimizeData(
   granularity: ReportGranularity,
-  options: OptimizeCommandOptions,
-  deps: BuildOptimizeDataDeps = {},
+  commandOptions: OptimizeCommandOptions,
+  commandDeps: BuildOptimizeDataDeps = {},
 ): Promise<OptimizeDataResult> {
+  // Full history by default; `--last N` covers the last N periods, as on daily/weekly/monthly.
+  const { options, deps } = await resolveLastPeriodsRequest(
+    granularity,
+    commandOptions,
+    commandDeps,
+  );
   const candidateModels = normalizeCandidateModels(options.candidateModel);
   // The candidates are the ones asked for, so all are shown unless --top N picks the cheapest.
   const top = resolveTopRowLimit(parseTopRowsOption(options.top), true);
@@ -130,9 +137,14 @@ export async function buildOptimizeData(
   // Rebuilt as if --provider had been passed, so --model rules, filter warnings and the
   // pricing load resolve over that provider's usage alone. The first build already
   // refreshed other machines.
+  // `--last` passes a resolved user config, which would otherwise win over these options.
+  const scopedOptions = { ...options, provider, sync: false };
+  const scopedDeps = deps.userConfigResolution
+    ? { ...deps, userConfigResolution: { ...deps.userConfigResolution, options: scopedOptions } }
+    : deps;
   const dataset = inferredFromCandidates
     ? await measureRuntimeProfileStage(deps.runtimeProfile, 'optimize.dataset.scoped', () =>
-        buildUsageEventDataset({ ...options, provider, sync: false }, deps),
+        buildUsageEventDataset(scopedOptions, scopedDeps),
       )
     : unscopedDataset;
 

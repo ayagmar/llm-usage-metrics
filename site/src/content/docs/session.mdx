@@ -33,10 +33,11 @@ llm-usage session --markdown
 - `--id <session-id>`: keep only sessions whose id contains the value (case-insensitive; repeatable or comma-separated); cannot be combined with `--by-repo`
 - `--by-repo`: aggregate sessions into one row per [project](/llm-usage-metrics/projects/)
 - `--timeline`: with `--id` naming one session, list that session request by request (see [Timeline](#timeline)); cannot be combined with `--top`
+- `--last <n>`: the last N days, counting today; cannot be combined with `--since`, `--until`, or `--all`
 - `--repo <project>`: count only some projects, as described on [Projects](/llm-usage-metrics/projects/#narrow-the-scope)
 - shared filters apply: `--source`, `--provider`, `--model`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--no-history`
 
-Without date flags, `session` covers your full history. It supports terminal, `--json`, and `--markdown` output, but not `--share`; the [interactive report](/llm-usage-metrics/share/) lists each project's sessions without their ids.
+Without `--last` or date flags, `session` covers your full history. It supports terminal, `--json`, and `--markdown` output, but not `--share`; the [interactive report](/llm-usage-metrics/share/) lists each project's sessions without their ids.
 
 ## Output
 

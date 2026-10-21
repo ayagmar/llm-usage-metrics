@@ -237,6 +237,8 @@ export type StatuslineCommandOptions = SharedOptionsForProfile<'statusline'>;
 
 export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> &
   RepoFilterOption & {
+    /** `--last N`: the last N periods of the granularity, counting the current one. */
+    last?: string;
     repoDir?: string;
     includeMergeCommits?: boolean;
     bySource?: boolean;
@@ -244,6 +246,8 @@ export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> &
 
 export type OptimizeCommandOptions = SharedOptionsForProfile<'specialized'> &
   RepoFilterOption & {
+    /** `--last N`: the last N periods of the granularity, counting the current one. */
+    last?: string;
     candidateModel?: string | string[];
     top?: string;
   };
@@ -262,6 +266,8 @@ export type TrendsCommandOptions = SharedOptionsForProfile<'trends'> &
 
 export type SessionCommandOptions = SharedOptionsForProfile<'session'> &
   RepoFilterOption & {
+    /** `--last N`: the last N days, counting today. */
+    last?: string;
     top?: string;
     id?: string[];
     byRepo?: boolean;

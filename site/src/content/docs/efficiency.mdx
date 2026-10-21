@@ -25,7 +25,7 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --by-source
 llm-usage efficiency monthly --repo-dir /path/to/repo --share
 ```
 
-Without `--repo-dir`, the command uses the Git repository that contains the current directory. Without date flags, it covers your full history.
+Without `--repo-dir`, the command uses the Git repository that contains the current directory. Without date flags, it covers your full history; `--last N` covers the last N periods of the granularity (days, weeks, or months), counting the current one.
 
 `--share` writes an [interactive report](/llm-usage-metrics/share/) `efficiency-<granularity>-share.html` with the efficiency table as a panel; it works for every granularity and with `--by-source`.
 

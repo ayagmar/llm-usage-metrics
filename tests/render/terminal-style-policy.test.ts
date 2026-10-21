@@ -6,40 +6,28 @@ import {
   createColorRoles,
   resolveSourceStyler,
   styleDeltaCell,
-  type TerminalStylePalette,
 } from '../../src/render/terminal-style-policy.js';
 import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
-
-const testPalette: TerminalStylePalette = {
-  cyan: (text) => `<cyan>${text}</cyan>`,
-  magenta: (text) => `<magenta>${text}</magenta>`,
-  blue: (text) => `<blue>${text}</blue>`,
-  yellow: (text) => `<yellow>${text}</yellow>`,
-  green: (text) => `<green>${text}</green>`,
-  red: (text) => `<red>${text}</red>`,
-  white: (text) => `<white>${text}</white>`,
-  bold: (text) => `<bold>${text}</bold>`,
-  dim: (text) => `<dim>${text}</dim>`,
-};
+import { markerPalette } from '../helpers/marker-palette.js';
 
 describe('terminal-style-policy', () => {
   it('gives pi, codex and claude their own hues, clear of the money and good/bad colors', () => {
     const sources = ['pi', 'codex', 'claude'];
-    const hues = sources.map((source) => resolveSourceStyler(source, testPalette)('x'));
+    const hues = sources.map((source) => resolveSourceStyler(source, markerPalette)('x'));
 
     expect(new Set(hues).size).toBe(sources.length);
     for (const hue of hues) {
       expect(hue).not.toBe('x');
       expect(hue).not.toMatch(/<(?:yellow|green|red)>/u);
     }
-    expect(resolveSourceStyler('gemini', testPalette)('gemini')).toBe('gemini');
-    expect(resolveSourceStyler('combined', testPalette)('combined')).toBe('combined');
-    expect(resolveSourceStyler('TOTAL', testPalette)('TOTAL')).toBe('TOTAL');
-    expect(resolveSourceStyler('other', testPalette)('other')).toBe('other');
+    expect(resolveSourceStyler('gemini', markerPalette)('gemini')).toBe('gemini');
+    expect(resolveSourceStyler('combined', markerPalette)('combined')).toBe('combined');
+    expect(resolveSourceStyler('TOTAL', markerPalette)('TOTAL')).toBe('TOTAL');
+    expect(resolveSourceStyler('other', markerPalette)('other')).toBe('other');
   });
 
   it('returns every role unchanged without color', () => {
-    const roles = createColorRoles(false, testPalette);
+    const roles = createColorRoles(false, markerPalette);
     const { source, ...textRoles } = roles;
 
     for (const styler of Object.values(textRoles)) {
@@ -49,7 +37,7 @@ describe('terminal-style-policy', () => {
   });
 
   it('styles headers bold, money yellow, and good/bad green/red with color', () => {
-    const roles = createColorRoles(true, testPalette);
+    const roles = createColorRoles(true, markerPalette);
 
     expect(roles.header('Cost')).toBe('<bold>Cost</bold>');
     expect(roles.money('$1.00')).toBe('<yellow>$1.00</yellow>');
@@ -61,7 +49,7 @@ describe('terminal-style-policy', () => {
   });
 
   it('colors a cost increase red and a decrease green when lower is better', () => {
-    const options = { lowerIsBetter: true, palette: testPalette };
+    const options = { lowerIsBetter: true, palette: markerPalette };
 
     expect(styleDeltaCell(5, '+$5.00', true, options)).toBe('<red>+$5.00</red>');
     expect(styleDeltaCell(-5, '-$5.00', true, options)).toBe('<green>-$5.00</green>');
@@ -70,7 +58,7 @@ describe('terminal-style-policy', () => {
   });
 
   it('colors savings green and losses red by default', () => {
-    const options = { palette: testPalette };
+    const options = { palette: markerPalette };
 
     expect(styleDeltaCell(3, '$3.00', true, options)).toBe('<green>$3.00</green>');
     expect(styleDeltaCell(-3, '-$3.00', true, options)).toBe('<red>-$3.00</red>');
@@ -81,7 +69,7 @@ describe('terminal-style-policy', () => {
     const styled = applyRowTypeStyle(
       'period_source',
       ['period', 'pi', 'model', '1', '2', '3', '4', '5', '6', '$7'],
-      testPalette,
+      markerPalette,
     );
 
     expect(styled).toEqual([
@@ -102,7 +90,7 @@ describe('terminal-style-policy', () => {
     const styled = applyRowTypeStyle(
       'period_combined',
       ['period', 'combined', 'model', '1'],
-      testPalette,
+      markerPalette,
     );
 
     expect(styled).toEqual([
@@ -117,7 +105,7 @@ describe('terminal-style-policy', () => {
     const styled = applyRowTypeStyle(
       'grand_total',
       ['ALL', 'TOTAL', 'model', '2,720', '$1'],
-      testPalette,
+      markerPalette,
     );
 
     expect(styled).toEqual([
@@ -144,7 +132,7 @@ describe('terminal-style-policy', () => {
         '6',
         '$7',
       ],
-      testPalette,
+      markerPalette,
     );
 
     expect(styled[2]).toBe(
@@ -156,7 +144,7 @@ describe('terminal-style-policy', () => {
     const styled = applyRowTypeStyle(
       'period_source',
       ['period', 'pi', '• primary-model  • secondary-model', '1', '2', '3', '4', '5', '6', '$7'],
-      testPalette,
+      markerPalette,
     );
 
     expect(styled[2]).toBe('<bold>• primary-model</bold><dim>  • secondary-model</dim>');
@@ -177,7 +165,7 @@ describe('terminal-style-policy', () => {
         '6',
         '$7',
       ],
-      testPalette,
+      markerPalette,
     );
 
     expect(styled[2]).toBe(
@@ -200,7 +188,7 @@ describe('terminal-style-policy', () => {
         '6',
         '$7',
       ],
-      testPalette,
+      markerPalette,
     );
 
     expect(styled[2]).toBe(
@@ -239,7 +227,7 @@ describe('terminal-style-policy', () => {
     ];
 
     expect(
-      colorizeUsageBodyRows(bodyRows, rows, { useColor: false, palette: testPalette }),
+      colorizeUsageBodyRows(bodyRows, rows, { useColor: false, palette: markerPalette }),
     ).toEqual(bodyRows);
   });
 
@@ -273,9 +261,9 @@ describe('terminal-style-policy', () => {
       },
     ];
 
-    expect(colorizeUsageBodyRows(bodyRows, rows, { useColor: true, palette: testPalette })).toEqual(
-      [['<yellow>$1</yellow>']],
-    );
+    expect(
+      colorizeUsageBodyRows(bodyRows, rows, { useColor: true, palette: markerPalette }),
+    ).toEqual([['<yellow>$1</yellow>']]);
   });
 
   it('handles missing body rows without throwing', () => {
@@ -296,7 +284,9 @@ describe('terminal-style-policy', () => {
       },
     ];
 
-    expect(colorizeUsageBodyRows([], rows, { useColor: true, palette: testPalette })).toEqual([[]]);
+    expect(colorizeUsageBodyRows([], rows, { useColor: true, palette: markerPalette })).toEqual([
+      [],
+    ]);
   });
 
   it('keeps unknown source labels unchanged while still applying row-type policy', () => {
@@ -331,7 +321,7 @@ describe('terminal-style-policy', () => {
 
     const styledRows = colorizeUsageBodyRows(bodyRows, rows, {
       useColor: true,
-      palette: testPalette,
+      palette: markerPalette,
     });
 
     expect(styledRows[0]).toEqual(['period', 'other', 'model', '<yellow>$1</yellow>']);
@@ -390,7 +380,7 @@ describe('terminal-style-policy', () => {
 
     const styledRows = colorizeUsageBodyRows(bodyRows, rows, {
       useColor: true,
-      palette: testPalette,
+      palette: markerPalette,
     });
 
     expect(styledRows[0][1]).toBe('combined');

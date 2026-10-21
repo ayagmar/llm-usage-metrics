@@ -731,3 +731,44 @@ describe('buildSessionData --json details', () => {
     );
   });
 });
+
+describe('buildSessionData --last', () => {
+  useIsolatedEnvironment();
+
+  const now = () => new Date('2026-03-10T12:00:00.000Z');
+  const deps = () => ({
+    ...runtimeDeps({
+      adapters: [
+        createAdapter('pi', {
+          '/tmp/pi.jsonl': [
+            createBaseEvent({ sessionId: 'old', timestamp: '2026-03-03T23:00:00.000Z' }),
+            createBaseEvent({ sessionId: 'recent', timestamp: '2026-03-04T00:00:00.000Z' }),
+          ],
+        }),
+      ],
+    }),
+    now,
+  });
+
+  it('covers the full history without it', async () => {
+    const result = await buildSessionData({ timezone: 'UTC' }, deps());
+
+    expect(
+      sessionRowsOf(result)
+        .map((row) => row.sessionId)
+        .sort(),
+    ).toEqual(['old', 'recent']);
+  });
+
+  it('keeps the sessions of the last N days, counting today', async () => {
+    const result = await buildSessionData({ timezone: 'UTC', last: '7' }, deps());
+
+    expect(sessionRowsOf(result).map((row) => row.sessionId)).toEqual(['recent']);
+  });
+
+  it('rejects --last combined with --since', async () => {
+    await expect(
+      buildSessionData({ timezone: 'UTC', last: '7', since: '2026-03-01' }, deps()),
+    ).rejects.toThrow('--last cannot be combined with --since, --until, or --all');
+  });
+});

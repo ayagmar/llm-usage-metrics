@@ -1,4 +1,5 @@
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
+import { resolveLastPeriodsRequest } from './build-usage-data.js';
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
 import type { SessionRow } from '../session/session-row.js';
 import { buildSessionTimeline } from '../session/session-timeline.js';
@@ -107,9 +108,11 @@ function requireOneTimelineSession(
 }
 
 export async function buildSessionData(
-  options: SessionCommandOptions,
-  deps: BuildSessionDataDeps = {},
+  commandOptions: SessionCommandOptions,
+  commandDeps: BuildSessionDataDeps = {},
 ): Promise<SessionDataResult> {
+  // Full history by default; `--last N` covers the last N days, counting today.
+  const { options, deps } = await resolveLastPeriodsRequest('daily', commandOptions, commandDeps);
   const idFilters = normalizeSessionIdFilters(options.id);
 
   if (idFilters && options.byRepo) {

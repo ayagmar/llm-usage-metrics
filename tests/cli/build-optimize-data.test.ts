@@ -9,6 +9,7 @@ import {
   StaticPricingSource,
 } from '../../packages/core/tests/helpers/static-pricing-source.js';
 import { readFrom } from '../helpers/fake-read.js';
+import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -553,6 +554,70 @@ describe('buildOptimizeData', () => {
       ),
     ).rejects.toThrow(
       'Optimize matched multiple providers for --provider "openai": openai, vendor-openai. Supply a more specific --provider value.',
+    );
+  });
+});
+
+describe('buildOptimizeData --last', () => {
+  useIsolatedEnvironment();
+
+  async function candidatePeriods(options: Parameters<typeof buildOptimizeData>[1]) {
+    const result = await buildOptimizeData(
+      'daily',
+      { candidateModel: ['gpt-4.1'], timezone: 'UTC', ...options },
+      {
+        ...runtimeDeps({
+          adapters: [
+            createAdapter('pi', {
+              '/tmp/pi.jsonl': ['2026-02-10', '2026-02-14', '2026-02-15'].map((day) =>
+                createBaseEvent({ timestamp: `${day}T10:00:00.000Z` }),
+              ),
+            }),
+          ],
+        }),
+        now: () => new Date('2026-02-15T12:00:00.000Z'),
+      },
+    );
+
+    return result.rows.filter((row) => row.rowType === 'candidate').map((row) => row.periodKey);
+  }
+
+  it('covers the full history without it', async () => {
+    expect(await candidatePeriods({})).toEqual(['2026-02-10', '2026-02-14', '2026-02-15', 'ALL']);
+  });
+
+  it('covers the last N periods of the granularity, counting the current one', async () => {
+    expect(await candidatePeriods({ last: '2' })).toEqual(['2026-02-14', '2026-02-15', 'ALL']);
+  });
+
+  it("still scopes a multi-provider run to the candidates' provider", async () => {
+    const adapters = [
+      createAdapter('pi', {
+        '/tmp/pi.jsonl': [
+          createBaseEvent({ model: 'o3' }),
+          createBaseEvent({
+            provider: 'anthropic',
+            model: 'claude-sonnet-4-5',
+            totalTokens: 1_000,
+          }),
+        ],
+      }),
+    ];
+    const result = await buildOptimizeData(
+      'daily',
+      { candidateModel: ['gpt-4.1'], timezone: 'UTC', last: '7' },
+      { ...runtimeDeps({ adapters }), now: () => new Date('2026-02-15T12:00:00.000Z') },
+    );
+
+    expect(result.diagnostics).toMatchObject({ inferredProvider: 'openai' });
+    expect(
+      result.rows.find((row) => row.rowType === 'baseline' && row.periodKey === 'ALL'),
+    ).toMatchObject({ totalTokens: 15 });
+  });
+
+  it('rejects --last combined with --since', async () => {
+    await expect(candidatePeriods({ last: '2', since: '2026-02-01' })).rejects.toThrow(
+      '--last cannot be combined with --since, --until, or --all',
     );
   });
 });

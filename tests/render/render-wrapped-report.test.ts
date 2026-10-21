@@ -7,8 +7,8 @@ import {
   renderWrappedReportWithNotes,
 } from '../../src/render/render-wrapped-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
-import type { TerminalStylePalette } from '../../src/render/terminal-style-policy.js';
 import type { WrappedRecap } from '../../src/wrapped/wrapped-recap.js';
+import { markerPalette } from '../helpers/marker-palette.js';
 
 function createRecap(overrides: Partial<WrappedRecap> = {}): WrappedRecap {
   return {
@@ -45,19 +45,6 @@ function createRecap(overrides: Partial<WrappedRecap> = {}): WrappedRecap {
     ...overrides,
   };
 }
-
-// Sentinel-wrapping palette so color application is deterministic regardless of TTY detection.
-const markerPalette: TerminalStylePalette = {
-  cyan: (text) => `<cyan>${text}</cyan>`,
-  magenta: (text) => `<magenta>${text}</magenta>`,
-  blue: (text) => `<blue>${text}</blue>`,
-  yellow: (text) => `<yellow>${text}</yellow>`,
-  green: (text) => `<green>${text}</green>`,
-  red: (text) => `<red>${text}</red>`,
-  white: (text) => `<white>${text}</white>`,
-  bold: (text) => `<bold>${text}</bold>`,
-  dim: (text) => `<dim>${text}</dim>`,
-};
 
 describe('render-wrapped-report', () => {
   it('renders a boxed header, aligned stats, monthly strip, and top tables without color', () => {
