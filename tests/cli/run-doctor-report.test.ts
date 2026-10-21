@@ -10,6 +10,7 @@ import {
 } from '../../src/cli/run-doctor-report.js';
 import type { DoctorCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { renderDoctorText } from '../../src/render/render-doctor-report.js';
+import { markerPalette } from '../helpers/marker-palette.js';
 import {
   closeEventStore,
   getDefaultEventStorePath,
@@ -1021,6 +1022,45 @@ describe('renderDoctorText', () => {
       '✖ machine:vps     ssh    vps: never synced: ssh failed: timed out',
       '',
       'Sources: 1 found',
+    ]);
+  });
+
+  it('colors each state with the shared roles and dims folded and secondary lines', () => {
+    const output = renderDoctorText(
+      [
+        { id: 'pi', format: 'jsonl', status: 'ok', state: 'found', itemsFound: 2 },
+        { id: 'droid', format: 'jsonl', status: 'ok', state: 'not_installed', itemsFound: 0 },
+        {
+          id: 'gemini',
+          format: 'json',
+          status: 'ok',
+          state: 'unparseable',
+          itemsFound: 1,
+          detail: 'none readable',
+        },
+        {
+          id: 'claude',
+          format: 'jsonl',
+          status: 'error',
+          state: 'error',
+          error: 'missing',
+          searchedPaths: ['/x'],
+        },
+        { id: 'event-store', format: 'sqlite', status: 'ok', detail: 'not yet created' },
+      ],
+      { homeDir: '', useColor: true, palette: markerPalette },
+    );
+
+    expect(output.split('\n')).toEqual([
+      '<green>✔</green> <cyan>pi</cyan>           jsonl   2 files',
+      '<yellow>⚠</yellow> <yellow>gemini</yellow>       <yellow>json    none readable</yellow>',
+      '<red>✖</red> <red>claude</red>       <red>jsonl   missing</red>',
+      '<dim>    /x</dim>',
+      '<dim>○ not installed: droid</dim>',
+      '<green>✔</green> event-store  sqlite  not yet created',
+      '',
+      'Sources: 1 found · 1 unparseable · 1 failed · 1 not installed; --verbose shows where they were searched',
+      '<dim>Tip: add your other machines to every report with llm-usage machine add <name> [user@host]</dim>',
     ]);
   });
 });
