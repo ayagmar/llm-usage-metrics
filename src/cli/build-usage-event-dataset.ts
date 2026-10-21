@@ -517,8 +517,9 @@ export async function buildUsageEventDataset(
         }),
     );
 
-    // Before the date, model and --repo filters, so a session's own root does not depend on
-    // them. Which other sessions' roots are known still depends on the files read.
+    // Before the date, model and --repo filters, so a local session's own root does not
+    // depend on them. Other machines' events and the other sessions' roots known still
+    // depend on what was read (the window, skipped files, --source, --machine).
     if (!request.recordedRepoRoots) {
       const attributedEvents = measureRuntimeProfileStageSync(
         runtimeProfile,

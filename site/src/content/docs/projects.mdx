@@ -40,7 +40,7 @@ The CLI does not look for a `.git` folder; it uses the directories sessions star
 - A request in a subfolder counts for the nearest folder above it, up to its session's starting directory, where a session the report reads started. A session started in `~/work` that `cd`s into `~/work/api` counts that usage under `api` if another session started in `~/work/api`, and under `~/work` if none did.
 - A session started in a subfolder, such as `~/work/api/site`, is its own project.
 - A request logged outside its session's starting directory keeps the directory it logged.
-- A session's starting directory comes from its earliest request, found before date and `--repo` filters, so the window does not change it. The sessions known to have started in a subfolder can change: a report skips files last changed before its window, and `--source` and `--machine` leave out other tools and machines. When the session that started in `~/work/api` is left out that way, usage after a `cd` into it counts for `~/work`.
+- A session's starting directory comes from its earliest request, found before date and `--repo` filters, so the window does not change it for sessions on this machine. Another machine's session that began before the window starts at its earliest request inside it, since other machines' usage is read within the window. The sessions known to have started in a subfolder can change: a report skips files last changed before its window, and `--source` and `--machine` leave out other tools and machines. When the session that started in `~/work/api` is left out that way, usage after a `cd` into it counts for `~/work`.
 
 `events` exports and filters on the directory each request logged, and `efficiency` finds the repository from it, so neither applies these rules.
 
