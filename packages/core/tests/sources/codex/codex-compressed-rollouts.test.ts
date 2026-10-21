@@ -215,15 +215,30 @@ describe('CodexSourceAdapter over compressed rollouts', () => {
     await expect(collectFile(adapter, emptyPath)).rejects.toThrow();
   });
 
-  it('fails a rollout of several zstd frames instead of reading only the first', async () => {
+  // Node 24.22+ decodes every frame; older Node stops after the first, so the reader throws.
+  it('reads a rollout of several zstd frames whole or fails, never only its first frame', async () => {
     const root = await createTempDir();
     const filePath = path.join(root, 'frames.jsonl.zst');
-    const frame = zstdCompressSync(Buffer.from(largeRollout(10)));
-    await writeFile(filePath, Buffer.concat([frame, frame]));
-
-    await expect(collectFile(new CodexSourceAdapter({ dir: root }), filePath)).rejects.toThrow(
-      /after its first frame/u,
+    const rollout = largeRollout(10);
+    const middle = rollout.indexOf('\n', rollout.length / 2) + 1;
+    await writeFile(
+      filePath,
+      Buffer.concat([
+        zstdCompressSync(Buffer.from(rollout.slice(0, middle))),
+        zstdCompressSync(Buffer.from(rollout.slice(middle))),
+      ]),
     );
+
+    const outcome = await collectFile(new CodexSourceAdapter({ dir: root }), filePath).then(
+      (result) => result.events,
+      (error: unknown) => error,
+    );
+
+    if (outcome instanceof Error) {
+      expect(outcome.message).toMatch(/after its first frame/u);
+    } else {
+      expect(outcome).toHaveLength(10);
+    }
   });
 
   it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {

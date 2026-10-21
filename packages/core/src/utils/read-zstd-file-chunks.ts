@@ -70,8 +70,8 @@ export async function readZstdContentSize(filePath: string): Promise<number | un
  * Yields a zstd file's decompressed bytes as they decode, so memory stays bounded by a
  * chunk, and closes the file before a return or throw finishes. Node 22 and Bun end a
  * truncated stream without an error, so a decode shorter than the size the first frame
- * declares throws here, as Node 24 does. A file of several frames throws on Node, which
- * would decode only the first; Codex writes one.
+ * declares throws here, as Node 24 does. A file of several frames throws on Node before
+ * 24.22, which decodes only the first; Codex writes one.
  */
 export async function* readZstdFileChunks(
   filePath: string,
@@ -95,7 +95,7 @@ export async function* readZstdFileChunks(
       throw new Error(`Zstd file is truncated: ${filePath}`);
     }
 
-    // Node decodes only the first frame and ignores what follows it.
+    // Node before 24.22 decodes only the first frame and ignores what follows it.
     if (decompress.bytesWritten < compressed.bytesRead) {
       throw new Error(`Zstd file has data after its first frame: ${filePath}`);
     }
