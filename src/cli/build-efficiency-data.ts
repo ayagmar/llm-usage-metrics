@@ -177,7 +177,8 @@ export async function buildEfficiencyData(
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.dataset.total',
-    () => buildDataset(options, deps),
+    // The recorded directory: repository attribution looks for `.git` from it.
+    () => buildDataset(options, deps, { recordedRepoRoots: true }),
   );
   const pricingResult = await applyPricing(dataset, deps, 'auto');
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;

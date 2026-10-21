@@ -109,7 +109,8 @@ llm-usage session --id 486c3261 --timeline
 # Tool calls of the last 7 days, split by source
 llm-usage tools --by-source
 
-# Cost per project, and daily rows split by project
+# Cost per project (the directory each session started in, so a cd into a subfolder
+# stays with it), and daily rows split by project
 llm-usage projects
 llm-usage daily --by-repo
 

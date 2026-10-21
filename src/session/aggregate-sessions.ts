@@ -1,4 +1,4 @@
-import { toProjectKey } from '../aggregate/project-key.js';
+import { toParentProjectKey, toProjectKey } from '../aggregate/project-key.js';
 import { computeActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
@@ -10,19 +10,131 @@ export type AggregateSessionsOptions = {
   ids?: string[];
 };
 
-/** Each session's repository root, as `getEventSessionKey` keys it: the first one its events record. */
+/**
+ * Each session's repository root, as `getEventSessionKey` keys it: the one its earliest event
+ * with a root records (the smaller root on a tie), or undefined when none records one.
+ */
 export function mapSessionRepoRoots(events: Iterable<UsageEvent>): Map<string, string | undefined> {
-  const repoRoots = new Map<string, string | undefined>();
+  const earliest = new Map<string, { repoRoot?: string; timestamp?: string }>();
+  // A session's events mostly come in a run, so the previous event's entry is usually it.
+  let previous: UsageEvent | undefined;
+  let entry: { repoRoot?: string; timestamp?: string } = {};
 
   for (const event of events) {
-    const key = getEventSessionKey(event);
+    if (previous?.sessionId !== event.sessionId || previous.source !== event.source) {
+      const key = getEventSessionKey(event);
+      entry = earliest.get(key) ?? {};
+      earliest.set(key, entry);
+    }
 
-    if (repoRoots.get(key) === undefined) {
-      repoRoots.set(key, event.repoRoot);
+    previous = event;
+    const repoRoot = event.repoRoot;
+
+    if (
+      repoRoot !== undefined &&
+      (entry.repoRoot === undefined ||
+        entry.timestamp === undefined ||
+        event.timestamp < entry.timestamp ||
+        (event.timestamp === entry.timestamp && compareByCodePoint(repoRoot, entry.repoRoot) < 0))
+    ) {
+      entry.repoRoot = repoRoot;
+      entry.timestamp = event.timestamp;
     }
   }
 
-  return repoRoots;
+  return new Map([...earliest].map(([key, { repoRoot }]) => [key, repoRoot]));
+}
+
+/**
+ * Moves usage logged below its session's root to the project it belongs to. A session's root
+ * is the project key of its earliest event (`mapSessionRepoRoots`). An event at or below it
+ * goes to the nearest directory, from its own up to that root, where some session in `events`
+ * started, so a session that `cd`s into a subdirectory stays one project, and one started in
+ * a parent folder keeps the repositories other sessions started in. An event outside its
+ * session's root keeps its own. Run it over every event a report reads, before any window or
+ * `--repo` filter, so a project does not depend on them.
+ */
+export function attributeEventsToSessionRoots(
+  eventLists: readonly (readonly UsageEvent[])[],
+): UsageEvent[][] {
+  // Roots repeat across many events: fold each distinct one once.
+  const projectKeys = new Map<string, string | undefined>();
+  const projectKeyOf = (repoRoot: string): string | undefined => {
+    let key = projectKeys.get(repoRoot);
+
+    if (key === undefined && !projectKeys.has(repoRoot)) {
+      key = toProjectKey(repoRoot);
+      projectKeys.set(repoRoot, key);
+    }
+
+    return key;
+  };
+  const sessionRoots = new Map<string, string | undefined>();
+
+  for (const [sessionKey, repoRoot] of mapSessionRepoRoots(eventLists.flat())) {
+    sessionRoots.set(sessionKey, repoRoot === undefined ? undefined : projectKeyOf(repoRoot));
+  }
+
+  const rootKeys = new Set(sessionRoots.values());
+  // Per session root, each project key below it and the project it moves to.
+  const attributedKeys = new Map<string, Map<string, string>>();
+
+  const attribute = (key: string, sessionRoot: string): string => {
+    let nearest: string | undefined;
+
+    for (let candidate: string | undefined = key; candidate !== undefined;) {
+      if (nearest === undefined && rootKeys.has(candidate)) {
+        nearest = candidate;
+      }
+
+      if (candidate === sessionRoot) {
+        return nearest ?? sessionRoot;
+      }
+
+      candidate = toParentProjectKey(candidate);
+    }
+
+    return key;
+  };
+
+  let previous: UsageEvent | undefined;
+  let sessionRoot: string | undefined;
+
+  return eventLists.map((events) =>
+    events.map((event) => {
+      if (previous?.sessionId !== event.sessionId || previous.source !== event.source) {
+        sessionRoot = sessionRoots.get(getEventSessionKey(event));
+      }
+
+      previous = event;
+
+      if (event.repoRoot === undefined) {
+        return event;
+      }
+
+      const key = projectKeyOf(event.repoRoot);
+
+      if (key === undefined || sessionRoot === undefined || key === sessionRoot) {
+        return event;
+      }
+
+      let attributedByKey = attributedKeys.get(sessionRoot);
+
+      if (attributedByKey === undefined) {
+        attributedByKey = new Map();
+        attributedKeys.set(sessionRoot, attributedByKey);
+      }
+
+      let attributed = attributedByKey.get(key);
+
+      if (attributed === undefined) {
+        attributed = attribute(key, sessionRoot);
+        attributedByKey.set(key, attributed);
+      }
+
+      return attributed === key ? event : { ...event, repoRoot: attributed };
+    }),
+  );
 }
 
 type SessionAccumulator = UsageTotals & {

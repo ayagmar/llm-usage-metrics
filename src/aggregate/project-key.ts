@@ -85,6 +85,17 @@ export function toProjectKey(repoRoot: string | undefined): string | undefined {
       );
 }
 
+/** The key of the directory that holds `key` (`/x` -> `/`), or undefined for a bare root. */
+export function toParentProjectKey(key: string): string | undefined {
+  for (let index = key.length - 1; index >= 0; index -= 1) {
+    if (isSeparator(key[index])) {
+      return index === key.length - 1 ? undefined : cutAt(key, index);
+    }
+  }
+
+  return undefined;
+}
+
 /** The label `labels` gives the event's project; `(unattributed)` without one. */
 export function toProjectLabel(
   repoRoot: string | undefined,

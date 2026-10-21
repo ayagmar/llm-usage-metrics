@@ -33,7 +33,16 @@ llm-usage projects
 
 ## Where a project comes from
 
-A project is the working directory that the coding tool recorded for the session. Events store it as `repoRoot`, but the CLI does not look for a `.git` folder, so a session started in a subfolder counts as its own project. Claude Code, Codex, Droid, dsh, Gemini, OpenClaw, OpenCode, and pi record a working directory. Usage from the other sources, and sessions where the tool recorded none, is listed as `(unattributed)`.
+A project is the directory a session started in. The coding tool records a working directory with each request, and events store it as `repoRoot`. When a session `cd`s into a subfolder, say `site/` or `src/`, its later requests still count for the directory it started in, so one session stays one project. Claude Code, Codex, Droid, dsh, Gemini, OpenClaw, OpenCode, and pi record a working directory. Usage from the other sources, and sessions where the tool recorded none, is listed as `(unattributed)`.
+
+The CLI does not look for a `.git` folder; it uses the directories sessions started in:
+
+- A request in a subfolder counts for the nearest folder above it, up to its session's starting directory, where any session started. A session started in `~/work` that `cd`s into `~/work/api` counts that usage under `api` if another session ever started in `~/work/api`, and under `~/work` if none did.
+- A session started in a subfolder, such as `~/work/api/site`, is its own project.
+- A request logged outside its session's starting directory keeps the directory it logged.
+- A session's starting directory comes from its earliest request in the history the report reads, before date and `--repo` filters, so narrowing the window does not move usage between projects.
+
+`events` exports and filters on the directory each request logged, and `efficiency` finds the repository from it, so neither applies these rules.
 
 Two kinds of directory count as the project that holds them. A directory inside `node_modules`, where a session `cd`s into a dependency, counts as the folder above `node_modules`. A Claude Code worktree, `<repo>/.claude/worktrees/<name>` or any folder inside it, counts as `<repo>`. A folder named `worktrees` anywhere else is left alone.
 

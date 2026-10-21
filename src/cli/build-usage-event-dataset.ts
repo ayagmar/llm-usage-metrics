@@ -76,6 +76,7 @@ import type { EnvVarOverride } from '../config/env-var-display.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { attributeEventsToSessionRoots } from '../session/aggregate-sessions.js';
 
 function withNormalizedPricingUrl(
   options: ReportCommandOptions,
@@ -204,6 +205,12 @@ export async function buildUsageEventDataset(
   request: {
     /** Also read from this date, before `since`, for context (`lookbackEvents`). */
     lookbackSince?: string;
+    /**
+     * Keep each event's recorded `repoRoot` instead of its session's project
+     * (`attributeEventsToSessionRoots`): for `events`, which exports what was logged, and
+     * `efficiency`, which looks for `.git` from it.
+     */
+    recordedRepoRoots?: boolean;
   } = {},
 ): Promise<UsageEventDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
@@ -509,6 +516,20 @@ export async function buildUsageEventDataset(
           return { ...result, events };
         }),
     );
+
+    // Before the window and --repo filters, so a session's project does not depend on them.
+    if (!request.recordedRepoRoots) {
+      const attributedEvents = measureRuntimeProfileStageSync(
+        runtimeProfile,
+        'usage.dataset.attribute_projects',
+        () =>
+          attributeEventsToSessionRoots(parseResultsForFiltering.map((result) => result.events)),
+      );
+      parseResultsForFiltering = parseResultsForFiltering.map((result, index) => ({
+        ...result,
+        events: attributedEvents[index] ?? result.events,
+      }));
+    }
 
     const { filteredEvents, lookbackEvents } = measureRuntimeProfileStageSync(
       runtimeProfile,

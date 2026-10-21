@@ -149,7 +149,8 @@ export async function runEventsReport(
     commandOptions.last === undefined
       ? { options: commandOptions, deps: commandDeps }
       : await resolveUsageDataRequest('daily', commandOptions, commandDeps);
-  const dataset = await buildUsageEventDataset(options, deps);
+  // The logged directory, not the session's project: events exports what was recorded.
+  const dataset = await buildUsageEventDataset(options, deps, { recordedRepoRoots: true });
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,
     deps,

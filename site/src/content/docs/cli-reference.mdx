@@ -235,8 +235,8 @@ Options:
                                  screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (the working
-                                 directory the tool recorded)
+  --by-repo                      Split each source row by project (the directory
+                                 its session started in)
   --top <n>                      With --by-repo, show the top N projects of each
                                  hour by cost (by tokens when a cost is
                                  incomplete or with --no-cost) and fold the rest
@@ -351,8 +351,8 @@ Options:
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (the working
-                                 directory the tool recorded)
+  --by-repo                      Split each source row by project (the directory
+                                 its session started in)
   --top <n>                      With --by-repo, show the top N projects of each
                                  day by cost (by tokens when a cost is
                                  incomplete or with --no-cost) and fold the rest
@@ -469,8 +469,8 @@ Options:
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (the working
-                                 directory the tool recorded)
+  --by-repo                      Split each source row by project (the directory
+                                 its session started in)
   --top <n>                      With --by-repo, show the top N projects of each
                                  week by cost (by tokens when a cost is
                                  incomplete or with --no-cost) and fold the rest
@@ -587,8 +587,8 @@ Options:
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (the working
-                                 directory the tool recorded)
+  --by-repo                      Split each source row by project (the directory
+                                 its session started in)
   --top <n>                      With --by-repo, show the top N projects of each
                                  month by cost (by tokens when a cost is
                                  incomplete or with --no-cost) and fold the rest
@@ -615,9 +615,9 @@ Options:
 ```text
 Usage: llm-usage projects [options]
 
-Show cost, tokens, events, active days and top models per project (the working
-directory the tool recorded), costliest first (full history unless --last,
---since, or --until)
+Show cost, tokens, events, active days and top models per project (the directory
+its session started in), costliest first (full history unless --last, --since,
+or --until)
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -803,8 +803,8 @@ Options:
                                  comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison
                                  window
-  --by-repo                      Also compare each project (the working
-                                 directory the tool recorded)
+  --by-repo                      Also compare each project (the directory its
+                                 session started in)
   --top <n>                      With --by-repo, show the top N projects by cost
                                  change and fold the rest into one "other
                                  projects" row (default 20; 0 shows all)
@@ -1139,7 +1139,7 @@ Options:
   --by-source                    Render one sparkline row per source instead of
                                  a single combined chart
   --by-repo                      Render one sparkline row per project (the
-                                 working directory the tool recorded); not with
+                                 directory its session started in); not with
                                  --by-source
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
@@ -1238,8 +1238,8 @@ Options:
   --id <session-id>              Show only sessions whose id contains the value
                                  (case-insensitive; repeatable or
                                  comma-separated)
-  --by-repo                      Group usage by project (the working directory
-                                 the tool recorded) instead of by session
+  --by-repo                      Group usage by project (the directory its
+                                 session started in) instead of by session
   --timeline                     With --id naming one session: list its requests
                                  in time order with a running cost, between its
                                  tool calls and turns
@@ -1323,8 +1323,8 @@ Options:
   --top <n>                      Show only the top N tools by calls (default 20;
                                  0 shows all)
   --by-source                    Split each tool row by source
-  --by-repo                      Split each tool row by project (the working
-                                 directory the tool recorded)
+  --by-repo                      Split each tool row by project (the directory
+                                 its session started in)
   --last <n>                     Report the last N days, counting today (default
                                  7)
   --all                          Report every tool call on disk instead of the
@@ -1849,7 +1849,9 @@ Options:
                                  directory, not the projects under it;
                                  (unattributed) matches usage without a recorded
                                  directory. Applied after --model picks exact or
-                                 substring matching
+                                 substring matching. Here a project is the
+                                 directory each event recorded, which events
+                                 exports as repoRoot
   -h, --help                     display help for command
 ```
 
@@ -2294,7 +2296,7 @@ Search across root and command help. See Command help above to check which flags
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
 | `--by-machine` | - | - | Split each source row by the machine its usage came from \(usage reports only\) |
-| `--by-repo` | - | - | hourly, daily, weekly, monthly: Split each source row by project \(the working directory the tool recorded\); compare: Also compare each project \(the working directory the tool recorded\); trends: Render one sparkline row per project \(the working directory the tool recorded\); not with --by-source; session: Group usage by project \(the working directory the tool recorded\) instead of by session; tools: Split each tool row by project \(the working directory the tool recorded\) |
+| `--by-repo` | - | - | hourly, daily, weekly, monthly: Split each source row by project \(the directory its session started in\); compare: Also compare each project \(the directory its session started in\); trends: Render one sparkline row per project \(the directory its session started in\); not with --by-source; session: Group usage by project \(the directory its session started in\) instead of by session; tools: Split each tool row by project \(the directory its session started in\) |
 | `--by-session` | - | - | One row per session instead of per model, largest peak prompt first \(context only\) |
 | `--by-source` | - | - | efficiency: Include per-source usage rows under each period; trends: Render one sparkline row per source instead of a single combined chart; tools: Split each tool row by source |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
@@ -2349,7 +2351,7 @@ Search across root and command help. See Command help above to check which flags
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, pricing, doctor, prune, machine only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--redact` | - | - | With --share, label projects project-N, machines machine-N and local or path-shaped models model-N \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
-| `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, context, blocks, value, events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes; tools: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Keeps the tool calls of sessions whose usage is in these projects |
+| `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, context, blocks, value: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes; tools: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Keeps the tool calls of sessions whose usage is in these projects; events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching. Here a project is the directory each event recorded, which events exports as repoRoot |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--share` | - | - | Write an interactive HTML report to the current directory \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |

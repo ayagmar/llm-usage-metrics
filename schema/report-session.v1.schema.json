@@ -63,7 +63,7 @@
           "type": "string"
         },
         "repoRoot": {
-          "description": "Working directory the tool recorded for the session; omitted when unknown.",
+          "description": "The session's project: the directory it started in; omitted when unknown.",
           "type": "string"
         },
         "firstActivity": {
@@ -151,7 +151,7 @@
           "const": "repo"
         },
         "repoRoot": {
-          "description": "Recorded working directory; omitted for the unattributed bucket.",
+          "description": "The project: the directory its sessions started in; omitted for the unattributed bucket.",
           "type": "string"
         },
         "sessionCount": {

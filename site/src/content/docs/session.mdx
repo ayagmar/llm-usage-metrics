@@ -50,7 +50,7 @@ On a terminal too narrow for the table, `Total` is abbreviated (`1.07B`), then c
 
 <TerminalShot src={termSession} label="llm-usage session --top 5 output" alt="Terminal output of llm-usage session --top 5: the five costliest sessions with their source, project, last activity, duration, total tokens, cost, and models" />
 
-`--by-repo` replaces the per-session rows with one row per project, the working directory the tool recorded (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a recorded directory are grouped under `(unattributed)`.
+`--by-repo` replaces the per-session rows with one row per [project](/llm-usage-metrics/projects/#where-a-project-comes-from), the directory its session started in (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a recorded directory are grouped under `(unattributed)`.
 
 ## Timeline
 

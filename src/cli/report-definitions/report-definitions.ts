@@ -111,8 +111,11 @@ function addGranularityArgument(command: Command): Command {
   );
 }
 
-/** What a project is: the CLI never looks for a `.git` folder (efficiency does). */
-const PROJECT_DESCRIPTION = 'project (the working directory the tool recorded)';
+/**
+ * What a project is (`attributeEventsToSessionRoots`): the CLI never looks for a `.git`
+ * folder (efficiency does).
+ */
+const PROJECT_DESCRIPTION = 'project (the directory its session started in)';
 
 const REPO_FILTER_MATCHING =
   'Count only these projects (repeatable or comma-separated, so a value cannot contain a comma). A path (absolute, or ./, ../, ~/ on this machine) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; (unattributed) matches usage without a recorded directory';
@@ -853,9 +856,10 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
       )
       .option('--last <n>', 'Export the last N days, counting today');
     addFullHistoryOption(command);
-    addRepoFilterOption(command).action((options: EventsCommandOptions) =>
-      runEventsReport(options),
-    );
+    addRepoFilterOption(
+      command,
+      'Here a project is the directory each event recorded, which events exports as repoRoot',
+    ).action((options: EventsCommandOptions) => runEventsReport(options));
 
     return command;
   },

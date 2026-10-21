@@ -187,11 +187,11 @@
       "additionalProperties": false
     },
     "projectRow": {
-      "description": "One project's (recorded working directory's) window totals and deltas.",
+      "description": "One project's (the directory its session started in) window totals and deltas.",
       "type": "object",
       "properties": {
         "repoRoot": {
-          "description": "Project key (recorded working directory without trailing separators), or null for usage without one; absent on the row folding the projects past --top.",
+          "description": "Project key (the directory its session started in, without trailing separators), or null for usage without one; absent on the row folding the projects past --top.",
           "type": ["string", "null"]
         },
         "project": {

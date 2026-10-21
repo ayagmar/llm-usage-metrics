@@ -261,6 +261,15 @@ the date window, and `mergeMachineEvents` leaves out events already counted, by 
 hash, only for sessions present on both sides. The events then join the per-source
 results, so pricing and aggregation treat them like local ones.
 
+After copied sessions are counted once, and still before those filters,
+`attributeEventsToSessionRoots` (`src/session/aggregate-sessions.ts`) sets each event's
+`repoRoot` to its project: an event logged below its session's starting directory (the
+root of its earliest event) moves to the nearest directory between the two where any
+session started. Every report, `--repo` and the share payload read that project. `events`
+and `efficiency` pass `recordedRepoRoots` and keep the logged directory. Other machines'
+events come from their caches within the date window, so a remote session that began
+before it takes its root from its earliest event inside it.
+
 ### Share reports
 
 With `--share`, the report wrapper's share builder runs after the report's own data. `buildShareReportData` (`src/cli/build-share-report-data.ts`) reads the events a second time over the command's window, starting earlier so 5-hour blocks are whole, and builds the payload in `src/share-report/build-share-payload.ts`: a cube of totals by date, hour, source, model, project and machine, the sessions, the blocks, and the command's own JSON envelope. `redact.ts` and `sanitize-envelope.ts` label projects and machines (`--redact`) and scrub home paths. `render-share-html.ts` writes one HTML file that inlines the payload and the client bundle (`src/share-report/client`, prebuilt into `client-bundle.generated.ts` by `scripts/build-share-client.mjs`) under a CSP that allows only those hashed inline bytes. The client computes every roll-up in the browser.

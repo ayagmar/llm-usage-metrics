@@ -39,7 +39,7 @@ Options:
   --top <n>                      Show only the top N rows by cost (default 20; 0 shows all)
   --id <session-id>              Show only sessions whose id contains the value (case-insensitive;
                                  repeatable or comma-separated)
-  --by-repo                      Group usage by project (the working directory the tool recorded)
+  --by-repo                      Group usage by project (the directory its session started in)
                                  instead of by session
   --timeline                     With --id naming one session: list its requests in time order with
                                  a running cost, between its tool calls and turns

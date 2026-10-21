@@ -42,7 +42,7 @@
       "description": "The project of a row.",
       "properties": {
         "repoRoot": {
-          "description": "The project's recorded working directory (trailing separators removed), or null for usage without one.",
+          "description": "The project: the directory its session started in (trailing separators removed), or null for usage without one.",
           "type": ["string", "null"]
         },
         "project": {
