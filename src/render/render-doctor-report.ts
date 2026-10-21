@@ -3,6 +3,13 @@ import path from 'node:path';
 
 import type { DoctorSourceResult, DoctorSourceState } from '../cli/run-doctor-report.js';
 import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { shouldUseColorByDefault } from './terminal-table.js';
+import {
+  createColorRoles,
+  type ColorRoles,
+  type TerminalStylePalette,
+  type TextStyler,
+} from './terminal-style-policy.js';
 
 const doctorStatusGlyphs = { ok: '✔', error: '✖' } as const;
 
@@ -43,6 +50,19 @@ function getGlyph(result: DoctorSourceResult): string {
   return result.state ? doctorStateGlyphs[result.state] : doctorStatusGlyphs[result.status];
 }
 
+/** Healthy rows mark their glyph positive, problems color the whole row, absent sources dim. */
+function getRowStyler(result: DoctorSourceResult, roles: ColorRoles): TextStyler {
+  if (result.status === 'error' || result.state === 'error') {
+    return roles.negative;
+  }
+
+  if (result.state === 'unparseable') {
+    return roles.warning;
+  }
+
+  return result.state === 'not_installed' ? roles.dim : (text) => text;
+}
+
 function getDetail(result: DoctorSourceResult): string {
   if (result.status === 'error') {
     return result.error ?? 'Unknown';
@@ -75,24 +95,41 @@ function isCollapsible(result: DoctorSourceResult): boolean {
 
 export function renderDoctorText(
   results: DoctorSourceResult[],
-  options: { homeDir?: string; showAllPaths?: boolean } = {},
+  options: {
+    homeDir?: string;
+    showAllPaths?: boolean;
+    useColor?: boolean;
+    palette?: TerminalStylePalette;
+  } = {},
 ): string {
   const homeDir = options.homeDir ?? os.homedir();
+  const roles = createColorRoles(options.useColor ?? shouldUseColorByDefault(), options.palette);
   const collapsed = options.showAllPaths ? [] : results.filter(isCollapsible);
   const shown = results.filter((result) => !collapsed.includes(result));
   const idWidth = Math.max(...shown.map((result) => result.id.length), 0);
   const formatWidth = Math.max(...shown.map((result) => result.format.length), 0);
-  const renderRow = (result: DoctorSourceResult): string[] => [
-    `${getGlyph(result)} ${result.id.padEnd(idWidth)}  ${result.format.padEnd(formatWidth)}  ${getDetail(result)}`,
-    ...(result.searchedPaths ?? []).map(
-      (searchPath) => `    ${abbreviateHome(searchPath, homeDir)}`,
-    ),
-  ];
+  const renderRow = (result: DoctorSourceResult): string[] => {
+    const rowStyler = getRowStyler(result, roles);
+    const isHealthy = result.status === 'ok' && (result.state ?? 'found') === 'found';
+    const glyph = isHealthy ? roles.positive(getGlyph(result)) : rowStyler(getGlyph(result));
+    const idStyler = result.state === 'found' ? roles.source(result.id) : rowStyler;
+    // Pad outside the styler so escapes never count toward the column width.
+    const styledId = idStyler(result.id) + ' '.repeat(idWidth - result.id.length);
+
+    return [
+      `${glyph} ${styledId}  ${rowStyler(`${result.format.padEnd(formatWidth)}  ${getDetail(result)}`)}`,
+      ...(result.searchedPaths ?? []).map((searchPath) =>
+        roles.dim(`    ${abbreviateHome(searchPath, homeDir)}`),
+      ),
+    ];
+  };
   // Sources come first in results; the collapsed line closes them, before the store and machines.
   const notInstalledLine =
     collapsed.length > 0
       ? [
-          `${doctorStateGlyphs.not_installed} not installed: ${collapsed.map((result) => result.id).join(', ')}`,
+          roles.dim(
+            `${doctorStateGlyphs.not_installed} not installed: ${collapsed.map((result) => result.id).join(', ')}`,
+          ),
         ]
       : [];
   const lines = [
@@ -105,7 +142,9 @@ export function renderDoctorText(
   const tip = hasMachines
     ? []
     : [
-        'Tip: add your other machines to every report with llm-usage machine add <name> [user@host]',
+        roles.dim(
+          'Tip: add your other machines to every report with llm-usage machine add <name> [user@host]',
+        ),
       ];
 
   return [...lines, '', formatSummary(sourceResults, collapsed.length), ...tip].join('\n');
