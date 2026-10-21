@@ -1,5 +1,11 @@
 # @ayagmar/agent-sessions
 
+## 0.2.0
+
+### Minor Changes
+
+- 23c7380: Add the experimental `./pricing` entry point: `loadBundledPricing`, `fetchLiteLLMPricing`, `createPricingSource`, `withOverrides`, `priceEvents`, `estimateEventCostUsd` and `explainModelPricing` price usage events with LiteLLM rates the way `llm-usage` reports do. The bundled LiteLLM data ships under `dist/data/` and is read on first use. `fetchLiteLLMPricing` is the package's only network call, made with the global `fetch` when you call it.
+
 ## 0.1.0
 
 First release. The parsers behind the `llm-usage-metrics` CLI, published on their own.
