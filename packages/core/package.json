@@ -1,6 +1,6 @@
 {
   "name": "@ayagmar/agent-sessions",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Read-only parsers that normalize local coding-agent session logs into usage events",
   "type": "module",
   "engines": {
