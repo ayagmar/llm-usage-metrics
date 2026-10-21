@@ -6,6 +6,7 @@ import { shiftDateKey } from '../utils/date-key.js';
 import { formatLocalDateTime } from '../render/format-local-date-time.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
+import { mapSessionRepoRoots } from '../session/aggregate-sessions.js';
 import { escapeJsonForScript } from './client/ui/export/share-document.js';
 import type {
   ShareBlock,
@@ -306,6 +307,7 @@ function buildCube(
   const periodIndex = new Map<string, number>();
   const cellsByKey = new Map<string, Cell>();
   const sessions = new Map<string, SessionAccumulator>();
+  const sessionRepoRoots = mapSessionRepoRoots(input.events);
 
   input.events.forEach((event, index) => {
     const eventDims = dims[index];
@@ -353,7 +355,8 @@ function buildCube(
       session = {
         ...createTokens(),
         source: event.source,
-        repoRoot: undefined,
+        // As `aggregate-sessions`: the root of the session's earliest event.
+        repoRoot: sessionRepoRoots.get(sessionKey),
         firstMs: timeMs,
         lastMs: timeMs,
         machines: new Set(),
@@ -367,8 +370,6 @@ function buildCube(
 
     addTokens(session, event);
     addCosts(session.costs, input.costs, index);
-    // As `aggregate-sessions`: the first root seen in event order.
-    session.repoRoot ??= event.repoRoot;
     session.firstMs = Math.min(session.firstMs, timeMs);
     session.lastMs = Math.max(session.lastMs, timeMs);
     session.machines.add(eventDims.machine);

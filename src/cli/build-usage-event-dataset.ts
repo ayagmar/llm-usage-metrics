@@ -207,8 +207,8 @@ export async function buildUsageEventDataset(
     lookbackSince?: string;
     /**
      * Keep each event's recorded `repoRoot` instead of its session's project
-     * (`attributeEventsToSessionRoots`): for `events`, which exports what was logged, and
-     * `efficiency`, which looks for `.git` from it.
+     * (`attributeEventsToSessionRoots`): for `events`, which exports what was logged,
+     * `efficiency`, which looks for `.git` from it, and `machine export`, which reads the store.
      */
     recordedRepoRoots?: boolean;
   } = {},
@@ -517,7 +517,8 @@ export async function buildUsageEventDataset(
         }),
     );
 
-    // Before the window and --repo filters, so a session's project does not depend on them.
+    // Before the date, model and --repo filters, so a session's own root does not depend on
+    // them. Which other sessions' roots are known still depends on the files read.
     if (!request.recordedRepoRoots) {
       const attributedEvents = measureRuntimeProfileStageSync(
         runtimeProfile,

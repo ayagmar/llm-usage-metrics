@@ -38,8 +38,9 @@ describe('attributeEventsToSessionRoots', () => {
         event('s', '2026-06-01T10:00:00.000Z', '/w/app'),
         event('s', '2026-06-01T10:05:00.000Z', '/w/app/site'),
         event('s', '2026-06-01T10:10:00.000Z', '/w/app/site/src/'),
+        event('s', '2026-06-01T10:15:00.000Z', '/w/app//docs'),
       ]),
-    ).toEqual([['/w/app', '/w/app', '/w/app']]);
+    ).toEqual([['/w/app', '/w/app', '/w/app', '/w/app']]);
   });
 
   it('keeps a repository another session started in when a parent-folder session cds into it', () => {

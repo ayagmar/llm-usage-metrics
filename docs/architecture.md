@@ -266,9 +266,11 @@ After copied sessions are counted once, and still before those filters,
 `repoRoot` to its project: an event logged below its session's starting directory (the
 root of its earliest event) moves to the nearest directory between the two where any
 session started. Every report, `--repo` and the share payload read that project. `events`
-and `efficiency` pass `recordedRepoRoots` and keep the logged directory. Other machines'
-events come from their caches within the date window, so a remote session that began
-before it takes its root from its earliest event inside it.
+and `efficiency` (and `machine export`, which reads the store) pass `recordedRepoRoots`
+and keep the logged directory. The known session roots come from the files the run read:
+files last changed before the window are skipped, `--source` and `--machine` narrow the
+sources and machines, and other machines' caches are read within the date window, so a
+remote session that began before it takes its root from its earliest event inside it.
 
 ### Share reports
 

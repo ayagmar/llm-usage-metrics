@@ -89,7 +89,18 @@ export function toProjectKey(repoRoot: string | undefined): string | undefined {
 export function toParentProjectKey(key: string): string | undefined {
   for (let index = key.length - 1; index >= 0; index -= 1) {
     if (isSeparator(key[index])) {
-      return index === key.length - 1 ? undefined : cutAt(key, index);
+      if (index === key.length - 1) {
+        return undefined;
+      }
+
+      // `/w/app//site` -> `/w/app`, not `/w/app/`.
+      let cut = index;
+
+      while (cut > 0 && isSeparator(key[cut - 1])) {
+        cut -= 1;
+      }
+
+      return cutAt(key, cut);
     }
   }
 
