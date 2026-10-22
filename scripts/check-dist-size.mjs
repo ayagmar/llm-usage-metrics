@@ -3,9 +3,8 @@
 // new size, set it to that plus 10%, and say why in the commit.
 import { readFileSync, statSync } from 'node:fs';
 
-// Measured 2,246,402 bytes after the --top grammar and --by-repo row cap (the budget set at
-// 2,037,542 bytes with the bundled context limits had been used up by later features), plus 10%.
-const DIST_BUDGET_BYTES = 2_471_000;
+// Measured 1,375,604 bytes once the build minified (2,303,985 unminified), plus 10%.
+const DIST_BUDGET_BYTES = 1_513_000;
 
 const { files } = JSON.parse(readFileSync('package.json', 'utf8'));
 const distFiles = files.filter((file) => file.startsWith('dist/'));
