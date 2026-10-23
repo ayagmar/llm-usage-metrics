@@ -57,6 +57,17 @@ A repository on disk, and every folder inside it, keeps its own project even whe
 
 The event store keeps the first repository it found at a path: if you later reuse the path for a worktree of another repository, its usage keeps counting for the first. Usage from other machines (`--machine`) keeps the directories they logged.
 
+### The same project in different folders
+
+When a repository lives under different folders, such as `~/projects/app` on one machine and `~/Projects/Personal/app` on another, list the other folder under [`projectAliases`](/llm-usage-metrics/configuration/) in the config file so both count as one project:
+
+```toml
+[projectAliases]
+"~/projects" = ["~/Projects/Personal"]
+```
+
+The alias covers every folder below it, on every machine, after worktrees move to their repositories.
+
 The label is the last folder name of the path. When two projects end in the same folder name, both labels gain parent folders until they differ: `/work/a/api` and `/work/b/api` become `a/api` and `b/api`. A label stays the same across every period of one report. `session`, `value`, `trends --by-repo`, `compare --by-repo`, the `--by-repo` splits of the usage reports, and the interactive report label projects the same way.
 
 ## Set the window

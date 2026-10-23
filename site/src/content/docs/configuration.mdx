@@ -153,8 +153,19 @@ With `--verbose`, reports name the applied config file in their `stderr` summary
 | `machines.<name>.ssh`     | `machine add <name> [ssh-target]`                     | ssh destination of another machine to sync usage from      |
 | `machines.<name>.command` | `machine add --command`                               | How llm-usage-metrics is launched on that machine          |
 | `machines.<name>.enabled` | Config only                                           | `false` stops syncing it                                   |
+| `projectAliases`          | Config only                                           | Folders counted as another folder in project reports       |
 
 A machine name is 1-32 lowercase letters, digits or dashes; `local` is reserved for this machine. `llm-usage machine add` syncs the machine once and only then appends its table to the config file, keeping your comments; `machine remove` deletes the table and the machine's cached usage.
+
+`projectAliases` merges a project that lives under different folders, such as the same repository cloned to `~/projects` on one machine and `~/Projects/Personal` on another. Each key is the folder to count usage under; its value is a path or a list of paths. Usage at or below a listed path counts at the same place below the key, on every machine, so one entry can cover a whole folder of repositories:
+
+```toml
+[projectAliases]
+"~/projects" = ["~/Projects/Personal"]
+"~/projects/orange" = ["~/Projects/Nimbleways/Orange"]
+```
+
+Here `~/Projects/Personal/app` counts as `~/projects/app`, and `~/Projects/Nimbleways/Orange/api` as `~/projects/orange/api`. The nearest listed folder wins, a key is not aliased again, and a path listed twice keeps its first entry. Paths are compared exactly, case included (except on Windows), and `~` is this machine's home directory, so write another machine's path in full when its home differs. `--repo` takes either path. `events` and `efficiency` keep the directories sessions logged.
 
 A `sourceDirs` value for a directory-backed source can be a list, which scans every listed directory as one source, like repeating its flag. `sourceDirs.opencode` and `sourceDirs.goose` take one database path.
 

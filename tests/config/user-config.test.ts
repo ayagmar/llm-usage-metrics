@@ -151,6 +151,33 @@ ssh = "-oProxyCommand=evil"
     ]);
   });
 
+  it('reads project aliases, keeping the first listing of a path', async () => {
+    const result = await loadUserConfig(
+      { LLM_USAGE_CONFIG_PATH: '/tmp/config.toml' },
+      readContent(`
+[projectAliases]
+"~/projects" = ["/home/me/Projects/Personal", "~/work"]
+"/srv/orange" = "/home/me/Projects/Orange"
+"/srv/again" = ["/home/me/Projects/Personal"]
+"/srv/empty" = []
+"/srv/number" = 3
+`),
+    );
+
+    expect(result.config.projectAliases).toEqual([
+      {
+        path: path.join(os.homedir(), 'projects'),
+        aliases: [path.resolve('/home/me/Projects/Personal'), path.join(os.homedir(), 'work')],
+      },
+      { path: path.resolve('/srv/orange'), aliases: [path.resolve('/home/me/Projects/Orange')] },
+    ]);
+    expect(result.warnings).toEqual([
+      'Ignoring /home/me/Projects/Personal in projectAliases."/srv/again": it is listed earlier',
+      'Ignoring projectAliases."/srv/empty": expected a non-empty path or list of paths',
+      'Ignoring projectAliases."/srv/number": expected a non-empty path or list of paths',
+    ]);
+  });
+
   it('throws an actionable error for malformed TOML', async () => {
     await expect(
       loadUserConfig(

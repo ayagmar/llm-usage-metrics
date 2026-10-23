@@ -241,6 +241,39 @@ export function resolveWorktreeRoots(
 }
 
 /**
+ * The events, with the `repoRoot` of each that `shouldMove` picks moved to the key
+ * `moveKey` gives its project key. Events it leaves, or moves nowhere, are returned as they
+ * are.
+ */
+export function moveEventRepoRoots(
+  eventLists: readonly (readonly UsageEvent[])[],
+  moveKey: (key: string) => string | undefined,
+  shouldMove: (event: UsageEvent) => boolean = () => true,
+): UsageEvent[][] {
+  const movedRoots = new Map<string, string | undefined>();
+
+  return eventLists.map((events) =>
+    events.map((event) => {
+      const repoRoot = event.repoRoot;
+
+      if (repoRoot === undefined || !shouldMove(event)) {
+        return event;
+      }
+
+      let moved = movedRoots.get(repoRoot);
+
+      if (moved === undefined && !movedRoots.has(repoRoot)) {
+        const key = toProjectKey(repoRoot);
+        moved = key === undefined ? undefined : moveKey(key);
+        movedRoots.set(repoRoot, moved);
+      }
+
+      return moved === undefined ? event : { ...event, repoRoot: moved };
+    }),
+  );
+}
+
+/**
  * The events, with each of this machine's that ran in a worktree moved to its repository's
  * key (see `resolveWorktreeRoots`). Other machines' events, and events that keep their
  * project, are returned as they are.
@@ -249,25 +282,5 @@ export function moveEventsToRepositories(
   eventLists: readonly (readonly UsageEvent[])[],
   repoKeyOf: (key: string) => string | undefined,
 ): UsageEvent[][] {
-  const movedRoots = new Map<string, string | undefined>();
-
-  return eventLists.map((events) =>
-    events.map((event) => {
-      const repoRoot = event.repoRoot;
-
-      if (repoRoot === undefined || event.machine !== undefined) {
-        return event;
-      }
-
-      let moved = movedRoots.get(repoRoot);
-
-      if (moved === undefined && !movedRoots.has(repoRoot)) {
-        const key = toProjectKey(repoRoot);
-        moved = key === undefined ? undefined : repoKeyOf(key);
-        movedRoots.set(repoRoot, moved);
-      }
-
-      return moved === undefined ? event : { ...event, repoRoot: moved };
-    }),
-  );
+  return moveEventRepoRoots(eventLists, repoKeyOf, (event) => event.machine === undefined);
 }

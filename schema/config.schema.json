@@ -222,6 +222,29 @@
         }
       }
     },
+    "projectAliases": {
+      "description": "Folders that hold the same projects under another path, such as the same repository on another machine. Each key is the folder to count usage under; its value is a path or a list of paths whose usage, and that of every folder below them, counts at the same place below the key. Paths may start with ~.",
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ]
+      }
+    },
     "update": {
       "description": "Startup update-check runtime settings.",
       "type": "object",

@@ -281,6 +281,10 @@ a git root recorded in the event store's `git_roots` table, and otherwise a fold
 worktrees it finds, first record kept, so worktrees still resolve once removed and the
 names do not depend on the window.
 
+Last, `createProjectAliasResolver` (`src/session/project-aliases.ts`) moves every
+machine's events, and `--repo` paths, at or below a configured `projectAliases` path to the
+same place below its target, so a project cloned under different folders counts once.
+
 ### Share reports
 
 With `--share`, the report wrapper's share builder runs after the report's own data. `buildShareReportData` (`src/cli/build-share-report-data.ts`) reads the events a second time over the command's window, starting earlier so 5-hour blocks are whole, and builds the payload in `src/share-report/build-share-payload.ts`: a cube of totals by date, hour, source, model, project and machine, the sessions, the blocks, and the command's own JSON envelope. `redact.ts` and `sanitize-envelope.ts` label projects and machines (`--redact`) and scrub home paths. `render-share-html.ts` writes one HTML file that inlines the payload and the client bundle (`src/share-report/client`, prebuilt into `client-bundle.generated.ts` by `scripts/build-share-client.mjs`) under a CSP that allows only those hashed inline bytes. The client computes every roll-up in the browser.

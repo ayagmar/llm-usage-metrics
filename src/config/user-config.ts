@@ -56,6 +56,7 @@ const knownTopLevelKeys = [
   'parseWorkerMinBytes',
   'parseWorkers',
   'pricing',
+  'projectAliases',
   'sourceDirs',
   'sources',
   'timezone',
@@ -146,6 +147,18 @@ export type UserConfig = {
   };
   /** Other machines whose usage reports include, by name. */
   machines?: Record<string, MachineConfig>;
+  /**
+   * Folders counted as another folder, in config order: usage at or below an alias counts
+   * at the same place below its `path`, on every machine.
+   */
+  projectAliases?: ProjectAlias[];
+};
+
+export type ProjectAlias = {
+  /** The folder the aliases count as. */
+  path: string;
+  /** Folders that hold the same projects, such as the path on another machine. */
+  aliases: string[];
 };
 
 export type LoadedUserConfig = {
@@ -643,6 +656,55 @@ function readMachinesConfig(
   return Object.keys(machines).length === 0 ? undefined : machines;
 }
 
+function readProjectAliases(
+  context: ConfigReadContext,
+  value: unknown,
+): UserConfig['projectAliases'] | undefined {
+  const record = readTable(context, 'projectAliases', value);
+
+  if (!record) {
+    return undefined;
+  }
+
+  const projectAliases: ProjectAlias[] = [];
+  const listed = new Set<string>();
+
+  for (const [target, aliasValue] of Object.entries(record)) {
+    const keyPath = `projectAliases."${target}"`;
+    const targetText = toNonBlankString(target);
+    const aliasValues: unknown[] = Array.isArray(aliasValue) ? aliasValue : [aliasValue];
+    const aliasTexts = aliasValues.flatMap((alias) => toNonBlankString(alias) ?? []);
+
+    if (
+      targetText === undefined ||
+      aliasTexts.length === 0 ||
+      aliasTexts.length !== aliasValues.length
+    ) {
+      context.warnings.push(`Ignoring ${keyPath}: expected a non-empty path or list of paths`);
+      continue;
+    }
+
+    const aliases: string[] = [];
+
+    for (const alias of aliasTexts) {
+      const aliasPath = resolveConfigPath(alias, context.configDir);
+
+      if (listed.has(aliasPath)) {
+        context.warnings.push(`Ignoring ${alias} in ${keyPath}: it is listed earlier`);
+      } else {
+        listed.add(aliasPath);
+        aliases.push(aliasPath);
+      }
+    }
+
+    if (aliases.length > 0) {
+      projectAliases.push({ path: resolveConfigPath(targetText, context.configDir), aliases });
+    }
+  }
+
+  return projectAliases.length === 0 ? undefined : projectAliases;
+}
+
 function readParseWorkers(value: unknown): UserConfig['parseWorkers'] | undefined {
   if (value === 'auto') {
     return 'auto';
@@ -701,6 +763,7 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
   );
   const update = readUpdateConfig(context, root.update);
   const machines = readMachinesConfig(context, root.machines);
+  const projectAliases = readProjectAliases(context, root.projectAliases);
 
   if (timezone !== undefined) {
     config.timezone = timezone;
@@ -748,6 +811,10 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
 
   if (machines !== undefined) {
     config.machines = machines;
+  }
+
+  if (projectAliases !== undefined) {
+    config.projectAliases = projectAliases;
   }
 
   return config;
