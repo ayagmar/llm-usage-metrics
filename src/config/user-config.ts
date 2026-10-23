@@ -660,12 +660,14 @@ function readMachinesConfig(
 
 /**
  * A `projectAliases` path as a project key, or undefined for a bare root (`/`, `C:\\`), which
- * would hold every project. An absolute path of either kind is kept as written, since it
- * may name another machine's folder; `~` and relative paths resolve here.
+ * would hold every project. An absolute path of the other OS is kept as written, since it
+ * names another machine's folder; other paths resolve here.
  */
 function toProjectAliasKey(text: string, configDir: string): string | undefined {
-  const absolute = path.posix.isAbsolute(text) || path.win32.isAbsolute(text);
-  const key = toProjectKey(absolute ? text : resolveConfigPath(text, configDir));
+  // Only the other OS's absolute form is kept; this OS's paths resolve to its own form.
+  const foreign =
+    !path.isAbsolute(text) && (path.posix.isAbsolute(text) || path.win32.isAbsolute(text));
+  const key = toProjectKey(foreign ? text : resolveConfigPath(text, configDir));
   return key === undefined || toParentProjectKey(key) === undefined ? undefined : key;
 }
 

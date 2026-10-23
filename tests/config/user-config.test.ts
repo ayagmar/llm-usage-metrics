@@ -163,17 +163,22 @@ ssh = "-oProxyCommand=evil"
 "/srv/number" = 3
 "/" = ["/mnt/data"]
 "/srv/root" = ["D:\\\\", "/mnt/root"]
+"C:/Users/me/projects" = ["/mnt/laptop/projects"]
 `),
     );
 
     expect(result.config.projectAliases).toEqual([
       {
         path: path.join(os.homedir(), 'projects'),
-        aliases: ['/home/me/Projects/Personal', path.join(os.homedir(), 'work')],
+        aliases: [path.resolve('/home/me/Projects/Personal'), path.join(os.homedir(), 'work')],
       },
-      // Absolute paths, of this OS or another machine's, are kept as written.
-      { path: '/srv/orange', aliases: ['C:\\Users\\me\\Orange'] },
-      { path: '/srv/root', aliases: ['/mnt/root'] },
+      // This OS's paths resolve to its own form; the other OS's are kept as written.
+      { path: path.resolve('/srv/orange'), aliases: ['C:\\Users\\me\\Orange'] },
+      { path: path.resolve('/srv/root'), aliases: [path.resolve('/mnt/root')] },
+      {
+        path: process.platform === 'win32' ? 'C:\\Users\\me\\projects' : 'C:/Users/me/projects',
+        aliases: [path.resolve('/mnt/laptop/projects')],
+      },
     ]);
     expect(result.warnings).toEqual([
       'Ignoring /home/me/Projects/Personal in projectAliases."/srv/again": it is listed earlier',
