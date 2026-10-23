@@ -40,6 +40,7 @@ export type { FileDependencyFingerprint as EventStoreDependencyFingerprint } fro
 export type { StoredSessionEvent, StoredSessionEventKind } from './event-store-session-events.js';
 export type { EventStoreAppend } from './event-store-append.js';
 export { normalizeStoredEvent } from './event-store-codec.js';
+export { readWorktreeRoots, recordWorktreeRoots } from './event-store-worktree-roots.js';
 export {
   runTransaction,
   type EventStore,

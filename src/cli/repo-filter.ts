@@ -140,6 +140,20 @@ function toComparableKey(repoRoot: string | undefined): string | undefined {
   return ABSOLUTE_PATTERN.test(key) ? normalizeAbsolutePath(key) : normalizeSeparators(key);
 }
 
+/**
+ * The filter with each path value moved where `repoKeyOf` moves its key, so `--repo .` in a
+ * worktree selects the repository its usage is counted under.
+ */
+export function moveRepoFilterPaths(
+  filter: RepoFilter | undefined,
+  repoKeyOf: (key: string) => string | undefined,
+): RepoFilter | undefined {
+  return filter?.map((value) => {
+    const moved = value.kind === 'path' ? repoKeyOf(value.path) : undefined;
+    return moved === undefined ? value : { ...value, path: toComparableKey(moved) ?? moved };
+  });
+}
+
 /** Keeps the events of the selected projects; without a filter, returns `events` itself. */
 export function applyRepoFilter<Event extends Pick<UsageEvent, 'repoRoot'>>(
   events: Event[],

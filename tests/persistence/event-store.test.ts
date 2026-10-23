@@ -25,6 +25,8 @@ import {
   readEventStoreSummary,
   readFileEvents,
   readOverrideOnlyFiles,
+  readWorktreeRoots,
+  recordWorktreeRoots,
   replaceFileEvents,
   replaceFilesEvents,
   serializeEventStoreFingerprint,
@@ -449,6 +451,25 @@ describe('event-store', () => {
       expect(readOverrideOnlyFiles(store)).toEqual([
         { source: 'codex', filePath: '/tmp/export/session.jsonl' },
       ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('remembers worktrees in a current store written by an older build', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-worktree-table-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const olderStore = await openEventStore(dbPath);
+    olderStore.database.exec('DROP TABLE worktree_roots');
+    closeEventStore(olderStore);
+    const store = await openEventStore(dbPath);
+
+    try {
+      recordWorktreeRoots(store, new Map([['/cache/wt-1', '/w/app']]));
+      recordWorktreeRoots(store, new Map([['/cache/wt-1', '/w/other']]));
+
+      expect(readWorktreeRoots(store)).toEqual(new Map([['/cache/wt-1', '/w/other']]));
     } finally {
       closeEventStore(store);
     }

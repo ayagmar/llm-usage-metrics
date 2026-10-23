@@ -11,6 +11,8 @@ import {
   closeEventStore,
   openEventStore,
   readOverrideOnlyFiles,
+  readWorktreeRoots,
+  recordWorktreeRoots,
   type EventStore,
 } from '../persistence/event-store.js';
 import { addStoredFilesStillOnDisk } from './history-live-files.js';
@@ -39,7 +41,7 @@ import {
   type ParsedSourceFile,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEventsWithLookback } from './parse/usage-event-filters.js';
-import { applyRepoFilter } from './repo-filter.js';
+import { applyRepoFilter, moveRepoFilterPaths, type RepoFilter } from './repo-filter.js';
 import {
   loadMachineUsage,
   selectMachines,
@@ -77,6 +79,8 @@ import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { attributeEventsToSessionRoots } from '../session/aggregate-sessions.js';
+import { moveEventsToRepositories, resolveWorktreeRoots } from '../session/worktree-roots.js';
+import { toProjectKey } from '../aggregate/project-key.js';
 
 function withNormalizedPricingUrl(
   options: ReportCommandOptions,
@@ -157,6 +161,61 @@ function appendMachineEvents(
   }
 
   return results;
+}
+
+/**
+ * Moves the usage of git worktrees to their repositories (`resolveWorktreeRoots`), and the
+ * `--repo` paths with it. Reads the worktrees earlier runs found from the store and records
+ * those this run found; a store failure only loses that record.
+ */
+function attributeWorktreesToRepositories(
+  parseResults: AdapterParseResult[],
+  store: EventStore | undefined,
+  repoFilter: RepoFilter | undefined,
+): { parseResults: AdapterParseResult[]; repoFilter: RepoFilter | undefined; warnings: string[] } {
+  const warnings: string[] = [];
+  let storedWorktrees = new Map<string, string>();
+
+  try {
+    storedWorktrees = store ? readWorktreeRoots(store) : storedWorktrees;
+  } catch (error) {
+    warnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
+  }
+
+  const repoRoots = new Set<string | undefined>();
+
+  for (const result of parseResults) {
+    for (const event of result.events) {
+      repoRoots.add(event.repoRoot);
+    }
+  }
+
+  const worktreeRoots = resolveWorktreeRoots(
+    [...repoRoots].flatMap((repoRoot) => toProjectKey(repoRoot) ?? []),
+    storedWorktrees,
+  );
+
+  try {
+    if (store) {
+      recordWorktreeRoots(store, worktreeRoots.newWorktrees);
+    }
+  } catch (error) {
+    warnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
+  }
+
+  const movedEvents = moveEventsToRepositories(
+    parseResults.map((result) => result.events),
+    worktreeRoots.repoKeyOf,
+  );
+
+  return {
+    parseResults: parseResults.map((result, index) => ({
+      ...result,
+      events: movedEvents[index] ?? result.events,
+    })),
+    repoFilter: moveRepoFilterPaths(repoFilter, worktreeRoots.repoKeyOf),
+    warnings,
+  };
 }
 
 export type UsageEventDataset = {
@@ -517,6 +576,9 @@ export async function buildUsageEventDataset(
         }),
     );
 
+    let repoFilter = normalizedInputs.repoFilter;
+    const worktreeWarnings: string[] = [];
+
     // Before the date, model and --repo filters, so a local session's own root does not
     // depend on them. Other machines' events and the other sessions' roots known still
     // depend on what was read (the window, skipped files, --source, --machine).
@@ -531,6 +593,22 @@ export async function buildUsageEventDataset(
         ...result,
         events: attributedEvents[index] ?? result.events,
       }));
+
+      // After the session roots, so a session that moved from its repository into one of
+      // its worktrees counts once under the repository.
+      const moved = measureRuntimeProfileStageSync(
+        runtimeProfile,
+        'usage.dataset.attribute_worktrees',
+        () =>
+          attributeWorktreesToRepositories(
+            parseResultsForFiltering,
+            eventStoreAvailable ? openedEventStore : undefined,
+            repoFilter,
+          ),
+      );
+      parseResultsForFiltering = moved.parseResults;
+      repoFilter = moved.repoFilter;
+      worktreeWarnings.push(...moved.warnings);
     }
 
     const { filteredEvents, lookbackEvents } = measureRuntimeProfileStageSync(
@@ -548,8 +626,8 @@ export async function buildUsageEventDataset(
 
         // After the model filter, which picks exact or substring matching over all projects.
         return {
-          filteredEvents: applyRepoFilter(filtered.events, normalizedInputs.repoFilter),
-          lookbackEvents: applyRepoFilter(filtered.lookbackEvents, normalizedInputs.repoFilter),
+          filteredEvents: applyRepoFilter(filtered.events, repoFilter),
+          lookbackEvents: applyRepoFilter(filtered.lookbackEvents, repoFilter),
         };
       },
     );
@@ -566,6 +644,7 @@ export async function buildUsageEventDataset(
         ...parseWarnings,
         ...historyWarnings,
         ...machineWarnings,
+        ...worktreeWarnings,
         ...findUnmatchedFilterWarnings({
           parseResults: parseResultsForFiltering,
           // Only a typed --source: a `sources` list from config.toml is a standing default,
@@ -573,7 +652,7 @@ export async function buildUsageEventDataset(
           cliSourceFilter: normalizeSourceFilter(userConfigResolution.cliOptions.source),
           provider: configuredOptions.provider,
           modelFilter: normalizedInputs.modelFilter,
-          repoFilter: normalizedInputs.repoFilter,
+          repoFilter,
           timezone: normalizedInputs.timezone,
           since: configuredOptions.since,
           until: configuredOptions.until,

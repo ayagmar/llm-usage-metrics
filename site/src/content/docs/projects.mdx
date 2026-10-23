@@ -35,7 +35,7 @@ llm-usage projects
 
 A project is the directory a session started in. The coding tool records a working directory with each request, and events store it as `repoRoot`. When a session `cd`s into a subfolder, say `site/` or `src/`, its later requests still count for the directory it started in, so one session stays one project. Claude Code, Codex, Droid, dsh, Gemini, OpenClaw, OpenCode, and pi record a working directory. Usage from the other sources, and sessions where the tool recorded none, is listed as `(unattributed)`.
 
-The CLI does not look for a `.git` folder; it uses the directories sessions started in:
+Within a repository, the CLI uses the directories sessions started in, not `.git` folders:
 
 - A request in a subfolder counts for the nearest folder above it, up to its session's starting directory, where a session the report reads started. A session started in `~/work` that `cd`s into `~/work/api` counts that usage under `api` if another session started in `~/work/api`, and under `~/work` if none did.
 - A session started in a subfolder, such as `~/work/api/site`, is its own project.
@@ -44,7 +44,16 @@ The CLI does not look for a `.git` folder; it uses the directories sessions star
 
 `events` exports and filters on the directory each request logged, and `efficiency` finds the repository from it, so neither applies these rules.
 
-Two kinds of directory count as the project that holds them. A directory inside `node_modules`, where a session `cd`s into a dependency, counts as the folder above `node_modules`. A Claude Code worktree, `<repo>/.claude/worktrees/<name>` or any folder inside it, counts as `<repo>`. A folder named `worktrees` anywhere else is left alone.
+Two kinds of directory count as the project that holds them. A directory inside `node_modules`, where a session `cd`s into a dependency, counts as the folder above `node_modules`. A Claude Code worktree, `<repo>/.claude/worktrees/<name>` or any folder inside it, counts as `<repo>`.
+
+### Git worktrees
+
+Usage in any other git worktree counts for its repository, whichever tool ran there and wherever the worktree lives. A session in `~/.cache/app-review` that worked in a worktree of `~/projects/app` counts under `app`, and a folder inside the worktree counts as the same folder inside `app`. The CLI finds the repository in one of two ways:
+
+- **The worktree's `.git` file.** While the worktree exists, its `.git` file names the repository. The event store keeps that link, so usage from the worktree still counts for the repository after you remove it. A report run with the event store off (`LLM_USAGE_EVENT_STORE=0`) only sees worktrees that still exist.
+- **The folder name.** A worktree removed before any report saw it counts for a repository if a folder in its path starts with the repository's name and a `-` or `_` (`app-review`, `app_tmp`), or ends with one and the name (`review-app`). Case is ignored. The repository must be on disk with a session started in it, or have a worktree the event store recorded, and its name must be at least 4 characters and belong to no other repository; the longest matching name wins. A folder named exactly like a repository is left alone, since it is usually another clone of it.
+
+A repository on disk, and every folder inside it, keeps its own project even when its name starts with another's, so `app-cli` next to `app` stays `app-cli`. Name your worktree folders `<repo>-<task>` so they count for the repository after removal too. `--repo` on a worktree's path selects its repository.
 
 The label is the last folder name of the path. When two projects end in the same folder name, both labels gain parent folders until they differ: `/work/a/api` and `/work/b/api` become `a/api` and `b/api`. A label stays the same across every period of one report. `session`, `value`, `trends --by-repo`, `compare --by-repo`, the `--by-repo` splits of the usage reports, and the interactive report label projects the same way.
 
