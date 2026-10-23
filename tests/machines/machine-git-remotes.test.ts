@@ -70,8 +70,9 @@ afterEach(async () => {
 async function projectsAfterSync(
   laptopCwds: readonly string[],
   localCwds: readonly string[],
+  localConfig = '',
 ): Promise<(string | number | null)[][]> {
-  const writeSessions = async (machine: string, cwds: readonly string[]) => {
+  const writeSessions = async (machine: string, cwds: readonly string[], extra = '') => {
     for (const [index, cwd] of cwds.entries()) {
       await writeCodexSession(
         path.join(rootDir, machine, 'codex'),
@@ -81,11 +82,11 @@ async function projectsAfterSync(
     }
 
     const configPath = path.join(rootDir, machine, 'config.toml');
-    await writeFile(configPath, `sources = ["codex"]\n[sourceDirs]\ncodex = "codex"\n`);
+    await writeFile(configPath, `sources = ["codex"]\n${extra}[sourceDirs]\ncodex = "codex"\n`);
     return configPath;
   };
   const laptopConfig = await writeSessions('laptop', laptopCwds);
-  vi.stubEnv('LLM_USAGE_CONFIG_PATH', await writeSessions('desktop', localCwds));
+  vi.stubEnv('LLM_USAGE_CONFIG_PATH', await writeSessions('desktop', localCwds, localConfig));
   vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
   vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'desktop', 'events.db'));
 
@@ -136,6 +137,15 @@ describe('another machine’s repository with the same remote', () => {
     );
 
     expect(await projectsAfterSync([laptopRepo()], [worktree])).toEqual([[localRepo(), 2]]);
+  });
+
+  it('matches the remote before an alias of the other machine’s folder moves it', async () => {
+    // The alias maps `App` to `projects/App`; only the remote says it is `projects/app`.
+    const alias = `[projectAliases]\n${JSON.stringify(path.dirname(localRepo()))} = [${JSON.stringify(path.dirname(laptopRepo()))}]\n`;
+
+    expect(await projectsAfterSync([laptopRepo()], [localRepo()], alias)).toEqual([
+      [localRepo(), 2],
+    ]);
   });
 
   it('moves nothing when two repositories here share the remote', async () => {

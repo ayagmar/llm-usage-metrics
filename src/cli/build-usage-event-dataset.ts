@@ -667,6 +667,14 @@ export async function buildUsageEventDataset(
       repoFilter = moved.repoFilter;
       worktreeWarnings.push(...moved.warnings);
 
+      // After the worktrees, whose roots it reads, and before the aliases: an alias of the
+      // other machine's folder would otherwise move its keys from under that machine's roots.
+      parseResultsForFiltering = measureRuntimeProfileStageSync(
+        runtimeProfile,
+        'usage.dataset.attribute_machine_remotes',
+        () => attributeMachinesToLocalRepositories(parseResultsForFiltering, machines, moved.roots),
+      );
+
       // After the worktrees, so a worktree's usage follows its repository's alias. Every
       // machine's events: an alias is often the path the project has on another machine.
       if (config.projectAliases) {
@@ -681,14 +689,6 @@ export async function buildUsageEventDataset(
         }));
         repoFilter = moveRepoFilterPaths(repoFilter, aliasOf);
       }
-
-      // After the aliases, so a path aliased on purpose keeps its alias: it no longer lies
-      // under the other machine's git roots.
-      parseResultsForFiltering = measureRuntimeProfileStageSync(
-        runtimeProfile,
-        'usage.dataset.attribute_machine_remotes',
-        () => attributeMachinesToLocalRepositories(parseResultsForFiltering, machines, moved.roots),
-      );
     }
 
     const { filteredEvents, lookbackEvents } = measureRuntimeProfileStageSync(
