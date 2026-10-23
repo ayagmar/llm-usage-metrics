@@ -40,9 +40,15 @@ export function createProjectAliasResolver(
       const target = targets.get(comparableAncestor);
 
       if (target !== undefined) {
-        // The path below the alias in the target's separators: it may be another OS's.
-        const separator = isWindowsProjectKey(target) ? '\\' : '/';
-        return target + key.slice(ancestor.length).replace(/[\\/]/gu, separator);
+        // The path below the alias in the target's separators when it is another OS's: a
+        // POSIX folder name may hold a `\\`.
+        const tail = key.slice(ancestor.length);
+
+        if (isWindowsProjectKey(key) === isWindowsProjectKey(target)) {
+          return target + tail;
+        }
+
+        return target + tail.replace(/[\\/]/gu, isWindowsProjectKey(target) ? '\\' : '/');
       }
 
       ancestor = toParentProjectKey(ancestor);
