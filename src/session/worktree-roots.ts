@@ -1,4 +1,5 @@
 import { lstatSync, readFileSync, type Stats } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
@@ -9,17 +10,21 @@ import type { UsageEvent } from '../domain/usage-event.js';
 /** The shortest repository name a worktree path is matched against (`pi` would match too much). */
 const MIN_MATCHED_NAME_LENGTH = 4;
 
-type GitMarker = { kind: 'repository' } | { kind: 'worktree'; repoKey: string };
+/** A directory with a `.git` entry: a repository, or a worktree of the repository at `repoKey`. */
+type GitRoot = { root: string; repoKey: string };
 
 export type WorktreeRoots = {
   /** The key of the repository a project key belongs to, or undefined when it keeps its own. */
   repoKeyOf: (key: string) => string | undefined;
-  /** Worktrees found on disk that the store does not record yet, with their repository's key. */
-  newWorktrees: Map<string, string>;
+  /**
+   * Git roots found on disk that the store does not record yet, with the repository each
+   * belongs to (a repository belongs to itself).
+   */
+  newRoots: Map<string, string>;
 };
 
 /** The repository of the worktree whose `.git` file this is, from its `gitdir:` line. */
-function readWorktreeRepoKey(worktreeKey: string, markerPath: string): string | undefined {
+function readWorktreeRepoKey(worktree: string, markerPath: string): string | undefined {
   const line = readFileSync(markerPath, 'utf8')
     .split('\n')
     .find((candidate) => candidate.startsWith('gitdir:'));
@@ -28,33 +33,31 @@ function readWorktreeRepoKey(worktreeKey: string, markerPath: string): string | 
     return undefined;
   }
 
-  // `<repo>/.git/worktrees/<name>`; a submodule's `.git/modules/<name>` is not a worktree.
-  const gitDir = path.resolve(worktreeKey, line.slice('gitdir:'.length).trim());
+  // Exactly `<repo>/.git/worktrees/<name>`: a submodule's gitdir, `.git/modules/<name>` or
+  // `.git/worktrees/<name>/modules/<name>` inside a worktree, is no worktree.
+  const gitDir = path.resolve(worktree, line.slice('gitdir:'.length).trim());
   const needle = `${path.sep}.git${path.sep}worktrees${path.sep}`;
   const index = gitDir.lastIndexOf(needle);
 
-  return index > 0 ? toProjectKey(gitDir.slice(0, index)) : undefined;
+  return index > 0 && !gitDir.includes(path.sep, index + needle.length)
+    ? toProjectKey(gitDir.slice(0, index))
+    : undefined;
 }
 
-/** What the `.git` entry of the directory at `key` says it is, if it has one. */
-function readGitMarker(key: string): GitMarker | undefined {
-  // A key recorded on another platform, or a relative one, names no directory here.
-  if (!path.isAbsolute(key)) {
-    return undefined;
-  }
-
-  const markerPath = path.join(key, '.git');
+/** What the `.git` entry of `directory` says it is: a repository, a worktree, or neither. */
+function readGitRoot(directory: string): GitRoot | undefined {
+  const markerPath = path.join(directory, '.git');
   let stats: Stats | undefined;
 
   try {
     stats = lstatSync(markerPath, { throwIfNoEntry: false });
 
     if (stats?.isDirectory()) {
-      return { kind: 'repository' };
+      return { root: directory, repoKey: directory };
     }
 
-    const repoKey = stats?.isFile() ? readWorktreeRepoKey(key, markerPath) : undefined;
-    return repoKey === undefined ? undefined : { kind: 'worktree', repoKey };
+    const repoKey = stats?.isFile() ? readWorktreeRepoKey(directory, markerPath) : undefined;
+    return repoKey === undefined ? undefined : { root: directory, repoKey };
   } catch {
     // Unreadable (permissions, a file in the path): treated as no marker.
     return undefined;
@@ -68,61 +71,72 @@ function toRepositoryName(key: string): string | undefined {
 
 /**
  * Where each project key's usage belongs when it ran in a git worktree, so a worktree counts
- * as its repository. A key resolves, nearest first, through:
+ * as its repository. `keys` are this machine's: another machine's paths name nothing here.
+ * A key resolves, nearest first, through:
  *
- * 1. its own `.git` file on disk, or a worktree among `keys` or recorded in `stored` (found
- *    on disk by an earlier run, maybe deleted since) that it sits in, keeping the path below;
- * 2. otherwise, a path segment named `<repo>-…`, `…-<repo>` (or with `_`) after a repository
- *    found on disk among `keys` or recorded in `stored`, case-insensitively, the longest name
- *    winning. A name shared
- *    by two repositories, or shorter than 4 characters, matches nothing.
+ * 1. the `.git` entry of the key or of a directory above it, read from disk up to (not
+ *    including) the home directory, or a git root `stored` records (found on disk by an
+ *    earlier run, maybe deleted since): a worktree moves to its repository, keeping the
+ *    path below it, and a repository keeps the key;
+ * 2. otherwise, a path segment named `<repo>-…`, `…-<repo>` (or with `_`) after a known
+ *    repository (found on disk or in `stored`), case-insensitively, the longest name
+ *    winning. A name shared by two repositories, or shorter than 4 characters, matches
+ *    nothing.
  *
- * A repository, or a directory inside one, keeps its key. `repoKeyOf` reads the disk for a key
- * not in `keys`, such as a `--repo` path, and remembers every answer.
+ * Disk reads are cached per directory. `repoKeyOf` also resolves a key not in `keys`, such
+ * as a `--repo` path, and remembers every answer.
  */
 export function resolveWorktreeRoots(
   keys: Iterable<string>,
   stored: ReadonlyMap<string, string>,
+  homeDir: string = os.homedir(),
 ): WorktreeRoots {
-  const markers = new Map<string, GitMarker | undefined>();
-  const markerOf = (key: string): GitMarker | undefined => {
-    if (!markers.has(key)) {
-      markers.set(key, readGitMarker(key));
+  const homeKey = toProjectKey(homeDir);
+  const isHomeOrAbove = (directory: string): boolean =>
+    homeKey !== undefined &&
+    (homeKey === directory ||
+      homeKey.startsWith(directory.endsWith(path.sep) ? directory : directory + path.sep));
+  const located = new Map<string, GitRoot | undefined>();
+
+  // The nearest git root at or above `directory` on disk; the home directory and those above
+  // it are not read, since a home under git would otherwise hold every project.
+  const locate = (directory: string): GitRoot | undefined => {
+    if (located.has(directory)) {
+      return located.get(directory);
     }
 
-    return markers.get(key);
+    let root: GitRoot | undefined;
+
+    if (path.isAbsolute(directory) && !isHomeOrAbove(directory)) {
+      root = readGitRoot(directory);
+
+      if (root === undefined) {
+        const parent = toParentProjectKey(directory);
+        root = parent === undefined ? undefined : locate(parent);
+      }
+    }
+
+    located.set(directory, root);
+    return root;
   };
 
-  const worktrees = new Map(stored);
-  const newWorktrees = new Map<string, string>();
-  const repoKeys = new Set<string>();
+  const roots = new Map(stored);
+  const newRoots = new Map<string, string>();
 
   for (const key of keys) {
-    const marker = markerOf(key);
+    const found = locate(key);
 
-    if (marker?.kind === 'repository') {
-      repoKeys.add(key);
-      // A path reused for a repository is no longer the worktree recorded there.
-      worktrees.delete(key);
-    } else if (marker?.kind === 'worktree') {
-      repoKeys.add(marker.repoKey);
-
-      if (stored.get(key) !== marker.repoKey) {
-        newWorktrees.set(key, marker.repoKey);
-      }
-
-      worktrees.set(key, marker.repoKey);
+    // The first record of a path stands: a path reused later would otherwise move its past.
+    if (found !== undefined && !roots.has(found.root)) {
+      roots.set(found.root, found.repoKey);
+      newRoots.set(found.root, found.repoKey);
     }
-  }
-
-  for (const repoKey of stored.values()) {
-    repoKeys.add(repoKey);
   }
 
   // Each name's repository; null when two repositories share it.
   const repoKeyByName = new Map<string, string | null>();
 
-  for (const repoKey of [...repoKeys].sort(compareByCodePoint)) {
+  for (const repoKey of [...new Set(roots.values())].sort(compareByCodePoint)) {
     const name = toRepositoryName(repoKey);
 
     if (name !== undefined && name.length >= MIN_MATCHED_NAME_LENGTH) {
@@ -159,24 +173,22 @@ export function resolveWorktreeRoots(
     return best?.repoKey;
   };
 
-  // Ancestors come from `keys` and the store only: reading the disk above every key would
-  // cost a lookup per level, and a home directory under git would hold every project.
-  const resolve = (key: string): string | undefined => {
-    const marker = markerOf(key);
+  // A worktree's key moves to its repository with the path below it; a repository keeps it.
+  const moveBelow = (key: string, root: string, repoKey: string): string | undefined =>
+    root === repoKey ? undefined : repoKey + key.slice(root.length);
 
-    if (marker !== undefined) {
-      return marker.kind === 'worktree' ? marker.repoKey : undefined;
+  const resolve = (key: string): string | undefined => {
+    const found = locate(key);
+
+    if (found !== undefined) {
+      return moveBelow(key, found.root, found.repoKey);
     }
 
     for (let ancestor: string | undefined = key; ancestor !== undefined;) {
-      const worktreeRepoKey = worktrees.get(ancestor);
+      const repoKey = roots.get(ancestor);
 
-      if (worktreeRepoKey !== undefined) {
-        return worktreeRepoKey + key.slice(ancestor.length);
-      }
-
-      if (repoKeys.has(ancestor)) {
-        return undefined;
+      if (repoKey !== undefined) {
+        return moveBelow(key, ancestor, repoKey);
       }
 
       ancestor = toParentProjectKey(ancestor);
@@ -194,13 +206,14 @@ export function resolveWorktreeRoots(
 
       return resolved.get(key);
     },
-    newWorktrees,
+    newRoots,
   };
 }
 
 /**
- * The events, with each one that ran in a worktree moved to its repository's key (see
- * `resolveWorktreeRoots`). Events that keep their project are returned as they are.
+ * The events, with each of this machine's that ran in a worktree moved to its repository's
+ * key (see `resolveWorktreeRoots`). Other machines' events, and events that keep their
+ * project, are returned as they are.
  */
 export function moveEventsToRepositories(
   eventLists: readonly (readonly UsageEvent[])[],
@@ -212,7 +225,7 @@ export function moveEventsToRepositories(
     events.map((event) => {
       const repoRoot = event.repoRoot;
 
-      if (repoRoot === undefined) {
+      if (repoRoot === undefined || event.machine !== undefined) {
         return event;
       }
 

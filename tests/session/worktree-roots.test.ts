@@ -63,13 +63,19 @@ describe('resolveWorktreeRoots', () => {
     });
     await execFileAsync('git', ['-C', repo, 'worktree', 'add', '-q', worktree], { env });
 
+    // No session started at the worktree's root: its subfolder still finds the `.git` file.
     const subdirectory = path.join(worktree, 'packages', 'core');
-    const roots = resolveWorktreeRoots([repo, worktree, subdirectory], new Map());
+    const roots = resolveWorktreeRoots([repo, subdirectory], new Map());
 
-    expect(roots.repoKeyOf(worktree)).toBe(repo);
     expect(roots.repoKeyOf(subdirectory)).toBe(path.join(repo, 'packages', 'core'));
+    expect(roots.repoKeyOf(worktree)).toBe(repo);
     expect(roots.repoKeyOf(repo)).toBeUndefined();
-    expect(roots.newWorktrees).toEqual(new Map([[worktree, repo]]));
+    expect(roots.newRoots).toEqual(
+      new Map([
+        [repo, repo],
+        [worktree, repo],
+      ]),
+    );
   });
 
   it('moves a deleted worktree the store recorded, without recording it again', () => {
@@ -79,7 +85,23 @@ describe('resolveWorktreeRoots', () => {
 
     expect(roots.repoKeyOf(worktree)).toBe(repo);
     expect(roots.repoKeyOf(path.join(worktree, 'src'))).toBe(path.join(repo, 'src'));
-    expect(roots.newWorktrees.size).toBe(0);
+    expect(roots.newRoots.size).toBe(0);
+  });
+
+  it('keeps what the store first recorded for a path reused by another repository', async () => {
+    const first = missing('reused/app');
+    const second = await makeRepository('reused/api');
+    const worktree = await makeGitFile('reused/wt', path.join(second, '.git', 'worktrees', 'wt'));
+    const roots = resolveWorktreeRoots([worktree], new Map([[worktree, first]]));
+
+    expect(roots.newRoots.has(worktree)).toBe(false);
+  });
+
+  it('matches names against repositories the store recorded, whatever the run read', () => {
+    const repo = missing('stable/projects/kipple');
+    const key = missing('stable/cache/kipple-fix');
+
+    expect(resolveWorktreeRoots([key], new Map([[repo, repo]])).repoKeyOf(key)).toBe(repo);
   });
 
   it('keeps a submodule, whose .git file is no worktree, as its own project', async () => {
@@ -90,6 +112,21 @@ describe('resolveWorktreeRoots', () => {
     );
 
     expect(resolveWorktreeRoots([repo, submodule], new Map()).repoKeyOf(submodule)).toBeUndefined();
+  });
+
+  it('counts a submodule inside a worktree as that folder of the repository', async () => {
+    const repo = await makeRepository('wtsub/app');
+    const worktree = await makeGitFile('wtsub/wt', path.join(repo, '.git', 'worktrees', 'wt'));
+    const submodule = await makeGitFile(
+      'wtsub/wt/vendor/lib',
+      path.join(repo, '.git', 'worktrees', 'wt', 'modules', 'lib'),
+    );
+    const roots = resolveWorktreeRoots([worktree, submodule], new Map());
+
+    expect([roots.repoKeyOf(worktree), roots.repoKeyOf(submodule)]).toEqual([
+      repo,
+      path.join(repo, 'vendor', 'lib'),
+    ]);
   });
 
   it('moves a deleted directory named after a repository on disk, ignoring case', async () => {
@@ -131,43 +168,71 @@ describe('resolveWorktreeRoots', () => {
   it('keeps a repository, and the directories inside it, even when named after another', async () => {
     const app = await makeRepository('own/app-name');
     const sibling = await makeRepository('own/app-name-cli');
-    const inside = path.join(sibling, 'tools', 'app-name-gen');
-    const roots = resolveWorktreeRoots([app, sibling, inside], new Map());
+    // Sessions only started in a package folder, never at the sibling's root.
+    const inside = path.join(sibling, 'packages', 'app-name-web');
+    const roots = resolveWorktreeRoots([app, inside], new Map());
 
     expect([roots.repoKeyOf(sibling), roots.repoKeyOf(inside)]).toEqual([undefined, undefined]);
+  });
+
+  it('reads no .git entry at or above the home directory', async () => {
+    const home = await makeRepository('home/me');
+    const key = path.join(home, 'notes');
+    await mkdir(key);
+
+    expect(resolveWorktreeRoots([key], new Map(), home).newRoots.size).toBe(0);
   });
 
   it('selects a worktree project with a --repo path inside the worktree', async () => {
     const repo = await makeRepository('filter/app');
     const worktree = await makeGitFile('filter/wt', path.join(repo, '.git', 'worktrees', 'wt'));
     const roots = resolveWorktreeRoots([worktree], new Map());
-    const filter = moveRepoFilterPaths(normalizeRepoFilter(worktree), roots.repoKeyOf);
+    const filter = moveRepoFilterPaths(
+      normalizeRepoFilter(path.join(worktree, 'site')),
+      roots.repoKeyOf,
+    );
 
-    expect(filter).toEqual([{ kind: 'path', input: worktree, path: repo.replaceAll('\\', '/') }]);
+    expect(filter).toEqual([
+      {
+        kind: 'path',
+        input: path.join(worktree, 'site'),
+        path: path.join(repo, 'site').replaceAll('\\', '/'),
+      },
+    ]);
   });
 });
 
 describe('moveEventsToRepositories', () => {
-  it('moves only the events whose project belongs to another and keeps the rest as they are', () => {
-    const event = (repoRoot?: string) =>
-      createUsageEvent({
-        source: 'claude',
-        sessionId: 's',
-        timestamp: '2026-06-01T10:00:00.000Z',
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-5',
-        inputTokens: 1,
-        outputTokens: 1,
-        ...(repoRoot === undefined ? {} : { repoRoot }),
-      });
+  it('moves only local events whose project belongs to another and keeps the rest as they are', () => {
+    const event = (repoRoot?: string, machine?: string) =>
+      Object.assign(
+        createUsageEvent({
+          source: 'claude',
+          sessionId: 's',
+          timestamp: '2026-06-01T10:00:00.000Z',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5',
+          inputTokens: 1,
+          outputTokens: 1,
+          ...(repoRoot === undefined ? {} : { repoRoot }),
+        }),
+        // As other machines' usage is loaded.
+        machine === undefined ? {} : { machine },
+      );
     const kept = event('/w/app');
     const unattributed = event();
-    const [moved] = moveEventsToRepositories([[event('/w/app-wt/'), kept, unattributed]], (key) =>
-      key === '/w/app-wt' ? '/w/app' : undefined,
+    const remote = event('/w/app-wt', 'laptop');
+    const [moved] = moveEventsToRepositories(
+      [[event('/w/app-wt/'), kept, unattributed, remote]],
+      (key) => (key === '/w/app-wt' ? '/w/app' : undefined),
     );
 
-    expect(moved.map((movedEvent) => movedEvent.repoRoot)).toEqual(['/w/app', '/w/app', undefined]);
-    expect(moved[1]).toBe(kept);
-    expect(moved[2]).toBe(unattributed);
+    expect(moved.map((movedEvent) => movedEvent.repoRoot)).toEqual([
+      '/w/app',
+      '/w/app',
+      undefined,
+      '/w/app-wt',
+    ]);
+    expect(moved.slice(1)).toEqual([kept, unattributed, remote]);
   });
 });

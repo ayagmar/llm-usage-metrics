@@ -149,7 +149,8 @@ export function moveRepoFilterPaths(
   repoKeyOf: (key: string) => string | undefined,
 ): RepoFilter | undefined {
   return filter?.map((value) => {
-    const moved = value.kind === 'path' ? repoKeyOf(value.path) : undefined;
+    // Keys hold this platform's separators; a `--repo` path holds `/`.
+    const moved = value.kind === 'path' ? repoKeyOf(path.normalize(value.path)) : undefined;
     return moved === undefined ? value : { ...value, path: toComparableKey(moved) ?? moved };
   });
 }

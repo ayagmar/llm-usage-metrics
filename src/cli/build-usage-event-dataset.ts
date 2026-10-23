@@ -11,8 +11,8 @@ import {
   closeEventStore,
   openEventStore,
   readOverrideOnlyFiles,
-  readWorktreeRoots,
-  recordWorktreeRoots,
+  readGitRoots,
+  recordGitRoots,
   type EventStore,
 } from '../persistence/event-store.js';
 import { addStoredFilesStillOnDisk } from './history-live-files.js';
@@ -164,9 +164,10 @@ function appendMachineEvents(
 }
 
 /**
- * Moves the usage of git worktrees to their repositories (`resolveWorktreeRoots`), and the
- * `--repo` paths with it. Reads the worktrees earlier runs found from the store and records
- * those this run found; a store failure only loses that record.
+ * Moves the usage of git worktrees on this machine to their repositories
+ * (`resolveWorktreeRoots`), and the `--repo` paths with it. Reads the git roots earlier runs
+ * found from the store and records those this run found; a store failure only loses that
+ * record.
  */
 function attributeWorktreesToRepositories(
   parseResults: AdapterParseResult[],
@@ -174,33 +175,36 @@ function attributeWorktreesToRepositories(
   repoFilter: RepoFilter | undefined,
 ): { parseResults: AdapterParseResult[]; repoFilter: RepoFilter | undefined; warnings: string[] } {
   const warnings: string[] = [];
-  let storedWorktrees = new Map<string, string>();
+  let storedRoots = new Map<string, string>();
 
   try {
-    storedWorktrees = store ? readWorktreeRoots(store) : storedWorktrees;
+    storedRoots = store ? readGitRoots(store) : storedRoots;
   } catch (error) {
-    warnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
+    warnings.push(`Could not read the git roots in the event store: ${getErrorReason(error)}`);
   }
 
-  const repoRoots = new Set<string | undefined>();
+  // Other machines' paths name nothing on this disk.
+  const localRepoRoots = new Set<string | undefined>();
 
   for (const result of parseResults) {
     for (const event of result.events) {
-      repoRoots.add(event.repoRoot);
+      if (event.machine === undefined) {
+        localRepoRoots.add(event.repoRoot);
+      }
     }
   }
 
   const worktreeRoots = resolveWorktreeRoots(
-    [...repoRoots].flatMap((repoRoot) => toProjectKey(repoRoot) ?? []),
-    storedWorktrees,
+    [...localRepoRoots].flatMap((repoRoot) => toProjectKey(repoRoot) ?? []),
+    storedRoots,
   );
 
   try {
     if (store) {
-      recordWorktreeRoots(store, worktreeRoots.newWorktrees);
+      recordGitRoots(store, worktreeRoots.newRoots);
     }
   } catch (error) {
-    warnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
+    warnings.push(`Could not record git roots in the event store: ${getErrorReason(error)}`);
   }
 
   const movedEvents = moveEventsToRepositories(

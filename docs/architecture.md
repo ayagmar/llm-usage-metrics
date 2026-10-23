@@ -273,11 +273,13 @@ sources and machines, and other machines' caches are read within the date window
 remote session that began before it takes its root from its earliest event inside it.
 
 Then `resolveWorktreeRoots` (`src/session/worktree-roots.ts`) moves the usage of git
-worktrees to their repositories, and `--repo` paths with them. A project key resolves
-through its own `.git` file, a worktree it sits in among the run's keys or recorded in the
-event store's `worktree_roots` table, and otherwise a folder named `<repo>-…` or `…-<repo>`
-after a repository found on disk. It reads one `.git` entry per distinct key, synchronously,
-and records the worktrees it finds so they still resolve once removed.
+worktrees on this machine to their repositories, and `--repo` paths with them; other
+machines' events keep their directories. A project key resolves through the nearest `.git`
+entry at or above it on disk (below the home directory; one cached `lstat` per directory),
+a git root recorded in the event store's `git_roots` table, and otherwise a folder named
+`<repo>-…` or `…-<repo>` after a known repository. Each run records the repositories and
+worktrees it finds, first record kept, so worktrees still resolve once removed and the
+names do not depend on the window.
 
 ### Share reports
 

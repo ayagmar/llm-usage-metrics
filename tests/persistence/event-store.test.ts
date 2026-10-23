@@ -25,8 +25,8 @@ import {
   readEventStoreSummary,
   readFileEvents,
   readOverrideOnlyFiles,
-  readWorktreeRoots,
-  recordWorktreeRoots,
+  readGitRoots,
+  recordGitRoots,
   replaceFileEvents,
   replaceFilesEvents,
   serializeEventStoreFingerprint,
@@ -456,20 +456,21 @@ describe('event-store', () => {
     }
   });
 
-  it('remembers worktrees in a current store written by an older build', async () => {
+  it('remembers git roots in a current store written by an older build', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-worktree-table-'));
     tempDirs.push(tempDir);
     const dbPath = path.join(tempDir, 'events.db');
     const olderStore = await openEventStore(dbPath);
-    olderStore.database.exec('DROP TABLE worktree_roots');
+    olderStore.database.exec('DROP TABLE git_roots');
     closeEventStore(olderStore);
     const store = await openEventStore(dbPath);
 
     try {
-      recordWorktreeRoots(store, new Map([['/cache/wt-1', '/w/app']]));
-      recordWorktreeRoots(store, new Map([['/cache/wt-1', '/w/other']]));
+      recordGitRoots(store, new Map([['/cache/wt-1', '/w/app']]));
+      // A later run finding the path reused keeps the first record.
+      recordGitRoots(store, new Map([['/cache/wt-1', '/w/other']]));
 
-      expect(readWorktreeRoots(store)).toEqual(new Map([['/cache/wt-1', '/w/other']]));
+      expect(readGitRoots(store)).toEqual(new Map([['/cache/wt-1', '/w/app']]));
     } finally {
       closeEventStore(store);
     }
