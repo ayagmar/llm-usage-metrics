@@ -47,7 +47,20 @@ describe('createProjectAliasResolver', () => {
       { path: '/home/me/projects', aliases: ['C:\\Users\\me\\Projects\\Personal'] },
     ]);
 
-    expect(aliasOf('c:/users/ME/projects/personal/app')).toBe('/home/me/projects/app');
+    expect(aliasOf('C:\\Users\\ME\\Projects\\personal\\app\\site')).toBe(
+      '/home/me/projects/app/site',
+    );
+    expect(aliasOf('c:/users/me/projects/personal/app')).toBe('/home/me/projects/app');
     expect(aliasOf('/home/me/Projects/Personal/app')).toBeUndefined();
+  });
+
+  it("writes the path below a POSIX alias in a Windows target's separators", () => {
+    const aliasOf = createProjectAliasResolver([
+      { path: 'C:\\Users\\me\\projects', aliases: ['/home/me/Projects/Personal'] },
+    ]);
+
+    expect(aliasOf('/home/me/Projects/Personal/app/site')).toBe(
+      'C:\\Users\\me\\projects\\app\\site',
+    );
   });
 });

@@ -1,4 +1,8 @@
-import { toComparableProjectKey, toParentProjectKey } from '../aggregate/project-key.js';
+import {
+  isWindowsProjectKey,
+  toComparableProjectKey,
+  toParentProjectKey,
+} from '../aggregate/project-key.js';
 import type { ProjectAlias } from '../config/user-config.js';
 
 /**
@@ -36,7 +40,9 @@ export function createProjectAliasResolver(
       const target = targets.get(comparableAncestor);
 
       if (target !== undefined) {
-        return target + key.slice(ancestor.length);
+        // The path below the alias in the target's separators: it may be another OS's.
+        const separator = isWindowsProjectKey(target) ? '\\' : '/';
+        return target + key.slice(ancestor.length).replace(/[\\/]/gu, separator);
       }
 
       ancestor = toParentProjectKey(ancestor);

@@ -124,7 +124,12 @@ const WINDOWS_KEY_PATTERN = /^(?:[A-Za-z]:[\\/]|\\\\)/u;
  * compare as written.
  */
 export function toComparableProjectKey(key: string): string {
-  return WINDOWS_KEY_PATTERN.test(key) ? key.replaceAll('/', '\\').toLowerCase() : key;
+  return isWindowsProjectKey(key) ? key.replaceAll('/', '\\').toLowerCase() : key;
+}
+
+/** Whether a key is a Windows path (see `toComparableProjectKey`). */
+export function isWindowsProjectKey(key: string): boolean {
+  return WINDOWS_KEY_PATTERN.test(key);
 }
 
 /** Path segments of a key, without a drive letter, which belongs to the root. */
