@@ -8,6 +8,11 @@ import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
 import type { LogLevel } from '../utils/logger.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
+import {
+  toComparableProjectKey,
+  toParentProjectKey,
+  toProjectKey,
+} from '../aggregate/project-key.js';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -56,6 +61,7 @@ const knownTopLevelKeys = [
   'parseWorkerMinBytes',
   'parseWorkers',
   'pricing',
+  'projectAliases',
   'sourceDirs',
   'sources',
   'timezone',
@@ -146,6 +152,19 @@ export type UserConfig = {
   };
   /** Other machines whose usage reports include, by name. */
   machines?: Record<string, MachineConfig>;
+  /**
+   * Folders counted as another folder, in config order: usage at or below an alias counts
+   * at the same place below its `path`, on every machine.
+   */
+  projectAliases?: ProjectAlias[];
+};
+
+/** Project keys (`toProjectKey`), none of them a bare root. */
+export type ProjectAlias = {
+  /** The folder the aliases count as. */
+  path: string;
+  /** Folders that hold the same projects, such as the path on another machine. */
+  aliases: string[];
 };
 
 export type LoadedUserConfig = {
@@ -643,6 +662,91 @@ function readMachinesConfig(
   return Object.keys(machines).length === 0 ? undefined : machines;
 }
 
+/**
+ * Another OS's absolute path, normalized in that OS's form, or undefined for this OS's
+ * paths: a POSIX path on Windows (`/home/me`, not `\\Users` or `//server`), a drive or UNC
+ * path elsewhere.
+ */
+function toForeignAbsolutePath(text: string): string | undefined {
+  if (path.sep === '\\') {
+    return text.startsWith('/') && !text.startsWith('//') ? path.posix.normalize(text) : undefined;
+  }
+
+  return path.win32.isAbsolute(text) && !path.posix.isAbsolute(text)
+    ? path.win32.normalize(text)
+    : undefined;
+}
+
+/**
+ * A `projectAliases` path as a project key, or undefined for a bare root (`/`, `C:\\`), which
+ * would hold every project. Another OS's absolute path names another machine's folder and
+ * is kept in that OS's form; other paths resolve here.
+ */
+function toProjectAliasKey(text: string, configDir: string): string | undefined {
+  const key = toProjectKey(toForeignAbsolutePath(text) ?? resolveConfigPath(text, configDir));
+  return key === undefined || toParentProjectKey(key) === undefined ? undefined : key;
+}
+
+function readProjectAliases(
+  context: ConfigReadContext,
+  value: unknown,
+): UserConfig['projectAliases'] | undefined {
+  const record = readTable(context, 'projectAliases', value);
+
+  if (!record) {
+    return undefined;
+  }
+
+  const projectAliases: ProjectAlias[] = [];
+  const listed = new Set<string>();
+
+  for (const [target, aliasValue] of Object.entries(record)) {
+    const keyPath = `projectAliases."${target}"`;
+    const targetText = toNonBlankString(target);
+    const aliasValues: unknown[] = Array.isArray(aliasValue) ? aliasValue : [aliasValue];
+    const aliasTexts = aliasValues.flatMap((alias) => toNonBlankString(alias) ?? []);
+
+    if (
+      targetText === undefined ||
+      aliasTexts.length === 0 ||
+      aliasTexts.length !== aliasValues.length
+    ) {
+      context.warnings.push(`Ignoring ${keyPath}: expected a non-empty path or list of paths`);
+      continue;
+    }
+
+    const targetKey = toProjectAliasKey(targetText, context.configDir);
+
+    if (targetKey === undefined) {
+      context.warnings.push(`Ignoring ${keyPath}: a project alias cannot be a root folder`);
+      continue;
+    }
+
+    const aliases: string[] = [];
+
+    for (const alias of aliasTexts) {
+      const aliasKey = toProjectAliasKey(alias, context.configDir);
+
+      if (aliasKey === undefined) {
+        context.warnings.push(
+          `Ignoring ${alias} in ${keyPath}: a project alias cannot be a root folder`,
+        );
+      } else if (listed.has(toComparableProjectKey(aliasKey))) {
+        context.warnings.push(`Ignoring ${alias} in ${keyPath}: it is listed earlier`);
+      } else {
+        listed.add(toComparableProjectKey(aliasKey));
+        aliases.push(aliasKey);
+      }
+    }
+
+    if (aliases.length > 0) {
+      projectAliases.push({ path: targetKey, aliases });
+    }
+  }
+
+  return projectAliases.length === 0 ? undefined : projectAliases;
+}
+
 function readParseWorkers(value: unknown): UserConfig['parseWorkers'] | undefined {
   if (value === 'auto') {
     return 'auto';
@@ -701,6 +805,7 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
   );
   const update = readUpdateConfig(context, root.update);
   const machines = readMachinesConfig(context, root.machines);
+  const projectAliases = readProjectAliases(context, root.projectAliases);
 
   if (timezone !== undefined) {
     config.timezone = timezone;
@@ -748,6 +853,10 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
 
   if (machines !== undefined) {
     config.machines = machines;
+  }
+
+  if (projectAliases !== undefined) {
+    config.projectAliases = projectAliases;
   }
 
   return config;

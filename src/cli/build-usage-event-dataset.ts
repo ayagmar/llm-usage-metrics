@@ -79,7 +79,12 @@ import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { attributeEventsToSessionRoots } from '../session/aggregate-sessions.js';
-import { moveEventsToRepositories, resolveWorktreeRoots } from '../session/worktree-roots.js';
+import {
+  moveEventRepoRoots,
+  moveEventsToRepositories,
+  resolveWorktreeRoots,
+} from '../session/worktree-roots.js';
+import { createProjectAliasResolver } from '../session/project-aliases.js';
 import { toProjectKey } from '../aggregate/project-key.js';
 
 function withNormalizedPricingUrl(
@@ -613,6 +618,21 @@ export async function buildUsageEventDataset(
       parseResultsForFiltering = moved.parseResults;
       repoFilter = moved.repoFilter;
       worktreeWarnings.push(...moved.warnings);
+
+      // After the worktrees, so a worktree's usage follows its repository's alias. Every
+      // machine's events: an alias is often the path the project has on another machine.
+      if (config.projectAliases) {
+        const aliasOf = createProjectAliasResolver(config.projectAliases);
+        const aliased = moveEventRepoRoots(
+          parseResultsForFiltering.map((result) => result.events),
+          aliasOf,
+        );
+        parseResultsForFiltering = parseResultsForFiltering.map((result, index) => ({
+          ...result,
+          events: aliased[index] ?? result.events,
+        }));
+        repoFilter = moveRepoFilterPaths(repoFilter, aliasOf);
+      }
     }
 
     const { filteredEvents, lookbackEvents } = measureRuntimeProfileStageSync(

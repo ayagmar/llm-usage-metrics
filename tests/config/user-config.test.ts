@@ -151,6 +151,46 @@ ssh = "-oProxyCommand=evil"
     ]);
   });
 
+  it('reads project aliases, keeping the first listing of a path', async () => {
+    const result = await loadUserConfig(
+      { LLM_USAGE_CONFIG_PATH: '/tmp/config.toml' },
+      readContent(`
+[projectAliases]
+"~/projects" = ["/home/me/Projects/Personal/", "~/work"]
+"/srv/orange" = "C:\\\\Users\\\\me\\\\Orange"
+"/srv/again" = ["/home/me/Projects/Personal"]
+"/srv/empty" = []
+"/srv/number" = 3
+"/" = ["/mnt/data"]
+"/srv/root" = ["D:\\\\", "/mnt/root"]
+"C:/Users/me/projects" = ["/mnt/laptop/projects", "c:/users/ME/orange"]
+`),
+    );
+
+    expect(result.config.projectAliases).toEqual([
+      {
+        path: path.join(os.homedir(), 'projects'),
+        aliases: ['/home/me/Projects/Personal', path.join(os.homedir(), 'work')],
+      },
+      // Each OS's absolute paths keep that OS's form on any host: another machine's paths.
+      { path: '/srv/orange', aliases: ['C:\\Users\\me\\Orange'] },
+      { path: '/srv/root', aliases: ['/mnt/root'] },
+      {
+        path: 'C:\\Users\\me\\projects',
+        aliases: ['/mnt/laptop/projects'],
+      },
+    ]);
+    expect(result.warnings).toEqual([
+      'Ignoring /home/me/Projects/Personal in projectAliases."/srv/again": it is listed earlier',
+      'Ignoring projectAliases."/srv/empty": expected a non-empty path or list of paths',
+      'Ignoring projectAliases."/srv/number": expected a non-empty path or list of paths',
+      'Ignoring projectAliases."/": a project alias cannot be a root folder',
+      'Ignoring D:\\ in projectAliases."/srv/root": a project alias cannot be a root folder',
+      // The same Windows folder in another case and form.
+      'Ignoring c:/users/ME/orange in projectAliases."C:/Users/me/projects": it is listed earlier',
+    ]);
+  });
+
   it('throws an actionable error for malformed TOML', async () => {
     await expect(
       loadUserConfig(

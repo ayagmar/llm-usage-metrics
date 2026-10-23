@@ -115,6 +115,23 @@ export function toProjectLabel(
   return labels.get(toProjectKey(repoRoot)) ?? UNATTRIBUTED_PROJECT_LABEL;
 }
 
+/** A drive (`C:\\`, `c:/`) or UNC (`\\\\server`) path, whichever machine logged it. */
+const WINDOWS_KEY_PATTERN = /^(?:[A-Za-z]:[\\/]|\\\\)/u;
+
+/**
+ * A key in the form two keys are compared in: a Windows path ignores case and takes either
+ * separator, on any host, since another machine's usage keeps its own paths; other paths
+ * compare as written.
+ */
+export function toComparableProjectKey(key: string): string {
+  return isWindowsProjectKey(key) ? key.replaceAll('/', '\\').toLowerCase() : key;
+}
+
+/** Whether a key is a Windows path (see `toComparableProjectKey`). */
+export function isWindowsProjectKey(key: string): boolean {
+  return WINDOWS_KEY_PATTERN.test(key);
+}
+
 /** Path segments of a key, without a drive letter, which belongs to the root. */
 export function splitKeySegments(key: string): string[] {
   return key

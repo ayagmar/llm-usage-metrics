@@ -89,6 +89,13 @@ ${sourceDirTemplate}
 # ssh = "me@laptop.local"
 # command = "llm-usage"
 # enabled = true
+
+# Folders that hold the same projects under another path, such as a repository
+# cloned elsewhere on another machine. Usage at or below each listed path counts
+# at the same place below the key: ~/Projects/Personal/app counts as
+# ~/projects/app. Applies to every machine's usage.
+# [projectAliases]
+# "~/projects" = ["~/Projects/Personal"]
 `;
 
 async function writeConfigTemplate(configPath: string, options: ConfigInitOptions): Promise<void> {
