@@ -1,11 +1,11 @@
-import { toParentProjectKey, toProjectKey } from '../aggregate/project-key.js';
+import { toParentProjectKey } from '../aggregate/project-key.js';
 import type { ProjectAlias } from '../config/user-config.js';
 
 /**
  * Where `projectAliases` moves a project key: the nearest alias at or above it is replaced
  * by its target, keeping the path below it (`~/work/Orange/api` -> `~/projects/orange/api`).
- * Undefined when no alias holds the key. A target is never moved further, so aliases do not
- * chain.
+ * Undefined when no alias holds the key, or a target is nearer than any alias: usage at or
+ * below a target stays, so aliases do not chain and a target inside an alias keeps its own.
  */
 export function createProjectAliasResolver(
   projectAliases: readonly ProjectAlias[],
@@ -15,23 +15,28 @@ export function createProjectAliasResolver(
   const comparable = (value: string): string =>
     platform === 'win32' ? value.replaceAll('/', '\\').toLowerCase() : value;
   const targets = new Map<string, string>();
+  const targetKeys = new Set<string>();
 
   for (const { path: target, aliases } of projectAliases) {
-    const targetKey = toProjectKey(target) ?? target;
+    targetKeys.add(comparable(target));
 
     for (const alias of aliases) {
-      const aliasKey = comparable(toProjectKey(alias) ?? alias);
-
       // The first listing wins, as the config loader warns.
-      if (!targets.has(aliasKey)) {
-        targets.set(aliasKey, targetKey);
+      if (!targets.has(comparable(alias))) {
+        targets.set(comparable(alias), target);
       }
     }
   }
 
   return (key) => {
     for (let ancestor: string | undefined = key; ancestor !== undefined;) {
-      const target = targets.get(comparable(ancestor));
+      const comparableAncestor = comparable(ancestor);
+
+      if (targetKeys.has(comparableAncestor)) {
+        return undefined;
+      }
+
+      const target = targets.get(comparableAncestor);
 
       if (target !== undefined) {
         return target + key.slice(ancestor.length);

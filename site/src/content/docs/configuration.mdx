@@ -165,7 +165,9 @@ A machine name is 1-32 lowercase letters, digits or dashes; `local` is reserved 
 "~/projects/orange" = ["~/Projects/Nimbleways/Orange"]
 ```
 
-Here `~/Projects/Personal/app` counts as `~/projects/app`, and `~/Projects/Nimbleways/Orange/api` as `~/projects/orange/api`. The nearest listed folder wins, a key is not aliased again, and a path listed twice keeps its first entry. Paths are compared exactly, case included (except on Windows), and `~` is this machine's home directory, so write another machine's path in full when its home differs. `--repo` takes either path. `events` and `efficiency` keep the directories sessions logged.
+Here `~/Projects/Personal/app` counts as `~/projects/app`, and `~/Projects/Nimbleways/Orange/api` as `~/projects/orange/api`. The nearest listed folder wins, a key included: usage at or below a key stays where it is, so aliases do not chain. A path listed twice keeps its first entry, and a root folder such as `/` is ignored. Paths are compared exactly, case included (except on Windows). `~` and relative paths resolve on this machine; an absolute path, including another machine's Windows path such as `C:\Users\me\Projects`, is kept as written, so write another machine's path in full when its home differs. Aliases apply after git worktrees on this machine move to their repositories, so a worktree's usage follows its repository's alias, but another machine's usage aliased onto a worktree path here keeps that path.
+
+`--repo` takes a path at or below either folder; a name or path tail matches the folder names after aliasing (`orange`, not `Orange`). `events` and `efficiency` keep the directories sessions logged.
 
 A `sourceDirs` value for a directory-backed source can be a list, which scans every listed directory as one source, like repeating its flag. `sourceDirs.opencode` and `sourceDirs.goose` take one database path.
 

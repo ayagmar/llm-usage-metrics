@@ -8,6 +8,7 @@ import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
 import type { LogLevel } from '../utils/logger.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
+import { toParentProjectKey, toProjectKey } from '../aggregate/project-key.js';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -154,6 +155,7 @@ export type UserConfig = {
   projectAliases?: ProjectAlias[];
 };
 
+/** Project keys (`toProjectKey`), none of them a bare root. */
 export type ProjectAlias = {
   /** The folder the aliases count as. */
   path: string;
@@ -656,6 +658,17 @@ function readMachinesConfig(
   return Object.keys(machines).length === 0 ? undefined : machines;
 }
 
+/**
+ * A `projectAliases` path as a project key, or undefined for a bare root (`/`, `C:\\`), which
+ * would hold every project. An absolute path of either kind is kept as written, since it
+ * may name another machine's folder; `~` and relative paths resolve here.
+ */
+function toProjectAliasKey(text: string, configDir: string): string | undefined {
+  const absolute = path.posix.isAbsolute(text) || path.win32.isAbsolute(text);
+  const key = toProjectKey(absolute ? text : resolveConfigPath(text, configDir));
+  return key === undefined || toParentProjectKey(key) === undefined ? undefined : key;
+}
+
 function readProjectAliases(
   context: ConfigReadContext,
   value: unknown,
@@ -684,21 +697,32 @@ function readProjectAliases(
       continue;
     }
 
+    const targetKey = toProjectAliasKey(targetText, context.configDir);
+
+    if (targetKey === undefined) {
+      context.warnings.push(`Ignoring ${keyPath}: a project alias cannot be a root folder`);
+      continue;
+    }
+
     const aliases: string[] = [];
 
     for (const alias of aliasTexts) {
-      const aliasPath = resolveConfigPath(alias, context.configDir);
+      const aliasKey = toProjectAliasKey(alias, context.configDir);
 
-      if (listed.has(aliasPath)) {
+      if (aliasKey === undefined) {
+        context.warnings.push(
+          `Ignoring ${alias} in ${keyPath}: a project alias cannot be a root folder`,
+        );
+      } else if (listed.has(aliasKey)) {
         context.warnings.push(`Ignoring ${alias} in ${keyPath}: it is listed earlier`);
       } else {
-        listed.add(aliasPath);
-        aliases.push(aliasPath);
+        listed.add(aliasKey);
+        aliases.push(aliasKey);
       }
     }
 
     if (aliases.length > 0) {
-      projectAliases.push({ path: resolveConfigPath(targetText, context.configDir), aliases });
+      projectAliases.push({ path: targetKey, aliases });
     }
   }
 

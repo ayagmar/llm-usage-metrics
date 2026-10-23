@@ -24,6 +24,28 @@ describe('createProjectAliasResolver', () => {
     expect(aliasOf('/home/me/projects/personal/app')).toBeUndefined();
   });
 
+  it('keeps usage at or below a target, even inside an alias', () => {
+    const aliasOf = createProjectAliasResolver(
+      [{ path: '/home/me/projects/app', aliases: ['/home/me/projects'] }],
+      'linux',
+    );
+
+    expect(aliasOf('/home/me/projects/app/site')).toBeUndefined();
+    expect(aliasOf('/home/me/projects/tool')).toBe('/home/me/projects/app/tool');
+  });
+
+  it('keeps the first target of an alias listed twice', () => {
+    const aliasOf = createProjectAliasResolver(
+      [
+        { path: '/a', aliases: ['/old'] },
+        { path: '/b', aliases: ['/old'] },
+      ],
+      'linux',
+    );
+
+    expect(aliasOf('/old/app')).toBe('/a/app');
+  });
+
   it('ignores case and separators on Windows', () => {
     const aliasOf = createProjectAliasResolver(
       [{ path: 'C:\\Users\\me\\projects', aliases: ['C:\\Users\\me\\Projects\\Personal'] }],

@@ -156,25 +156,31 @@ ssh = "-oProxyCommand=evil"
       { LLM_USAGE_CONFIG_PATH: '/tmp/config.toml' },
       readContent(`
 [projectAliases]
-"~/projects" = ["/home/me/Projects/Personal", "~/work"]
-"/srv/orange" = "/home/me/Projects/Orange"
+"~/projects" = ["/home/me/Projects/Personal/", "~/work"]
+"/srv/orange" = "C:\\\\Users\\\\me\\\\Orange"
 "/srv/again" = ["/home/me/Projects/Personal"]
 "/srv/empty" = []
 "/srv/number" = 3
+"/" = ["/mnt/data"]
+"/srv/root" = ["D:\\\\", "/mnt/root"]
 `),
     );
 
     expect(result.config.projectAliases).toEqual([
       {
         path: path.join(os.homedir(), 'projects'),
-        aliases: [path.resolve('/home/me/Projects/Personal'), path.join(os.homedir(), 'work')],
+        aliases: ['/home/me/Projects/Personal', path.join(os.homedir(), 'work')],
       },
-      { path: path.resolve('/srv/orange'), aliases: [path.resolve('/home/me/Projects/Orange')] },
+      // Absolute paths, of this OS or another machine's, are kept as written.
+      { path: '/srv/orange', aliases: ['C:\\Users\\me\\Orange'] },
+      { path: '/srv/root', aliases: ['/mnt/root'] },
     ]);
     expect(result.warnings).toEqual([
       'Ignoring /home/me/Projects/Personal in projectAliases."/srv/again": it is listed earlier',
       'Ignoring projectAliases."/srv/empty": expected a non-empty path or list of paths',
       'Ignoring projectAliases."/srv/number": expected a non-empty path or list of paths',
+      'Ignoring projectAliases."/": a project alias cannot be a root folder',
+      'Ignoring D:\\ in projectAliases."/srv/root": a project alias cannot be a root folder',
     ]);
   });
 
