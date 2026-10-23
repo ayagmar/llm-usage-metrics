@@ -8,7 +8,11 @@ import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
 import type { LogLevel } from '../utils/logger.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
-import { toParentProjectKey, toProjectKey } from '../aggregate/project-key.js';
+import {
+  toComparableProjectKey,
+  toParentProjectKey,
+  toProjectKey,
+} from '../aggregate/project-key.js';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -659,15 +663,27 @@ function readMachinesConfig(
 }
 
 /**
+ * Another OS's absolute path, normalized in that OS's form, or undefined for this OS's
+ * paths: a POSIX path on Windows (`/home/me`, not `\\Users` or `//server`), a drive or UNC
+ * path elsewhere.
+ */
+function toForeignAbsolutePath(text: string): string | undefined {
+  if (path.sep === '\\') {
+    return text.startsWith('/') && !text.startsWith('//') ? path.posix.normalize(text) : undefined;
+  }
+
+  return path.win32.isAbsolute(text) && !path.posix.isAbsolute(text)
+    ? path.win32.normalize(text)
+    : undefined;
+}
+
+/**
  * A `projectAliases` path as a project key, or undefined for a bare root (`/`, `C:\\`), which
- * would hold every project. An absolute path of the other OS is kept as written, since it
- * names another machine's folder; other paths resolve here.
+ * would hold every project. Another OS's absolute path names another machine's folder and
+ * is kept in that OS's form; other paths resolve here.
  */
 function toProjectAliasKey(text: string, configDir: string): string | undefined {
-  // Only the other OS's absolute form is kept; this OS's paths resolve to its own form.
-  const foreign =
-    !path.isAbsolute(text) && (path.posix.isAbsolute(text) || path.win32.isAbsolute(text));
-  const key = toProjectKey(foreign ? text : resolveConfigPath(text, configDir));
+  const key = toProjectKey(toForeignAbsolutePath(text) ?? resolveConfigPath(text, configDir));
   return key === undefined || toParentProjectKey(key) === undefined ? undefined : key;
 }
 
@@ -715,10 +731,10 @@ function readProjectAliases(
         context.warnings.push(
           `Ignoring ${alias} in ${keyPath}: a project alias cannot be a root folder`,
         );
-      } else if (listed.has(aliasKey)) {
+      } else if (listed.has(toComparableProjectKey(aliasKey))) {
         context.warnings.push(`Ignoring ${alias} in ${keyPath}: it is listed earlier`);
       } else {
-        listed.add(aliasKey);
+        listed.add(toComparableProjectKey(aliasKey));
         aliases.push(aliasKey);
       }
     }

@@ -163,21 +163,21 @@ ssh = "-oProxyCommand=evil"
 "/srv/number" = 3
 "/" = ["/mnt/data"]
 "/srv/root" = ["D:\\\\", "/mnt/root"]
-"C:/Users/me/projects" = ["/mnt/laptop/projects"]
+"C:/Users/me/projects" = ["/mnt/laptop/projects", "c:/users/ME/orange"]
 `),
     );
 
     expect(result.config.projectAliases).toEqual([
       {
         path: path.join(os.homedir(), 'projects'),
-        aliases: [path.resolve('/home/me/Projects/Personal'), path.join(os.homedir(), 'work')],
+        aliases: ['/home/me/Projects/Personal', path.join(os.homedir(), 'work')],
       },
-      // This OS's paths resolve to its own form; the other OS's are kept as written.
-      { path: path.resolve('/srv/orange'), aliases: ['C:\\Users\\me\\Orange'] },
-      { path: path.resolve('/srv/root'), aliases: [path.resolve('/mnt/root')] },
+      // Each OS's absolute paths keep that OS's form on any host: another machine's paths.
+      { path: '/srv/orange', aliases: ['C:\\Users\\me\\Orange'] },
+      { path: '/srv/root', aliases: ['/mnt/root'] },
       {
-        path: process.platform === 'win32' ? 'C:\\Users\\me\\projects' : 'C:/Users/me/projects',
-        aliases: [path.resolve('/mnt/laptop/projects')],
+        path: 'C:\\Users\\me\\projects',
+        aliases: ['/mnt/laptop/projects'],
       },
     ]);
     expect(result.warnings).toEqual([
@@ -186,6 +186,8 @@ ssh = "-oProxyCommand=evil"
       'Ignoring projectAliases."/srv/number": expected a non-empty path or list of paths',
       'Ignoring projectAliases."/": a project alias cannot be a root folder',
       'Ignoring D:\\ in projectAliases."/srv/root": a project alias cannot be a root folder',
+      // The same Windows folder in another case and form.
+      'Ignoring c:/users/ME/orange in projectAliases."C:/Users/me/projects": it is listed earlier',
     ]);
   });
 

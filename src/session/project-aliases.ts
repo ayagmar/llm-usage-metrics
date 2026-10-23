@@ -1,4 +1,4 @@
-import { toParentProjectKey } from '../aggregate/project-key.js';
+import { toComparableProjectKey, toParentProjectKey } from '../aggregate/project-key.js';
 import type { ProjectAlias } from '../config/user-config.js';
 
 /**
@@ -9,11 +9,8 @@ import type { ProjectAlias } from '../config/user-config.js';
  */
 export function createProjectAliasResolver(
   projectAliases: readonly ProjectAlias[],
-  platform: NodeJS.Platform = process.platform,
 ): (key: string) => string | undefined {
-  // Windows paths ignore case and take either separator.
-  const comparable = (value: string): string =>
-    platform === 'win32' ? value.replaceAll('/', '\\').toLowerCase() : value;
+  const comparable = toComparableProjectKey;
   const targets = new Map<string, string>();
   const targetKeys = new Set<string>();
 

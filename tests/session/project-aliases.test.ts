@@ -9,7 +9,7 @@ describe('createProjectAliasResolver', () => {
   ];
 
   it('moves a key at or below an alias, the nearest alias winning', () => {
-    const aliasOf = createProjectAliasResolver(aliases, 'linux');
+    const aliasOf = createProjectAliasResolver(aliases);
 
     expect(aliasOf('/home/me/Projects/Personal')).toBe('/home/me/projects');
     expect(aliasOf('/home/me/Projects/Personal/app/site')).toBe('/home/me/projects/app/site');
@@ -17,7 +17,7 @@ describe('createProjectAliasResolver', () => {
   });
 
   it('leaves keys outside every alias, and folders that only share a prefix', () => {
-    const aliasOf = createProjectAliasResolver(aliases, 'linux');
+    const aliasOf = createProjectAliasResolver(aliases);
 
     expect(aliasOf('/home/me/Projects/Personalized/app')).toBeUndefined();
     expect(aliasOf('/home/me/projects/app')).toBeUndefined();
@@ -25,33 +25,29 @@ describe('createProjectAliasResolver', () => {
   });
 
   it('keeps usage at or below a target, even inside an alias', () => {
-    const aliasOf = createProjectAliasResolver(
-      [{ path: '/home/me/projects/app', aliases: ['/home/me/projects'] }],
-      'linux',
-    );
+    const aliasOf = createProjectAliasResolver([
+      { path: '/home/me/projects/app', aliases: ['/home/me/projects'] },
+    ]);
 
     expect(aliasOf('/home/me/projects/app/site')).toBeUndefined();
     expect(aliasOf('/home/me/projects/tool')).toBe('/home/me/projects/app/tool');
   });
 
   it('keeps the first target of an alias listed twice', () => {
-    const aliasOf = createProjectAliasResolver(
-      [
-        { path: '/a', aliases: ['/old'] },
-        { path: '/b', aliases: ['/old'] },
-      ],
-      'linux',
-    );
+    const aliasOf = createProjectAliasResolver([
+      { path: '/a', aliases: ['/old'] },
+      { path: '/b', aliases: ['/old'] },
+    ]);
 
     expect(aliasOf('/old/app')).toBe('/a/app');
   });
 
-  it('ignores case and separators on Windows', () => {
-    const aliasOf = createProjectAliasResolver(
-      [{ path: 'C:\\Users\\me\\projects', aliases: ['C:\\Users\\me\\Projects\\Personal'] }],
-      'win32',
-    );
+  it('compares Windows paths without case or separator, whichever host reads them', () => {
+    const aliasOf = createProjectAliasResolver([
+      { path: '/home/me/projects', aliases: ['C:\\Users\\me\\Projects\\Personal'] },
+    ]);
 
-    expect(aliasOf('c:\\users\\ME\\projects\\personal\\app')).toBe('C:\\Users\\me\\projects\\app');
+    expect(aliasOf('c:/users/ME/projects/personal/app')).toBe('/home/me/projects/app');
+    expect(aliasOf('/home/me/Projects/Personal/app')).toBeUndefined();
   });
 });
