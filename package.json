@@ -18,7 +18,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/cli/index.ts src/cli/bin.ts --format esm --clean --sourcemap",
+    "build": "tsup src/cli/index.ts src/cli/bin.ts --format esm --clean --sourcemap --minify",
     "cli": "tsx src/cli/index.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/share-report/client/tsconfig.json",
