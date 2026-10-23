@@ -45,6 +45,13 @@ export type MachineExportHeaderLine = {
    */
   parserVersions?: Record<string, string>;
   /**
+   * Each git root on that machine (a repository or a worktree) whose repository has an
+   * `origin`, with the remote normalized (`normalizeGitRemote`), so its usage can count
+   * for the repository with the same remote here. Older exports leave it out; readers
+   * ignore it if they predate it.
+   */
+  gitRemotes?: Record<string, string>;
+  /**
    * Set when events carry `singleRequest`. Older exports leave it out, and their events take
    * the flag from `SINGLE_REQUEST_SOURCES_BEFORE_FLAG`.
    */
@@ -203,8 +210,11 @@ function parseBundleLine(line: string, lineNumber: number): Record<string, unkno
   return record;
 }
 
-/** Keeps the text entries of a remote's `parserVersions`; anything else counts as unrecorded. */
-function readParserVersions(value: unknown): Record<string, string> | undefined {
+/**
+ * Keeps the text entries of a header's text record (`parserVersions`, `gitRemotes`);
+ * anything else counts as unrecorded.
+ */
+function readTextRecord(value: unknown): Record<string, string> | undefined {
   const record = asRecord(value);
 
   if (!record) {
@@ -236,7 +246,8 @@ function readHeader(record: Record<string, unknown>): MachineExportHeaderLine {
     cliVersion: typeof record.cliVersion === 'string' ? record.cliVersion : '',
     hostname: typeof record.hostname === 'string' ? record.hostname : '',
     exportedAt: typeof record.exportedAt === 'string' ? record.exportedAt : '',
-    parserVersions: readParserVersions(record.parserVersions),
+    parserVersions: readTextRecord(record.parserVersions),
+    gitRemotes: readTextRecord(record.gitRemotes),
     ...(record.singleRequestFlag === true ? { singleRequestFlag: true } : {}),
   };
 }

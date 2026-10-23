@@ -85,6 +85,10 @@ import {
   resolveWorktreeRoots,
 } from '../session/worktree-roots.js';
 import { createProjectAliasResolver } from '../session/project-aliases.js';
+import {
+  collectGitRootRemotes,
+  moveMachineEventsToLocalRepositories,
+} from '../session/git-remotes.js';
 import { toProjectKey } from '../aggregate/project-key.js';
 
 function withNormalizedPricingUrl(
@@ -178,7 +182,13 @@ function attributeWorktreesToRepositories(
   parseResults: AdapterParseResult[],
   store: EventStore | undefined,
   repoFilter: RepoFilter | undefined,
-): { parseResults: AdapterParseResult[]; repoFilter: RepoFilter | undefined; warnings: string[] } {
+): {
+  parseResults: AdapterParseResult[];
+  repoFilter: RepoFilter | undefined;
+  warnings: string[];
+  /** Every git root known, recorded or found by this run, with its repository's key. */
+  roots: Map<string, string>;
+} {
   const warnings: string[] = [];
   let storedRoots = new Map<string, string>();
 
@@ -224,7 +234,45 @@ function attributeWorktreesToRepositories(
     })),
     repoFilter: moveRepoFilterPaths(repoFilter, worktreeRoots.repoKeyOf),
     warnings,
+    roots: new Map([...storedRoots, ...worktreeRoots.newRoots]),
   };
+}
+
+/**
+ * Moves other machines' usage to the repository here with the same remote
+ * (`moveMachineEventsToLocalRepositories`), for machines whose last sync recorded remotes.
+ * Reads this machine's repositories' remotes only when one did.
+ */
+function attributeMachinesToLocalRepositories(
+  parseResults: AdapterParseResult[],
+  machines: readonly MachineUsageSummary[] | undefined,
+  roots: ReadonlyMap<string, string>,
+): AdapterParseResult[] {
+  const machineRemotes = new Map(
+    (machines ?? []).flatMap((machine) => {
+      const remotes = machine.state?.gitRemotes;
+      return remotes && Object.keys(remotes).length > 0
+        ? [[machine.name, new Map(Object.entries(remotes))] as const]
+        : [];
+    }),
+  );
+
+  if (machineRemotes.size === 0) {
+    return parseResults;
+  }
+
+  // Every repository a root names: one used only through its worktrees has no root of its own.
+  const repositories = new Map([...new Set(roots.values())].map((repoKey) => [repoKey, repoKey]));
+  const moved = moveMachineEventsToLocalRepositories(
+    parseResults.map((result) => result.events),
+    collectGitRootRemotes(repositories),
+    machineRemotes,
+  );
+
+  return parseResults.map((result, index) => ({
+    ...result,
+    events: moved[index] ?? result.events,
+  }));
 }
 
 export type UsageEventDataset = {
@@ -618,6 +666,14 @@ export async function buildUsageEventDataset(
       parseResultsForFiltering = moved.parseResults;
       repoFilter = moved.repoFilter;
       worktreeWarnings.push(...moved.warnings);
+
+      // After the worktrees, whose roots it reads, and before the aliases: an alias of the
+      // other machine's folder would otherwise move its keys from under that machine's roots.
+      parseResultsForFiltering = measureRuntimeProfileStageSync(
+        runtimeProfile,
+        'usage.dataset.attribute_machine_remotes',
+        () => attributeMachinesToLocalRepositories(parseResultsForFiltering, machines, moved.roots),
+      );
 
       // After the worktrees, so a worktree's usage follows its repository's alias. Every
       // machine's events: an alias is often the path the project has on another machine.

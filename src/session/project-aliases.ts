@@ -1,5 +1,5 @@
 import {
-  isWindowsProjectKey,
+  moveProjectKeyBelow,
   toComparableProjectKey,
   toParentProjectKey,
 } from '../aggregate/project-key.js';
@@ -40,15 +40,7 @@ export function createProjectAliasResolver(
       const target = targets.get(comparableAncestor);
 
       if (target !== undefined) {
-        // The path below the alias in the target's separators when it is another OS's: a
-        // POSIX folder name may hold a `\\`.
-        const tail = key.slice(ancestor.length);
-
-        if (isWindowsProjectKey(key) === isWindowsProjectKey(target)) {
-          return target + tail;
-        }
-
-        return target + tail.replace(/[\\/]/gu, isWindowsProjectKey(target) ? '\\' : '/');
+        return moveProjectKeyBelow(key, ancestor, target);
       }
 
       ancestor = toParentProjectKey(ancestor);

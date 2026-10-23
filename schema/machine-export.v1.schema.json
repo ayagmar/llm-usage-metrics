@@ -25,6 +25,11 @@
           "type": "object",
           "additionalProperties": { "type": "string", "minLength": 1 }
         },
+        "gitRemotes": {
+          "description": "Each git root on the exporting machine (a repository or a worktree) whose repository has an origin, to that remote as host/path, lower-cased, without scheme, credentials, port or .git. Optional: older exports leave it out, and readers that predate it ignore it.",
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
         "singleRequestFlag": {
           "description": "Events carry singleRequest. Optional: older exports leave it out, and readers take the flag from the event's source (antigravity, claude, gemini, opencode, pi).",
           "const": true

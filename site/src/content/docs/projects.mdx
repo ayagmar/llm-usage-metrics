@@ -61,6 +61,8 @@ The label is the last folder name of the path. When two projects end in the same
 
 ### The same project in different folders
 
+Another machine's usage in a git repository counts under the repository here with the same `origin` remote, wherever each machine cloned it (see [Machines](/llm-usage-metrics/machines/#how-it-works)). For folders that are not repositories, or clones with different remotes, use aliases.
+
 When a repository lives under different folders, such as `~/projects/app` on one machine and `~/Projects/Personal/app` on another, list the other folder under [`projectAliases`](/llm-usage-metrics/configuration/) in the config file so both count as one project:
 
 ```toml
