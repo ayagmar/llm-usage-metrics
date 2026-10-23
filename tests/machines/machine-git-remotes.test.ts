@@ -63,47 +63,89 @@ afterEach(async () => {
   await rm(rootDir, { recursive: true, force: true });
 });
 
+/**
+ * Syncs a laptop whose sessions ran in `laptopCwds`, after this machine's ran in
+ * `localCwds`, and returns the projects report's rows as [repoRoot, events], sorted.
+ */
+async function projectsAfterSync(
+  laptopCwds: readonly string[],
+  localCwds: readonly string[],
+): Promise<(string | number | null)[][]> {
+  const writeSessions = async (machine: string, cwds: readonly string[]) => {
+    for (const [index, cwd] of cwds.entries()) {
+      await writeCodexSession(
+        path.join(rootDir, machine, 'codex'),
+        `${machine}-${String(index)}`,
+        cwd,
+      );
+    }
+
+    const configPath = path.join(rootDir, machine, 'config.toml');
+    await writeFile(configPath, `sources = ["codex"]\n[sourceDirs]\ncodex = "codex"\n`);
+    return configPath;
+  };
+  const laptopConfig = await writeSessions('laptop', laptopCwds);
+  vi.stubEnv('LLM_USAGE_CONFIG_PATH', await writeSessions('desktop', localCwds));
+  vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+  vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'desktop', 'events.db'));
+
+  const { spawnSsh } = createInProcessRemote({
+    configPath: laptopConfig,
+    eventStorePath: path.join(rootDir, 'laptop', 'events.db'),
+  });
+  await runMachineAdd('laptop', 'me@laptop', {}, { spawnSsh, print: () => undefined });
+  await runSync([], {}, { spawnSsh, print: () => undefined, now: () => NOW });
+
+  const data = await buildProjectsData({ timezone: 'UTC', pricingOffline: true });
+  return data.projects
+    .map((project) => [project.repoRoot, project.events])
+    .sort(([a], [b]) => String(a).localeCompare(String(b)));
+}
+
 describe('another machine’s repository with the same remote', () => {
-  it('counts under the repository here, wherever each machine cloned it', async () => {
+  const laptopRepo = () => path.join(rootDir, 'laptop', 'Projects', 'Personal', 'App');
+  const localRepo = () => path.join(rootDir, 'desktop', 'projects', 'app');
+
+  beforeEach(async () => {
     // The laptop cloned over ssh into Projects/Personal; this machine over https into projects.
-    const laptopRepo = path.join(rootDir, 'laptop', 'Projects', 'Personal', 'App');
+    await createRepository(laptopRepo(), 'git@github.com:Me/App.git');
+    await createRepository(localRepo(), 'https://github.com/me/app');
+  });
+
+  it('counts under the repository here, wherever each machine cloned it', async () => {
     const laptopOther = path.join(rootDir, 'laptop', 'Projects', 'tool');
-    const localRepo = path.join(rootDir, 'desktop', 'projects', 'app');
-    await createRepository(laptopRepo, 'git@github.com:Me/App.git');
     await createRepository(laptopOther, 'git@github.com:me/tool.git');
-    await createRepository(localRepo, 'https://github.com/me/app');
-
-    const laptopSessions = path.join(rootDir, 'laptop', 'codex');
-    await writeCodexSession(laptopSessions, 'laptop-app', path.join(laptopRepo, 'site'));
-    await writeCodexSession(laptopSessions, 'laptop-tool', laptopOther);
-    const laptopConfig = path.join(rootDir, 'laptop', 'config.toml');
-    await writeFile(laptopConfig, `sources = ["codex"]\n[sourceDirs]\ncodex = "codex"\n`);
-
-    const localSessions = path.join(rootDir, 'desktop', 'codex');
-    await writeCodexSession(localSessions, 'desktop-app', localRepo);
-    const localConfig = path.join(rootDir, 'desktop', 'config.toml');
-    await writeFile(localConfig, `sources = ["codex"]\n[sourceDirs]\ncodex = "codex"\n`);
-    vi.stubEnv('LLM_USAGE_CONFIG_PATH', localConfig);
-    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
-    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'desktop', 'events.db'));
-
-    const { spawnSsh } = createInProcessRemote({
-      configPath: laptopConfig,
-      eventStorePath: path.join(rootDir, 'laptop', 'events.db'),
-    });
-    await runMachineAdd('laptop', 'me@laptop', {}, { spawnSsh, print: () => undefined });
-    await runSync([], {}, { spawnSsh, print: () => undefined, now: () => NOW });
-
-    const data = await buildProjectsData({ timezone: 'UTC', pricingOffline: true });
-    const projects = data.projects
-      .map((project) => [project.repoRoot, project.events])
-      .sort(([a], [b]) => String(a).localeCompare(String(b)));
 
     // The laptop's `App/site` keeps its folder below the repository; `tool` has no clone here.
-    expect(projects).toEqual([
-      [localRepo, 1],
-      [path.join(localRepo, 'site'), 1],
+    expect(
+      await projectsAfterSync([path.join(laptopRepo(), 'site'), laptopOther], [localRepo()]),
+    ).toEqual([
+      [localRepo(), 1],
+      [path.join(localRepo(), 'site'), 1],
       [laptopOther, 1],
+    ]);
+  });
+
+  it('finds the repository here when only its worktrees have usage', async () => {
+    const worktree = path.join(rootDir, 'desktop', 'wt', 'app-feature');
+    await mkdir(path.join(localRepo(), '.git', 'worktrees', 'app-feature'), { recursive: true });
+    await mkdir(worktree, { recursive: true });
+    await writeFile(
+      path.join(worktree, '.git'),
+      `gitdir: ${path.join(localRepo(), '.git', 'worktrees', 'app-feature')}\n`,
+    );
+
+    expect(await projectsAfterSync([laptopRepo()], [worktree])).toEqual([[localRepo(), 2]]);
+  });
+
+  it('moves nothing when two repositories here share the remote', async () => {
+    const otherClone = path.join(rootDir, 'desktop', 'checkouts', 'app');
+    await createRepository(otherClone, 'git@github.com:me/app.git');
+
+    expect(await projectsAfterSync([laptopRepo()], [localRepo(), otherClone])).toEqual([
+      [otherClone, 1],
+      [localRepo(), 1],
+      [laptopRepo(), 1],
     ]);
   });
 });

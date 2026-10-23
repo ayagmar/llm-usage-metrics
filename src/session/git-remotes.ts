@@ -9,8 +9,6 @@ import {
 import type { UsageEvent } from '../domain/usage-event.js';
 import { moveEventRepoRoots } from './worktree-roots.js';
 
-const ORIGIN_SECTION = '[remote "origin"]';
-
 /**
  * A remote URL as `host/path`, lower-cased, without scheme, credentials, port or `.git`, so
  * the ssh and https URLs of one repository match: `git@github.com:Me/App.git` and
@@ -65,7 +63,37 @@ export function normalizeGitRemote(url: string): string | undefined {
   return [host, ...segments].join('/').toLowerCase();
 }
 
-/** The normalized `origin` URL in a git config's text, or undefined without one. */
+/** Whether a git config section header (`[remote "origin"] # note`) opens `remote.origin`. */
+function isOriginSection(line: string): boolean {
+  const end = line.indexOf(']');
+  const header = line.slice(1, end < 0 ? undefined : end).trim();
+  const space = header.indexOf(' ');
+
+  // Section names ignore case; subsection names do not.
+  return (
+    space > 0 &&
+    header.slice(0, space).toLowerCase() === 'remote' &&
+    header.slice(space + 1).trim() === '"origin"'
+  );
+}
+
+/** A git config value without surrounding quotes or a trailing `#`/`;` comment. */
+function readConfigValue(text: string): string {
+  const value = text.trim();
+
+  if (value.startsWith('"')) {
+    const close = value.indexOf('"', 1);
+    return value.slice(1, close < 0 ? undefined : close);
+  }
+
+  const comment = value.search(/[#;]/u);
+  return (comment < 0 ? value : value.slice(0, comment)).trim();
+}
+
+/**
+ * The normalized `origin` URL in a git config's text, or undefined without one. Reads the
+ * repository's own config only: `[include]` files are not followed.
+ */
 export function readOriginRemote(configText: string): string | undefined {
   let inOrigin = false;
 
@@ -73,13 +101,14 @@ export function readOriginRemote(configText: string): string | undefined {
     const line = rawLine.trim();
 
     if (line.startsWith('[')) {
-      inOrigin = line === ORIGIN_SECTION;
-    } else if (inOrigin && line.startsWith('url')) {
-      const equals = line.indexOf('=');
+      inOrigin = isOriginSection(line);
+      continue;
+    }
 
-      if (equals > 0 && line.slice(0, equals).trim() === 'url') {
-        return normalizeGitRemote(line.slice(equals + 1));
-      }
+    const equals = line.indexOf('=');
+
+    if (inOrigin && equals > 0 && line.slice(0, equals).trim().toLowerCase() === 'url') {
+      return normalizeGitRemote(readConfigValue(line.slice(equals + 1)));
     }
   }
 

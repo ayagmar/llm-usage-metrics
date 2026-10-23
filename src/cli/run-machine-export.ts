@@ -65,17 +65,27 @@ function readExportGitRemotes(
   store: EventStore,
   events: readonly UsageEvent[],
 ): Record<string, string> | undefined {
+  let stored: Map<string, string>;
+
   try {
-    const stored = readGitRoots(store);
-    const keys = new Set(events.flatMap((event) => toProjectKey(event.repoRoot) ?? []));
-    const { newRoots } = resolveWorktreeRoots(keys, stored);
-    recordGitRoots(store, newRoots);
-    const remotes = collectGitRootRemotes(new Map([...stored, ...newRoots]));
-    return remotes.size === 0 ? undefined : Object.fromEntries(remotes);
+    stored = readGitRoots(store);
   } catch (error) {
     logger.warn(`machine export left out git remotes: ${getErrorReason(error)}`);
     return undefined;
   }
+
+  const keys = new Set(events.flatMap((event) => toProjectKey(event.repoRoot) ?? []));
+  const { newRoots } = resolveWorktreeRoots(keys, stored);
+
+  // Only the record is lost: the roots found are still sent.
+  try {
+    recordGitRoots(store, newRoots);
+  } catch (error) {
+    logger.warn(`machine export could not record git roots: ${getErrorReason(error)}`);
+  }
+
+  const remotes = collectGitRootRemotes(new Map([...stored, ...newRoots]));
+  return remotes.size === 0 ? undefined : Object.fromEntries(remotes);
 }
 
 /**

@@ -281,16 +281,17 @@ a git root recorded in the event store's `git_roots` table, and otherwise a fold
 worktrees it finds, first record kept, so worktrees still resolve once removed and the
 names do not depend on the window.
 
-Next, `moveMachineEventsToLocalRepositories` (`src/session/git-remotes.ts`) moves other
-machines' events to the repository on this machine with the same normalized `origin`
-remote. Each machine's export header carries `gitRemotes` (each git root there to its
-repository's remote, found by `resolveWorktreeRoots` on that machine), which the sync keeps
-in the machine cache's meta; this machine's repositories' remotes are read from their
-`.git/config` only when a machine sent remotes.
-
-Last, `createProjectAliasResolver` (`src/session/project-aliases.ts`) moves every
+Next, `createProjectAliasResolver` (`src/session/project-aliases.ts`) moves every
 machine's events, and `--repo` paths, at or below a configured `projectAliases` path to the
 same place below its target, so a project cloned under different folders counts once.
+
+Then `moveMachineEventsToLocalRepositories` (`src/session/git-remotes.ts`) moves other
+machines' events to the repository on this machine with the same normalized `origin`
+remote, after the aliases so an aliased path keeps its alias. Each machine's export header
+carries `gitRemotes` (each git root there to its repository's remote, found by
+`resolveWorktreeRoots` on that machine), which the sync keeps in the machine cache's meta;
+this machine's repositories (those its git roots name) have their remotes read from
+`.git/config` only when a machine sent remotes.
 
 ### Share reports
 

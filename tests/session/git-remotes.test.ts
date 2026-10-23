@@ -50,4 +50,18 @@ describe('readOriginRemote', () => {
       readOriginRemote('[remote "upstream"]\n\turl = https://github.com/other/app\n'),
     ).toBeUndefined();
   });
+
+  it('reads the forms git writes and accepts', () => {
+    const configs = [
+      '[Remote "origin"] # main\r\n\tURL = git@github.com:me/app.git\r\n',
+      '[remote "origin"]\n\turl = "git@github.com:me/app.git"\n',
+      '[remote "origin"]\n\turl = git@github.com:me/app.git ; mirror\n',
+    ];
+
+    expect(configs.map(readOriginRemote)).toEqual([
+      'github.com/me/app',
+      'github.com/me/app',
+      'github.com/me/app',
+    ]);
+  });
 });

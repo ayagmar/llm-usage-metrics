@@ -261,7 +261,8 @@ function attributeMachinesToLocalRepositories(
     return parseResults;
   }
 
-  const repositories = new Map([...roots].filter(([root, repoKey]) => root === repoKey));
+  // Every repository a root names: one used only through its worktrees has no root of its own.
+  const repositories = new Map([...new Set(roots.values())].map((repoKey) => [repoKey, repoKey]));
   const moved = moveMachineEventsToLocalRepositories(
     parseResults.map((result) => result.events),
     collectGitRootRemotes(repositories),
@@ -666,14 +667,6 @@ export async function buildUsageEventDataset(
       repoFilter = moved.repoFilter;
       worktreeWarnings.push(...moved.warnings);
 
-      // After the worktrees, whose roots it reads, and before the aliases, which then apply
-      // to the repository here.
-      parseResultsForFiltering = measureRuntimeProfileStageSync(
-        runtimeProfile,
-        'usage.dataset.attribute_machine_remotes',
-        () => attributeMachinesToLocalRepositories(parseResultsForFiltering, machines, moved.roots),
-      );
-
       // After the worktrees, so a worktree's usage follows its repository's alias. Every
       // machine's events: an alias is often the path the project has on another machine.
       if (config.projectAliases) {
@@ -688,6 +681,14 @@ export async function buildUsageEventDataset(
         }));
         repoFilter = moveRepoFilterPaths(repoFilter, aliasOf);
       }
+
+      // After the aliases, so a path aliased on purpose keeps its alias: it no longer lies
+      // under the other machine's git roots.
+      parseResultsForFiltering = measureRuntimeProfileStageSync(
+        runtimeProfile,
+        'usage.dataset.attribute_machine_remotes',
+        () => attributeMachinesToLocalRepositories(parseResultsForFiltering, machines, moved.roots),
+      );
     }
 
     const { filteredEvents, lookbackEvents } = measureRuntimeProfileStageSync(
