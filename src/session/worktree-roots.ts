@@ -74,14 +74,14 @@ function toRepositoryName(key: string): string | undefined {
  * as its repository. `keys` are this machine's: another machine's paths name nothing here.
  * A key resolves, nearest first, through:
  *
- * 1. the `.git` entry of the key or of a directory above it, read from disk up to (not
- *    including) the home directory, or a git root `stored` records (found on disk by an
- *    earlier run, maybe deleted since): a worktree moves to its repository, keeping the
- *    path below it, and a repository keeps the key;
+ * 1. the nearest git root at or above the key: one `stored` records (found on disk by an
+ *    earlier run, maybe deleted since), or a `.git` entry read from disk up to (not
+ *    including) the home directory, the record winning at the same directory. A worktree
+ *    moves to its repository, keeping the path below it; a repository keeps the key;
  * 2. otherwise, a path segment named `<repo>-…`, `…-<repo>` (or with `_`) after a known
  *    repository (found on disk or in `stored`), case-insensitively, the longest name
- *    winning. A name shared by two repositories, or shorter than 4 characters, matches
- *    nothing.
+ *    winning. A name shorter than 4 characters matches nothing, and one several repositories
+ *    share matches only the one of them with worktrees.
  *
  * Disk reads are cached per directory. `repoKeyOf` also resolves a key not in `keys`, such
  * as a `--repo` path, and remembers every answer.
@@ -91,11 +91,17 @@ export function resolveWorktreeRoots(
   stored: ReadonlyMap<string, string>,
   homeDir: string = os.homedir(),
 ): WorktreeRoots {
-  const homeKey = toProjectKey(homeDir);
-  const isHomeOrAbove = (directory: string): boolean =>
-    homeKey !== undefined &&
-    (homeKey === directory ||
-      homeKey.startsWith(directory.endsWith(path.sep) ? directory : directory + path.sep));
+  // Windows paths ignore case and take either separator.
+  const comparable = (value: string): string =>
+    process.platform === 'win32' ? value.replaceAll('/', '\\').toLowerCase() : value;
+  const homeKey = comparable(toProjectKey(homeDir) ?? homeDir);
+  const isHomeOrAbove = (directory: string): boolean => {
+    const candidate = comparable(directory);
+    return (
+      homeKey === candidate ||
+      homeKey.startsWith(candidate.endsWith(path.sep) ? candidate : candidate + path.sep)
+    );
+  };
   const located = new Map<string, GitRoot | undefined>();
 
   // The nearest git root at or above `directory` on disk; the home directory and those above
@@ -133,14 +139,35 @@ export function resolveWorktreeRoots(
     }
   }
 
-  // Each name's repository; null when two repositories share it.
-  const repoKeyByName = new Map<string, string | null>();
+  // Each name's repository. When repositories share a name, the one with worktrees takes it
+  // (another clone, such as a reference checkout, has none); with none or several, nobody.
+  const repoKeysByName = new Map<string, string[]>();
+  const worktreeRepoKeys = new Set<string>();
+
+  for (const [root, repoKey] of roots) {
+    if (root !== repoKey) {
+      worktreeRepoKeys.add(repoKey);
+    }
+  }
 
   for (const repoKey of [...new Set(roots.values())].sort(compareByCodePoint)) {
     const name = toRepositoryName(repoKey);
 
     if (name !== undefined && name.length >= MIN_MATCHED_NAME_LENGTH) {
-      repoKeyByName.set(name, repoKeyByName.has(name) ? null : repoKey);
+      repoKeysByName.set(name, [...(repoKeysByName.get(name) ?? []), repoKey]);
+    }
+  }
+
+  const repoKeyByName = new Map<string, string>();
+
+  for (const [name, repoKeys] of repoKeysByName) {
+    const candidates =
+      repoKeys.length === 1
+        ? repoKeys
+        : repoKeys.filter((repoKey) => worktreeRepoKeys.has(repoKey));
+
+    if (candidates.length === 1) {
+      repoKeyByName.set(name, candidates[0]);
     }
   }
 
@@ -150,7 +177,7 @@ export function resolveWorktreeRoots(
       const repoKey = repoKeyByName.get(name);
 
       if (
-        repoKey &&
+        repoKey !== undefined &&
         (best === undefined ||
           name.length > best.name.length ||
           (name.length === best.name.length && compareByCodePoint(repoKey, best.repoKey) < 0))
@@ -177,18 +204,21 @@ export function resolveWorktreeRoots(
   const moveBelow = (key: string, root: string, repoKey: string): string | undefined =>
     root === repoKey ? undefined : repoKey + key.slice(root.length);
 
+  // The nearest recorded root wins, and at the disk's root the record does too: a deleted
+  // worktree inside its repository's folder still resolves, and a reused path keeps the
+  // repository first recorded there.
   const resolve = (key: string): string | undefined => {
     const found = locate(key);
-
-    if (found !== undefined) {
-      return moveBelow(key, found.root, found.repoKey);
-    }
 
     for (let ancestor: string | undefined = key; ancestor !== undefined;) {
       const repoKey = roots.get(ancestor);
 
       if (repoKey !== undefined) {
         return moveBelow(key, ancestor, repoKey);
+      }
+
+      if (ancestor === found?.root) {
+        return moveBelow(key, found.root, found.repoKey);
       }
 
       ancestor = toParentProjectKey(ancestor);

@@ -94,7 +94,31 @@ describe('resolveWorktreeRoots', () => {
     const worktree = await makeGitFile('reused/wt', path.join(second, '.git', 'worktrees', 'wt'));
     const roots = resolveWorktreeRoots([worktree], new Map([[worktree, first]]));
 
+    expect(roots.repoKeyOf(worktree)).toBe(first);
     expect(roots.newRoots.has(worktree)).toBe(false);
+  });
+
+  it('moves a deleted worktree recorded inside its repository folder', async () => {
+    const repo = await makeRepository('nested/app');
+    const worktree = path.join(repo, '.worktrees', 'feature');
+
+    expect(
+      resolveWorktreeRoots([repo, worktree], new Map([[worktree, repo]])).repoKeyOf(worktree),
+    ).toBe(repo);
+  });
+
+  it('gives a name several repositories share to the one with worktrees', () => {
+    const repo = missing('clones/projects/kipple');
+    const reference = missing('clones/checkouts/kipple');
+    const worktree = missing('clones/wt/feature');
+    const key = missing('clones/cache/kipple-fix');
+    const stored = new Map([
+      [repo, repo],
+      [reference, reference],
+      [worktree, repo],
+    ]);
+
+    expect(resolveWorktreeRoots([key], stored).repoKeyOf(key)).toBe(repo);
   });
 
   it('matches names against repositories the store recorded, whatever the run read', () => {
