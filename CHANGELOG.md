@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.14.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.14.0...v0.14.1) (2026-10-23)
+
+### Features
+
+* **machines:** count another machine's repository under the local clone with the same remote ([2724820](https://github.com/ayagmar/llm-usage-metrics/commit/27248201ed00e64372bf5a1233d08157886d0d08))
+* **projects:** count aliased folders as one project with projectAliases ([0935282](https://github.com/ayagmar/llm-usage-metrics/commit/09352825de42b9eb78b61c9b053fee414eb2cc5c))
+
+### Bug Fixes
+
+* **machines:** find repositories used through worktrees, let aliases win, read more git config forms ([25cf941](https://github.com/ayagmar/llm-usage-metrics/commit/25cf941fcc48cbff1ee4731fbc8d57619072be5d))
+* **machines:** match remotes before aliases so folder aliases keep matching ([84d4f38](https://github.com/ayagmar/llm-usage-metrics/commit/84d4f382d0763e8ee70062557cb3ae869973c9aa))
+* **projects:** keep a POSIX alias tail as written for a POSIX target ([4309de8](https://github.com/ayagmar/llm-usage-metrics/commit/4309de8ba11be2a868f685635622165ea2d09fc5))
+* **projects:** keep foreign absolute aliases, skip root folders, stop at targets ([4efe61c](https://github.com/ayagmar/llm-usage-metrics/commit/4efe61c70003309e732036826547a37c4d90b537))
+* **projects:** match aliases across operating systems by path shape ([de2731a](https://github.com/ayagmar/llm-usage-metrics/commit/de2731afcafc767efd2b9ce9fd6cff306d3d010b))
+* **projects:** resolve this OS's alias paths to its own form ([c79dace](https://github.com/ayagmar/llm-usage-metrics/commit/c79dace6fb2e85ec00a52d6db72c63369ab5f06f))
+* **projects:** write an aliased path in its target's separators ([f18f704](https://github.com/ayagmar/llm-usage-metrics/commit/f18f7047e5337a0385eb6b5209cfb2df47be15ed))
+
 ## [0.14.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.13.0...v0.14.0) (2026-10-23)
 
 ### Features
