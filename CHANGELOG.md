@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.13.0...v0.14.0) (2026-10-23)
+
+### Features
+
+* **cli:** accept --last N on session, efficiency and optimize ([55f01ee](https://github.com/ayagmar/llm-usage-metrics/commit/55f01ee3d7ff84c9b6bd05e33ec43fc7d5ecd32d))
+* **doctor:** color doctor output with the shared color roles ([c651ac2](https://github.com/ayagmar/llm-usage-metrics/commit/c651ac2aaa98d0814f7e38e3f3c7b4887e851053))
+* **projects:** count git worktree usage under its repository ([7ae341d](https://github.com/ayagmar/llm-usage-metrics/commit/7ae341dfa4a4665739e6243e8e0cfb6373692424))
+* **projects:** count usage after a cd under the directory its session started in ([0833cf8](https://github.com/ayagmar/llm-usage-metrics/commit/0833cf8241b97a3835b3b1a0815b485eff53b7b3))
+
+### Bug Fixes
+
+* **deps:** pin ip-address 10.7.4 for GHSA-rxp7-6hxx-x8q5 ([35702cd](https://github.com/ayagmar/llm-usage-metrics/commit/35702cd8133adddb7e0cd6777b1912e44c511d00))
+* **projects:** let the nearest recorded git root win over the disk ([47dbfa6](https://github.com/ayagmar/llm-usage-metrics/commit/47dbfa6525d0bd82f2b08fc4fcea343357062d51))
+* **projects:** match the share session root, say which roots a run knows ([2e59a0d](https://github.com/ayagmar/llm-usage-metrics/commit/2e59a0d61c6ac72f2bcfde758a5eac0e508b5215))
+* **projects:** walk up for .git, keep other machines and repo folders out of name matches ([d67fcc9](https://github.com/ayagmar/llm-usage-metrics/commit/d67fcc9dd35ece68402a8a8de55ee1f3c6ec7bfc))
+
 ## [0.13.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.12.1...v0.13.0) (2026-10-21)
 
 ### Features
