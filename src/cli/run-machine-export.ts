@@ -9,8 +9,16 @@ import { getParserVersions } from '../machines/merge-machine-events.js';
 import {
   closeEventStore,
   openEventStore,
+  readGitRoots,
   readStoredFileSnapshots,
+  recordGitRoots,
+  type EventStore,
 } from '../persistence/event-store.js';
+import { toProjectKey } from '../aggregate/project-key.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { collectGitRootRemotes } from '../session/git-remotes.js';
+import { resolveWorktreeRoots } from '../session/worktree-roots.js';
+import { getErrorReason } from '../utils/get-error-reason.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { buildUsageEventDataset } from './build-usage-event-dataset.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
@@ -45,6 +53,28 @@ async function readKnownFiles(
 async function writeLine(stdout: NodeJS.WritableStream, line: unknown): Promise<void> {
   if (!stdout.write(`${JSON.stringify(line)}\n`)) {
     await once(stdout, 'drain');
+  }
+}
+
+/**
+ * The remotes of the git roots this machine's events ran in, and of those earlier runs
+ * recorded, which the run records like a report does. A store failure only leaves the
+ * remotes out: the reader then keeps this machine's directories.
+ */
+function readExportGitRemotes(
+  store: EventStore,
+  events: readonly UsageEvent[],
+): Record<string, string> | undefined {
+  try {
+    const stored = readGitRoots(store);
+    const keys = new Set(events.flatMap((event) => toProjectKey(event.repoRoot) ?? []));
+    const { newRoots } = resolveWorktreeRoots(keys, stored);
+    recordGitRoots(store, newRoots);
+    const remotes = collectGitRootRemotes(new Map([...stored, ...newRoots]));
+    return remotes.size === 0 ? undefined : Object.fromEntries(remotes);
+  } catch (error) {
+    logger.warn(`machine export left out git remotes: ${getErrorReason(error)}`);
+    return undefined;
   }
 }
 
@@ -91,8 +121,10 @@ export async function runMachineExport(
 
   const store = await (deps.openEventStore ?? openEventStore)(dataset.ledger.path);
   let snapshots;
+  let gitRemotes: Record<string, string> | undefined;
 
   try {
+    gitRemotes = readExportGitRemotes(store, dataset.filteredEvents);
     snapshots = readStoredFileSnapshots(store, dataset.ledger.parsedFiles, {
       historyFiles: dataset.ledger.historyFiles,
       repeatingSources: new Set(getRepeatingSourceIds(dataset.adaptersToParse)),
@@ -107,6 +139,7 @@ export async function runMachineExport(
       hostname: os.hostname(),
       exportedAt: (deps.now?.() ?? new Date()).toISOString(),
       parserVersions: getParserVersions(dataset.adaptersToParse),
+      gitRemotes,
     },
     snapshots,
     knownFiles,

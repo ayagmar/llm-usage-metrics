@@ -132,6 +132,21 @@ export function isWindowsProjectKey(key: string): boolean {
   return WINDOWS_KEY_PATTERN.test(key);
 }
 
+/**
+ * `key`, at or below `ancestor`, moved to the same place below `target`. The path below
+ * `ancestor` takes the target's separators when the two are of different OSes, since a POSIX
+ * folder name may hold a `\`.
+ */
+export function moveProjectKeyBelow(key: string, ancestor: string, target: string): string {
+  const below = key.slice(ancestor.length);
+
+  if (isWindowsProjectKey(key) === isWindowsProjectKey(target)) {
+    return target + below;
+  }
+
+  return target + below.replace(/[\\/]/gu, isWindowsProjectKey(target) ? '\\' : '/');
+}
+
 /** Path segments of a key, without a drive letter, which belongs to the root. */
 export function splitKeySegments(key: string): string[] {
   return key
