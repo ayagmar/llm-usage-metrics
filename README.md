@@ -110,7 +110,7 @@ llm-usage session --id 486c3261 --timeline
 llm-usage tools --by-source
 
 # Cost per project (the directory each session started in, so a cd into a subfolder
-# stays with it), and daily rows split by project
+# stays with it, and a git worktree counts for its repository), and daily rows split by project
 llm-usage projects
 llm-usage daily --by-repo
 

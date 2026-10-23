@@ -116,8 +116,8 @@ function addGranularityArgument(command: Command): Command {
 }
 
 /**
- * What a project is (`attributeEventsToSessionRoots`): the CLI never looks for a `.git`
- * folder (efficiency does).
+ * What a project is (`attributeEventsToSessionRoots`): sessions' starting directories, with
+ * git worktrees moved to their repositories (`resolveWorktreeRoots`).
  */
 const PROJECT_DESCRIPTION = 'project (the directory its session started in)';
 

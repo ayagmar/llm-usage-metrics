@@ -2,6 +2,7 @@ import { computeEventContentHash } from '@ayagmar/agent-sessions';
 
 import { createReadCursorsSql } from './event-store-append.js';
 import { normalizeStoredEvent, selectSingleRequestBeforeFlagSql } from './event-store-codec.js';
+import { createGitRootsSql } from './event-store-git-roots.js';
 import {
   type EventStoreDatabase,
   runTransaction,
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS meta (
 ${createFileTablesSql()}
 ${createOverrideOnlyFilesSql()}
 ${createReadCursorsSql()}
+${createGitRootsSql()}
 `;
 }
 
@@ -132,6 +134,10 @@ function ensureAddedTables(database: EventStoreDatabase): void {
 
   if (!tableNames.includes('file_read_cursors')) {
     database.exec(createReadCursorsSql());
+  }
+
+  if (!tableNames.includes('git_roots')) {
+    database.exec(createGitRootsSql());
   }
 
   ensureEventIdColumns(database);
