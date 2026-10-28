@@ -109,7 +109,7 @@
     "esbuild": "0.28.2",
     "eslint": "10.13.0",
     "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-redos": "4.5.0",
+    "eslint-plugin-redos": "4.6.1",
     "eslint-plugin-regexp": "3.3.1",
     "prettier": "3.9.10",
     "release-it": "21.1.1",
