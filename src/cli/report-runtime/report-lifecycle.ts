@@ -153,14 +153,15 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
         buildShare(data, { runtimeProfile: options.runtimeProfile }),
       )
     : undefined;
-  const rendered = measureRuntimeProfileStageSync(
-    options.runtimeProfile,
-    'report.prepare.render',
-    () => options.render(data, format),
-  );
+  // --share-json prints the payload only, so the report and its hints are never rendered.
+  const rendered = shareJson
+    ? ''
+    : measureRuntimeProfileStageSync(options.runtimeProfile, 'report.prepare.render', () =>
+        options.render(data, format),
+      );
   const { output, hintsAfterOutput: renderHints } =
     typeof rendered === 'string' ? { output: rendered, hintsAfterOutput: [] } : rendered;
-  const dataHints = options.getHintsAfterOutput?.(data, format) ?? [];
+  const dataHints = shareJson ? [] : (options.getHintsAfterOutput?.(data, format) ?? []);
   const hintsAfterOutput = [...renderHints, ...dataHints];
 
   return {

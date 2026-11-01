@@ -449,6 +449,14 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     expect(stderrLines.join('\n')).not.toContain(SUMMARY_NEXT_STEPS_HINT);
   });
 
+  it('--share-json leaves out the --top note, which describes the table it does not print', async () => {
+    const args = ['monthly', '--by-repo', '--top', '1'];
+    await runShare('monthly-top', args);
+    expect(stderrLines.join('\n')).toContain('--top 0');
+    await runShare('monthly-top-json', args, undefined, ['--share-json']);
+    expect(stderrLines.join('\n')).not.toContain('--top 0');
+  });
+
   /** Every project label and machine name of `plain` the redacted `html` must not hold. */
   function expectRedacted(plain: ShareReportData, html: string): void {
     const { data } = readSharePayload(html);

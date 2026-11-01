@@ -100,7 +100,11 @@ async function prepareUsageReport(
     commandOptions: options,
     supportedFormats: usageReportFormats,
     buildData: () => buildUsageData(granularity, options, deps),
-    getDiagnostics: (usageData) => ({ ...usageData.diagnostics, limitNote: usageData.limitNote }),
+    // The note describes the printed table, which --share-json leaves out.
+    getDiagnostics: (usageData) => ({
+      ...usageData.diagnostics,
+      limitNote: options.shareJson ? undefined : usageData.limitNote,
+    }),
     runtimeProfile: deps.runtimeProfile,
     // hourly has no --share.
     buildShare:

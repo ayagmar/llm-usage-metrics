@@ -309,6 +309,7 @@ describe('report-lifecycle', () => {
 
   it('--share-json prints only the payload: no file, no report, no hints', async () => {
     const writeSpy = vi.spyOn(shareArtifact, 'writeShareFile');
+    const render = vi.fn(() => 'report body');
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
@@ -318,7 +319,8 @@ describe('report-lifecycle', () => {
         supportedFormats: ['terminal'] as const,
         buildData: async () => ({}),
         getDiagnostics: () => ({}),
-        render: () => ({ output: 'report body', hintsAfterOutput: ['a hint'] }),
+        render,
+        getHintsAfterOutput: () => ['a hint'],
         buildShare: async () => ({
           fileName: 'usage-share.html',
           logLabel: 'usage',
@@ -331,6 +333,7 @@ describe('report-lifecycle', () => {
 
       expect(consoleLogSpy.mock.calls).toEqual([['{"report":"share"}']]);
       expect(writeSpy).not.toHaveBeenCalled();
+      expect(render).not.toHaveBeenCalled();
       expect(consoleErrorSpy.mock.calls.map((call) => String(call[0])).join('\n')).not.toContain(
         'a hint',
       );
