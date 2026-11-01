@@ -37,8 +37,10 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write an interactive HTML report to the current directory
   --no-open                      With --share, write the report without opening it
-  --redact                       With --share, label projects project-N, machines machine-N and
-                                 local or path-shaped models model-N
+  --share-json                   Print the share report's data to stdout as JSON (see llm-usage
+                                 schema share) instead of writing the file
+  --redact                       With --share or --share-json, label projects project-N, machines
+                                 machine-N and local or path-shaped models model-N
   --all                          No effect: the summary always covers today, the last 7 days and
                                  month to date
   --repo <project>               Count only these projects (repeatable or comma-separated, so a

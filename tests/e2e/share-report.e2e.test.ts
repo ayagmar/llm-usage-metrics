@@ -8,8 +8,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
 import { createCli } from '../../src/cli/create-cli.js';
+import { SUMMARY_NEXT_STEPS_HINT } from '../../src/cli/run-summary-report.js';
 import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
 import type { ReportCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import { decodeShareReport } from '../../src/share-report/client/core/index.js';
 import { SVG_NAMESPACE } from '../../src/share-report/client/ui/export/svg-export.js';
 import { deleteMachineCache } from '../../src/machines/machine-cache.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
@@ -303,21 +305,23 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
   let forbidden: ForbiddenStrings;
   let validators: Map<string, ValidateFunction>;
 
-  /** The stderr lines of the last `runShare`. */
+  /** The stderr lines and stdout of the last `runShare`. */
   let stderrLines: string[] = [];
+  let stdout = '';
 
   /** Runs `llm-usage <args> --share --no-open` in a fresh directory; returns its files. */
   async function runShare(
     name: string,
     args: string[],
     source = ALL_SOURCE_IDS.join(','),
+    outputFlags = ['--share', '--no-open'],
   ): Promise<Map<string, string>> {
     const cwd = await mkdtemp(path.join(environment.rootDir, `cwd-${name}-`));
     const previousCwd = process.cwd();
     process.chdir(cwd);
 
     try {
-      await captureStdout(async () => {
+      stdout = await captureStdout(async () => {
         await createCli().parseAsync([
           'node',
           'llm-usage',
@@ -327,8 +331,7 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
           'UTC',
           '--pricing-offline',
           '--no-sync',
-          '--share',
-          '--no-open',
+          ...outputFlags,
         ]);
         stderrLines = vi.mocked(console.error).mock.calls.map((call) => String(call[0]));
       });
@@ -429,6 +432,19 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     expect(shareCase.command === 'efficiency' ? events === 0 : events > 0).toBe(true);
     expectSelfContained(html);
     expectNoForbiddenStrings(html, forbidden);
+  });
+
+  it('summary --share-json prints the payload summary --share embeds, and writes no file', async () => {
+    const html = (await runShare('summary-html', ['summary'])).get('summary-share.html') ?? '';
+    // The report's own hint follows the terminal report, so --share-json must drop it.
+    expect(stderrLines.join('\n')).toContain(SUMMARY_NEXT_STEPS_HINT);
+    const files = await runShare('summary-json', ['summary'], undefined, ['--share-json']);
+    const printed: unknown = JSON.parse(stdout);
+
+    expect([...files.keys()]).toEqual([]);
+    expect(printed).toEqual(readSharePayload(html));
+    expect(decodeShareReport(printed).ok).toBe(true);
+    expect(stderrLines.join('\n')).not.toContain(SUMMARY_NEXT_STEPS_HINT);
   });
 
   /** Every project label and machine name of `plain` the redacted `html` must not hold. */

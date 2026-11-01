@@ -153,6 +153,7 @@ describe('report-lifecycle', () => {
         fileName: 'usage-share.html',
         logLabel: 'usage',
         render: () => '<!doctype html><title>report</title>',
+        renderJson: () => '{}',
       }),
     });
 
@@ -196,6 +197,7 @@ describe('report-lifecycle', () => {
       fileName: 'usage-share.html',
       logLabel: 'usage',
       render: () => `<p>${data.rows}</p>`,
+      renderJson: () => '{}',
     }));
 
     const preparedReport = await prepareReport({
@@ -285,6 +287,43 @@ describe('report-lifecycle', () => {
         render: () => 'report body',
       }),
     ).rejects.toThrow('--no-open only applies with --share');
+  });
+
+  it.each([
+    [{ share: true }, '--share'],
+    [{ json: true }, '--json'],
+    [{ markdown: true }, '--markdown'],
+    [{ open: false }, '--no-open'],
+  ])('rejects --share-json with %o', async (flags, flag) => {
+    await expect(
+      prepareReport({
+        commandOptions: { shareJson: true, ...flags },
+        supportedFormats: ['terminal', 'json', 'markdown'] as const,
+        buildData: async () => ({}),
+        getDiagnostics: () => ({}),
+        render: () => 'report body',
+      }),
+    ).rejects.toThrow(flag);
+  });
+
+  it('builds the share report for --share-json --redact', async () => {
+    const buildShare = vi.fn(async () => ({
+      fileName: 'usage-share.html',
+      logLabel: 'usage',
+      render: () => '',
+      renderJson: () => '{}',
+    }));
+    const preparedReport = await prepareReport({
+      commandOptions: { shareJson: true, redact: true },
+      supportedFormats: ['terminal'] as const,
+      buildData: async () => ({}),
+      getDiagnostics: () => ({}),
+      render: () => 'report body',
+      buildShare,
+    });
+
+    expect(buildShare).toHaveBeenCalledTimes(1);
+    expect(preparedReport.printShareJson).toBe(true);
   });
 
   it('rejects --redact without --share', async () => {

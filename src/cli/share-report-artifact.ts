@@ -1,3 +1,4 @@
+import { renderReportJson } from '../render/report-json.js';
 import { listShareSizeWarnings } from '../share-report/build-share-payload.js';
 import { renderShareHtml } from '../share-report/render-share-html.js';
 import type {
@@ -86,5 +87,6 @@ export async function buildShareReportArtifact(
 
       return html;
     },
+    renderJson: () => renderReportJson('share', data),
   };
 }

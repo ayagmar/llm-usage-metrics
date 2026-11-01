@@ -26,6 +26,7 @@ type OutputFlagOptions = {
   json?: boolean;
   markdown?: boolean;
   share?: boolean;
+  shareJson?: boolean;
   /** Commander sets it to false for --no-open. */
   open?: boolean;
   redact?: boolean;
@@ -41,6 +42,8 @@ type PreparedReport<Format extends string, Diagnostics> = {
   output: string;
   diagnostics: Diagnostics;
   shareArtifact?: ShareArtifact;
+  /** True with --share-json: stdout gets the share payload instead of the report. */
+  printShareJson?: boolean;
   /** False with --no-open: the share report is written but not opened. */
   openShareArtifact?: boolean;
   runtimeProfile?: RuntimeProfileCollector;
@@ -79,12 +82,30 @@ function validateOutputFormatOptions(options: OutputFlagOptions): void {
     throw new Error('Choose either --markdown or --json, not both');
   }
 
+  if (options.shareJson) {
+    const conflicts = [
+      ['share', options.share],
+      ['json', options.json],
+      ['markdown', options.markdown],
+    ] as const;
+
+    for (const [flag, isSet] of conflicts) {
+      if (isSet) {
+        throw new Error(`Choose either --share-json or --${flag}, not both`);
+      }
+    }
+
+    if (options.open === false) {
+      throw new Error('--no-open only applies with --share; --share-json writes no file');
+    }
+  }
+
   if (options.open === false && !options.share) {
     throw new Error('--no-open only applies with --share');
   }
 
-  if (options.redact && !options.share) {
-    throw new Error('--redact only applies with --share');
+  if (options.redact && !options.share && !options.shareJson) {
+    throw new Error('--redact only applies with --share or --share-json');
   }
 }
 
@@ -119,7 +140,8 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     'report.prepare.build_data',
     options.buildData,
   );
-  const buildShare = options.commandOptions.share ? options.buildShare : undefined;
+  const { share, shareJson } = options.commandOptions;
+  const buildShare = share || shareJson ? options.buildShare : undefined;
   const shareArtifact = buildShare
     ? await measureRuntimeProfileStage(options.runtimeProfile, 'report.prepare.build_share', () =>
         buildShare(data, { runtimeProfile: options.runtimeProfile }),
@@ -140,6 +162,7 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     diagnostics: options.getDiagnostics(data),
     output,
     shareArtifact,
+    printShareJson: shareJson === true,
     openShareArtifact: options.commandOptions.open !== false,
     runtimeProfile: options.runtimeProfile,
     hintsAfterOutput: hintsAfterOutput.length > 0 ? hintsAfterOutput : undefined,
@@ -226,7 +249,8 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
   options: RunPreparedReportOptions<Diagnostics, Format>,
 ): Promise<void> {
   // With --redact, stderr hides what the file hides; only the path of the file written shows.
-  const scrubLog = options.preparedReport.shareArtifact?.scrubLog;
+  const { shareArtifact, printShareJson } = options.preparedReport;
+  const scrubLog = shareArtifact?.scrubLog;
 
   withLogScrubber(scrubLog, () => {
     emitReportRunDiagnostics(options.preparedReport.diagnostics, {
@@ -238,18 +262,25 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
       runtimeProfile: options.preparedReport.runtimeProfile,
     });
 
-    if (options.warnOnTerminalOverflow && options.preparedReport.format === 'terminal') {
+    if (
+      options.warnOnTerminalOverflow &&
+      options.preparedReport.format === 'terminal' &&
+      !printShareJson
+    ) {
       warnIfTerminalTableOverflows(options.preparedReport.output, (message) => {
         logger.warn(message);
       });
     }
   });
 
-  if (options.preparedReport.shareArtifact) {
-    await writeShareArtifact(
-      options.preparedReport.shareArtifact,
-      options.preparedReport.openShareArtifact ?? true,
-    );
+  // --share-json prints only the payload: no file, no report, no hints about the report.
+  if (printShareJson && shareArtifact) {
+    console.log(shareArtifact.renderJson());
+    return;
+  }
+
+  if (shareArtifact) {
+    await writeShareArtifact(shareArtifact, options.preparedReport.openShareArtifact ?? true);
   }
 
   console.log(options.preparedReport.output);
