@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.2](https://github.com/ayagmar/llm-usage-metrics/compare/v0.14.1...v0.14.2) (2026-11-01)
+
+### Features
+
+* **cli:** print the share report's data with --share-json ([4da92f5](https://github.com/ayagmar/llm-usage-metrics/commit/4da92f5765be4532c53092937c09d50605983fba)), references [#327](https://github.com/ayagmar/llm-usage-metrics/issues/327)
+
+### Bug Fixes
+
+* **cli:** print --share-json compact, keep the rollup warning, reject --compact ([44b90a5](https://github.com/ayagmar/llm-usage-metrics/commit/44b90a51287bdf7d0a6804805829900063916fdc))
+* **cli:** skip the unused report and its --top note under --share-json ([d6568a9](https://github.com/ayagmar/llm-usage-metrics/commit/d6568a9ec52963ecf774ea24dab8925e057b6bfe))
+* **deps:** override minimatch to 11.0.3 for GHSA-g3hv-75wg-m249 ([5250460](https://github.com/ayagmar/llm-usage-metrics/commit/525046059a12f137c441ccd6671197679ec1f5d8))
+
 ## [0.14.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.14.0...v0.14.1) (2026-10-23)
 
 ### Features
