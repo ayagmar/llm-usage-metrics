@@ -23,9 +23,12 @@ export type ShareHtmlOptions = {
   title?: string;
 };
 
-export function renderShareHtml(options: ShareHtmlOptions): string {
-  const payload = { schemaVersion: 1, report: 'share', data: options.data };
+/** The envelope a share file embeds and `--share-json` prints (`report-share.v1`). */
+export function serializeShareEnvelope(data: ShareReportData): string {
+  return JSON.stringify({ schemaVersion: 1, report: 'share', data });
+}
 
+export function renderShareHtml(options: ShareHtmlOptions): string {
   return renderShareDocument({
     title: options.title ?? `${getReportTitle(options.data.meta)} · llm-usage-metrics`,
     fileBaseName: options.fileBaseName,
@@ -35,6 +38,6 @@ export function renderShareHtml(options: ShareHtmlOptions): string {
     ),
     style: SHARE_CLIENT_STYLE,
     script: SHARE_CLIENT_SCRIPT,
-    payloadJson: escapeJsonForScript(JSON.stringify(payload)),
+    payloadJson: escapeJsonForScript(serializeShareEnvelope(options.data)),
   });
 }

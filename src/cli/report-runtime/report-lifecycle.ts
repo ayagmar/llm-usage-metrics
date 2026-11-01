@@ -133,6 +133,13 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
 ): Promise<PreparedReport<Format, Diagnostics>> {
   validateOutputFormatOptions(options.commandOptions);
   options.validate?.();
+  const { share, shareJson } = options.commandOptions;
+
+  // Without a builder the command would print its normal report where JSON is expected.
+  if (shareJson && !options.buildShare) {
+    throw new Error('--share-json is not supported for this command');
+  }
+
   const format = resolveReportFormat(options.commandOptions, options.supportedFormats);
 
   const data = await measureRuntimeProfileStage(
@@ -140,7 +147,6 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     'report.prepare.build_data',
     options.buildData,
   );
-  const { share, shareJson } = options.commandOptions;
   const buildShare = share || shareJson ? options.buildShare : undefined;
   const shareArtifact = buildShare
     ? await measureRuntimeProfileStage(options.runtimeProfile, 'report.prepare.build_share', () =>
@@ -198,13 +204,18 @@ type EmitReportRunDiagnosticsOptions<Diagnostics> = {
 };
 
 /**
- * `--compact` and `--no-cost` change tables only, so `--json` rejects them. `costAppliesTo`
+ * `--compact` and `--no-cost` change tables only, so `--json` rejects them (and
+ * `--share-json` rejects `--compact`; `--no-cost` applies to the share report). `costAppliesTo`
  * says what `--no-cost` changes in this report.
  */
 export function validateTableDisplayFlags(
-  options: { compact?: boolean; cost?: boolean; json?: boolean },
+  options: { compact?: boolean; cost?: boolean; json?: boolean; shareJson?: boolean },
   costAppliesTo: string,
 ): void {
+  if (options.compact && options.shareJson) {
+    throw new Error('--compact applies to terminal and markdown tables; drop it with --share-json');
+  }
+
   if (options.compact && options.json) {
     throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
   }

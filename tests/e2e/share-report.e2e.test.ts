@@ -442,6 +442,8 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     const printed: unknown = JSON.parse(stdout);
 
     expect([...files.keys()]).toEqual([]);
+    // One compact line, as the file embeds it: indenting the cube's arrays triples its size.
+    expect(stdout.trimEnd().split('\n')).toHaveLength(1);
     expect(printed).toEqual(readSharePayload(html));
     expect(decodeShareReport(printed).ok).toBe(true);
     expect(stderrLines.join('\n')).not.toContain(SUMMARY_NEXT_STEPS_HINT);
@@ -481,6 +483,12 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     expect([...files.keys()]).toEqual(['compare-share.html']);
     expect(plain.dictionaries.projects).toContain('~');
     expectRedacted(plain, files.get('compare-share.html') ?? '');
+
+    // --share-json --redact prints that same redacted payload.
+    await runShare('compare-redacted-json', ['compare', '--by-repo', '--redact'], undefined, [
+      '--share-json',
+    ]);
+    expect(JSON.parse(stdout)).toEqual(readSharePayload(files.get('compare-share.html') ?? ''));
   });
 
   it('trends --by-repo --share --redact leaves out the project names its lead shows', async () => {

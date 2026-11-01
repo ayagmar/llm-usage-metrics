@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   prepareReport,
   runPreparedReport,
+  validateTableDisplayFlags,
 } from '../../../src/cli/report-runtime/report-lifecycle.js';
 import { RuntimeProfileCollector } from '../../../src/cli/runtime-profile.js';
 import * as shareArtifact from '../../../src/cli/share-artifact.js';
@@ -306,24 +307,62 @@ describe('report-lifecycle', () => {
     ).rejects.toThrow(flag);
   });
 
-  it('builds the share report for --share-json --redact', async () => {
-    const buildShare = vi.fn(async () => ({
-      fileName: 'usage-share.html',
-      logLabel: 'usage',
-      render: () => '',
-      renderJson: () => '{}',
-    }));
-    const preparedReport = await prepareReport({
-      commandOptions: { shareJson: true, redact: true },
-      supportedFormats: ['terminal'] as const,
-      buildData: async () => ({}),
-      getDiagnostics: () => ({}),
-      render: () => 'report body',
-      buildShare,
-    });
+  it('--share-json prints only the payload: no file, no report, no hints', async () => {
+    const writeSpy = vi.spyOn(shareArtifact, 'writeShareFile');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
-    expect(buildShare).toHaveBeenCalledTimes(1);
-    expect(preparedReport.printShareJson).toBe(true);
+    try {
+      const preparedReport = await prepareReport({
+        commandOptions: { shareJson: true, redact: true },
+        supportedFormats: ['terminal'] as const,
+        buildData: async () => ({}),
+        getDiagnostics: () => ({}),
+        render: () => ({ output: 'report body', hintsAfterOutput: ['a hint'] }),
+        buildShare: async () => ({
+          fileName: 'usage-share.html',
+          logLabel: 'usage',
+          render: () => '<!doctype html>',
+          renderJson: () => '{"report":"share"}',
+        }),
+      });
+
+      await runPreparedReport({ preparedReport });
+
+      expect(consoleLogSpy.mock.calls).toEqual([['{"report":"share"}']]);
+      expect(writeSpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy.mock.calls.map((call) => String(call[0])).join('\n')).not.toContain(
+        'a hint',
+      );
+    } finally {
+      writeSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
+  });
+
+  it('rejects --share-json on a command without a share report, before reading data', async () => {
+    const buildData = vi.fn(async () => ({}));
+
+    await expect(
+      prepareReport({
+        commandOptions: { shareJson: true },
+        supportedFormats: ['terminal'] as const,
+        buildData,
+        getDiagnostics: () => ({}),
+        render: () => 'report body',
+      }),
+    ).rejects.toThrow('--share-json is not supported for this command');
+    expect(buildData).not.toHaveBeenCalled();
+  });
+
+  it('rejects --compact with --share-json and keeps --no-cost', () => {
+    expect(() => {
+      validateTableDisplayFlags({ compact: true, shareJson: true }, 'tables');
+    }).toThrow('drop it with --share-json');
+    expect(() => {
+      validateTableDisplayFlags({ cost: false, shareJson: true }, 'tables');
+    }).not.toThrow();
   });
 
   it('rejects --redact without --share', async () => {
