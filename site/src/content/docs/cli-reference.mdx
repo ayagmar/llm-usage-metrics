@@ -127,9 +127,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --all                          No effect: the summary always covers today, the
                                  last 7 days and month to date
   --repo <project>               Count only these projects (repeatable or
@@ -340,9 +343,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --all                          Report every day instead of the last 7 days
   --last <n>                     Report the last N days, counting today
   --compact                      Abbreviate token counts and hide the Reasoning
@@ -457,9 +463,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --all                          Report every week instead of the last 8 weeks
   --last <n>                     Report the last N weeks, counting the current
                                  week
@@ -574,9 +583,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --all                          Report the full history (the default without
                                  date flags)
   --last <n>                     Report the last N months, counting the current
@@ -796,9 +808,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --vs-since <date>              Inclusive start date for the baseline
                                  comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison
@@ -910,9 +925,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
@@ -1023,9 +1041,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --candidate-model <name>       Candidate model for counterfactual pricing
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
@@ -1131,9 +1152,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --last <n>                     Chart the last N local calendar days, counting
                                  today; defaults to 30 when no date flags are
                                  provided
@@ -1748,9 +1772,12 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N,
-                                 machines machine-N and local or path-shaped
-                                 models model-N
+  --share-json                   Print the share report's data to stdout as JSON
+                                 (see llm-usage schema share) instead of writing
+                                 the file
+  --redact                       With --share or --share-json, label projects
+                                 project-N, machines machine-N and local or
+                                 path-shaped models model-N
   --year <YYYY>                  Year to recap (2020-2100; defaults to current
                                  local year)
   --all                          No effect: wrapped always recaps one year,
@@ -2357,11 +2384,12 @@ Search across root and command help. See Command help above to check which flags
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, pricing, doctor, prune, machine only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
-| `--redact` | - | - | With --share, label projects project-N, machines machine-N and local or path-shaped models model-N \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--redact` | - | - | With --share or --share-json, label projects project-N, machines machine-N and local or path-shaped models model-N \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, context, blocks, value: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes; tools: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Keeps the tool calls of sessions whose usage is in these projects; events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching. Here a project is the directory each event recorded, which events exports as repoRoot |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--share` | - | - | Write an interactive HTML report to the current directory \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--share-json` | - | - | Print the share report's data to stdout as JSON \(see llm-usage schema share\) instead of writing the file \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, events only\) |
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(17\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, dsh\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |

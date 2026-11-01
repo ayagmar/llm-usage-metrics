@@ -1,5 +1,5 @@
 import { listShareSizeWarnings } from '../share-report/build-share-payload.js';
-import { renderShareHtml } from '../share-report/render-share-html.js';
+import { renderShareHtml, serializeShareEnvelope } from '../share-report/render-share-html.js';
 import type {
   ShareDateRange,
   ShareEmbeddedEnvelope,
@@ -85,6 +85,14 @@ export async function buildShareReportArtifact(
       }
 
       return html;
+    },
+    // Compact, as the file embeds it: indenting the cube's number arrays triples the size.
+    renderJson: () => {
+      for (const warning of listShareSizeWarnings({ hourlyFrom: data.meta.hourlyFrom })) {
+        logger.warn(warning);
+      }
+
+      return serializeShareEnvelope(data);
     },
   };
 }

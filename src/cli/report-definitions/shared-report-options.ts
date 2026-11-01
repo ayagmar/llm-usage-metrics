@@ -553,8 +553,12 @@ export function registerSharedReportOptions(
       .option('--share', 'Write an interactive HTML report to the current directory')
       .option('--no-open', 'With --share, write the report without opening it')
       .option(
+        '--share-json',
+        "Print the share report's data to stdout as JSON (see llm-usage schema share) instead of writing the file",
+      )
+      .option(
         '--redact',
-        'With --share, label projects project-N, machines machine-N and local or path-shaped models model-N',
+        'With --share or --share-json, label projects project-N, machines machine-N and local or path-shaped models model-N',
       );
   }
 

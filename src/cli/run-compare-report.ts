@@ -27,7 +27,8 @@ async function prepareCompareReport(
     buildData: () => buildCompareData(options, deps),
     getDiagnostics: (compareData) => ({
       ...compareData.diagnostics,
-      limitNote: compareData.limitNote,
+      // The note describes the printed table, which --share-json leaves out.
+      limitNote: options.shareJson ? undefined : compareData.limitNote,
     }),
     runtimeProfile: deps.runtimeProfile,
     buildShare: async (compareData, { runtimeProfile }) => {

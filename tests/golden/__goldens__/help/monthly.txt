@@ -40,8 +40,10 @@ Options:
                                  (terminal/markdown)
   --share                        Write an interactive HTML report to the current directory
   --no-open                      With --share, write the report without opening it
-  --redact                       With --share, label projects project-N, machines machine-N and
-                                 local or path-shaped models model-N
+  --share-json                   Print the share report's data to stdout as JSON (see llm-usage
+                                 schema share) instead of writing the file
+  --redact                       With --share or --share-json, label projects project-N, machines
+                                 machine-N and local or path-shaped models model-N
   --all                          Report the full history (the default without date flags)
   --last <n>                     Report the last N months, counting the current month
   --compact                      Abbreviate token counts and hide the Reasoning and Cache Write

@@ -115,9 +115,11 @@ type SyncOption = {
 
 type ShareOption = {
   share?: boolean;
+  /** --share-json: print the share report's payload as JSON instead of writing the file. */
+  shareJson?: boolean;
   /** False with --no-open: write the share report without opening it. */
   open?: boolean;
-  /** With --share: replace project and machine names in the report. */
+  /** With --share or --share-json: replace project and machine names in the report. */
   redact?: boolean;
 };
 

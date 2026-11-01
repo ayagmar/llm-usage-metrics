@@ -38,8 +38,10 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write an interactive HTML report to the current directory
   --no-open                      With --share, write the report without opening it
-  --redact                       With --share, label projects project-N, machines machine-N and
-                                 local or path-shaped models model-N
+  --share-json                   Print the share report's data to stdout as JSON (see llm-usage
+                                 schema share) instead of writing the file
+  --redact                       With --share or --share-json, label projects project-N, machines
+                                 machine-N and local or path-shaped models model-N
   --vs-since <date>              Inclusive start date for the baseline comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison window
   --by-repo                      Also compare each project (the directory its session started in)

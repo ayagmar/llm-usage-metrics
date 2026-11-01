@@ -661,12 +661,12 @@ export function buildSharePayload(input: SharePayloadInput): SharePayload {
 }
 
 /**
- * What stderr says about a written share file's size: where hourly detail starts when older
- * cells rolled up to days, and the size when the file is still over the target.
+ * What stderr says about a share report's size: where hourly detail starts when older cells
+ * rolled up to days, and, for a written file, its size when still over the target.
  */
 export function listShareSizeWarnings(file: {
   hourlyFrom: string | null;
-  htmlBytes: number;
+  htmlBytes?: number;
 }): string[] {
   const warnings: string[] = [];
 
@@ -676,7 +676,7 @@ export function listShareSizeWarnings(file: {
     );
   }
 
-  if (file.htmlBytes > SHARE_HTML_TARGET_BYTES) {
+  if (file.htmlBytes !== undefined && file.htmlBytes > SHARE_HTML_TARGET_BYTES) {
     const toMegabytes = (bytes: number) => bytes / 1_000_000;
     warnings.push(
       `Share report: the file is ${toMegabytes(file.htmlBytes).toFixed(1)} MB, over the ${String(toMegabytes(SHARE_HTML_TARGET_BYTES))} MB target; a shorter window or narrower filters make it smaller.`,
