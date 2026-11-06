@@ -274,7 +274,7 @@ Terminal, JSON, and Markdown availability varies by report. Summary, usage, comp
 
 ## Library
 
-The parsers behind the CLI are a separate package, `@ayagmar/agent-sessions`, for Node.js scripts and tools that want the same events without pricing, the ledger or reports. It reads all 17 sources into one event shape (token usage, and for Claude Code, codex and pi also messages, tool calls and session facts), has no runtime dependencies, and never touches the network. It is not on npm yet. See the [library docs](https://ayagmar.github.io/llm-usage-metrics/library/) for how to build it from this repository and use it.
+The parsers behind the CLI are a separate package, `@ayagmar/agent-sessions`, for Node.js scripts and tools that want the same events without pricing, the ledger or reports. It reads all 17 sources into one event shape (token usage, and for Claude Code, codex and pi also messages, tool calls and session facts), has no runtime dependencies, and never touches the network. Install it with `npm install @ayagmar/agent-sessions`; the [library docs](https://ayagmar.github.io/llm-usage-metrics/library/) show how to use it.
 
 ## Performance
 
