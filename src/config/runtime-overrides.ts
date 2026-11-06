@@ -1,6 +1,7 @@
 import { availableParallelism } from 'node:os';
 
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
+import { parseBooleanToken } from '../utils/env-flags.js';
 import type { UserConfig } from './user-config.js';
 
 const MINUTE_MS = 60_000;
@@ -60,28 +61,6 @@ function resolveBoundedInteger(
   }
 
   return parsedValue;
-}
-
-function parseBooleanToken(envValue: string | undefined): boolean | undefined {
-  if (envValue === undefined) {
-    return undefined;
-  }
-
-  const normalizedValue = envValue.trim().toLowerCase();
-
-  if (normalizedValue.length === 0) {
-    return undefined;
-  }
-
-  if (['1', 'true', 'yes', 'on'].includes(normalizedValue)) {
-    return true;
-  }
-
-  if (['0', 'false', 'no', 'off'].includes(normalizedValue)) {
-    return false;
-  }
-
-  return undefined;
 }
 
 function resolveBoolean(envValue: string | undefined, fallback: boolean): boolean {

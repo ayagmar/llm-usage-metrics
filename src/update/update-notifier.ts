@@ -9,6 +9,7 @@ import {
   resolveLatestVersion,
   type ResolveLatestVersionOptions,
 } from './update-cache-repository.js';
+import { isTruthyEnvFlag } from '../utils/env-flags.js';
 import { shouldOfferUpdate } from './version-utils.js';
 
 export {
@@ -57,20 +58,6 @@ export type UpdateNotifierOptions = {
   argv?: string[];
   startBackgroundRefresh?: (request: BackgroundRefreshRequest) => void;
 };
-
-function isTruthyEnvFlag(value: string | undefined): boolean {
-  if (value === undefined) {
-    return false;
-  }
-
-  const normalizedValue = value.trim().toLowerCase();
-
-  if (normalizedValue.length === 0) {
-    return false;
-  }
-
-  return ['1', 'true', 'yes', 'on'].includes(normalizedValue);
-}
 
 export function shouldSkipUpdateCheckForArgv(argv: string[]): boolean {
   const executableArgs = argv.slice(2);
