@@ -1,10 +1,11 @@
 import path from 'node:path';
 
 import { readEnvPath, type SourceContext } from '../source-context.js';
-
-function deduplicate(paths: string[]): string[] {
-  return [...new Set(paths)];
-}
+import {
+  deduplicatePaths,
+  resolveWindowsRoamingBase,
+  resolveXdgDataHome,
+} from '../sqlite/sqlite-db-source.js';
 
 function getGooseDbPath(rootDir: string): string {
   return path.join(rootDir, 'goose', 'sessions', 'sessions.db');
@@ -12,8 +13,7 @@ function getGooseDbPath(rootDir: string): string {
 
 function getLinuxLikeCandidates(context: SourceContext): string[] {
   const { homeDir } = context;
-  const xdgDataHome =
-    readEnvPath(context, 'XDG_DATA_HOME') ?? path.join(homeDir, '.local', 'share');
+  const xdgDataHome = resolveXdgDataHome(context);
 
   return [
     getGooseDbPath(xdgDataHome),
@@ -30,11 +30,7 @@ function getMacOsCandidates(homeDir: string): string[] {
 
 function getWindowsCandidates(context: SourceContext): string[] {
   const { homeDir } = context;
-  const userProfile = readEnvPath(context, 'USERPROFILE');
-  const roamingBase =
-    readEnvPath(context, 'APPDATA') ??
-    readEnvPath(context, 'LOCALAPPDATA') ??
-    (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : undefined);
+  const roamingBase = resolveWindowsRoamingBase(context);
   const roamingCandidates = roamingBase ? [getGooseDbPath(roamingBase)] : [];
 
   return [
@@ -51,10 +47,10 @@ export function getDefaultGooseDbPathCandidates(context: SourceContext): string[
 
   switch (context.platform) {
     case 'win32':
-      return deduplicate([...envCandidates, ...getWindowsCandidates(context)]);
+      return deduplicatePaths([...envCandidates, ...getWindowsCandidates(context)]);
     case 'darwin':
-      return deduplicate([...envCandidates, ...getMacOsCandidates(context.homeDir)]);
+      return deduplicatePaths([...envCandidates, ...getMacOsCandidates(context.homeDir)]);
     default:
-      return deduplicate([...envCandidates, ...getLinuxLikeCandidates(context)]);
+      return deduplicatePaths([...envCandidates, ...getLinuxLikeCandidates(context)]);
   }
 }
