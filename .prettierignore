@@ -2,7 +2,6 @@ dist
 coverage
 node_modules
 site
-docs/ai
 .claude
 CHANGELOG.md
 pnpm-lock.yaml
