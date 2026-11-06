@@ -79,4 +79,17 @@ llm-usage config show
 llm-usage prune --suppressed
 ```
 
+## Machines and shell setup
+
+```bash
+# Add another machine, then fetch its usage now
+llm-usage machine add laptop
+llm-usage sync
+
+# Tab completion for bash, zsh or fish
+source <(llm-usage completion bash)
+```
+
+Once a machine is added, the reports above include its usage; `--machine` narrows a report to some machines. See [Multiple machines](/llm-usage-metrics/machines/). `llm-usage completion <shell>` prints a completion script for `bash`, `zsh` or `fish`; [Getting started](/llm-usage-metrics/getting-started/) shows where to put it.
+
 Use [Doctor](/llm-usage-metrics/doctor/) when data is missing, [Configuration](/llm-usage-metrics/configuration/) to save defaults, and [Caching and history](/llm-usage-metrics/caching/) to understand the event ledger. `prune` is a dry run unless you pass `--apply`; applying age-based pruning permanently removes selected retained history.

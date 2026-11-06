@@ -23,24 +23,13 @@ llm-usage config init
 
 ## Pick the report by question
 
-Use the [report chooser](/llm-usage-metrics/reports/) for commands, defaults, and links to each guide.
+The [report chooser](/llm-usage-metrics/reports/) maps each question to a command, its default window and its guide. A few starting points:
 
-| Question                                                  | Command                                |
-| --------------------------------------------------------- | -------------------------------------- |
-| How many tokens and dollars did I use?                    | `daily`, `weekly`, `monthly`, `hourly` |
-| Which projects cost the most?                             | `projects`                             |
-| How did this period change from the last one?             | `compare`                              |
-| Which conversations used the most?                        | `session`                              |
-| How is usage moving day by day?                           | `trends`                               |
-| How is usage spread over 5-hour subscription windows?     | `blocks`                               |
-| Is my subscription worth its price at API rates?          | `value`                                |
-| How does repo-attributed usage line up with Git activity? | `efficiency`                           |
-| What would the same token mix cost on another model?      | `optimize`                             |
-| How did the year add up?                                  | `wrapped`                              |
-| How does a model name get its price?                      | `pricing <model...>`                   |
-| What goes in my status bar?                               | `statusline`                           |
-| Which sources can the CLI see?                            | `doctor`                               |
-| Which departed files can I remove from the event ledger?  | `prune`                                |
+- `llm-usage daily`, `weekly` and `monthly` for tokens and cost over time.
+- `llm-usage projects` and `llm-usage session` for what cost the most.
+- `llm-usage tools` and `llm-usage context` for what your agents did and how large their prompts grew.
+- `llm-usage compare` and `llm-usage trends` for how usage changes between periods.
+- `llm-usage doctor` when a source shows no data.
 
 Add `--share` to `summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `wrapped`, `efficiency` or `optimize` to write an [interactive HTML report](/llm-usage-metrics/share/) you can filter by source, model, project and machine.
 
