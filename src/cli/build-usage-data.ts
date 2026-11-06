@@ -195,6 +195,38 @@ export async function resolveUsageDataRequest(
 }
 
 /**
+ * `resolveUsageDataRequest` for a report that reads its window back: without date flags, the
+ * last 7 days, as `daily` reports them. Validates the dates and the timezone.
+ */
+export async function resolveDailyWindowRequest(
+  options: ReportCommandOptions,
+  deps: BuildUsageDataDeps,
+) {
+  const { defaultWindowSince, ...windowRequest } = await resolveUsageDataRequest(
+    'daily',
+    options,
+    deps,
+  );
+  const userConfigResolution = await resolveUserConfigForOptions(
+    windowRequest.options,
+    windowRequest.deps,
+  );
+  const configuredOptions = userConfigResolution.options;
+  const { timezone } = normalizeBuildUsageInputs(
+    configuredOptions,
+    userConfigResolution.cliOptions,
+  );
+
+  return {
+    defaultWindowSince,
+    userConfigResolution,
+    configuredOptions,
+    window: { since: configuredOptions.since, until: configuredOptions.until },
+    timezone,
+  };
+}
+
+/**
  * `--last N` periods on a report that has no default window: full history without it.
  * Keeps the caller's own options and deps.
  */
