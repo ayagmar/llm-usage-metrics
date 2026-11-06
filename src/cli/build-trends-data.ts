@@ -9,7 +9,7 @@ import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-se
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { resolveReportTimezone, validateDateInput } from './build-usage-data-inputs.js';
+import { resolveReportTimezone, validateDateRangeOptions } from './build-usage-data-inputs.js';
 import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
@@ -159,17 +159,7 @@ function resolveTrendsOptions(
     throw new Error('--all cannot be combined with --since or --until');
   }
 
-  if (options.since) {
-    validateDateInput(options.since, '--since');
-  }
-
-  if (options.until) {
-    validateDateInput(options.until, '--until');
-  }
-
-  if (options.since && options.until && options.since > options.until) {
-    throw new Error('--since must be less than or equal to --until');
-  }
+  validateDateRangeOptions(options);
 
   const metric = resolveMetric(options.metric);
   const days = parseLastOption(daysValue, daysFlag);
