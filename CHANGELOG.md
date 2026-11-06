@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.14.3](https://github.com/ayagmar/llm-usage-metrics/compare/v0.14.2...v0.14.3) (2026-11-06)
+
+### Bug Fixes
+
+* **core:** import the shared retry helpers in the pricing fetcher ([d1ce9c3](https://github.com/ayagmar/llm-usage-metrics/commit/d1ce9c390494f0616fff0942302e65434f36b879))
+* **statusline:** key relative path variables and the price cache, release the lock once ([e05a301](https://github.com/ayagmar/llm-usage-metrics/commit/e05a301514b5d5e7f94f43a730eb220978dc64f1))
+* **statusline:** key the stored line on every input and reuse it after waiting ([8502b03](https://github.com/ayagmar/llm-usage-metrics/commit/8502b035a36f46a28744706a36241aa96bf9de99))
+* **statusline:** share a built line across ticks instead of warming up ([4cea7b5](https://github.com/ayagmar/llm-usage-metrics/commit/4cea7b5a65a9b8b9d4116abe41e02d5cd14a4ac9))
+* **statusline:** store a digest of the line's inputs, not the config ([c921761](https://github.com/ayagmar/llm-usage-metrics/commit/c921761eaa2039605fd7154c005e34f3a492633c))
+
 ## [0.14.2](https://github.com/ayagmar/llm-usage-metrics/compare/v0.14.1...v0.14.2) (2026-11-01)
 
 ### Features
