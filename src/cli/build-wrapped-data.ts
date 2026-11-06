@@ -1,7 +1,7 @@
 import { estimateCacheSavingsUsd } from '@ayagmar/agent-sessions/internal';
 import { aggregateWrapped, getYearDateRange } from '../wrapped/aggregate-wrapped.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveReportTimezone } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
@@ -70,7 +70,7 @@ export async function buildWrappedData(
       }),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
+  const { pricedEvents, pricingSource } = pricingResult;
   const recap = measureRuntimeProfileStageSync(deps.runtimeProfile, 'wrapped.aggregate', () =>
     aggregateWrapped(pricedEvents, {
       year,
@@ -83,18 +83,10 @@ export async function buildWrappedData(
   recap.estimatedCacheSavingsUsd = pricingSource
     ? estimateCacheSavingsUsd(pricedEvents, pricingSource, pricingResult.pricingPolicy)
     : undefined;
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     notes: withPricingNotes(dataset.notes, pricedEvents, pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   return {

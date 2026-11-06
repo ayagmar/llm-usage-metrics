@@ -44,7 +44,7 @@ export type AggregateUsageOptions = {
  * where a project's cost is incomplete is ranked by tokens, so an unpriced project is not
  * folded as if it cost nothing.
  */
-export type ProjectLimit = { count: number; rankedBy: 'cost' | 'tokens' };
+type ProjectLimit = { count: number; rankedBy: 'cost' | 'tokens' };
 
 /** What a row groups by, taken from its first event. */
 type RowGroup = {

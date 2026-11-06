@@ -42,7 +42,7 @@ export type RenderSessionReportOptions = {
 
 export type RenderedSessionReport = RenderedReportWithNotes;
 
-export const MODELS_COLUMN_WIDTH = 32;
+const MODELS_COLUMN_WIDTH = 32;
 
 const sessionTableHeaders = [
   'Session',

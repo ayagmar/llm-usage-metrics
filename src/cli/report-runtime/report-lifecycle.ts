@@ -33,7 +33,7 @@ type OutputFlagOptions = {
 };
 
 /** What a share builder gets besides the report data. */
-export type ShareBuildContext = {
+type ShareBuildContext = {
   runtimeProfile?: RuntimeProfileCollector;
 };
 

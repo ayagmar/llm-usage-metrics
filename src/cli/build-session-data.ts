@@ -5,7 +5,7 @@ import type { SessionRow } from '../session/session-row.js';
 import { buildSessionTimeline } from '../session/session-timeline.js';
 import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
 import { getPeriodKey } from '../utils/time-buckets.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import {
   addSessionDetails,
@@ -129,7 +129,7 @@ export async function buildSessionData(
     () => buildUsageEventDataset(options, deps),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
   // From every event, as `projects` labels them, so a label does not depend on --top or --id.
   const projectLabels = buildEventProjectLabels(pricedEvents);
   // Only the shown rows carry `~`, so only their events explain it.
@@ -137,18 +137,11 @@ export async function buildSessionData(
     shownEvents: UsageEvent[],
     live: { warnings: string[]; notes: string[] } = { warnings: [], notes: [] },
   ) =>
-    buildUsageDiagnostics({
-      adaptersToParse: dataset.adaptersToParse,
-      successfulParseResults: dataset.successfulParseResults,
-      sourceFailures: dataset.sourceFailures,
-      pricingOrigin,
-      pricingWarning,
+    buildDatasetDiagnostics(dataset, {
+      pricing: pricingResult,
       warnings: [...dataset.warnings, ...live.warnings],
       notes: [...withPricingNotes(dataset.notes, shownEvents, pricingResult), ...live.notes],
-      activeEnvOverrides: dataset.readEnvVarOverrides(),
-      activeConfig: dataset.activeConfig,
-      timezone: dataset.normalizedInputs.timezone,
-      runtimeProfile: deps.runtimeProfile?.snapshot(),
+      runtimeProfile: deps.runtimeProfile,
     });
 
   if (options.byRepo) {

@@ -16,6 +16,7 @@ description: What llm-usage-metrics reads, what it stores and where, and every n
 | What | Where (Linux default) | Contents |
 | --- | --- | --- |
 | Event ledger | `~/.local/share/llm-usage-metrics/events.db` | One row per usage event: source, log file path, session ID, timestamp, model, provider, recorded working directory, token counts, and cost. |
+| Status line | `~/.local/share/llm-usage-metrics/events.db.statusline.json` | The last line's totals: cost and tokens for today and month to date, the current streak and the month-end figures, with its build time, local day and time zone, and a hash of the settings it was built with. |
 | Pricing cache | `~/.cache/llm-usage-metrics/litellm-pricing-cache.json` | Model prices downloaded from LiteLLM. |
 | Update-check cache | `~/.cache/llm-usage-metrics/update-check.json` | The latest published version number. `update-check.json.refresh-attempt` beside it holds the time of the last background refresh. |
 | Config | `~/.config/llm-usage-metrics/config.toml` | Only what you write there. |

@@ -39,7 +39,8 @@ const reports = [
     name: 'Projects',
     command: 'projects',
     question: 'Which project costs the most?',
-    detail: 'Every project in your history, costliest first, with its models and active days.',
+    detail:
+      'Your 10 costliest projects, costliest first, with their models and active days. Pass --top 0 for all.',
     slug: 'projects',
   },
   {
@@ -84,6 +85,28 @@ const reports = [
     detail:
       'Today, your streak, and the month in Claude Code, tmux, or starship, plus the session cost in Claude Code.',
     slug: 'statusline',
+  },
+  {
+    name: 'Efficiency',
+    command: 'efficiency monthly',
+    question: 'Does usage line up with your commits?',
+    detail: 'Tokens and cost next to the commits and lines changed in one repository.',
+    slug: 'efficiency',
+  },
+  {
+    name: 'Optimize',
+    command: 'optimize monthly --candidate-model gpt-4.1',
+    question: 'What would this cost on another model?',
+    detail: 'Your observed token mix priced against candidate models, without running them.',
+    slug: 'optimize',
+  },
+  {
+    name: 'Tools',
+    command: 'tools',
+    question: 'Which tools do my agents call?',
+    detail:
+      'Calls, errors, error rate, and sessions per tool, from Claude, Codex, and pi sessions.',
+    slug: 'tools',
   },
 ];
 const machineRows = [
@@ -404,8 +427,8 @@ const machineRows = [
           ))}
         </div>
         <p class="more-reports">
-          Does usage line up with your commits? <a href={link('efficiency')}>Check efficiency</a>.
-          Want a year in review? <a href={link('wrapped')}>Try Wrapped</a>. Need individual events?{' '}
+          Want a year in review? <a href={link('wrapped')}>Try Wrapped</a>. Prompts growing too
+          large? <a href={link('context')}>See peak prompt sizes</a>. Need individual events?{' '}
           <a href={link('events')}>Export JSONL or CSV</a>.
         </p>
       </section>

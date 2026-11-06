@@ -1,7 +1,12 @@
 import path from 'node:path';
 import { setTimeout as sleepTimer } from 'node:timers/promises';
 
-import { asRecord } from '@ayagmar/agent-sessions/internal';
+import {
+  asRecord,
+  isRetryableFetchFailure,
+  isRetryableHttpStatus,
+  RetryableFetchError,
+} from '@ayagmar/agent-sessions/internal';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
 import { parseVersion } from './version-utils.js';
@@ -11,8 +16,8 @@ const DEFAULT_UPDATE_CHECK_FETCH_TIMEOUT_MS = 1000;
 const DEFAULT_FETCH_RETRY_COUNT = 2;
 const DEFAULT_FETCH_RETRY_DELAY_MS = 200;
 
-export const UPDATE_CHECK_CACHE_SCOPE_ENV_VAR = 'LLM_USAGE_UPDATE_CACHE_SCOPE';
-export const UPDATE_CHECK_CACHE_SESSION_KEY_ENV_VAR = 'LLM_USAGE_UPDATE_CACHE_SESSION_KEY';
+const UPDATE_CHECK_CACHE_SCOPE_ENV_VAR = 'LLM_USAGE_UPDATE_CACHE_SCOPE';
+const UPDATE_CHECK_CACHE_SESSION_KEY_ENV_VAR = 'LLM_USAGE_UPDATE_CACHE_SESSION_KEY';
 
 export type UpdateCheckCachePayload = {
   checkedAt: number;
@@ -31,37 +36,6 @@ export type ResolveLatestVersionOptions = {
   signal?: AbortSignal;
   sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>;
 };
-
-class RetryableFetchError extends Error {
-  public constructor(message: string) {
-    super(message);
-    this.name = 'RetryableFetchError';
-  }
-}
-
-function isRetryableHttpStatus(status: number): boolean {
-  return [408, 425, 429, 500, 502, 503, 504].includes(status);
-}
-
-function isRetryableFetchFailure(error: unknown): boolean {
-  if (error instanceof RetryableFetchError) {
-    return true;
-  }
-
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-    return true;
-  }
-
-  if (error instanceof TypeError) {
-    return true;
-  }
-
-  return /timeout|timed out|network|econn|enotfound|eai_again/iu.test(error.message);
-}
 
 async function sleep(delayMs: number, signal?: AbortSignal): Promise<void> {
   await sleepTimer(delayMs, undefined, { signal });

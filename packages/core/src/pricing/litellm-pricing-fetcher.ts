@@ -3,6 +3,11 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { asRecord } from '../utils/as-record.js';
+import {
+  isRetryableFetchFailure,
+  isRetryableHttpStatus,
+  RetryableFetchError,
+} from '../utils/fetch-retry.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
 import { normalizeKey } from './litellm-model-matching.js';
 import { PricingTable, toNonNegativeNumber } from './pricing-table.js';
@@ -64,37 +69,6 @@ export type LiteLLMPricingFetcherOptions = {
   now?: () => number;
   sleep?: (delayMs: number) => Promise<void>;
 };
-
-class RetryableLiteLLMFetchError extends Error {
-  public constructor(message: string) {
-    super(message);
-    this.name = 'RetryableLiteLLMFetchError';
-  }
-}
-
-function isRetryableHttpStatus(status: number): boolean {
-  return [408, 425, 429, 500, 502, 503, 504].includes(status);
-}
-
-function isRetryableFetchFailure(error: unknown): boolean {
-  if (error instanceof RetryableLiteLLMFetchError) {
-    return true;
-  }
-
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-    return true;
-  }
-
-  if (error instanceof TypeError) {
-    return true;
-  }
-
-  return /timeout|timed out|network|econn|enotfound|eai_again/iu.test(error.message);
-}
 
 type TierRateField = Exclude<keyof PricingTier, 'aboveTokens'>;
 
@@ -637,7 +611,7 @@ async function fetchPricingResponse(request: LiteLLMPricingRequest): Promise<Res
 
   if (!response.ok) {
     if (isRetryableHttpStatus(response.status)) {
-      throw new RetryableLiteLLMFetchError(
+      throw new RetryableFetchError(
         `Retryable LiteLLM pricing response status: HTTP ${response.status}`,
       );
     }

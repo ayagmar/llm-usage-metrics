@@ -128,7 +128,7 @@ export function toComparableProjectKey(key: string): string {
 }
 
 /** Whether a key is a Windows path (see `toComparableProjectKey`). */
-export function isWindowsProjectKey(key: string): boolean {
+function isWindowsProjectKey(key: string): boolean {
   return WINDOWS_KEY_PATTERN.test(key);
 }
 

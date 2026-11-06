@@ -2,16 +2,17 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
-import { readEnvPath, type SourceContext } from '../source-context.js';
+import type { SourceContext } from '../source-context.js';
+import {
+  deduplicatePaths,
+  resolveWindowsRoamingBase,
+  resolveXdgDataHome,
+} from '../sqlite/sqlite-db-source.js';
 
 const CHANNEL_DB_FILE_PATTERN = /^opencode-.+\.db$/u;
 // The pre-release V2 database. OpenCode 2 imports it into opencode.db, so reading it too
 // would count its sessions twice.
 const PRE_RELEASE_V2_DB_FILE_NAME = 'opencode-next.db';
-
-function deduplicate(paths: string[]): string[] {
-  return [...new Set(paths)];
-}
 
 function listChannelDbFileNames(directory: string): string[] {
   let fileNames: string[];
@@ -41,8 +42,7 @@ function getDirectoryCandidates(directory: string): string[] {
 
 function getLinuxLikeCandidates(context: SourceContext): string[] {
   const { homeDir } = context;
-  const xdgDataHome =
-    readEnvPath(context, 'XDG_DATA_HOME') ?? path.join(homeDir, '.local', 'share');
+  const xdgDataHome = resolveXdgDataHome(context);
 
   return [
     ...getDirectoryCandidates(path.join(xdgDataHome, 'opencode')),
@@ -61,11 +61,7 @@ function getMacOsCandidates(homeDir: string): string[] {
 
 function getWindowsCandidates(context: SourceContext): string[] {
   const { homeDir } = context;
-  const userProfile = readEnvPath(context, 'USERPROFILE');
-  const roamingBase =
-    readEnvPath(context, 'APPDATA') ??
-    readEnvPath(context, 'LOCALAPPDATA') ??
-    (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : undefined);
+  const roamingBase = resolveWindowsRoamingBase(context);
 
   const roamingCandidates = roamingBase
     ? getDirectoryCandidates(path.join(roamingBase, 'opencode'))
@@ -77,10 +73,10 @@ function getWindowsCandidates(context: SourceContext): string[] {
 export function getDefaultOpenCodeDbPathCandidates(context: SourceContext): string[] {
   switch (context.platform) {
     case 'win32':
-      return deduplicate(getWindowsCandidates(context));
+      return deduplicatePaths(getWindowsCandidates(context));
     case 'darwin':
-      return deduplicate(getMacOsCandidates(context.homeDir));
+      return deduplicatePaths(getMacOsCandidates(context.homeDir));
     default:
-      return deduplicate(getLinuxLikeCandidates(context));
+      return deduplicatePaths(getLinuxLikeCandidates(context));
   }
 }

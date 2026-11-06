@@ -24,7 +24,7 @@ import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
 import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 /** A bar in the series chart, in SVG user units. */
-export type TrendBar = {
+type TrendBar = {
   x: number;
   y: number;
   width: number;

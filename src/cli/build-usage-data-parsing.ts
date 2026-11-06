@@ -66,7 +66,7 @@ export type AdapterParseResult = {
   skippedRowReasons: SourceSkippedRowReasonStat[];
 };
 
-export type DiscoveredSourceFile = {
+type DiscoveredSourceFile = {
   source: string;
   filePath: string;
 };

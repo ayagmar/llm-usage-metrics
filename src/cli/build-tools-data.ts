@@ -3,10 +3,8 @@ import { dedupeToolCalls } from '@ayagmar/agent-sessions';
 import { buildEventProjectLabels, toProjectLabel } from '../aggregate/project-key.js';
 import { mapSessionRepoRoots } from '../session/aggregate-sessions.js';
 import { aggregateTools, type ToolRow, type ToolTotals } from '../tools/aggregate-tools.js';
-import { resolveUserConfigForOptions } from './apply-user-config.js';
-import { resolveUsageDataRequest } from './build-usage-data.js';
-import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { resolveDailyWindowRequest } from './build-usage-data.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { buildUsageEventDataset } from './build-usage-event-dataset.js';
 import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import {
@@ -29,7 +27,7 @@ export type ToolsReportRow = ToolRow & {
   topProject: string;
 };
 
-export type ToolsReportData = {
+type ToolsReportData = {
   timezone: string;
   /** First day of the window (YYYY-MM-DD); null for the full history. */
   since: string | null;
@@ -57,19 +55,8 @@ export async function buildToolsData(
   deps: BuildUsageDataDeps = {},
 ): Promise<ToolsDataResult> {
   const top = parseTopRowsOption(options.top);
-  // Without date flags, the last 7 days, as `daily` reports them.
-  const windowRequest = await resolveUsageDataRequest('daily', options, deps);
-  const userConfigResolution = await resolveUserConfigForOptions(
-    windowRequest.options,
-    windowRequest.deps,
-  );
-  const configuredOptions = userConfigResolution.options;
-  const window = { since: configuredOptions.since, until: configuredOptions.until };
-  // Validates the dates and the timezone before they are used here.
-  const { timezone } = normalizeBuildUsageInputs(
-    configuredOptions,
-    userConfigResolution.cliOptions,
-  );
+  const { defaultWindowSince, userConfigResolution, configuredOptions, window, timezone } =
+    await resolveDailyWindowRequest(options, deps);
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,
     since: window.since,
@@ -112,21 +99,12 @@ export async function buildToolsData(
       })),
       totals,
     },
-    diagnostics: buildUsageDiagnostics({
-      adaptersToParse: dataset.adaptersToParse,
-      successfulParseResults: dataset.successfulParseResults,
-      sourceFailures: dataset.sourceFailures,
-      pricingOrigin: 'none',
+    diagnostics: buildDatasetDiagnostics(dataset, {
       warnings: [...dataset.warnings, ...failedReads],
       notes: [...dataset.notes, formatLiveEventsNote('Tool calls', dataset)],
-      activeEnvOverrides: dataset.readEnvVarOverrides(),
-      activeConfig: dataset.activeConfig,
-      timezone,
-      runtimeProfile: deps.runtimeProfile?.snapshot(),
+      runtimeProfile: deps.runtimeProfile,
     }),
     limitNote: limited.limitNote,
-    ...(windowRequest.defaultWindowSince
-      ? { defaultWindowSince: windowRequest.defaultWindowSince }
-      : {}),
+    ...(defaultWindowSince ? { defaultWindowSince } : {}),
   };
 }

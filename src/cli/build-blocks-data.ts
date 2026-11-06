@@ -16,10 +16,9 @@ import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { formatInteger } from '../render/format-number.js';
 import { shiftDateKey } from '../utils/date-key.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
-import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
-import { resolveUsageDataRequest } from './build-usage-data.js';
-import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import type { UserConfigResolution } from './apply-user-config.js';
+import { resolveDailyWindowRequest } from './build-usage-data.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
@@ -37,7 +36,7 @@ import type {
 import { parseTopRowsOption } from './top-option.js';
 
 /** Days read before `since` to find where the chain of blocks running into it started. */
-export const BLOCKS_LOOKBACK_DAYS = 7;
+const BLOCKS_LOOKBACK_DAYS = 7;
 
 /** Blocks shown without --top: the most recent ones. */
 const DEFAULT_RECENT_BLOCKS = 20;
@@ -194,19 +193,8 @@ export async function buildBlocksData(
   deps: BuildUsageDataDeps = {},
 ): Promise<BlocksDataResult> {
   const top = parseTopRowsOption(options.top);
-  // Without date flags, the last 7 days, as `daily` reports them.
-  const windowRequest = await resolveUsageDataRequest('daily', options, deps);
-  const userConfigResolution = await resolveUserConfigForOptions(
-    windowRequest.options,
-    windowRequest.deps,
-  );
-  const configuredOptions = userConfigResolution.options;
-  const window = { since: configuredOptions.since, until: configuredOptions.until };
-  // Validates the dates and the timezone before they are used here.
-  const { timezone } = normalizeBuildUsageInputs(
-    configuredOptions,
-    userConfigResolution.cliOptions,
-  );
+  const { defaultWindowSince, userConfigResolution, configuredOptions, window, timezone } =
+    await resolveDailyWindowRequest(options, deps);
   const now = deps.now?.() ?? new Date();
   const today = getCurrentLocalDateKey(timezone, now);
   const hideCost = options.cost === false;
@@ -223,7 +211,7 @@ export async function buildBlocksData(
     hideCost ? 'none' : 'auto',
     { events },
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
 
   const blocks = measureRuntimeProfileStageSync(deps.runtimeProfile, 'blocks.aggregate', () =>
     aggregateBlocks(pricedEvents, {
@@ -256,20 +244,13 @@ export async function buildBlocksData(
       ? `Showing the ${String(DEFAULT_RECENT_BLOCKS)} most recent of ${formatInteger(rows.length)} blocks. Use --top N for the top N by ${rankedBy}, or --top 0 for all.`
       : undefined;
 
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     warnings: [...dataset.warnings, ...wholeStreams.warnings],
     notes: hideCost
       ? dataset.notes
       : withPricingNotes(dataset.notes, selectBlockEvents(pricedEvents, shownRows), pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   return {
@@ -286,8 +267,6 @@ export async function buildBlocksData(
     },
     diagnostics,
     ...(limitNote ? { limitNote } : {}),
-    ...(windowRequest.defaultWindowSince
-      ? { defaultWindowSince: windowRequest.defaultWindowSince }
-      : {}),
+    ...(defaultWindowSince ? { defaultWindowSince } : {}),
   };
 }

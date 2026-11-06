@@ -415,11 +415,7 @@ export async function openEventStore(
     await chmod(parentDirectory, 0o700);
   }
 
-  const sqliteModule = await loadSqliteModule();
-
-  if (!isEventStoreSqliteModule(sqliteModule)) {
-    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
-  }
+  const sqliteModule = await loadValidSqliteModule(loadSqliteModule);
 
   await copyLegacyEventStore(filePath, sqliteModule);
 
@@ -457,22 +453,42 @@ export async function openEventStore(
   }
 }
 
-export async function readEventStoreSummary(
-  filePath: string = getDefaultEventStorePath(),
-  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
-): Promise<EventStoreSummary> {
+async function loadValidSqliteModule(
+  loadSqliteModule: LoadEventStoreSqliteModule,
+): Promise<EventStoreSqliteModule> {
   const sqliteModule = await loadSqliteModule();
 
   if (!isEventStoreSqliteModule(sqliteModule)) {
     throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
   }
 
+  return sqliteModule;
+}
+
+/** Runs `read` on the store opened read-only and closes it. */
+async function withReadOnlyEventStore<T>(
+  filePath: string,
+  loadSqliteModule: LoadEventStoreSqliteModule,
+  read: (database: EventStoreDatabase) => T,
+): Promise<T> {
+  const sqliteModule = await loadValidSqliteModule(loadSqliteModule);
   const database = new sqliteModule.DatabaseSync(filePath, {
     readOnly: true,
     timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
   });
 
   try {
+    return read(database);
+  } finally {
+    database.close();
+  }
+}
+
+export async function readEventStoreSummary(
+  filePath: string = getDefaultEventStorePath(),
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<EventStoreSummary> {
+  return withReadOnlyEventStore(filePath, loadSqliteModule, (database) => {
     const schemaVersion = readSchemaVersion(database);
     const countRows = (tableName: 'events' | 'tool_calls' | 'messages'): number =>
       toNonNegativeInteger(
@@ -486,27 +502,14 @@ export async function readEventStoreSummary(
       messageCount: hasSessionEvents ? countRows('messages') : 0,
       schemaVersion,
     };
-  } finally {
-    database.close();
-  }
+  });
 }
 
 export async function readEventStoreStoredFiles(
   filePath: string = getDefaultEventStorePath(),
   loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
 ): Promise<EventStoreStoredFile[]> {
-  const sqliteModule = await loadSqliteModule();
-
-  if (!isEventStoreSqliteModule(sqliteModule)) {
-    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
-  }
-
-  const database = new sqliteModule.DatabaseSync(filePath, {
-    readOnly: true,
-    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
-  });
-
-  try {
+  return withReadOnlyEventStore(filePath, loadSqliteModule, (database) => {
     const rows = database
       .prepare(
         ['SELECT source, file_path', 'FROM files', 'ORDER BY source ASC, file_path ASC'].join('\n'),
@@ -526,9 +529,7 @@ export async function readEventStoreStoredFiles(
     }
 
     return files;
-  } finally {
-    database.close();
-  }
+  });
 }
 
 /** Every stored file with its raw fingerprint, in key order. */
@@ -582,22 +583,9 @@ export async function readEventStoreMetaValues(
   filePath: string,
   loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
 ): Promise<Map<string, string>> {
-  const sqliteModule = await loadSqliteModule();
-
-  if (!isEventStoreSqliteModule(sqliteModule)) {
-    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
-  }
-
-  const database = new sqliteModule.DatabaseSync(filePath, {
-    readOnly: true,
-    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
-  });
-
-  try {
+  return withReadOnlyEventStore(filePath, loadSqliteModule, (database) => {
     return readMetaValues(database);
-  } finally {
-    database.close();
-  }
+  });
 }
 
 function readMetaValues(database: EventStoreDatabase): Map<string, string> {
@@ -692,52 +680,42 @@ export async function readEventStoreEvents(
   window: { fromTimestamp?: string; toTimestamp?: string } = {},
   loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
 ): Promise<{ meta: Map<string, string>; events: UsageEvent[] }> {
-  const sqliteModule = await loadSqliteModule();
+  return withReadOnlyEventStore(filePath, loadSqliteModule, (database) => {
+    // One read transaction from the schema check to the last row: a migration another
+    // process commits meanwhile cannot change the tables the chosen query reads.
+    database.exec('BEGIN');
 
-  if (!isEventStoreSqliteModule(sqliteModule)) {
-    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
-  }
+    try {
+      assertSupportedSchemaVersion(database);
+      const meta = readMetaValues(database);
+      const schemaVersion = readSchemaVersion(database);
+      const fromTimestamp = window.fromTimestamp ?? '';
+      const toTimestamp = window.toTimestamp ?? '\uFFFF';
+      const wideWindow = isWideWindow(database, fromTimestamp, toTimestamp);
+      const statement = database.prepare(
+        hasSchemaVersion(schemaVersion, 5)
+          ? selectWindowEventsSql(wideWindow, hasEventIdColumns(database))
+          : selectPreV5WindowEventsSql(schemaVersion, wideWindow),
+      );
+      statement.setReturnArrays(true);
+      // StatementSync's return type does not narrow after setReturnArrays(true).
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      const rows = statement.all(fromTimestamp, toTimestamp) as unknown as StoredEventTuple[];
+      const events: UsageEvent[] = [];
 
-  const database = new sqliteModule.DatabaseSync(filePath, {
-    readOnly: true,
-    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
-  });
+      for (const row of rows) {
+        const event = normalizeStoredEventTuple(row);
 
-  // One read transaction from the schema check to the last row: a migration another
-  // process commits meanwhile cannot change the tables the chosen query reads.
-  database.exec('BEGIN');
-
-  try {
-    assertSupportedSchemaVersion(database);
-    const meta = readMetaValues(database);
-    const schemaVersion = readSchemaVersion(database);
-    const fromTimestamp = window.fromTimestamp ?? '';
-    const toTimestamp = window.toTimestamp ?? '\uFFFF';
-    const wideWindow = isWideWindow(database, fromTimestamp, toTimestamp);
-    const statement = database.prepare(
-      hasSchemaVersion(schemaVersion, 5)
-        ? selectWindowEventsSql(wideWindow, hasEventIdColumns(database))
-        : selectPreV5WindowEventsSql(schemaVersion, wideWindow),
-    );
-    statement.setReturnArrays(true);
-    // StatementSync's return type does not narrow after setReturnArrays(true).
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const rows = statement.all(fromTimestamp, toTimestamp) as unknown as StoredEventTuple[];
-    const events: UsageEvent[] = [];
-
-    for (const row of rows) {
-      const event = normalizeStoredEventTuple(row);
-
-      if (event) {
-        events.push(event);
+        if (event) {
+          events.push(event);
+        }
       }
-    }
 
-    return { meta, events };
-  } finally {
-    database.exec('COMMIT');
-    database.close();
-  }
+      return { meta, events };
+    } finally {
+      database.exec('COMMIT');
+    }
+  });
 }
 
 /**
@@ -748,18 +726,7 @@ async function readV5StoreInTransaction<T>(
   loadSqliteModule: LoadEventStoreSqliteModule,
   read: (database: EventStoreDatabase) => T,
 ): Promise<T> {
-  const sqliteModule = await loadSqliteModule();
-
-  if (!isEventStoreSqliteModule(sqliteModule)) {
-    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
-  }
-
-  const database = new sqliteModule.DatabaseSync(filePath, {
-    readOnly: true,
-    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
-  });
-
-  try {
+  return withReadOnlyEventStore(filePath, loadSqliteModule, (database) => {
     const schemaVersion = readSchemaVersion(database);
 
     if (!hasSchemaVersion(schemaVersion, 5)) {
@@ -773,9 +740,7 @@ async function readV5StoreInTransaction<T>(
     } finally {
       database.exec('COMMIT');
     }
-  } finally {
-    database.close();
-  }
+  });
 }
 
 /**

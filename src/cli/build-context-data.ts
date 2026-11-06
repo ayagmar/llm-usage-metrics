@@ -6,7 +6,7 @@ import {
   type ContextSessionRow,
 } from '../context/context-pressure.js';
 import { createModelPricingLookup } from '@ayagmar/agent-sessions/internal';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
@@ -52,8 +52,8 @@ export async function buildContextData(
   );
   // The report needs tier rates and context limits, not event costs, so it loads prices
   // whenever an event names a model.
-  const { pricingSource, pricingPolicy, pricingOrigin, pricingWarning } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'force');
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'force');
+  const { pricingSource, pricingPolicy } = pricingResult;
   const report = measureRuntimeProfileStageSync(deps.runtimeProfile, 'context.aggregate', () =>
     aggregateContextPressure(dataset.filteredEvents, {
       lookupPricing: pricingSource
@@ -74,18 +74,9 @@ export async function buildContextData(
     projectLabels: buildEventProjectLabels(dataset.filteredEvents),
     ...(defaultWindowSince ? { defaultWindowSince } : {}),
     ...(limited.limitNote ? { limitNote: limited.limitNote } : {}),
-    diagnostics: buildUsageDiagnostics({
-      adaptersToParse: dataset.adaptersToParse,
-      successfulParseResults: dataset.successfulParseResults,
-      sourceFailures: dataset.sourceFailures,
-      pricingOrigin,
-      pricingWarning,
-      warnings: dataset.warnings,
-      notes: dataset.notes,
-      activeEnvOverrides: dataset.readEnvVarOverrides(),
-      activeConfig: dataset.activeConfig,
-      timezone: dataset.normalizedInputs.timezone,
-      runtimeProfile: deps.runtimeProfile?.snapshot(),
+    diagnostics: buildDatasetDiagnostics(dataset, {
+      pricing: pricingResult,
+      runtimeProfile: deps.runtimeProfile,
     }),
   };
 }

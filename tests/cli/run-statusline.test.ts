@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
 import { buildSummaryData } from '../../src/cli/build-summary-data.js';
 import {
@@ -17,6 +17,7 @@ import {
   runStatusline,
   STATUSLINE_EMPTY_STORE_HINT,
 } from '../../src/cli/run-statusline.js';
+import { resolveStatuslineCacheKey, STATUSLINE_REUSE_MS } from '../../src/cli/statusline-cache.js';
 import type {
   SummaryDataResult,
   SummaryPeriod,
@@ -513,6 +514,180 @@ describe('runStatusline', () => {
       logSpy.mockRestore();
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  describe('with a line built by an earlier tick', () => {
+    const builtAt = new Date('2026-06-15T12:00:00.000Z');
+    const at = (ms: number) => () => new Date(builtAt.getTime() + ms);
+    const noInput = () => Readable.from([]);
+    let dir: string;
+    let storePath: string;
+    let logSpy: MockInstance<typeof console.log>;
+    let lines: () => string[];
+
+    /** One billed-looking codex day, so a new file changes the line. */
+    async function writeCodexSession(name: string): Promise<void> {
+      await writeFile(
+        path.join(dir, `${name}.jsonl`),
+        [
+          { timestamp: '2026-06-15T10:00:00.000Z', type: 'session_meta', payload: { id: name } },
+          {
+            timestamp: '2026-06-15T10:00:00.000Z',
+            type: 'turn_context',
+            payload: { model: 'gpt-5.2' },
+          },
+          {
+            timestamp: '2026-06-15T10:00:01.000Z',
+            type: 'event_msg',
+            payload: {
+              type: 'token_count',
+              info: {
+                last_token_usage: {
+                  input_tokens: 1_000_000,
+                  output_tokens: 100_000,
+                  total_tokens: 1_100_000,
+                },
+              },
+            },
+          },
+        ]
+          .map((row) => JSON.stringify(row))
+          .join('\n'),
+      );
+    }
+
+    beforeEach(async () => {
+      dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-reuse-'));
+      storePath = path.join(dir, 'store', 'events.sqlite');
+      logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      lines = () => logSpy.mock.calls.map(([line]) => String(line));
+      vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+      vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', storePath);
+    });
+
+    afterEach(async () => {
+      vi.unstubAllEnvs();
+      setLogLevel('info');
+      logSpy.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const options = () => ({ source: 'codex', codexDir: dir, timezone: 'UTC' });
+
+    it('reuses a recent line, with this tick session, then rebuilds it', async () => {
+      await writeCodexSession('first');
+      await runStatusline(options(), { stdin: noInput(), now: at(0) });
+      await writeCodexSession('second');
+
+      await runStatusline(options(), {
+        stdin: Readable.from([Buffer.from(claudeCodeInput)]),
+        now: at(STATUSLINE_REUSE_MS - 1),
+      });
+      await runStatusline(options(), { stdin: noInput(), now: at(STATUSLINE_REUSE_MS) });
+
+      const [built, reused, rebuilt] = lines();
+      expect(reused).toBe(`$1.23 session · 42% context · ${built}`);
+      expect(rebuilt).not.toBe(built);
+    });
+
+    it('shows the stored line, without waiting, while another tick builds the next', async () => {
+      await writeCodexSession('first');
+      await runStatusline(options(), { stdin: noInput(), now: at(0) });
+      const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+
+      try {
+        const startedAt = Date.now();
+        await runStatusline(options(), { stdin: noInput(), now: at(STATUSLINE_REUSE_MS) });
+
+        expect(Date.now() - startedAt).toBeLessThan(1_000);
+        expect(lines()[1]).toBe(lines()[0]);
+      } finally {
+        await release?.();
+      }
+    });
+
+    it.each([
+      ['another day', { now: at(24 * 60 * 60 * 1000) }, {}],
+      ['other options', { now: at(1) }, { source: 'codex', codexDir: `${path.sep}elsewhere` }],
+    ])('never shows a stored line for %s', async (_label, deps, overrides) => {
+      await writeCodexSession('first');
+      await runStatusline(options(), { stdin: noInput(), now: at(0) });
+      const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+
+      try {
+        await runStatusline({ ...options(), ...overrides }, { stdin: noInput(), ...deps });
+
+        expect(lines()[1]).toBe('warming up…');
+      } finally {
+        await release?.();
+      }
+    });
+
+    it('reuses the line the holder stored while this tick waited', async () => {
+      const cachePath = `${storePath}.statusline.json`;
+      await writeCodexSession('first');
+      await runStatusline(options(), { stdin: noInput(), now: at(0) });
+      const storedLine = await readFile(cachePath, 'utf8');
+      await rm(cachePath);
+      await writeCodexSession('second');
+      const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+
+      const waiting = runStatusline(options(), { stdin: noInput(), now: at(1) });
+      await writeFile(cachePath, storedLine);
+      await release?.();
+      await waiting;
+
+      expect(lines()[1]).toBe(lines()[0]);
+    });
+
+    it('keys a line on what it covers, and shares it across project directories', () => {
+      const key = (flags: object = {}) => resolveStatuslineCacheKey(flags, {});
+      const cwd = vi.spyOn(process, 'cwd');
+
+      try {
+        cwd.mockReturnValue(path.join(dir, 'a'));
+        const plain = key();
+        const relative = key({ codexDir: './logs' });
+        cwd.mockReturnValue(path.join(dir, 'b'));
+
+        expect(key()).toBe(plain);
+        expect(key({ codexDir: './logs' })).not.toBe(relative);
+        vi.stubEnv('XDG_DATA_HOME', path.join(dir, 'data'));
+        expect(key()).not.toBe(plain);
+        vi.unstubAllEnvs();
+        vi.stubEnv('XDG_CACHE_HOME', path.join(dir, 'prices'));
+        expect(key()).not.toBe(plain);
+        vi.unstubAllEnvs();
+        vi.stubEnv('CODEX_HOME', path.join(dir, 'codex'));
+        const absoluteHome = key();
+        cwd.mockReturnValue(path.join(dir, 'a'));
+        expect(key()).toBe(absoluteHome);
+        vi.stubEnv('CODEX_HOME', '.codex');
+        const relativeHome = key();
+        cwd.mockReturnValue(path.join(dir, 'b'));
+        expect(key()).not.toBe(relativeHome);
+        vi.unstubAllEnvs();
+        vi.stubEnv('TZ', 'Pacific/Auckland');
+        const auckland = key();
+        vi.stubEnv('TZ', 'America/Los_Angeles');
+        expect(key()).not.toBe(auckland);
+      } finally {
+        cwd.mockRestore();
+      }
+    });
+
+    it('builds a fresh line for --verbose and past a torn file', async () => {
+      await writeCodexSession('first');
+      await runStatusline(options(), { stdin: noInput(), now: at(0) });
+      await writeCodexSession('second');
+
+      await runStatusline({ ...options(), verbose: true }, { stdin: noInput(), now: at(1) });
+      expect(lines()[1]).not.toBe(lines()[0]);
+
+      await writeFile(`${storePath}.statusline.json`, '{"key":');
+      await runStatusline(options(), { stdin: noInput(), now: at(2) });
+      expect(lines()[2]).toBe(lines()[1]);
+    });
   });
 
   it('hints once per event store on stderr when there is no usage at all', async () => {

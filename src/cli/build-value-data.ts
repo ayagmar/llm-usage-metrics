@@ -17,11 +17,11 @@ import {
   validateSourceFilterValues,
 } from './build-usage-data-inputs.js';
 import type { AdapterParseResult } from './build-usage-data-parsing.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
-  withPricingNotes,
+  withCostNotes,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { DEFAULT_PROJECT_ROWS, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
@@ -136,7 +136,7 @@ export async function buildValueData(
     buildUsageEventDataset(options, deps),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
 
   const data = measureRuntimeProfileStageSync(deps.runtimeProfile, 'value.aggregate', () =>
     buildValueReport(pricedEvents, {
@@ -150,12 +150,8 @@ export async function buildValueData(
     }),
   );
 
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     warnings: [
       ...dataset.warnings,
       ...findPlanSourcesWithoutFiles(
@@ -166,14 +162,9 @@ export async function buildValueData(
     ],
     notes: [
       ...(planFallbackNote === undefined ? [] : [planFallbackNote]),
-      ...(options.cost === false
-        ? dataset.notes
-        : withPricingNotes(dataset.notes, pricedEvents, pricingResult)),
+      ...withCostNotes(dataset, pricedEvents, pricingResult, options.cost),
     ],
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   const limitNote = data.plans.some((plan) =>

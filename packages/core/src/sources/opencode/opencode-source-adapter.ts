@@ -1,27 +1,21 @@
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
-import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { createReadDiagnostics } from '../parse-diagnostics.js';
 import type { SourceAdapter, SourceReadOptions } from '../source-adapter.js';
-import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultOpenCodeDbPathCandidates } from './opencode-db-path-resolver.js';
-import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
+import type { SqliteModule } from '../sqlite/node-sqlite-loader.js';
 import { parseOpenCodeMessageRow } from './opencode-row-parser.js';
+import { runWithBusyRetries, toSqliteDbReadError } from '../sqlite/retry-policy.js';
 import {
-  resolveMaxBusyRetries,
-  runWithBusyRetries,
-  toSqliteDbReadError,
-  type SleepFn,
-} from '../sqlite/retry-policy.js';
+  createSqliteDbSource,
+  discoverExplicitSqliteDb,
+  getSqliteDbSearchPaths,
+  type SqliteDbSource,
+  type SqliteDbSourceOptions,
+} from '../sqlite/sqlite-db-source.js';
 import { queryOpenCodeMessageRows, type OpenCodeSqliteRow } from './opencode-sqlite-query.js';
 import { isBlankText } from '../parsing-utils.js';
-
-const DEFAULT_BUSY_RETRY_COUNT = 2;
-const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
-
-type PathPredicate = (filePath: string) => Promise<boolean>;
 
 type OpenCodeMessageRows = {
   database: InstanceType<SqliteModule['DatabaseSync']>;
@@ -29,27 +23,7 @@ type OpenCodeMessageRows = {
 };
 
 /** Options for `OpenCodeSourceAdapter`. */
-export type OpenCodeSourceAdapterOptions = {
-  /** The database to read; the platform's default locations when omitted. */
-  dbPath?: string;
-  /** Test seam: default database paths tried when no dbPath is given. @internal */
-  resolveDefaultDbPaths?: () => string[];
-  /** Test seam: replaces the file system check. @internal */
-  pathExists?: PathPredicate;
-  /** Test seam: replaces the file system check. @internal */
-  pathReadable?: PathPredicate;
-  /** Test seam: replaces the file system check. @internal */
-  pathIsFile?: PathPredicate;
-  /** Test seam: replaces the node:sqlite loader. @internal */
-  loadSqliteModule?: (consumerLabel: string) => Promise<SqliteModule>;
-  /** Retries of a read that finds the database busy or locked. */
-  maxBusyRetries?: number;
-  /** Delay between those retries. */
-  busyRetryDelayMs?: number;
-  /** Test seam: replaces the busy-retry delay. @internal */
-  sleep?: SleepFn;
-  context?: SourceContext;
-};
+export type OpenCodeSourceAdapterOptions = SqliteDbSourceOptions;
 
 // `-wal` holds commits that are not checkpointed into the database file yet. `-shm` is
 // only an index of it, and a read-only open rewrites it, so keying on it would miss the
@@ -68,59 +42,19 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
   public readonly capabilities = { kinds: ['usage'] } as const;
   public readonly parserVersion = 5;
 
-  private readonly explicitDbPath?: string;
-  private readonly resolveDefaultDbPaths: () => string[];
-  private readonly pathExists: PathPredicate;
-  private readonly pathReadable: PathPredicate;
-  private readonly pathIsFile: PathPredicate;
-  private readonly loadSqliteModule: (consumerLabel: string) => Promise<SqliteModule>;
-  private readonly maxBusyRetries: number;
-  private readonly busyRetryDelayMs: number;
-  private readonly sleep: SleepFn;
+  private readonly db: SqliteDbSource;
 
   public constructor(options: OpenCodeSourceAdapterOptions = {}) {
-    const context = options.context ?? createSourceContext();
-
-    this.explicitDbPath = options.dbPath;
-    this.resolveDefaultDbPaths =
-      options.resolveDefaultDbPaths ?? (() => getDefaultOpenCodeDbPathCandidates(context));
-    this.pathExists = options.pathExists ?? pathExists;
-    this.pathReadable = options.pathReadable ?? pathReadable;
-    this.pathIsFile = options.pathIsFile ?? pathIsFile;
-    this.loadSqliteModule = options.loadSqliteModule ?? loadNodeSqliteModule;
-    this.maxBusyRetries = resolveMaxBusyRetries(
-      'OpenCode',
-      options.maxBusyRetries,
-      DEFAULT_BUSY_RETRY_COUNT,
-    );
-    this.busyRetryDelayMs = Math.max(1, options.busyRetryDelayMs ?? DEFAULT_BUSY_RETRY_DELAY_MS);
-    this.sleep = options.sleep ?? sleep;
+    this.db = createSqliteDbSource('OpenCode', options, getDefaultOpenCodeDbPathCandidates);
   }
 
   public getSearchPaths(): string[] {
-    return this.explicitDbPath !== undefined
-      ? [this.explicitDbPath.trim()]
-      : this.resolveDefaultDbPaths();
+    return getSqliteDbSearchPaths(this.db);
   }
 
   public async discoverFiles(): Promise<string[]> {
-    if (this.explicitDbPath !== undefined) {
-      if (isBlankText(this.explicitDbPath)) {
-        throw new Error('dbPath must be a non-empty path');
-      }
-
-      const explicitDbPath = this.explicitDbPath.trim();
-      const readable = await this.pathReadable(explicitDbPath);
-
-      if (!readable) {
-        throw new Error(`OpenCode DB path is missing or unreadable: ${explicitDbPath}`);
-      }
-
-      if ((await this.pathExists(explicitDbPath)) && !(await this.pathIsFile(explicitDbPath))) {
-        throw new Error(`OpenCode DB path is not a file: ${explicitDbPath}`);
-      }
-
-      return [explicitDbPath];
+    if (this.db.explicitDbPath !== undefined) {
+      return discoverExplicitSqliteDb(this.db, this.db.explicitDbPath);
     }
 
     let firstUnreadableCandidatePath: string | undefined;
@@ -129,15 +63,18 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
 
     // OpenCode keeps one database per release channel (opencode.db, opencode-<channel>.db),
     // each with its own sessions, so every readable one in the first directory counts.
-    for (const candidatePath of this.resolveDefaultDbPaths()) {
+    for (const candidatePath of this.db.resolveDefaultDbPaths()) {
       const directory = path.dirname(candidatePath);
 
       if (selectedDirectory !== undefined && directory !== selectedDirectory) {
         break;
       }
 
-      if (await this.pathReadable(candidatePath)) {
-        if ((await this.pathExists(candidatePath)) && !(await this.pathIsFile(candidatePath))) {
+      if (await this.db.pathReadable(candidatePath)) {
+        if (
+          (await this.db.pathExists(candidatePath)) &&
+          !(await this.db.pathIsFile(candidatePath))
+        ) {
           throw new Error(`OpenCode DB path is not a file: ${candidatePath}`);
         }
 
@@ -146,7 +83,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      if (!firstUnreadableCandidatePath && (await this.pathExists(candidatePath))) {
+      if (!firstUnreadableCandidatePath && (await this.db.pathExists(candidatePath))) {
         firstUnreadableCandidatePath = candidatePath;
       }
     }
@@ -187,13 +124,16 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     }
 
     const normalizedDbPath = dbPath.trim();
-    const readable = await this.pathReadable(normalizedDbPath);
+    const readable = await this.db.pathReadable(normalizedDbPath);
 
     if (!readable) {
       throw new Error(`OpenCode DB path is unreadable: ${normalizedDbPath}`);
     }
 
-    if ((await this.pathExists(normalizedDbPath)) && !(await this.pathIsFile(normalizedDbPath))) {
+    if (
+      (await this.db.pathExists(normalizedDbPath)) &&
+      !(await this.db.pathIsFile(normalizedDbPath))
+    ) {
       throw new Error(`OpenCode DB path is not a file: ${normalizedDbPath}`);
     }
 
@@ -206,9 +146,9 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
       {
         source: 'OpenCode',
         dbPath: normalizedDbPath,
-        maxBusyRetries: this.maxBusyRetries,
-        busyRetryDelayMs: this.busyRetryDelayMs,
-        sleep: this.sleep,
+        maxBusyRetries: this.db.maxBusyRetries,
+        busyRetryDelayMs: this.db.busyRetryDelayMs,
+        sleep: this.db.sleep,
       },
     );
 
@@ -226,7 +166,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
   }
 
   private async openMessageRows(dbPath: string): Promise<OpenCodeMessageRows> {
-    const sqlite = await this.loadSqliteModule('OpenCode');
+    const sqlite = await this.db.loadSqliteModule('OpenCode');
     const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
 
     try {

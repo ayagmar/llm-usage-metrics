@@ -10,7 +10,7 @@ import {
 import type { UsageEvent } from '../domain/usage-event.js';
 import { hasBillableTokenBuckets } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   withPricingNotes,
@@ -188,7 +188,7 @@ export async function buildEfficiencyData(
     () => buildDataset(options, deps, { recordedRepoRoots: true }),
   );
   const pricingResult = await applyPricing(dataset, deps, 'auto');
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
   const attribution = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.attribute_repo',
@@ -235,23 +235,15 @@ export async function buildEfficiencyData(
       bySource: options.bySource === true,
     }),
   );
-  const usageDiagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
+  const usageDiagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     // The pricing stats are keyed by the priced events, not attribution's copies.
     notes: withPricingNotes(
       dataset.notes,
       attribution.matchedSourceEvents.filter((event) => hasMeaningfulEfficiencyUsageSignal(event)),
       pricingResult,
     ),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   return {

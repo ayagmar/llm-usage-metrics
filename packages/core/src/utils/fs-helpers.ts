@@ -102,11 +102,15 @@ export async function readRegularTextFile(filePath: string): Promise<string> {
  * Writes through a temp file and a rename, so a concurrent reader sees either
  * the old file or the complete new one, never a truncated write.
  */
-export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
+export async function writeFileAtomic(
+  filePath: string,
+  content: string,
+  mode?: number,
+): Promise<void> {
   const tempPath = `${filePath}.${randomUUID()}.tmp`;
 
   try {
-    await writeFile(tempPath, content, 'utf8');
+    await writeFile(tempPath, content, { encoding: 'utf8', mode });
     await rename(tempPath, filePath);
   } catch (error) {
     await rm(tempPath, { force: true });

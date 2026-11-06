@@ -1,9 +1,6 @@
 export {
   ensureDirectory,
   pathExists,
-  pathIsDirectory,
-  pathIsFile,
-  pathReadable,
   pathStat,
   readRegularTextFile,
   writeFileAtomic,

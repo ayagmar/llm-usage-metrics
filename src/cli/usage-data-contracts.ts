@@ -24,32 +24,14 @@ import type { SessionTimelineRow } from '../session/session-timeline.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
-import type { SourceDirectoryValue } from '../utils/source-directory-overrides.js';
 import type { WrappedRecap } from '../wrapped/wrapped-recap.js';
 import type { UserConfigResolution } from './apply-user-config.js';
 import type { SharedOptionProfile } from './report-definitions/report-definition-types.js';
 import type { sharedOptionProfileConfig } from './report-definitions/shared-report-options.js';
 import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-profile.js';
+import type { CreateDefaultAdaptersOptions } from './source-cli-options.js';
 
-type SourceSelectionOptions = {
-  piDir?: SourceDirectoryValue;
-  codexDir?: SourceDirectoryValue;
-  copilotDir?: SourceDirectoryValue;
-  geminiDir?: SourceDirectoryValue;
-  droidDir?: SourceDirectoryValue;
-  claudeDir?: SourceDirectoryValue;
-  openclawDir?: SourceDirectoryValue;
-  opencodeDb?: string;
-  gooseDb?: string;
-  ampDir?: SourceDirectoryValue;
-  qwenDir?: SourceDirectoryValue;
-  kimiDir?: SourceDirectoryValue;
-  clineDir?: SourceDirectoryValue;
-  roocodeDir?: SourceDirectoryValue;
-  kilocodeDir?: SourceDirectoryValue;
-  antigravityDir?: SourceDirectoryValue;
-  dshDir?: SourceDirectoryValue;
-  sourceDir?: string[];
+type SourceSelectionOptions = CreateDefaultAdaptersOptions & {
   source?: string | string[];
 };
 
@@ -320,7 +302,7 @@ export type PruneCommandOptions = DoctorCommandOptions & {
   apply?: boolean;
 };
 
-export type UsageSessionStats = {
+type UsageSessionStats = {
   source: string;
   filesFound: number;
   eventsParsed: number;
@@ -331,12 +313,12 @@ export type UsageSourceFailure = {
   reason: string;
 };
 
-export type UsageSkippedRowReasonStat = {
+type UsageSkippedRowReasonStat = {
   reason: string;
   count: number;
 };
 
-export type UsageSkippedRowsStat = {
+type UsageSkippedRowsStat = {
   source: string;
   skippedRows: number;
   reasons?: UsageSkippedRowReasonStat[];
@@ -496,7 +478,7 @@ export type SummaryPeriod = {
   previous?: SummaryPreviousPeriod;
 };
 
-export type SummaryPreviousPeriod = {
+type SummaryPreviousPeriod = {
   since: string;
   until: string;
   totals: UsageWindowTotals;

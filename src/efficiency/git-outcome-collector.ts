@@ -32,7 +32,7 @@ export type GitOutcomeEvent = {
   linesChanged: number;
 };
 
-export type GitOutcomeCollectionDiagnostics = {
+type GitOutcomeCollectionDiagnostics = {
   repoDir: string;
   includeMergeCommits: boolean;
   commitsCollected: number;

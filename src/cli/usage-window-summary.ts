@@ -1,8 +1,7 @@
-import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { addTotals, aggregateUsage } from '../aggregate/aggregate-usage.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
-import { addUsd } from '../utils/usd-math.js';
 import { createTimestampWindowFilter } from './parse/usage-event-filters.js';
 import type { UsageWindowTotals } from './usage-data-contracts.js';
 
@@ -48,23 +47,6 @@ export function createEmptyWindowTotals(): UsageWindowTotals {
   };
 }
 
-function addUsageTotals(target: UsageWindowTotals, source: UsageTotals): void {
-  target.inputTokens += source.inputTokens;
-  target.outputTokens += source.outputTokens;
-  target.reasoningTokens += source.reasoningTokens;
-  target.cacheReadTokens += source.cacheReadTokens;
-  target.cacheWriteTokens += source.cacheWriteTokens;
-  target.totalTokens += source.totalTokens;
-
-  if (source.costUsd !== undefined) {
-    target.costUsd = addUsd(target.costUsd ?? 0, source.costUsd);
-  }
-
-  if (source.costIncomplete) {
-    target.costIncomplete = true;
-  }
-}
-
 function eventCountsBySource(events: UsageEvent[]): Map<string, number> {
   const counts = new Map<string, number>();
 
@@ -99,7 +81,7 @@ export function summarizeUsageWindow(
   });
   const sourceCounts = eventCountsBySource(events);
   const totals = createEmptyWindowTotals();
-  addUsageTotals(totals, findGrandTotal(rows));
+  addTotals(totals, findGrandTotal(rows));
   totals.events = events.length;
 
   const sources = new Map<string, UsageWindowTotals>();
@@ -114,7 +96,7 @@ export function summarizeUsageWindow(
 
     activeDays.add(row.periodKey);
     const sourceTotals = sources.get(row.source) ?? createEmptyWindowTotals();
-    addUsageTotals(sourceTotals, row);
+    addTotals(sourceTotals, row);
     sourceTotals.activeDays += 1;
     sources.set(row.source, sourceTotals);
   }

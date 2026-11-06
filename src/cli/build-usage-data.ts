@@ -11,10 +11,13 @@ import {
 } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
-import { assembleUsageDataResult, buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import {
+  assembleUsageDataResult,
+  buildDatasetDiagnostics,
+} from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
-  withPricingNotes,
+  withCostNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { formatInteger } from '../render/format-number.js';
@@ -192,6 +195,38 @@ export async function resolveUsageDataRequest(
 }
 
 /**
+ * `resolveUsageDataRequest` for a report that reads its window back: without date flags, the
+ * last 7 days, as `daily` reports them. Validates the dates and the timezone.
+ */
+export async function resolveDailyWindowRequest(
+  options: ReportCommandOptions,
+  deps: BuildUsageDataDeps,
+) {
+  const { defaultWindowSince, ...windowRequest } = await resolveUsageDataRequest(
+    'daily',
+    options,
+    deps,
+  );
+  const userConfigResolution = await resolveUserConfigForOptions(
+    windowRequest.options,
+    windowRequest.deps,
+  );
+  const configuredOptions = userConfigResolution.options;
+  const { timezone } = normalizeBuildUsageInputs(
+    configuredOptions,
+    userConfigResolution.cliOptions,
+  );
+
+  return {
+    defaultWindowSince,
+    userConfigResolution,
+    configuredOptions,
+    window: { since: configuredOptions.since, until: configuredOptions.until },
+    timezone,
+  };
+}
+
+/**
  * `--last N` periods on a report that has no default window: full history without it.
  * Keeps the caller's own options and deps.
  */
@@ -280,7 +315,7 @@ export async function buildUsageData(
     deps,
     options.cost === false ? 'none' : 'auto',
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
 
   const byRepo = options.byRepo === true;
   const projectCount = byRepo ? resolveTopRowLimit(top) : undefined;
@@ -302,21 +337,10 @@ export async function buildUsageData(
     }),
   );
 
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
-    notes:
-      options.cost === false
-        ? dataset.notes
-        : withPricingNotes(dataset.notes, pricedEvents, pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
+    notes: withCostNotes(dataset, pricedEvents, pricingResult, options.cost),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   const result = assembleUsageDataResult(

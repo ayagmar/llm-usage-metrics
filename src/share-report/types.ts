@@ -116,7 +116,7 @@ export type ShareCube = {
   costs: Partial<Record<ShareCostMode, ShareCubeCostColumns>>;
 };
 
-export type ShareCubeCostColumns = {
+type ShareCubeCostColumns = {
   costUsd: (number | null)[];
   incompleteEvents: number[];
 };
@@ -143,7 +143,7 @@ export type ShareSessions = {
 };
 
 /** A block's usage from the events of one local date. */
-export type ShareBlockDay = {
+type ShareBlockDay = {
   date: string;
   totalTokens: number;
   costs: ShareCosts;

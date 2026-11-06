@@ -14,12 +14,12 @@ import type {
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { roundRatio } from '../value/build-value-report.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
-  withPricingNotes,
+  withCostNotes,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
@@ -48,7 +48,7 @@ export type ProjectRow = UsageTotals & {
   topModels: string[];
 };
 
-export type ProjectsTotals = UsageTotals & {
+type ProjectsTotals = UsageTotals & {
   projects: number;
   events: number;
   activeDays: number;
@@ -237,7 +237,7 @@ export async function buildProjectsData(
     () => buildUsageEventDataset(options, deps),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
   const data = measureRuntimeProfileStageSync(deps.runtimeProfile, 'projects.aggregate', () =>
     aggregateProjects(pricedEvents, {
       timezone: dataset.normalizedInputs.timezone,
@@ -245,21 +245,10 @@ export async function buildProjectsData(
       top,
     }),
   );
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
-    notes:
-      commandOptions.cost === false
-        ? dataset.notes
-        : withPricingNotes(dataset.notes, pricedEvents, pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
+    notes: withCostNotes(dataset, pricedEvents, pricingResult, commandOptions.cost),
+    runtimeProfile: deps.runtimeProfile,
   });
   const limitNote =
     data.projects.length < data.totals.projects

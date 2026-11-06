@@ -14,11 +14,11 @@ import type { OtlpSpan, OtlpTracesData } from './otlp-traces.js';
  */
 
 /** A request body stays under this size unless one span or one metrics line is larger. */
-export const OTLP_MAX_BATCH_BYTES = 4 * 1024 * 1024;
+const OTLP_MAX_BATCH_BYTES = 4 * 1024 * 1024;
 /** Per request; the OTel exporter default (`OTEL_EXPORTER_OTLP_TIMEOUT`). */
-export const OTLP_TIMEOUT_MS = 10_000;
+const OTLP_TIMEOUT_MS = 10_000;
 /** The wait before the first retry when the receiver sends no `Retry-After`; it doubles. */
-export const OTLP_RETRY_DELAY_MS = 1_000;
+const OTLP_RETRY_DELAY_MS = 1_000;
 /** Attempts per request, the first one included. */
 const MAX_ATTEMPTS = 4;
 /** A longer `Retry-After` fails the push instead of waiting. */

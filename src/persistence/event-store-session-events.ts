@@ -156,7 +156,7 @@ export function selectFileSessionEvents(
 }
 
 /** The stored row as the event it was; undefined for a row the constructors reject. */
-export function decodeStoredSessionEvent(
+function decodeStoredSessionEvent(
   source: string,
   row: Record<string, unknown>,
 ): StoredSessionEvent | undefined {

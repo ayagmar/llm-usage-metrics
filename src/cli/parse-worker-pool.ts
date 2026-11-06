@@ -17,7 +17,7 @@ import {
   type StoreParseFileDiagnostics,
 } from './parse/stored-session-events.js';
 
-export type ParseWorkerTask = {
+type ParseWorkerTask = {
   sourceId: SourceId;
   filePath: string;
   /** The resolved roots of the adapter that owns the file; the worker never resolves its own. */

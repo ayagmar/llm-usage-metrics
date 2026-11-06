@@ -28,7 +28,7 @@ export type TableRowMeta = {
  * then the abbreviated cells, then the abbreviated cells with the hideable columns left
  * out one more at a time. Rows are listed only when even the last of these is too wide.
  */
-export type UnicodeTableFit = {
+type UnicodeTableFit = {
   /** The body cells with abbreviated measures, such as `24.3K` for `24,312` tokens. */
   abbreviatedBodyRows?: string[][];
   /** Uncolored `abbreviatedBodyRows`, to measure; those rows when omitted. */

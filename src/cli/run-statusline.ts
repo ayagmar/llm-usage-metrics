@@ -38,6 +38,13 @@ import type {
   SummaryPeriodKey,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
+import {
+  readStoredStatusline,
+  resolveStatuslineCacheKey,
+  STATUSLINE_REUSE_MS,
+  type StoredStatusline,
+  writeStoredStatusline,
+} from './statusline-cache.js';
 import { createWindowEventFilter, summarizeUsageWindow } from './usage-window-summary.js';
 
 const SEPARATOR = ' · ';
@@ -126,6 +133,9 @@ export type StatuslineData = StatuslineSummary & {
   diagnostics: UsageDiagnostics;
   /** No local session file and no event in the year read, other machines' included. */
   foundNoUsage: boolean;
+  /** The local date the line was built for, in `timezone`. */
+  today: string;
+  timezone: string;
 };
 
 function findPeriod(
@@ -253,6 +263,8 @@ export async function buildStatuslineData(
     monthEnd: resolveMonthEnd(today, periods[1], resolveMonthlyBudgetUsd(userConfigResolution)),
     activity: { currentStreak },
     foundNoUsage: dataset.parsedFiles.length === 0 && dataset.filteredEvents.length === 0,
+    today,
+    timezone,
     diagnostics: buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,
       successfulParseResults: dataset.successfulParseResults,
@@ -279,8 +291,8 @@ export async function buildStatusline(
 
 /**
  * Overlapping ticks share one lock next to the event store, so a cold store is parsed
- * once rather than by every tick that starts before the first one finishes. A tick waits
- * this long for the holder, which a warm tick releases in well under a second.
+ * once rather than by every tick that starts before the first one finishes. A tick with
+ * no stored line to show waits this long for the holder before printing `warming up…`.
  */
 const STATUSLINE_LOCK_WAIT_MS = 1_000;
 const STATUSLINE_LOCK_RETRY_MS = 50;
@@ -431,7 +443,7 @@ async function emitEmptyStoreHint(storePath: string): Promise<void> {
 
 export async function runStatusline(
   options: StatuslineCommandOptions,
-  deps: { stdin?: StatuslineStdin } = {},
+  deps: { stdin?: StatuslineStdin; now?: () => Date } = {},
 ): Promise<void> {
   // Status bars show stdout, so diagnostics stay off unless --verbose asks for them,
   // as for a report: that is how to debug a slow or odd line. Errors still exit non-zero.
@@ -443,22 +455,61 @@ export async function runStatusline(
   const input = readPipedInput(deps.stdin ?? process.stdin);
   const loadedConfig = await loadUserConfig();
   const eventStore = getEventStoreRuntimeConfig(process.env, loadedConfig.config);
-  const releaseLock = eventStore.enabled
-    ? await acquireStatuslineLock(`${eventStore.path}.statusline.lock`)
-    : async () => undefined;
+  const now = deps.now ?? (() => new Date());
+  const cachePath = `${eventStore.path}.statusline.json`;
+  const cacheKey = resolveStatuslineCacheKey(options, loadedConfig.config);
+  // --verbose is how to debug a line, so it always builds one.
+  const readStored = async () =>
+    eventStore.enabled && !options.verbose
+      ? await readStoredStatusline(cachePath, cacheKey, now())
+      : undefined;
+  const isRecent = (line: StoredStatusline) =>
+    Math.abs(now().getTime() - line.builtAt) < STATUSLINE_REUSE_MS;
+  const stored = await readStored();
 
-  if (!releaseLock) {
-    console.log(formatWarmingUpStatusline(parseClaudeCodeSession(await input)));
+  if (stored && isRecent(stored)) {
+    console.log(formatStatusline(stored.summary, parseClaudeCodeSession(await input)));
     return;
   }
 
-  let summary: StatuslineData;
+  // A tick with a line to show has no reason to wait: it shows that line while the holder
+  // builds the next one.
+  const releaseLock = eventStore.enabled
+    ? await acquireStatuslineLock(`${eventStore.path}.statusline.lock`, stored ? 0 : undefined)
+    : async () => undefined;
+
+  if (!releaseLock) {
+    const session = parseClaudeCodeSession(await input);
+    console.log(
+      stored ? formatStatusline(stored.summary, session) : formatWarmingUpStatusline(session),
+    );
+    return;
+  }
+
+  let summary: StatuslineSummary;
+  let diagnostics: UsageDiagnostics | undefined;
 
   try {
-    summary = await buildStatuslineData(options, { loadUserConfig: async () => loadedConfig });
+    // The holder this tick waited for may have just stored the line.
+    const justBuilt = await readStored();
 
-    if (eventStore.enabled && summary.foundNoUsage) {
-      await emitEmptyStoreHint(eventStore.path);
+    if (justBuilt && isRecent(justBuilt)) {
+      summary = justBuilt.summary;
+    } else {
+      const built = await buildStatuslineData(options, {
+        loadUserConfig: async () => loadedConfig,
+        now,
+      });
+      summary = built;
+      diagnostics = built.diagnostics;
+
+      if (eventStore.enabled) {
+        await writeStoredStatusline(cachePath, cacheKey, built, now());
+      }
+
+      if (eventStore.enabled && built.foundNoUsage) {
+        await emitEmptyStoreHint(eventStore.path);
+      }
     }
   } finally {
     await releaseLock();
@@ -466,8 +517,8 @@ export async function runStatusline(
 
   const session = parseClaudeCodeSession(await input);
 
-  if (options.verbose) {
-    emitReportRunDiagnostics(summary.diagnostics, {
+  if (options.verbose && diagnostics) {
+    emitReportRunDiagnostics(diagnostics, {
       emitCommonDiagnostics: emitDiagnostics,
       getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
       getActiveConfig: (diagnostics) => diagnostics.activeConfig,

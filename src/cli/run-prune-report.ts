@@ -55,7 +55,7 @@ export type StoreSizeSnapshot = {
   totalBytes: number;
 };
 
-export type PruneCandidateReason = 'suppressed' | 'aged';
+type PruneCandidateReason = 'suppressed' | 'aged';
 
 export type PruneCandidate = {
   source: string;

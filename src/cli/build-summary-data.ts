@@ -16,7 +16,7 @@ import {
   createPreviousSameLengthWindow,
 } from './build-compare-data.js';
 import { resolvePeriodsSince } from './build-usage-data.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
@@ -264,7 +264,7 @@ export async function buildSummaryData(
   const { userConfigResolution, timezone, windows, today, since, dataset } =
     await buildSummaryDataset(options, deps);
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
+  const { pricedEvents, pricingSource } = pricingResult;
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
   // Other machines' events carry their name; this machine's carry none.
   const countsOtherMachines = pricedEvents.some((event) => event.machine !== undefined);
@@ -356,18 +356,10 @@ export async function buildSummaryData(
     monthToDateCacheSavingsUsd,
     activity,
     spike,
-    diagnostics: buildUsageDiagnostics({
-      adaptersToParse: dataset.adaptersToParse,
-      successfulParseResults: dataset.successfulParseResults,
-      sourceFailures: dataset.sourceFailures,
-      pricingOrigin,
-      pricingWarning,
-      warnings: dataset.warnings,
+    diagnostics: buildDatasetDiagnostics(dataset, {
+      pricing: pricingResult,
       notes: withPricingNotes(dataset.notes, shownCostEvents, pricingResult),
-      activeEnvOverrides: dataset.readEnvVarOverrides(),
-      activeConfig: dataset.activeConfig,
-      timezone,
-      runtimeProfile: deps.runtimeProfile?.snapshot(),
+      runtimeProfile: deps.runtimeProfile,
     }),
   };
 }
