@@ -8,7 +8,7 @@ import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-tre
 import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveReportTimezone, validateDateRangeOptions } from './build-usage-data-inputs.js';
 import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
 import {
@@ -460,23 +460,15 @@ export async function buildTrendsData(
         );
       })
     : undefined;
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin: pricingResult.pricingOrigin,
-    pricingWarning: pricingResult.pricingWarning,
-    warnings: dataset.warnings,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     // Only cost trends show `~`, and only for the days in the chart.
     notes: withPricingNotes(
       dataset.notes,
       resolved.metric === 'cost' ? chartedEvents : [],
       pricingResult,
     ),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   return {

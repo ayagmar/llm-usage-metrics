@@ -2,7 +2,7 @@ import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { resolveLastPeriodsRequest } from './build-usage-data.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { normalizeProviderFilter } from './build-usage-data-inputs.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   collectCanonicalProviderRoots,
   inferCanonicalProviderRootsFromModels,
@@ -153,7 +153,7 @@ export async function buildOptimizeData(
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'force', {
     perRequestRates: false,
   });
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
+  const { pricedEvents, pricingSource } = pricingResult;
 
   const usageRows = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
@@ -198,18 +198,10 @@ export async function buildOptimizeData(
       }),
   );
 
-  const usageDiagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
+  const usageDiagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     notes: withPricingNotes(dataset.notes, pricedEvents, pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   return {

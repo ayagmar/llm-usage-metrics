@@ -6,7 +6,7 @@ import { aggregateTools, type ToolRow, type ToolTotals } from '../tools/aggregat
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { buildUsageEventDataset } from './build-usage-event-dataset.js';
 import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import {
@@ -112,17 +112,10 @@ export async function buildToolsData(
       })),
       totals,
     },
-    diagnostics: buildUsageDiagnostics({
-      adaptersToParse: dataset.adaptersToParse,
-      successfulParseResults: dataset.successfulParseResults,
-      sourceFailures: dataset.sourceFailures,
-      pricingOrigin: 'none',
+    diagnostics: buildDatasetDiagnostics(dataset, {
       warnings: [...dataset.warnings, ...failedReads],
       notes: [...dataset.notes, formatLiveEventsNote('Tool calls', dataset)],
-      activeEnvOverrides: dataset.readEnvVarOverrides(),
-      activeConfig: dataset.activeConfig,
-      timezone,
-      runtimeProfile: deps.runtimeProfile?.snapshot(),
+      runtimeProfile: deps.runtimeProfile,
     }),
     limitNote: limited.limitNote,
     ...(windowRequest.defaultWindowSince

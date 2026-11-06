@@ -19,7 +19,7 @@ import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
@@ -223,7 +223,7 @@ export async function buildBlocksData(
     hideCost ? 'none' : 'auto',
     { events },
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
 
   const blocks = measureRuntimeProfileStageSync(deps.runtimeProfile, 'blocks.aggregate', () =>
     aggregateBlocks(pricedEvents, {
@@ -256,20 +256,13 @@ export async function buildBlocksData(
       ? `Showing the ${String(DEFAULT_RECENT_BLOCKS)} most recent of ${formatInteger(rows.length)} blocks. Use --top N for the top N by ${rankedBy}, or --top 0 for all.`
       : undefined;
 
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     warnings: [...dataset.warnings, ...wholeStreams.warnings],
     notes: hideCost
       ? dataset.notes
       : withPricingNotes(dataset.notes, selectBlockEvents(pricedEvents, shownRows), pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   return {

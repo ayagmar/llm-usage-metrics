@@ -19,7 +19,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { collectGitRootRemotes } from '../session/git-remotes.js';
 import { resolveWorktreeRoots } from '../session/worktree-roots.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { buildUsageEventDataset } from './build-usage-event-dataset.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
@@ -104,24 +104,11 @@ export async function runMachineExport(
     recordedRepoRoots: true,
   });
 
-  emitReportRunDiagnostics(
-    buildUsageDiagnostics({
-      adaptersToParse: dataset.adaptersToParse,
-      successfulParseResults: dataset.successfulParseResults,
-      sourceFailures: dataset.sourceFailures,
-      pricingOrigin: 'none',
-      warnings: dataset.warnings,
-      notes: dataset.notes,
-      activeEnvOverrides: dataset.readEnvVarOverrides(),
-      activeConfig: dataset.activeConfig,
-      timezone: dataset.normalizedInputs.timezone,
-    }),
-    {
-      emitCommonDiagnostics: emitDiagnostics,
-      getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-      getActiveConfig: (diagnostics) => diagnostics.activeConfig,
-    },
-  );
+  emitReportRunDiagnostics(buildDatasetDiagnostics(dataset), {
+    emitCommonDiagnostics: emitDiagnostics,
+    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
+  });
 
   if (!dataset.ledger) {
     throw new Error(

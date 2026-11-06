@@ -11,10 +11,13 @@ import {
 } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
-import { assembleUsageDataResult, buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import {
+  assembleUsageDataResult,
+  buildDatasetDiagnostics,
+} from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
-  withPricingNotes,
+  withCostNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { formatInteger } from '../render/format-number.js';
@@ -280,7 +283,7 @@ export async function buildUsageData(
     deps,
     options.cost === false ? 'none' : 'auto',
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
 
   const byRepo = options.byRepo === true;
   const projectCount = byRepo ? resolveTopRowLimit(top) : undefined;
@@ -302,21 +305,10 @@ export async function buildUsageData(
     }),
   );
 
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
-    notes:
-      options.cost === false
-        ? dataset.notes
-        : withPricingNotes(dataset.notes, pricedEvents, pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
+    notes: withCostNotes(dataset, pricedEvents, pricingResult, options.cost),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   const result = assembleUsageDataResult(

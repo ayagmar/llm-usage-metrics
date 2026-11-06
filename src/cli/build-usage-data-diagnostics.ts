@@ -2,6 +2,8 @@ import type { UsageReportRow } from '../domain/usage-report-row.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 import type { AdapterParseResult } from './build-usage-data-parsing.js';
+import type { UsageEventDataset } from './build-usage-event-dataset.js';
+import type { RuntimeProfileCollector } from './runtime-profile.js';
 import type {
   ReportNote,
   UsageDataResult,
@@ -60,6 +62,36 @@ export function buildUsageDiagnostics(params: BuildUsageDiagnosticsParams): Usag
     timezone: params.timezone,
     runtimeProfile: params.runtimeProfile,
   };
+}
+
+type DatasetDiagnosticsOptions = {
+  /** The run's pricing; a report that loads no prices leaves it out. */
+  pricing?: Pick<UsageDiagnostics, 'pricingOrigin' | 'pricingWarning'>;
+  /** Replaces the dataset's warnings. */
+  warnings?: string[];
+  /** Replaces the dataset's notes. */
+  notes?: ReportNote[];
+  runtimeProfile?: RuntimeProfileCollector;
+};
+
+/** `buildUsageDiagnostics` for a report built on a usage event dataset. */
+export function buildDatasetDiagnostics(
+  dataset: UsageEventDataset,
+  options: DatasetDiagnosticsOptions = {},
+): UsageDiagnostics {
+  return buildUsageDiagnostics({
+    adaptersToParse: dataset.adaptersToParse,
+    successfulParseResults: dataset.successfulParseResults,
+    sourceFailures: dataset.sourceFailures,
+    pricingOrigin: options.pricing?.pricingOrigin ?? 'none',
+    pricingWarning: options.pricing?.pricingWarning,
+    warnings: options.warnings ?? dataset.warnings,
+    notes: options.notes ?? dataset.notes,
+    activeEnvOverrides: dataset.readEnvVarOverrides(),
+    activeConfig: dataset.activeConfig,
+    timezone: dataset.normalizedInputs.timezone,
+    runtimeProfile: options.runtimeProfile?.snapshot(),
+  });
 }
 
 export function assembleUsageDataResult(
