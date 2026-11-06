@@ -85,6 +85,10 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'dedupeToolCalls',
   ],
   './internal': [
+    // Fetch retry classification, shared by the pricing fetcher and the update check.
+    'RetryableFetchError',
+    'isRetryableFetchFailure',
+    'isRetryableHttpStatus',
     // T0
     'BillableTokenUsage',
     'BoundedJsonReadResult',
