@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import os from 'node:os';
+import path from 'node:path';
 
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { writeFileAtomic } from '../utils/fs-helpers.js';
@@ -17,7 +18,7 @@ export const STATUSLINE_REUSE_MS = 30_000;
 /** Bump when the stored shape changes, so a line from an older version is rebuilt. */
 const STORED_FORMAT = 1;
 
-/** Outside the options and the config, these choose which logs a line covers. */
+/** Outside the options and the config, these choose which logs and prices a line uses. */
 const SOURCE_ENV_VARS = [
   'APPDATA',
   'CLAUDE_CONFIG_DIR',
@@ -28,6 +29,8 @@ const SOURCE_ENV_VARS = [
   'GOOSE_PATH_ROOT',
   'LOCALAPPDATA',
   'USERPROFILE',
+  // Picks the cached prices a line is built with.
+  'XDG_CACHE_HOME',
   'XDG_DATA_HOME',
 ] as const;
 
@@ -42,9 +45,15 @@ export type StoredStatusline = {
   summary: StatuslineSummary;
 };
 
+function isRelativePath(value: string): boolean {
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 && !path.isAbsolute(trimmed);
+}
+
 /**
  * A stored line is reused only by a tick asking for the same line. The working directory
- * counts only under a path flag: Claude Code runs the command from each session's project,
+ * counts only under a path flag or a relative path variable: Claude Code runs the command from each session's project,
  * and those sessions must share a line. Config paths resolve against the config file.
  */
 export function resolveStatuslineCacheKey(
@@ -52,16 +61,20 @@ export function resolveStatuslineCacheKey(
   config: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const hasPathOption = Object.keys(options).some((name) => PATH_OPTION_PATTERN.test(name));
+  const sourceEnv = SOURCE_ENV_VARS.map((name) => env[name]);
+  const dependsOnCwd =
+    Object.keys(options).some((name) => PATH_OPTION_PATTERN.test(name)) ||
+    // CLAUDE_CONFIG_DIR holds a comma-separated list.
+    sourceEnv.some((value) => value?.split(',').some((entry) => isRelativePath(entry)));
 
   const inputs = JSON.stringify([
     STORED_FORMAT,
     { ...options, verbose: undefined },
     config,
-    SOURCE_ENV_VARS.map((name) => env[name]),
+    sourceEnv,
     os.homedir(),
     Intl.DateTimeFormat().resolvedOptions().timeZone,
-    hasPathOption ? process.cwd() : undefined,
+    dependsOnCwd ? process.cwd() : undefined,
   ]);
 
   // A digest, so the file holds no config value or path.
