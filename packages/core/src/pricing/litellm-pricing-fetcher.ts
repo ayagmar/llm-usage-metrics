@@ -3,6 +3,11 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { asRecord } from '../utils/as-record.js';
+import {
+  isRetryableFetchFailure,
+  isRetryableHttpStatus,
+  RetryableFetchError,
+} from '../utils/fetch-retry.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
 import { normalizeKey } from './litellm-model-matching.js';
 import { PricingTable, toNonNegativeNumber } from './pricing-table.js';
