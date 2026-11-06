@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 
@@ -53,7 +54,7 @@ export function resolveStatuslineCacheKey(
 ): string {
   const hasPathOption = Object.keys(options).some((name) => PATH_OPTION_PATTERN.test(name));
 
-  return JSON.stringify([
+  const inputs = JSON.stringify([
     STORED_FORMAT,
     { ...options, verbose: undefined },
     config,
@@ -62,6 +63,9 @@ export function resolveStatuslineCacheKey(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
     hasPathOption ? process.cwd() : undefined,
   ]);
+
+  // A digest, so the file holds no config value or path.
+  return createHash('sha256').update(inputs).digest('hex');
 }
 
 /** The stored line for this key, unless it was built for another day. */
