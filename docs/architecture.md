@@ -224,78 +224,23 @@ Non-report commands with their own runners: `buildDoctorResults(...)` checks sou
 
 ### Event Store History
 
-`src/persistence/event-store.ts` re-exports the store API. The code lives in
-`event-store-schema.ts` (schema and migrations), `event-store-administration.ts`
-(open, per-file ingest, reads, prune and vacuum), and `event-store-codec.ts`
-(stored-event revalidation and content hashes). The store is a local ledger: schema changes run
-as migrations, and unknown newer schemas disable store use instead of rebuilding
-tables.
+`src/persistence/event-store.ts` re-exports the store API. The code lives in `event-store-schema.ts` (schema and migrations), `event-store-administration.ts` (open, per-file ingest, reads, prune and vacuum), `event-store-codec.ts` (stored-event revalidation and content hashes) and `event-store-git-roots.ts` (the `git_roots` table). Schema changes run as migrations, and an unknown newer schema disables store use instead of rebuilding tables. The ledger, its migrations and prune are described in [Event Store](https://ayagmar.github.io/llm-usage-metrics/architecture/event-store/).
 
-`src/persistence/event-store-history.ts` owns `--history` reads. It compares the
-current run's discovered `(source, file_path)` pairs with stored files, serves
-departed files for selected sources, and suppresses moved or copied files by
-content hash. A departed file that only partly overlaps counted events is served
-without the overlapping events. The `override_only_files` table lists stored files
-that only runs with a directory flag (`--claude-dir`, `--source-dir`) have discovered:
-the first store write of a file in such a run adds it, and a run on the usual
-directories removes the files it discovers. A run on the usual directories passes the
-listed files as present, so they never become its history; prune still sees them as
-departed and deletes their rows. Only files first stored after the table existed are
-listed, and a file first read through a flag that points inside the usual location stays
-listed until a run on the usual directories discovers it. Served history events are appended before the normal
-provider/model/date filters, pricing, and aggregation steps, so downstream
-report shapes stay unchanged.
+`src/persistence/event-store-history.ts` owns `--history` reads. It compares the run's discovered `(source, file_path)` pairs with stored files, serves departed files for selected sources, and suppresses moved or copied files by content hash. Served history events are appended before the normal provider, model and date filters, pricing and aggregation, so downstream report shapes stay unchanged. The `override_only_files` table keeps files that only runs with a directory flag discovered from becoming history of runs on the usual directories.
 
-`machine export` reuses that run: the dataset reports the stored files it counted
-(successfully parsed files plus served history), and `readStoredFileSnapshots` reads
-them back in one read transaction with a revision per file (a digest of its events, and
-of its tool calls and messages when it has any), so another machine can sync only the files that changed. History files are read after
-the parsed files and, as in history, without the events those files already hold, as
-are the files of a source whose files repeat events (`eventsRepeatAcrossFiles`, pi);
-deciding that on the same read transaction keeps a concurrent run from skewing it.
+`machine export` reuses that run: the dataset reports the stored files it counted (parsed files plus served history), and `readStoredFileSnapshots` reads them back in one read transaction with a revision per file (a digest of its events, and of its tool calls and messages when it has any), so another machine can sync only the files that changed. History files are read after the parsed files and without the events those files already hold, as are the files of a source whose files repeat events (`eventsRepeatAcrossFiles`, pi); deciding that on the same read transaction keeps a concurrent run from skewing it.
 
-Reports read other machines after history and before the provider, model and date
-filters: `buildUsageEventDataset` selects machines (`--machine`, or every configured one
-unless the run points at custom source directories), reads each cache read-only within
-the date window, and `mergeMachineEvents` leaves out events already counted, by content
-hash, only for sessions present on both sides. The events then join the per-source
-results, so pricing and aggregation treat them like local ones.
+`buildUsageEventDataset` then shapes the events in a fixed order. Each step is described for users in [Projects](https://ayagmar.github.io/llm-usage-metrics/projects/) and [Machine Merge](https://ayagmar.github.io/llm-usage-metrics/architecture/machine-merge/):
 
-After copied sessions are counted once, and still before those filters,
-`attributeEventsToSessionRoots` (`src/session/aggregate-sessions.ts`) sets each event's
-`repoRoot` to its project: an event logged below its session's starting directory (the
-root of its earliest event) moves to the nearest directory between the two where any
-session started. Every report, `--repo` and the share payload read that project. `events`
-and `efficiency` (and `machine export`, which reads the store) pass `recordedRepoRoots`
-and keep the logged directory. The known session roots come from the files the run read:
-files last changed before the window are skipped, `--source` and `--machine` narrow the
-sources and machines, and other machines' caches are read within the date window, so a
-remote session that began before it takes its root from its earliest event inside it.
-
-Then `resolveWorktreeRoots` (`src/session/worktree-roots.ts`) moves the usage of git
-worktrees on this machine to their repositories, and `--repo` paths with them; other
-machines' events keep their directories. A project key resolves through the nearest `.git`
-entry at or above it on disk (below the home directory; one cached `lstat` per directory),
-a git root recorded in the event store's `git_roots` table, and otherwise a folder named
-`<repo>-…` or `…-<repo>` after a known repository. Each run records the repositories and
-worktrees it finds, first record kept, so worktrees still resolve once removed and the
-names do not depend on the window.
-
-Next, `moveMachineEventsToLocalRepositories` (`src/session/git-remotes.ts`) moves other
-machines' events to the repository on this machine with the same normalized `origin`
-remote, before the aliases, which would move those events from under that machine's
-roots. Each machine's export header carries `gitRemotes` (each git root there to its repository's remote, found by
-`resolveWorktreeRoots` on that machine), which the sync keeps in the machine cache's meta;
-this machine's repositories (those its git roots name) have their remotes read from
-`.git/config` only when a machine sent remotes.
-
-Last, `createProjectAliasResolver` (`src/session/project-aliases.ts`) moves every
-machine's events, and `--repo` paths, at or below a configured `projectAliases` path to the
-same place below its target, so a project cloned under different folders counts once.
+1. Other machines' events join after history and before the provider, model and date filters. The run selects machines (`--machine`, or every configured one unless it points at custom source directories), reads each cache read-only within the date window, and `mergeMachineEvents` leaves out events already counted, by content hash, only for sessions present on both sides.
+2. After copied sessions are counted once, `attributeEventsToSessionRoots` (`src/session/aggregate-sessions.ts`) sets each event's `repoRoot` to its project. `events`, `efficiency` and `machine export` pass `recordedRepoRoots` and keep the logged directory. The known session roots come from the files the run read, so `--source`, `--machine` and a window that skips old files can change them.
+3. `resolveWorktreeRoots` (`src/session/worktree-roots.ts`) moves the usage of git worktrees on this machine to their repositories, and `--repo` paths with them; other machines' events keep their directories. A project key resolves through the nearest `.git` entry at or above it on disk (below the home directory; one cached `lstat` per directory), a git root recorded in `git_roots`, and otherwise a folder named `<repo>-...` or `...-<repo>` after a known repository. Each run records the repositories and worktrees it finds, first record kept, so worktrees still resolve once removed and the names do not depend on the window.
+4. `moveMachineEventsToLocalRepositories` (`src/session/git-remotes.ts`) moves other machines' events to the repository here with the same normalized `origin` remote, before the aliases, which would move those events from under that machine's roots. Each machine's export header carries `gitRemotes` (each git root there to its repository's remote, found by `resolveWorktreeRoots` on that machine), which the sync keeps in the machine cache's meta; this machine's remotes are read from `.git/config` only when a machine sent remotes.
+5. `createProjectAliasResolver` (`src/session/project-aliases.ts`) moves every machine's events, and `--repo` paths, at or below a configured `projectAliases` path to the same place below its target.
 
 ### Share reports
 
-With `--share`, the report wrapper's share builder runs after the report's own data. `buildShareReportData` (`src/cli/build-share-report-data.ts`) reads the events a second time over the command's window, starting earlier so 5-hour blocks are whole, and builds the payload in `src/share-report/build-share-payload.ts`: a cube of totals by date, hour, source, model, project and machine, the sessions, the blocks, and the command's own JSON envelope. `redact.ts` and `sanitize-envelope.ts` label projects and machines (`--redact`) and scrub home paths. `render-share-html.ts` writes one HTML file that inlines the payload and the client bundle (`src/share-report/client`, prebuilt into `client-bundle.generated.ts` by `scripts/build-share-client.mjs`) under a CSP that allows only those hashed inline bytes. The client computes every roll-up in the browser.
+With `--share`, the report wrapper's share builder runs after the report's own data: `buildShareReportData` (`src/cli/build-share-report-data.ts`) reads the events a second time and `src/share-report/` builds the payload (`build-share-payload.ts`), redacts it (`redact.ts`, `sanitize-envelope.ts`) and writes one HTML file (`render-share-html.ts`) whose client bundle is prebuilt into `client-bundle.generated.ts` by `scripts/build-share-client.mjs`. See [Share Report](https://ayagmar.github.io/llm-usage-metrics/architecture/share-report/).
 
 ## Aggregation profiles
 
