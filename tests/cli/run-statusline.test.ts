@@ -17,7 +17,7 @@ import {
   runStatusline,
   STATUSLINE_EMPTY_STORE_HINT,
 } from '../../src/cli/run-statusline.js';
-import { STATUSLINE_REUSE_MS } from '../../src/cli/statusline-cache.js';
+import { resolveStatuslineCacheKey, STATUSLINE_REUSE_MS } from '../../src/cli/statusline-cache.js';
 import type {
   SummaryDataResult,
   SummaryPeriod,
@@ -620,6 +620,47 @@ describe('runStatusline', () => {
         expect(lines()[1]).toBe('warming up…');
       } finally {
         await release?.();
+      }
+    });
+
+    it('reuses the line the holder stored while this tick waited', async () => {
+      const cachePath = `${storePath}.statusline.json`;
+      await writeCodexSession('first');
+      await runStatusline(options(), { stdin: noInput(), now: at(0) });
+      const storedLine = await readFile(cachePath, 'utf8');
+      await rm(cachePath);
+      await writeCodexSession('second');
+      const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+
+      const waiting = runStatusline(options(), { stdin: noInput(), now: at(1) });
+      await writeFile(cachePath, storedLine);
+      await release?.();
+      await waiting;
+
+      expect(lines()[1]).toBe(lines()[0]);
+    });
+
+    it('keys a line on what it covers, and shares it across project directories', () => {
+      const key = (flags: object = {}) => resolveStatuslineCacheKey(flags, {});
+      const cwd = vi.spyOn(process, 'cwd');
+
+      try {
+        cwd.mockReturnValue(path.join(dir, 'a'));
+        const plain = key();
+        const relative = key({ codexDir: './logs' });
+        cwd.mockReturnValue(path.join(dir, 'b'));
+
+        expect(key()).toBe(plain);
+        expect(key({ codexDir: './logs' })).not.toBe(relative);
+        vi.stubEnv('XDG_DATA_HOME', path.join(dir, 'data'));
+        expect(key()).not.toBe(plain);
+        vi.unstubAllEnvs();
+        vi.stubEnv('TZ', 'Pacific/Auckland');
+        const auckland = key();
+        vi.stubEnv('TZ', 'America/Los_Angeles');
+        expect(key()).not.toBe(auckland);
+      } finally {
+        cwd.mockRestore();
       }
     });
 

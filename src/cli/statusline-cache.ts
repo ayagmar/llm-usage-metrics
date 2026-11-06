@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import os from 'node:os';
 
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { writeFileAtomic } from '../utils/fs-helpers.js';
@@ -17,13 +18,20 @@ const STORED_FORMAT = 1;
 
 /** Outside the options and the config, these choose which logs a line covers. */
 const SOURCE_ENV_VARS = [
+  'APPDATA',
   'CLAUDE_CONFIG_DIR',
   'CODEX_HOME',
   'COPILOT_OTEL_FILE_EXPORTER_PATH',
   'DSH_HOME',
   'GEMINI_CLI_HOME',
   'GOOSE_PATH_ROOT',
+  'LOCALAPPDATA',
+  'USERPROFILE',
+  'XDG_DATA_HOME',
 ] as const;
+
+/** Flags whose value can be a path relative to the working directory. */
+const PATH_OPTION_PATTERN = /(?:Dir|Db|pricingOverrides)$/u;
 
 export type StoredStatusline = {
   key: string;
@@ -33,17 +41,26 @@ export type StoredStatusline = {
   summary: StatuslineSummary;
 };
 
-/** A stored line is reused only by a tick asking for the same line. */
+/**
+ * A stored line is reused only by a tick asking for the same line. The working directory
+ * counts only under a path flag: Claude Code runs the command from each session's project,
+ * and those sessions must share a line. Config paths resolve against the config file.
+ */
 export function resolveStatuslineCacheKey(
   options: StatuslineCommandOptions,
   config: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
+  const hasPathOption = Object.keys(options).some((name) => PATH_OPTION_PATTERN.test(name));
+
   return JSON.stringify([
     STORED_FORMAT,
     { ...options, verbose: undefined },
     config,
     SOURCE_ENV_VARS.map((name) => env[name]),
+    os.homedir(),
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    hasPathOption ? process.cwd() : undefined,
   ]);
 }
 

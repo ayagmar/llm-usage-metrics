@@ -42,6 +42,7 @@ import {
   readStoredStatusline,
   resolveStatuslineCacheKey,
   STATUSLINE_REUSE_MS,
+  type StoredStatusline,
   writeStoredStatusline,
 } from './statusline-cache.js';
 import { createWindowEventFilter, summarizeUsageWindow } from './usage-window-summary.js';
@@ -458,12 +459,15 @@ export async function runStatusline(
   const cachePath = `${eventStore.path}.statusline.json`;
   const cacheKey = resolveStatuslineCacheKey(options, loadedConfig.config);
   // --verbose is how to debug a line, so it always builds one.
-  const stored =
+  const readStored = async () =>
     eventStore.enabled && !options.verbose
       ? await readStoredStatusline(cachePath, cacheKey, now())
       : undefined;
+  const isRecent = (line: StoredStatusline) =>
+    Math.abs(now().getTime() - line.builtAt) < STATUSLINE_REUSE_MS;
+  const stored = await readStored();
 
-  if (stored && Math.abs(now().getTime() - stored.builtAt) < STATUSLINE_REUSE_MS) {
+  if (stored && isRecent(stored)) {
     console.log(formatStatusline(stored.summary, parseClaudeCodeSession(await input)));
     return;
   }
@@ -485,6 +489,15 @@ export async function runStatusline(
   let summary: StatuslineData;
 
   try {
+    // The holder this tick waited for may have just stored the line.
+    const justBuilt = await readStored();
+
+    if (justBuilt && isRecent(justBuilt)) {
+      await releaseLock();
+      console.log(formatStatusline(justBuilt.summary, parseClaudeCodeSession(await input)));
+      return;
+    }
+
     summary = await buildStatuslineData(options, {
       loadUserConfig: async () => loadedConfig,
       now,
