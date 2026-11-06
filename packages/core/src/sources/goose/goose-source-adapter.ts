@@ -1,26 +1,19 @@
-import { setTimeout as sleep } from 'node:timers/promises';
-
 import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
-import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
 import type { SourceAdapter, SourceReadOptions } from '../source-adapter.js';
-import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
-import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
+import type { SqliteModule } from '../sqlite/node-sqlite-loader.js';
+import { runWithBusyRetries, toSqliteDbReadError } from '../sqlite/retry-policy.js';
 import {
-  resolveMaxBusyRetries,
-  runWithBusyRetries,
-  toSqliteDbReadError,
-  type SleepFn,
-} from '../sqlite/retry-policy.js';
-
-const DEFAULT_BUSY_RETRY_COUNT = 2;
-const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
-
-type PathPredicate = (filePath: string) => Promise<boolean>;
+  createSqliteDbSource,
+  discoverExplicitSqliteDb,
+  getSqliteDbSearchPaths,
+  type SqliteDbSource,
+  type SqliteDbSourceOptions,
+} from '../sqlite/sqlite-db-source.js';
 
 type GooseSqliteRow = {
   id?: unknown;
@@ -47,27 +40,7 @@ type GooseParsedRow = {
 };
 
 /** Options for `GooseSourceAdapter`. */
-export type GooseSourceAdapterOptions = {
-  /** The database to read; the platform's default locations when omitted. */
-  dbPath?: string;
-  /** Test seam: default database paths tried when no dbPath is given. @internal */
-  resolveDefaultDbPaths?: () => string[];
-  /** Test seam: replaces the file system check. @internal */
-  pathExists?: PathPredicate;
-  /** Test seam: replaces the file system check. @internal */
-  pathReadable?: PathPredicate;
-  /** Test seam: replaces the file system check. @internal */
-  pathIsFile?: PathPredicate;
-  /** Test seam: replaces the node:sqlite loader. @internal */
-  loadSqliteModule?: (consumerLabel: string) => Promise<SqliteModule>;
-  /** Retries of a read that finds the database busy or locked. */
-  maxBusyRetries?: number;
-  /** Delay between those retries. */
-  busyRetryDelayMs?: number;
-  /** Test seam: replaces the busy-retry delay. @internal */
-  sleep?: SleepFn;
-  context?: SourceContext;
-};
+export type GooseSourceAdapterOptions = SqliteDbSourceOptions;
 
 const gooseSessionsQuery = `
   SELECT id, model_config_json, provider_name, created_at,
@@ -193,73 +166,36 @@ export class GooseSourceAdapter implements SourceAdapter {
   public readonly capabilities = { kinds: ['usage'] } as const;
   public readonly parserVersion = 2;
 
-  private readonly explicitDbPath?: string;
-  private readonly resolveDefaultDbPaths: () => string[];
-  private readonly pathExists: PathPredicate;
-  private readonly pathReadable: PathPredicate;
-  private readonly pathIsFile: PathPredicate;
-  private readonly loadSqliteModule: (consumerLabel: string) => Promise<SqliteModule>;
-  private readonly maxBusyRetries: number;
-  private readonly busyRetryDelayMs: number;
-  private readonly sleep: SleepFn;
+  private readonly db: SqliteDbSource;
 
   public constructor(options: GooseSourceAdapterOptions = {}) {
-    const context = options.context ?? createSourceContext();
-
-    this.explicitDbPath = options.dbPath;
-    this.resolveDefaultDbPaths =
-      options.resolveDefaultDbPaths ?? (() => getDefaultGooseDbPathCandidates(context));
-    this.pathExists = options.pathExists ?? pathExists;
-    this.pathReadable = options.pathReadable ?? pathReadable;
-    this.pathIsFile = options.pathIsFile ?? pathIsFile;
-    this.loadSqliteModule = options.loadSqliteModule ?? loadNodeSqliteModule;
-    this.maxBusyRetries = resolveMaxBusyRetries(
-      'Goose',
-      options.maxBusyRetries,
-      DEFAULT_BUSY_RETRY_COUNT,
-    );
-    this.busyRetryDelayMs = Math.max(1, options.busyRetryDelayMs ?? DEFAULT_BUSY_RETRY_DELAY_MS);
-    this.sleep = options.sleep ?? sleep;
+    this.db = createSqliteDbSource('Goose', options, getDefaultGooseDbPathCandidates);
   }
 
   public getSearchPaths(): string[] {
-    return this.explicitDbPath !== undefined
-      ? [this.explicitDbPath.trim()]
-      : this.resolveDefaultDbPaths();
+    return getSqliteDbSearchPaths(this.db);
   }
 
   public async discoverFiles(): Promise<string[]> {
-    if (this.explicitDbPath !== undefined) {
-      if (isBlankText(this.explicitDbPath)) {
-        throw new Error('dbPath must be a non-empty path');
-      }
-
-      const explicitDbPath = this.explicitDbPath.trim();
-      const readable = await this.pathReadable(explicitDbPath);
-
-      if (!readable) {
-        throw new Error(`Goose DB path is missing or unreadable: ${explicitDbPath}`);
-      }
-
-      if ((await this.pathExists(explicitDbPath)) && !(await this.pathIsFile(explicitDbPath))) {
-        throw new Error(`Goose DB path is not a file: ${explicitDbPath}`);
-      }
-
-      return [explicitDbPath];
+    if (this.db.explicitDbPath !== undefined) {
+      return discoverExplicitSqliteDb(this.db, this.db.explicitDbPath);
     }
 
     let firstUnreadableCandidatePath: string | undefined;
 
-    for (const candidatePath of this.resolveDefaultDbPaths()) {
-      if (await this.pathReadable(candidatePath)) {
-        if ((await this.pathExists(candidatePath)) && !(await this.pathIsFile(candidatePath))) {
+    for (const candidatePath of this.db.resolveDefaultDbPaths()) {
+      if (await this.db.pathReadable(candidatePath)) {
+        if (
+          (await this.db.pathExists(candidatePath)) &&
+          !(await this.db.pathIsFile(candidatePath))
+        ) {
           throw new Error(`Goose DB path is not a file: ${candidatePath}`);
         }
 
         return [candidatePath];
       }
 
-      if (!firstUnreadableCandidatePath && (await this.pathExists(candidatePath))) {
+      if (!firstUnreadableCandidatePath && (await this.db.pathExists(candidatePath))) {
         firstUnreadableCandidatePath = candidatePath;
       }
     }
@@ -288,13 +224,16 @@ export class GooseSourceAdapter implements SourceAdapter {
     }
 
     const normalizedDbPath = dbPath.trim();
-    const readable = await this.pathReadable(normalizedDbPath);
+    const readable = await this.db.pathReadable(normalizedDbPath);
 
     if (!readable) {
       throw new Error(`Goose DB path is unreadable: ${normalizedDbPath}`);
     }
 
-    if ((await this.pathExists(normalizedDbPath)) && !(await this.pathIsFile(normalizedDbPath))) {
+    if (
+      (await this.db.pathExists(normalizedDbPath)) &&
+      !(await this.db.pathIsFile(normalizedDbPath))
+    ) {
       throw new Error(`Goose DB path is not a file: ${normalizedDbPath}`);
     }
 
@@ -307,9 +246,9 @@ export class GooseSourceAdapter implements SourceAdapter {
       {
         source: 'Goose',
         dbPath: normalizedDbPath,
-        maxBusyRetries: this.maxBusyRetries,
-        busyRetryDelayMs: this.busyRetryDelayMs,
-        sleep: this.sleep,
+        maxBusyRetries: this.db.maxBusyRetries,
+        busyRetryDelayMs: this.db.busyRetryDelayMs,
+        sleep: this.db.sleep,
       },
     );
 
@@ -337,7 +276,7 @@ export class GooseSourceAdapter implements SourceAdapter {
   // Opens the database and pulls the first row, so a busy database fails here, inside
   // the retry, rather than after a row was yielded.
   private async openSessionRows(dbPath: string): Promise<GooseSessionRows> {
-    const sqlite = await this.loadSqliteModule('Goose');
+    const sqlite = await this.db.loadSqliteModule('Goose');
     const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
 
     try {
