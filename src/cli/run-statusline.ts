@@ -486,29 +486,30 @@ export async function runStatusline(
     return;
   }
 
-  let summary: StatuslineData;
+  let summary: StatuslineSummary;
+  let diagnostics: UsageDiagnostics | undefined;
 
   try {
     // The holder this tick waited for may have just stored the line.
     const justBuilt = await readStored();
 
     if (justBuilt && isRecent(justBuilt)) {
-      await releaseLock();
-      console.log(formatStatusline(justBuilt.summary, parseClaudeCodeSession(await input)));
-      return;
-    }
+      summary = justBuilt.summary;
+    } else {
+      const built = await buildStatuslineData(options, {
+        loadUserConfig: async () => loadedConfig,
+        now,
+      });
+      summary = built;
+      diagnostics = built.diagnostics;
 
-    summary = await buildStatuslineData(options, {
-      loadUserConfig: async () => loadedConfig,
-      now,
-    });
+      if (eventStore.enabled) {
+        await writeStoredStatusline(cachePath, cacheKey, built, now());
+      }
 
-    if (eventStore.enabled) {
-      await writeStoredStatusline(cachePath, cacheKey, summary, now());
-    }
-
-    if (eventStore.enabled && summary.foundNoUsage) {
-      await emitEmptyStoreHint(eventStore.path);
+      if (eventStore.enabled && built.foundNoUsage) {
+        await emitEmptyStoreHint(eventStore.path);
+      }
     }
   } finally {
     await releaseLock();
@@ -516,8 +517,8 @@ export async function runStatusline(
 
   const session = parseClaudeCodeSession(await input);
 
-  if (options.verbose) {
-    emitReportRunDiagnostics(summary.diagnostics, {
+  if (options.verbose && diagnostics) {
+    emitReportRunDiagnostics(diagnostics, {
       emitCommonDiagnostics: emitDiagnostics,
       getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
       getActiveConfig: (diagnostics) => diagnostics.activeConfig,

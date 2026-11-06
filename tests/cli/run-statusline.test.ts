@@ -655,6 +655,18 @@ describe('runStatusline', () => {
         vi.stubEnv('XDG_DATA_HOME', path.join(dir, 'data'));
         expect(key()).not.toBe(plain);
         vi.unstubAllEnvs();
+        vi.stubEnv('XDG_CACHE_HOME', path.join(dir, 'prices'));
+        expect(key()).not.toBe(plain);
+        vi.unstubAllEnvs();
+        vi.stubEnv('CODEX_HOME', path.join(dir, 'codex'));
+        const absoluteHome = key();
+        cwd.mockReturnValue(path.join(dir, 'a'));
+        expect(key()).toBe(absoluteHome);
+        vi.stubEnv('CODEX_HOME', '.codex');
+        const relativeHome = key();
+        cwd.mockReturnValue(path.join(dir, 'b'));
+        expect(key()).not.toBe(relativeHome);
+        vi.unstubAllEnvs();
         vi.stubEnv('TZ', 'Pacific/Auckland');
         const auckland = key();
         vi.stubEnv('TZ', 'America/Los_Angeles');
