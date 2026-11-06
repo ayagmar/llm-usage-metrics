@@ -206,7 +206,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 ### Statusline
 
-`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first. It parses on the same worker pool as every other command: with `parseWorkers` at `auto`, at most six threads while it writes the event store.
+`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first. It parses on the same worker pool as every other command: with `parseWorkers` at `auto`, at most six threads while it writes the event store. A built line is kept next to the event store for 30 seconds (`src/cli/statusline-cache.ts`): ticks in that time print it without reading events, and a tick that finds the lock held prints it instead of `warming up…`.
 
 ### Machines and Sync
 
