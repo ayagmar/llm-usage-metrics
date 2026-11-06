@@ -17,7 +17,7 @@ import { mapWithConcurrency } from './history-live-files.js';
 import { createTimestampWindowFilter } from './parse/usage-event-filters.js';
 
 /** The non-usage events read for a report: from the event store, or live without it. */
-export type LiveSessionEvent = ToolCallEvent | MessageEvent;
+type LiveSessionEvent = ToolCallEvent | MessageEvent;
 
 export type LiveEventKind = LiveSessionEvent['kind'];
 

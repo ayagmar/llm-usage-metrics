@@ -28,7 +28,7 @@ export type MachineEvents<E extends MergedEvent = UsageEvent> = {
 };
 
 /** A source this machine parses with another version than the side that served a session. */
-export type ParserSkew = {
+type ParserSkew = {
   source: string;
   /** Undefined when the machine did not record it (an older export). */
   version?: string;

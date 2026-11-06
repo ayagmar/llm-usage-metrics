@@ -344,7 +344,7 @@ export function truncateTableColumn(
   });
 }
 
-export function isValidTerminalWidth(width: unknown): width is number {
+function isValidTerminalWidth(width: unknown): width is number {
   return typeof width === 'number' && Number.isFinite(width) && width > 0;
 }
 

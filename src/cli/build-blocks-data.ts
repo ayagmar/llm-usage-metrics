@@ -36,7 +36,7 @@ import type {
 import { parseTopRowsOption } from './top-option.js';
 
 /** Days read before `since` to find where the chain of blocks running into it started. */
-export const BLOCKS_LOOKBACK_DAYS = 7;
+const BLOCKS_LOOKBACK_DAYS = 7;
 
 /** Blocks shown without --top: the most recent ones. */
 const DEFAULT_RECENT_BLOCKS = 20;

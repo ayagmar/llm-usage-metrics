@@ -48,7 +48,7 @@ export type ProjectRow = UsageTotals & {
   topModels: string[];
 };
 
-export type ProjectsTotals = UsageTotals & {
+type ProjectsTotals = UsageTotals & {
   projects: number;
   events: number;
   activeDays: number;

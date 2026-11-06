@@ -116,7 +116,7 @@ export function readOriginRemote(configText: string): string | undefined {
 }
 
 /** The normalized `origin` of the repository at `repoKey`, read from its `.git/config`. */
-export function readRepositoryRemote(repoKey: string): string | undefined {
+function readRepositoryRemote(repoKey: string): string | undefined {
   try {
     return readOriginRemote(readFileSync(path.join(repoKey, '.git', 'config'), 'utf8'));
   } catch {

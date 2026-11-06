@@ -132,7 +132,7 @@ export function countDimensionTokens(report: ShareReport): DimensionTokens {
   };
 }
 
-export type FilterOption = { index: number; label: string; selected: boolean };
+type FilterOption = { index: number; label: string; selected: boolean };
 
 export type FilterGroup = {
   dimension: ShareDimension;

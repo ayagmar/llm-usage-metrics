@@ -4,7 +4,7 @@
  */
 export const PLANS_AS_OF = '2026-10-15';
 
-export type PlanVendor = {
+type PlanVendor = {
   /** Vendor pages that list the current prices. */
   checkAt: readonly string[];
   /** The third-party summaries the prices were taken from. */
@@ -24,7 +24,7 @@ const OPENAI_VENDOR: PlanVendor = {
   references: ['https://www.morphllm.com/codex-pricing'],
 };
 
-export type SubscriptionPlan = {
+type SubscriptionPlan = {
   id: string;
   priceUsdPerMonth: number;
   /** Source ids whose usage the plan covers. */

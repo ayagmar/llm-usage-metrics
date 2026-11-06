@@ -8,7 +8,7 @@ import { compareByCodePoint } from '../../../../packages/core/src/utils/compare-
 /** What a chart plots: total tokens, or the cost in one mode. */
 export type ShareMetric = { kind: 'tokens' } | { kind: 'cost'; mode: ShareCostMode };
 
-export type ShareSeries = {
+type ShareSeries = {
   /** The dictionary label, or `Other` for the merged remainder. */
   label: string;
   /** The dictionary index; null for `Other`. */

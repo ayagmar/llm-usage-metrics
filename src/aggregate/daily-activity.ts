@@ -11,7 +11,7 @@ export type DailyTotals = {
   costIncomplete?: boolean;
 };
 
-export type ActivityLevel = 0 | 1 | 2 | 3 | 4;
+type ActivityLevel = 0 | 1 | 2 | 3 | 4;
 
 /** One heatmap cell: a local day and its intensity level (0 = no usage). */
 export type ActivityDay = {

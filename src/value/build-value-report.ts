@@ -7,7 +7,7 @@ import { getMonthEndDateKey } from '../utils/date-key.js';
 import { addUsd } from '../utils/usd-math.js';
 import { PLANS_AS_OF, type SelectedPlan } from './plans.js';
 
-export type ValueProjectRow = {
+type ValueProjectRow = {
   /** The project key, `null` for usage without a repository root. */
   repoRoot: string | null;
   project: string;
@@ -20,7 +20,7 @@ export type ValueProjectRow = {
 };
 
 /** The projects of a month that the project limit left out, summed. */
-export type ValueOtherProjects = {
+type ValueOtherProjects = {
   /** How many projects. */
   projects: number;
   totalTokens: number;

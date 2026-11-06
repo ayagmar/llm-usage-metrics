@@ -12,7 +12,7 @@ export type RuntimeProfileSourceSelection = {
   candidateProviderRoots?: string[];
 };
 
-export type RuntimeProfileSourceStats = {
+type RuntimeProfileSourceStats = {
   source: string;
   filesFound: number;
   eventsParsed: number;
@@ -23,7 +23,7 @@ export type RuntimeProfileSourceStats = {
   parseWorkerMissedBytes?: number;
 };
 
-export type RuntimeProfileStageTiming = {
+type RuntimeProfileStageTiming = {
   name: string;
   durationMs: number;
 };

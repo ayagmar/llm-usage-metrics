@@ -20,7 +20,7 @@ import {
 import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
 import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
-export type TopItem = {
+type TopItem = {
   rank: number;
   name: string;
   /** Compact, with the exact count in {@link TopItem.tokensExact}. */

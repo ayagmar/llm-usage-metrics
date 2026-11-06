@@ -302,7 +302,7 @@ export type PruneCommandOptions = DoctorCommandOptions & {
   apply?: boolean;
 };
 
-export type UsageSessionStats = {
+type UsageSessionStats = {
   source: string;
   filesFound: number;
   eventsParsed: number;
@@ -313,12 +313,12 @@ export type UsageSourceFailure = {
   reason: string;
 };
 
-export type UsageSkippedRowReasonStat = {
+type UsageSkippedRowReasonStat = {
   reason: string;
   count: number;
 };
 
-export type UsageSkippedRowsStat = {
+type UsageSkippedRowsStat = {
   source: string;
   skippedRows: number;
   reasons?: UsageSkippedRowReasonStat[];
@@ -478,7 +478,7 @@ export type SummaryPeriod = {
   previous?: SummaryPreviousPeriod;
 };
 
-export type SummaryPreviousPeriod = {
+type SummaryPreviousPeriod = {
   since: string;
   until: string;
   totals: UsageWindowTotals;

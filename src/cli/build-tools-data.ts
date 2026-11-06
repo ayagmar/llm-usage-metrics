@@ -27,7 +27,7 @@ export type ToolsReportRow = ToolRow & {
   topProject: string;
 };
 
-export type ToolsReportData = {
+type ToolsReportData = {
   timezone: string;
   /** First day of the window (YYYY-MM-DD); null for the full history. */
   since: string | null;

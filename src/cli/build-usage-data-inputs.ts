@@ -40,7 +40,7 @@ export function validateDateInput(value: string, flagName: string): void {
   }
 }
 
-export function validateTimezone(timezone: string): void {
+function validateTimezone(timezone: string): void {
   const normalizedTimezone = timezone.trim();
 
   try {

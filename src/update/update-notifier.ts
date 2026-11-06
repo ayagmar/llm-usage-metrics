@@ -13,24 +13,12 @@ import { isTruthyEnvFlag } from '../utils/env-flags.js';
 import { shouldOfferUpdate } from './version-utils.js';
 
 export {
-  UPDATE_CHECK_CACHE_SCOPE_ENV_VAR,
-  UPDATE_CHECK_CACHE_SESSION_KEY_ENV_VAR,
-  claimBackgroundRefresh,
-  getDefaultUpdateCheckCachePath,
   getSessionScopedCachePath,
   isCacheFresh,
-  readUpdateCheckCachePayload,
   resolveLatestVersion,
-  writeUpdateCheckCachePayload,
   type ResolveLatestVersionOptions,
-  type UpdateCheckCachePayload,
 } from './update-cache-repository.js';
-export {
-  compareVersions,
-  parseVersion,
-  shouldOfferUpdate,
-  type ParsedVersion,
-} from './version-utils.js';
+export { compareVersions, shouldOfferUpdate } from './version-utils.js';
 
 const UPDATE_CHECK_SKIP_ENV_VAR = 'LLM_USAGE_SKIP_UPDATE_CHECK';
 const UPDATE_HINT_EXIT_GRACE_MS = 50;

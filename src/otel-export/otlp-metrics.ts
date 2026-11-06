@@ -28,13 +28,13 @@ import {
 /** OTLP `AggregationTemporality`. */
 const AGGREGATION_TEMPORALITY_DELTA = 1;
 
-export type OtlpNumberDataPoint = {
+type OtlpNumberDataPoint = {
   attributes: OtlpKeyValue[];
   startTimeUnixNano: string;
   timeUnixNano: string;
 } & ({ asInt: string } | { asDouble: number });
 
-export type OtlpHistogramDataPoint = {
+type OtlpHistogramDataPoint = {
   attributes: OtlpKeyValue[];
   startTimeUnixNano: string;
   timeUnixNano: string;
@@ -46,7 +46,7 @@ export type OtlpHistogramDataPoint = {
   max: number;
 };
 
-export type OtlpMetric = {
+type OtlpMetric = {
   name: string;
   description: string;
   unit: string;
