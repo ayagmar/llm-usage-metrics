@@ -40,7 +40,7 @@ export const COST_MODE_DETAILS: Record<ShareCostMode, string> = {
   both: 'Logged, else estimated',
 };
 
-export type Badge = {
+type Badge = {
   text: string;
   tone: 'neutral' | 'notice';
   /** The full text when `text` shortens it, shown as a tooltip. */

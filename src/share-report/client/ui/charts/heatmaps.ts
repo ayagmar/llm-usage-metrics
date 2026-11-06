@@ -27,7 +27,7 @@ function hourLabel(hour: number): string {
   return String(hour).padStart(2, '0');
 }
 
-export type HeatGrid = {
+type HeatGrid = {
   rowLabels: readonly string[];
   /** Column labels; an empty one is never drawn. */
   columnLabels: readonly string[];
@@ -38,10 +38,10 @@ export type HeatGrid = {
   maxCell: number;
 };
 
-export type HeatPeak = { row: number; column: number; value: number };
+type HeatPeak = { row: number; column: number; value: number };
 
 /** The largest cell (the first one in reading order on a tie); undefined when all are 0. */
-export function findPeak(values: readonly (readonly number[])[]): HeatPeak | undefined {
+function findPeak(values: readonly (readonly number[])[]): HeatPeak | undefined {
   let peak: HeatPeak | undefined;
 
   for (const [row, line] of values.entries()) {
@@ -56,7 +56,7 @@ export function findPeak(values: readonly (readonly number[])[]): HeatPeak | und
 }
 
 /** The grid drawn from `top`; returns its nodes and height. */
-export function heatGrid(
+function heatGrid(
   grid: HeatGrid,
   width: number,
   top: number,

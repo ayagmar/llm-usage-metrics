@@ -21,7 +21,7 @@ export type TrendBucket = {
   spike?: true;
 };
 
-export type TrendSummary = {
+type TrendSummary = {
   total: number;
   average: number;
   peak: { date: string; value: number };

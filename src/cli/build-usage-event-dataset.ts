@@ -888,3 +888,15 @@ export function withPricingNotes(
 
   return [...notes, ...pricingNotes];
 }
+
+/** `withPricingNotes` for the dataset's notes; `--no-cost` shows no cost, so nothing to explain. */
+export function withCostNotes(
+  dataset: Pick<UsageEventDataset, 'notes'>,
+  shownEvents: readonly UsageEvent[],
+  pricingResult: PricingNotesInput,
+  cost: boolean | undefined,
+): ReportNote[] {
+  return cost === false
+    ? dataset.notes
+    : withPricingNotes(dataset.notes, shownEvents, pricingResult);
+}

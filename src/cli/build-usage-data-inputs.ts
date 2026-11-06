@@ -40,7 +40,7 @@ export function validateDateInput(value: string, flagName: string): void {
   }
 }
 
-export function validateTimezone(timezone: string): void {
+function validateTimezone(timezone: string): void {
   const normalizedTimezone = timezone.trim();
 
   try {
@@ -159,9 +159,7 @@ function validatePricingUrl(pricingUrl: string | undefined): string | undefined 
   return normalizedPricingUrl;
 }
 
-function validateBuildOptions(options: ReportCommandOptions): {
-  normalizedPricingUrl: string | undefined;
-} {
+export function validateDateRangeOptions(options: { since?: string; until?: string }): void {
   if (options.since) {
     validateDateInput(options.since, '--since');
   }
@@ -173,6 +171,12 @@ function validateBuildOptions(options: ReportCommandOptions): {
   if (options.since && options.until && options.since > options.until) {
     throw new Error('--since must be less than or equal to --until');
   }
+}
+
+function validateBuildOptions(options: ReportCommandOptions): {
+  normalizedPricingUrl: string | undefined;
+} {
+  validateDateRangeOptions(options);
 
   return {
     normalizedPricingUrl: validatePricingUrl(options.pricingUrl),

@@ -42,7 +42,7 @@ export type ColumnView = {
   sort: 'ascending' | 'descending' | 'none';
 };
 
-export type RowView = {
+type RowView = {
   key: string;
   /** One cell per column; the first is the row's label. */
   cells: CellView[];

@@ -8,8 +8,8 @@ import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-tre
 import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { resolveReportTimezone, validateDateInput } from './build-usage-data-inputs.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
+import { resolveReportTimezone, validateDateRangeOptions } from './build-usage-data-inputs.js';
 import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
@@ -159,17 +159,7 @@ function resolveTrendsOptions(
     throw new Error('--all cannot be combined with --since or --until');
   }
 
-  if (options.since) {
-    validateDateInput(options.since, '--since');
-  }
-
-  if (options.until) {
-    validateDateInput(options.until, '--until');
-  }
-
-  if (options.since && options.until && options.since > options.until) {
-    throw new Error('--since must be less than or equal to --until');
-  }
+  validateDateRangeOptions(options);
 
   const metric = resolveMetric(options.metric);
   const days = parseLastOption(daysValue, daysFlag);
@@ -470,23 +460,15 @@ export async function buildTrendsData(
         );
       })
     : undefined;
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin: pricingResult.pricingOrigin,
-    pricingWarning: pricingResult.pricingWarning,
-    warnings: dataset.warnings,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     // Only cost trends show `~`, and only for the days in the chart.
     notes: withPricingNotes(
       dataset.notes,
       resolved.metric === 'cost' ? chartedEvents : [],
       pricingResult,
     ),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   return {

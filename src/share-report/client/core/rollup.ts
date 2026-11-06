@@ -11,7 +11,7 @@ export type ShareTotals = ShareTokenBuckets & {
   costs: ShareCosts;
 };
 
-export type SharePeriodRow = ShareTotals & { key: string };
+type SharePeriodRow = ShareTotals & { key: string };
 
 export type ShareDimensionRow = ShareTotals & {
   /** The dictionary label. */

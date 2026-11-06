@@ -8,6 +8,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getIsoDayOfWeekFromDateKey, getLocalHour, getPeriodKey } from '../utils/time-buckets.js';
 import type { WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
+import { compareCostDescending } from '../utils/compare-cost.js';
 import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateWrappedOptions = {
@@ -67,16 +68,10 @@ function toWrappedTopItem([name, accumulator]: [string, TotalsAccumulator]): Wra
 }
 
 function compareTopItems(left: WrappedTopItem, right: WrappedTopItem): number {
-  if (left.costUsd !== undefined && right.costUsd === undefined) {
-    return -1;
-  }
+  const byCost = compareCostDescending(left, right);
 
-  if (left.costUsd === undefined && right.costUsd !== undefined) {
-    return 1;
-  }
-
-  if (left.costUsd !== undefined && right.costUsd !== undefined && left.costUsd !== right.costUsd) {
-    return right.costUsd - left.costUsd;
+  if (byCost !== 0) {
+    return byCost;
   }
 
   if (left.totalTokens !== right.totalTokens) {

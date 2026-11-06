@@ -180,7 +180,7 @@ export function getSvgSize(node: ExportNode): { width: number; height: number } 
 }
 
 /** Space around the chart in an exported file, in the chart's own units. */
-export const EXPORT_MARGIN = 16;
+const EXPORT_MARGIN = 16;
 
 /** The box of an exported file: the chart's own box with {@link EXPORT_MARGIN} on every side. */
 export type ExportFrame = {

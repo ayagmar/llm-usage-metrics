@@ -16,7 +16,7 @@ export type EfficiencyDerivedMetrics = {
   commitsPerUsd?: number;
 };
 
-export type EfficiencyPeriodRow = EfficiencyUsageTotals &
+type EfficiencyPeriodRow = EfficiencyUsageTotals &
   EfficiencyOutcomeTotals &
   EfficiencyDerivedMetrics & {
     rowType: 'period';
@@ -30,7 +30,7 @@ export type EfficiencySourceRow = EfficiencyUsageTotals & {
   costShare?: number;
 };
 
-export type EfficiencyGrandTotalRow = EfficiencyUsageTotals &
+type EfficiencyGrandTotalRow = EfficiencyUsageTotals &
   EfficiencyOutcomeTotals &
   EfficiencyDerivedMetrics & {
     rowType: 'grand_total';

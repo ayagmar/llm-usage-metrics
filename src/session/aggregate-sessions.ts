@@ -4,6 +4,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
 import { compareByCodePoint, normalizeOptionalModel } from '@ayagmar/agent-sessions/internal';
 import type { SessionRepoRow, SessionRow } from './session-row.js';
+import { compareCostDescending } from '../utils/compare-cost.js';
 import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateSessionsOptions = {
@@ -227,16 +228,10 @@ function compareByCostThenLastActivity(
   left: UsageTotals & { lastActivity: string },
   right: UsageTotals & { lastActivity: string },
 ): number {
-  if (left.costUsd !== undefined && right.costUsd === undefined) {
-    return -1;
-  }
+  const byCost = compareCostDescending(left, right);
 
-  if (left.costUsd === undefined && right.costUsd !== undefined) {
-    return 1;
-  }
-
-  if (left.costUsd !== undefined && right.costUsd !== undefined && left.costUsd !== right.costUsd) {
-    return right.costUsd - left.costUsd;
+  if (byCost !== 0) {
+    return byCost;
   }
 
   return compareByCodePoint(right.lastActivity, left.lastActivity);

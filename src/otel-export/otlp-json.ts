@@ -9,7 +9,7 @@ import { SEMCONV_GENAI_REF, type OtelAttributes } from '@ayagmar/agent-sessions/
  * decimal strings, enums as integers, lowerCamelCase keys.
  */
 
-export type OtlpAnyValue =
+type OtlpAnyValue =
   { stringValue: string } | { boolValue: boolean } | { intValue: string } | { doubleValue: number };
 
 export type OtlpKeyValue = { key: string; value: OtlpAnyValue };

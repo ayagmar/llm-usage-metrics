@@ -12,7 +12,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
  * One `--repo` value. `path` matches that root and the roots under it; `suffix` matches
  * keys ending in its segments; `unattributed` matches events without a repository root.
  */
-export type RepoFilterValue =
+type RepoFilterValue =
   | { kind: 'path'; input: string; path: string }
   | { kind: 'suffix'; input: string; suffix: string }
   | { kind: 'unattributed'; input: string };

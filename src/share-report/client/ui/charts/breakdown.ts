@@ -32,7 +32,7 @@ import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
 import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 /** One ranked row: a label, or the merged remainder with how many it holds. */
-export type RankedRow = {
+type RankedRow = {
   label: string;
   /** Rows merged into `Other`; 0 for a labelled row. */
   merged: number;
@@ -46,7 +46,7 @@ export type RankedRow = {
  * Totals per label of a dimension, largest `by` first (ties by label), with everything after
  * the first `keep` merged into one `Other` row.
  */
-export function rankDimension(
+function rankDimension(
   context: ShareViewContext,
   dimension: ShareDimension,
   by: 'cost' | 'tokens',
@@ -95,7 +95,7 @@ export function rankDimension(
 }
 
 /** A share of a whole: null when the whole is 0. */
-export function shareOf(part: number, whole: number): number | null {
+function shareOf(part: number, whole: number): number | null {
   return whole > 0 ? part / whole : null;
 }
 

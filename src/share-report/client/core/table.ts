@@ -4,7 +4,7 @@ import type { ShareFilters } from './filters.js';
 import { toLocalDateHour } from './local-time.js';
 import { compareByCodePoint } from '../../../../packages/core/src/utils/compare-by-code-point.js';
 
-export type SortDirection = 'asc' | 'desc';
+type SortDirection = 'asc' | 'desc';
 
 /** The sortable columns of the project and session tables. */
 export const TABLE_SORT_KEYS = [

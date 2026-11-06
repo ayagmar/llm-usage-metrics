@@ -1,4 +1,5 @@
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { isTruthyEnvFlag } from '../utils/env-flags.js';
 import { logger } from '../utils/logger.js';
 
 const RUNTIME_PROFILE_ENV_VAR = 'LLM_USAGE_PROFILE_RUNTIME';
@@ -11,7 +12,7 @@ export type RuntimeProfileSourceSelection = {
   candidateProviderRoots?: string[];
 };
 
-export type RuntimeProfileSourceStats = {
+type RuntimeProfileSourceStats = {
   source: string;
   filesFound: number;
   eventsParsed: number;
@@ -22,7 +23,7 @@ export type RuntimeProfileSourceStats = {
   parseWorkerMissedBytes?: number;
 };
 
-export type RuntimeProfileStageTiming = {
+type RuntimeProfileStageTiming = {
   name: string;
   durationMs: number;
 };
@@ -42,20 +43,6 @@ export type RuntimeProfileSnapshot = {
 };
 
 type MutableRuntimeProfileSourceStats = RuntimeProfileSourceStats;
-
-function isTruthyEnvFlag(value: string | undefined): boolean {
-  if (value === undefined) {
-    return false;
-  }
-
-  const normalizedValue = value.trim().toLowerCase();
-
-  if (normalizedValue.length === 0) {
-    return false;
-  }
-
-  return ['1', 'true', 'yes', 'on'].includes(normalizedValue);
-}
 
 export function isRuntimeProfileEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return isTruthyEnvFlag(env[RUNTIME_PROFILE_ENV_VAR]);

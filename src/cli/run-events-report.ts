@@ -15,7 +15,7 @@ import {
 import { buildOtlpTraces } from '../otel-export/otlp-traces.js';
 import { logger } from '../utils/logger.js';
 import { resolveLastPeriodsRequest } from './build-usage-data.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
@@ -148,11 +148,8 @@ export async function runEventsReport(
   const { options, deps } = await resolveLastPeriodsRequest('daily', commandOptions, commandDeps);
   // The logged directory, not the session's project: events exports what was recorded.
   const dataset = await buildUsageEventDataset(options, deps, { recordedRepoRoots: true });
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents } = pricingResult;
   const sortedEvents = sortEventsForExport(pricedEvents);
   // Tool spans and durations: the calls of the exported sessions, counted once as `tools`
   // counts them.
@@ -163,21 +160,14 @@ export async function runEventsReport(
           sessionKeys: new Set(sortedEvents.map((event) => getEventSessionKey(event))),
         })
       : undefined;
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     warnings: toolCalls
       ? [...dataset.warnings, ...formatFailedLiveReads('Tool calls', toolCalls.failedFilePaths)]
       : dataset.warnings,
     notes: toolCalls
       ? [...dataset.notes, formatLiveEventsNote('Tool calls', dataset)]
       : dataset.notes,
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
   });
 
   emitReportRunDiagnostics(diagnostics, {

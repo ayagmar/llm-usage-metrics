@@ -43,7 +43,7 @@ export type SettingOrigin = 'cli' | 'env' | 'config' | 'default';
 
 export type ConfigSetting<Value> = { value: Value; origin: SettingOrigin };
 
-export type ConfigReportSource = {
+type ConfigReportSource = {
   id: string;
   format: SourceStorageFormat;
   origin: SettingOrigin;
@@ -55,7 +55,7 @@ export type ConfigReportSource = {
  * fetches the URL. bundled-snapshot: offline with no usable cache. none: offline with a
  * custom URL and no cache for it, so pricing fails.
  */
-export type ConfigReportPricesFrom = 'cache' | 'network' | 'bundled-snapshot' | 'none';
+type ConfigReportPricesFrom = 'cache' | 'network' | 'bundled-snapshot' | 'none';
 
 export type ConfigReportData = {
   configFile: { path: string; origin: 'env' | 'default'; exists: boolean };

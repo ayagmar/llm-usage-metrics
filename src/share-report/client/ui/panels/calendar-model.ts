@@ -9,7 +9,7 @@ import { readNumber, readString, type PanelTable } from './model.js';
 import { formatInteger } from '../../../../render/format-number.js';
 
 /** A day in the calendar: its week column, its weekday row (Monday 0) and its heat level. */
-export type CalendarDay = {
+type CalendarDay = {
   week: number;
   weekday: number;
   /** 0 for no usage, then 1–4 as the CLI's intensity levels. */

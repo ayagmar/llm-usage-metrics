@@ -3,7 +3,7 @@ import { addEventToTotals } from '../aggregate/aggregate-usage.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
-import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs, validateDateInput } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import {
@@ -464,7 +464,7 @@ export async function buildCompareData(
       }),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
-  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const { pricedEvents } = pricingResult;
   const currentEvents = pricedEvents.filter((event) =>
     isEventWithinWindow(event, windows.current, dataset.normalizedInputs.timezone),
   );
@@ -482,18 +482,10 @@ export async function buildCompareData(
     'compare.aggregate.baseline',
     () => summarizeUsageWindow(baselineEvents, dataset.normalizedInputs.timezone, sourceOrder),
   );
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
+  const diagnostics = buildDatasetDiagnostics(dataset, {
+    pricing: pricingResult,
     notes: withPricingNotes(dataset.notes, [...currentEvents, ...baselineEvents], pricingResult),
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
+    runtimeProfile: deps.runtimeProfile,
   });
 
   const projects = options.byRepo

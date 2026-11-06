@@ -103,7 +103,7 @@ export function formatCountOrNone(value: number | undefined): string {
   return value === undefined ? NO_VALUE : formatInteger(value);
 }
 
-export const LOWER_BOUND_NOTE = 'Some events had no price, so this is a lower bound';
+const LOWER_BOUND_NOTE = 'Some events had no price, so this is a lower bound';
 
 /** `$1.23`, `~$1.23` when some events had no price (as the terminal marks it), or `—`. */
 export function formatEnvelopeCost(costUsd: number | undefined, incomplete = false): PanelCell {

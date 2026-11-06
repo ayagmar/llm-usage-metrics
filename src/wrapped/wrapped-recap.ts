@@ -15,7 +15,7 @@ export type WrappedMonth = {
   level: 0 | 1 | 2 | 3 | 4;
 };
 
-export type WrappedDay = ActivityDay;
+type WrappedDay = ActivityDay;
 
 export type WrappedRecap = {
   year: number;
