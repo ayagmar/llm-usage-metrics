@@ -11,9 +11,9 @@ import type {
 } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type UsageGranularity } from '../utils/time-buckets.js';
-import { addUsd } from '../utils/usd-math.js';
 import { formatInteger } from '../render/format-number.js';
 import { toProjectKey } from './project-key.js';
+import { addEventToTotals, addTotals, createEmptyTotals, getCostState } from './usage-totals.js';
 
 export type AggregateUsageOptions = {
   granularity: UsageGranularity;
@@ -67,39 +67,12 @@ type RankedModelUsage = {
   modelBreakdown: ModelUsageBreakdown[];
 };
 
-export function createEmptyTotals(): UsageTotals {
-  return {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
-  };
-}
-
 function createRowAccumulator(group: RowGroup, includeModelBreakdown: boolean): RowAccumulator {
   return {
     group,
     totals: createEmptyTotals(),
     modelTotals: includeModelBreakdown ? new Map<string, UsageTotals>() : undefined,
   };
-}
-
-export function addEventToTotals(target: UsageTotals, event: UsageEvent): void {
-  target.inputTokens += event.inputTokens;
-  target.outputTokens += event.outputTokens;
-  target.reasoningTokens += event.reasoningTokens;
-  target.cacheReadTokens += event.cacheReadTokens;
-  target.cacheWriteTokens += event.cacheWriteTokens;
-  target.totalTokens += event.totalTokens;
-
-  if (event.costUsd === undefined) {
-    target.costIncomplete = true;
-    return;
-  }
-
-  target.costUsd = addUsd(target.costUsd ?? 0, event.costUsd);
 }
 
 export function normalizeModelKey(model: string | undefined): string | undefined {
@@ -140,23 +113,6 @@ function addEventToAccumulator(
   }
 
   addEventToTotals(modelTotals, event);
-}
-
-export function addTotals(target: UsageTotals, source: UsageTotals): void {
-  target.inputTokens += source.inputTokens;
-  target.outputTokens += source.outputTokens;
-  target.reasoningTokens += source.reasoningTokens;
-  target.cacheReadTokens += source.cacheReadTokens;
-  target.cacheWriteTokens += source.cacheWriteTokens;
-  target.totalTokens += source.totalTokens;
-
-  if (source.costUsd !== undefined) {
-    target.costUsd = addUsd(target.costUsd ?? 0, source.costUsd);
-  }
-
-  if (source.costIncomplete) {
-    target.costIncomplete = true;
-  }
 }
 
 function mergeModelTotals(
@@ -541,7 +497,7 @@ export function aggregateUsage(
   }
 
   const finalizedGrandTotals =
-    events.length === 0 && grandTotals.costUsd === undefined && grandTotals.costIncomplete !== true
+    events.length === 0 && getCostState(grandTotals) === 'none'
       ? { ...grandTotals, costUsd: 0 }
       : grandTotals;
 

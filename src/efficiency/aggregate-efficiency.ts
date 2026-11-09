@@ -1,3 +1,9 @@
+import {
+  addTokenBuckets,
+  createEmptyTotals,
+  eitherCostIncomplete,
+  getCostState,
+} from '../aggregate/usage-totals.js';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import {
@@ -122,14 +128,12 @@ function addUsageTotals(
     value.reasoningTokens > 0 ||
     value.cacheReadTokens > 0 ||
     value.cacheWriteTokens > 0;
-  const hasUnknownCost =
-    (left.costIncomplete === true && left.costUsd === undefined) ||
-    (right.costIncomplete === true && right.costUsd === undefined);
+  const hasUnknownCost = getCostState(left) === 'unknown' || getCostState(right) === 'unknown';
   const isNeutralZeroCost = (value: EfficiencyUsageTotals): boolean =>
     !hasAnyBucketUsage(value) &&
     value.totalTokens === 0 &&
     value.costUsd === 0 &&
-    value.costIncomplete !== true;
+    getCostState(value) === 'known';
   const leftKnownCost =
     left.costUsd !== undefined && !isNeutralZeroCost(left) ? left.costUsd : undefined;
   const rightKnownCost =
@@ -144,16 +148,11 @@ function addUsageTotals(
     costUsd = undefined;
   }
 
-  return {
-    inputTokens: left.inputTokens + right.inputTokens,
-    outputTokens: left.outputTokens + right.outputTokens,
-    reasoningTokens: left.reasoningTokens + right.reasoningTokens,
-    cacheReadTokens: left.cacheReadTokens + right.cacheReadTokens,
-    cacheWriteTokens: left.cacheWriteTokens + right.cacheWriteTokens,
-    totalTokens: left.totalTokens + right.totalTokens,
-    costUsd,
-    costIncomplete: left.costIncomplete || right.costIncomplete ? true : undefined,
-  };
+  const tokens = createEmptyTotals();
+  addTokenBuckets(tokens, left);
+  addTokenBuckets(tokens, right);
+
+  return { ...tokens, costUsd, costIncomplete: eitherCostIncomplete(left, right) };
 }
 
 function hasMeaningfulUsageSignal(usageTotals: EfficiencyUsageTotals): boolean {
@@ -164,8 +163,7 @@ function hasMeaningfulUsageSignal(usageTotals: EfficiencyUsageTotals): boolean {
     usageTotals.reasoningTokens > 0 ||
     usageTotals.cacheReadTokens > 0 ||
     usageTotals.cacheWriteTokens > 0 ||
-    usageTotals.costUsd !== undefined ||
-    usageTotals.costIncomplete === true
+    getCostState(usageTotals) !== 'none'
   );
 }
 
@@ -276,9 +274,7 @@ export function aggregateEfficiency(options: AggregateEfficiencyOptions): Effici
   }
 
   const finalizedTotalUsage =
-    totalUsage.costUsd === undefined &&
-    totalUsage.costIncomplete !== true &&
-    totalUsage.totalTokens === 0
+    getCostState(totalUsage) === 'none' && totalUsage.totalTokens === 0
       ? { ...totalUsage, costUsd: 0 }
       : totalUsage;
 

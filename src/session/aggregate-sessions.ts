@@ -1,4 +1,5 @@
 import { toParentProjectKey, toProjectKey } from '../aggregate/project-key.js';
+import { addEventToTotals, createEmptyTotals } from '../aggregate/usage-totals.js';
 import { computeActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
@@ -167,33 +168,13 @@ function createAccumulator(event: UsageEvent): SessionAccumulator {
     timestampsMs: [],
     eventCount: 0,
     models: new Set(),
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
+    ...createEmptyTotals(),
   };
-}
-
-function addEventUsage(totals: UsageTotals, event: UsageEvent): void {
-  totals.inputTokens += event.inputTokens;
-  totals.outputTokens += event.outputTokens;
-  totals.reasoningTokens += event.reasoningTokens;
-  totals.cacheReadTokens += event.cacheReadTokens;
-  totals.cacheWriteTokens += event.cacheWriteTokens;
-  totals.totalTokens += event.totalTokens;
-
-  if (event.costUsd === undefined) {
-    totals.costIncomplete = true;
-  } else {
-    totals.costUsd = addUsd(totals.costUsd ?? 0, event.costUsd);
-  }
 }
 
 function addEventToAccumulator(accumulator: SessionAccumulator, event: UsageEvent): void {
   accumulator.eventCount++;
-  addEventUsage(accumulator, event);
+  addEventToTotals(accumulator, event);
 
   if (event.costUsd !== undefined) {
     if (event.costMode === 'explicit') {
@@ -332,7 +313,7 @@ function createRepoAccumulator(repoRoot: string | undefined, event: UsageEvent):
 function addEventToRepoAccumulator(accumulator: RepoAccumulator, event: UsageEvent): void {
   accumulator.sessionKeys.add(getEventSessionKey(event));
   accumulator.sources.add(event.source);
-  addEventUsage(accumulator, event);
+  addEventToTotals(accumulator, event);
 
   if (event.timestamp < accumulator.firstActivity) {
     accumulator.firstActivity = event.timestamp;

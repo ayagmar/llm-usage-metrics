@@ -1,4 +1,5 @@
-import { addTotals, aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { addTotals } from '../aggregate/usage-totals.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';

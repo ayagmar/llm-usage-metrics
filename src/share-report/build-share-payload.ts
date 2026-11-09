@@ -6,6 +6,7 @@ import {
   computeActiveIntervals,
   getActiveGapMs,
 } from '@ayagmar/agent-sessions/internal';
+import { addTokenBuckets } from '../aggregate/usage-totals.js';
 import { shiftDateKey } from '../utils/date-key.js';
 import { formatLocalDateTime } from '../render/format-local-date-time.js';
 import { forEachPeriodPart, getPeriodKey } from '../utils/time-buckets.js';
@@ -121,12 +122,7 @@ function createTokens(): TokenAccumulator {
 }
 
 function addTokens(target: TokenAccumulator, event: UsageEvent): void {
-  target.inputTokens += event.inputTokens;
-  target.outputTokens += event.outputTokens;
-  target.reasoningTokens += event.reasoningTokens;
-  target.cacheReadTokens += event.cacheReadTokens;
-  target.cacheWriteTokens += event.cacheWriteTokens;
-  target.totalTokens += event.totalTokens;
+  addTokenBuckets(target, event);
   target.eventCount += 1;
 }
 

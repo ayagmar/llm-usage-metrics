@@ -6,6 +6,7 @@ import {
 } from '../aggregate/daily-activity.js';
 import { buildEventProjectLabels } from '../aggregate/project-key.js';
 import { findSpendSpikes, findSpikeDrivers } from '../aggregate/spend-spikes.js';
+import { mergeCostIncomplete } from '../aggregate/usage-totals.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint, estimateCacheSavingsUsd } from '@ayagmar/agent-sessions/internal';
 import { getDaysInMonth } from '../utils/date-key.js';
@@ -107,8 +108,8 @@ export function resolveMonthEnd(
   if (hasUsage && costUsd !== undefined && daysElapsed >= MIN_PROJECTION_DAYS) {
     monthEnd.projectedCostUsd = (costUsd / daysElapsed) * daysInMonth;
 
-    if (monthToDate?.totals.costIncomplete) {
-      monthEnd.costIncomplete = true;
+    if (monthToDate) {
+      mergeCostIncomplete(monthEnd, monthToDate.totals);
     }
   }
 
