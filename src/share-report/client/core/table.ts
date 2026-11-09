@@ -14,7 +14,7 @@ export const TABLE_SORT_KEYS = [
   'outputTokens',
   'cacheReadTokens',
   'eventCount',
-  'activeMs',
+  'agentMs',
   'cost',
   'cacheHitRate',
   'lastActivity',

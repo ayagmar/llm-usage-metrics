@@ -1,49 +1,59 @@
-/** Cap for inter-event gaps when summing active time. A gap longer than
- *  this counts as this much (the user stepped away, not "8 hours of AI"). */
+// The one definition of active time. A gap between consecutive events of a session counts in
+// full up to IDLE_GAP_CAP_MS and not at all beyond it: past the cap the user stepped away.
+
+/** The longest gap between two events of a session that still counts as activity. */
 export const IDLE_GAP_CAP_MS = 5 * 60 * 1000;
 
-/** Sum of consecutive-event gaps, each capped at IDLE_GAP_CAP_MS.
- *  Zero for empty or single-timestamp input. */
-export function computeActiveMs(timestampsMs: readonly number[]): number {
-  const sorted = [...timestampsMs].sort((left, right) => left - right);
-  let activeMs = 0;
-
-  for (let index = 1; index < sorted.length; index += 1) {
-    activeMs += Math.min(sorted[index] - sorted[index - 1], IDLE_GAP_CAP_MS);
-  }
-
-  return activeMs;
+/** The active time between two consecutive events: the whole gap, or 0 past the cap. */
+export function getActiveGapMs(earlierMs: number, laterMs: number): number {
+  const gapMs = laterMs - earlierMs;
+  return gapMs <= IDLE_GAP_CAP_MS ? gapMs : 0;
 }
 
-/** Wall-clock active time across several timestamp lists (sessions): each list's
- *  consecutive-event gaps, capped at IDLE_GAP_CAP_MS, become intervals, and time
- *  covered by more than one list counts once. Equals computeActiveMs for one list. */
-export function computeUnionActiveMs(timestampLists: Iterable<readonly number[]>): number {
+/**
+ * The stretches of time when at least one list (session) was active, oldest first, disjoint
+ * and not touching: parallel sessions merge into one stretch.
+ */
+export function computeActiveIntervals(
+  timestampLists: Iterable<readonly number[]>,
+): [start: number, end: number][] {
   const intervals: [number, number][] = [];
 
   for (const timestamps of timestampLists) {
     const sorted = [...timestamps].sort((left, right) => left - right);
 
     for (let index = 1; index < sorted.length; index += 1) {
-      const start = sorted[index - 1];
-      const end = Math.min(sorted[index], start + IDLE_GAP_CAP_MS);
-
-      if (end > start) {
-        intervals.push([start, end]);
+      if (getActiveGapMs(sorted[index - 1], sorted[index]) > 0) {
+        intervals.push([sorted[index - 1], sorted[index]]);
       }
     }
   }
 
   intervals.sort((left, right) => left[0] - right[0]);
-  let activeMs = 0;
-  let coveredUntil = Number.NEGATIVE_INFINITY;
+  const merged: [number, number][] = [];
 
   for (const [start, end] of intervals) {
-    if (end > coveredUntil) {
-      activeMs += end - Math.max(start, coveredUntil);
-      coveredUntil = end;
+    const last = merged.at(-1);
+
+    if (last && start <= last[1]) {
+      last[1] = Math.max(last[1], end);
+    } else {
+      merged.push([start, end]);
     }
   }
 
-  return activeMs;
+  return merged;
+}
+
+/** Wall-clock active time across several lists (sessions): overlapping time counts once. */
+export function computeUnionActiveMs(timestampLists: Iterable<readonly number[]>): number {
+  return computeActiveIntervals(timestampLists).reduce(
+    (total, [start, end]) => total + end - start,
+    0,
+  );
+}
+
+/** Active time of one session. Zero for empty or single-timestamp input. */
+export function computeActiveMs(timestampsMs: readonly number[]): number {
+  return computeUnionActiveMs([timestampsMs]);
 }

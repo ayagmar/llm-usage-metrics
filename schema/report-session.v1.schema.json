@@ -80,7 +80,7 @@
           "minimum": 0
         },
         "activeMs": {
-          "description": "Gap-capped active time in milliseconds: sum of inter-event gaps, each capped at 5 minutes; 0 for single-event sessions.",
+          "description": "Active time in milliseconds: the sum of inter-event gaps of at most 5 minutes; longer gaps count 0, and so do single-event sessions.",
           "type": "integer",
           "minimum": 0
         },

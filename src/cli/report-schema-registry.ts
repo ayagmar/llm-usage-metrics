@@ -13,7 +13,7 @@ import pricingSchema from '../../schema/report-pricing.v1.schema.json' with { ty
 import projectsSchema from '../../schema/report-projects.v1.schema.json' with { type: 'json' };
 import pruneSchema from '../../schema/report-prune.v1.schema.json' with { type: 'json' };
 import sessionSchema from '../../schema/report-session.v1.schema.json' with { type: 'json' };
-import shareSchema from '../../schema/report-share.v1.schema.json' with { type: 'json' };
+import shareSchema from '../../schema/report-share.v2.schema.json' with { type: 'json' };
 import summarySchema from '../../schema/report-summary.v1.schema.json' with { type: 'json' };
 import toolsSchema from '../../schema/report-tools.v1.schema.json' with { type: 'json' };
 import trendsSchema from '../../schema/report-trends.v1.schema.json' with { type: 'json' };
@@ -28,7 +28,7 @@ function bundleCommonDefinitions(schema: { [key: string]: unknown; $defs?: objec
   return { ...schema, $defs: { ...schema.$defs, 'report-common.v1': commonSchema } };
 }
 
-// One report name per report-<name>.v1.schema.json file: the name a report's JSON
+// One report name per current report-<name>.v<n>.schema.json file: the name a report's JSON
 // envelope carries and `llm-usage schema <name>` takes. The schema command and the e2e
 // schema validation both derive their names from this record.
 export const reportSchemas: Record<string, unknown> = {

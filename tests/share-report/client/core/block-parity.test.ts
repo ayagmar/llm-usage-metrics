@@ -69,7 +69,7 @@ async function pageBlocks(
     },
     deps(events),
   );
-  const decoded = decodeShareReport({ schemaVersion: 1, report: 'share', data });
+  const decoded = decodeShareReport({ schemaVersion: 2, report: 'share', data });
 
   if (!decoded.ok) {
     throw new Error(decoded.error);

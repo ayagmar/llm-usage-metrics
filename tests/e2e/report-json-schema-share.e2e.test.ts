@@ -9,7 +9,7 @@ import {
 } from '../../src/cli/build-share-report-data.js';
 import { buildCompareReport } from '../../src/cli/run-compare-report.js';
 import type { BuildUsageDataDeps } from '../../src/cli/usage-data-contracts.js';
-import { renderReportJson } from '../../src/render/report-json.js';
+import { serializeShareEnvelope } from '../../src/share-report/render-share-html.js';
 import type { ShareReportData } from '../../src/share-report/types.js';
 import {
   ALL_SOURCE_IDS,
@@ -38,7 +38,7 @@ const corpusRequest: ShareReportRequest = {
   initialView: { since: '2026-06-14', until: '2026-06-20', granularity: 'day' },
 };
 
-describe('share payload matches report-share.v1.schema.json', () => {
+describe('share payload matches report-share.v2.schema.json', () => {
   const environment = useIsolatedEnvironment();
   useBundledPricingOnly();
   let validators: Map<string, ValidateFunction>;
@@ -54,7 +54,7 @@ describe('share payload matches report-share.v1.schema.json', () => {
   });
 
   function validate(data: ShareReportData): ShareReportData {
-    const output = renderReportJson('share', data);
+    const output = serializeShareEnvelope(data);
     return (validateReportOutput(validators, 'share', output) as { data: ShareReportData }).data;
   }
 

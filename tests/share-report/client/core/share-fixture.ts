@@ -12,9 +12,9 @@ import type { ShareReportData } from '../../../../src/share-report/types.js';
 const FIXTURE_DIR = path.resolve('tests/fixtures/share');
 
 /** A fresh copy of the fixture payload, to edit per test. */
-export function readFixturePayload(): { schemaVersion: 1; report: 'share'; data: ShareReportData } {
+export function readFixturePayload(): { schemaVersion: 2; report: 'share'; data: ShareReportData } {
   return JSON.parse(readFileSync(path.join(FIXTURE_DIR, 'payload.json'), 'utf8')) as {
-    schemaVersion: 1;
+    schemaVersion: 2;
     report: 'share';
     data: ShareReportData;
   };

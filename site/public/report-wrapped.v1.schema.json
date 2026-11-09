@@ -58,7 +58,7 @@
           "minimum": 0
         },
         "activeMs": {
-          "description": "Gap-capped hands-on time in milliseconds: per-session inter-event gaps capped at 5 minutes, summed across sessions.",
+          "description": "Wall-clock active time in milliseconds: inter-event gaps of at most 5 minutes, parallel sessions counted once; longer gaps count 0.",
           "type": "integer",
           "minimum": 0
         },

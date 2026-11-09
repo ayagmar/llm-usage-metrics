@@ -7,11 +7,12 @@ import { compareByCodePoint } from '../../../../packages/core/src/utils/compare-
 /** Sums over a group of cube cells, with one cost per mode the file holds. */
 export type ShareTotals = ShareTokenBuckets & {
   eventCount: number;
-  activeMs: number;
+  agentMs: number;
   costs: ShareCosts;
 };
 
-type SharePeriodRow = ShareTotals & { key: string };
+/** A period's totals; `activeMs` is its wall-clock time, true only over an unfiltered view. */
+export type SharePeriodRow = ShareTotals & { key: string; activeMs: number };
 
 export type ShareDimensionRow = ShareTotals & {
   /** The dictionary label. */
@@ -37,7 +38,7 @@ const MEASURES = [
   'cacheWriteTokens',
   'totalTokens',
   'eventCount',
-  'activeMs',
+  'agentMs',
 ] as const;
 
 function createTotals(report: ShareReport): ShareTotals {
@@ -57,7 +58,7 @@ function createTotals(report: ShareReport): ShareTotals {
     cacheWriteTokens: 0,
     totalTokens: 0,
     eventCount: 0,
-    activeMs: 0,
+    agentMs: 0,
     costs,
   };
 }
@@ -97,6 +98,17 @@ export function sumCells(report: ShareReport, cells: readonly number[]): ShareTo
   return totals;
 }
 
+/**
+ * Wall-clock active time of the periods the cells fall in, each period once. It describes all
+ * the usage in those periods, so it only answers for a view without label filters.
+ */
+export function sumPeriodActiveMs(report: ShareReport, cells: readonly number[]): number {
+  const { period, periodActiveMs } = report.data.cube;
+  const periods = new Set(cells.map((cell) => period[cell]));
+
+  return [...periods].reduce((total, index) => total + periodActiveMs[index], 0);
+}
+
 /** The roll-up key of a period at a granularity; undefined for a daily cell at `hour`. */
 export function getPeriodRollupKey(
   period: SharePeriod,
@@ -129,6 +141,7 @@ export function rollupByPeriod(
   granularity: ShareGranularity,
 ): SharePeriodRollup {
   const groups = new Map<string, SharePeriodRow>();
+  const cellsByKey = new Map<string, number[]>();
   const periodColumn = report.data.cube.period;
   let clipped = false;
 
@@ -143,11 +156,17 @@ export function rollupByPeriod(
     let row = groups.get(key);
 
     if (!row) {
-      row = { key, ...createTotals(report) };
+      row = { key, activeMs: 0, ...createTotals(report) };
       groups.set(key, row);
+      cellsByKey.set(key, []);
     }
 
     addCell(row, report, cell);
+    cellsByKey.get(key)?.push(cell);
+  }
+
+  for (const [key, row] of groups) {
+    row.activeMs = sumPeriodActiveMs(report, cellsByKey.get(key) ?? []);
   }
 
   return {

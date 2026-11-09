@@ -143,7 +143,7 @@ function describeClientParity(fixture: Fixture) {
     );
     // Through JSON, as the page reads it.
     const decoded = decodeShareReport(
-      JSON.parse(JSON.stringify({ schemaVersion: 1, report: 'share', data })),
+      JSON.parse(JSON.stringify({ schemaVersion: 2, report: 'share', data })),
     );
 
     if (!decoded.ok) {

@@ -37,7 +37,7 @@ export const CHART_MODELS: readonly ChartModel[] = [
     build: (context, width) => buildModelMixChart('model-mix', context, width),
   },
   { id: 'cache-hit-rate', title: 'Cache hit rate', build: buildCacheHitChart },
-  { id: 'cost-per-active-hour', title: 'Cost per active hour', build: buildCostPerHourChart },
+  { id: 'cost-per-active-hour', title: 'Cost per hour', build: buildCostPerHourChart },
   { id: 'hour-weekday', title: 'Hour of day by weekday', build: buildHourWeekdayChart },
   { id: 'blocks', title: '5-hour blocks', build: buildBlockChart },
 ];

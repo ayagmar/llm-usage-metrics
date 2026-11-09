@@ -272,11 +272,12 @@ for (const host of HOST_TIMEZONES) {
           'cacheReadTokens',
           'cacheWriteTokens',
           'eventCount',
-          'activeMs',
+          'agentMs',
         ] as const) {
           data.cube[column] = new Array<number>(cells).fill(0);
         }
         data.cube.period = new Array<number>(cells).fill(0);
+        data.cube.periodActiveMs = data.dictionaries.periods.map(() => 0);
         data.cube.project = Array.from({ length: cells }, (_, index) => index);
         data.cube.totalTokens = Array.from({ length: cells }, (_, index) => 100 * (index + 1));
         data.cube.costs = {};
@@ -354,10 +355,11 @@ for (const host of HOST_TIMEZONES) {
           'cacheReadTokens',
           'cacheWriteTokens',
           'eventCount',
-          'activeMs',
+          'agentMs',
         ] as const) {
           data.cube[column] = new Array<number>(12).fill(0);
         }
+        data.cube.periodActiveMs = [0];
         data.cube.project = Array.from({ length: 12 }, (_, index) => index);
         data.cube.totalTokens = Array.from({ length: 12 }, (_, index) => 100 * (index + 1));
         data.cube.costs = {
@@ -418,19 +420,26 @@ for (const host of HOST_TIMEZONES) {
     it('divide cost by active hours over hourly cells only, and say what it left out', () => {
       const view = chart('cost-per-active-hour').build(contextFor(report), 1300);
 
-      // 20 Oct: $0.28 over 20 minutes; 25 Oct: $0.03 over 5; 26 Oct: $0.05 over 2.
+      // Wall-clock: 20 Oct $0.28 over 16 minutes; 25 Oct has no active time; 26 Oct $0.05 over 2.
       expect(view.table?.rows).toEqual([
-        ['20 Oct 2026', '$0.84'],
-        ['25 Oct 2026', '$0.36'],
+        ['20 Oct 2026', '$1.05'],
         ['26 Oct 2026', '$1.50'],
       ]);
+      expect(view.table?.columns[1]?.label).toBe('Cost per active hour');
 
       const whole = chart('cost-per-active-hour').build(
         contextFor(report, { since: '2025-12-29', until: '2026-10-26' }),
         1300,
       );
       expect(whole.notes).toContain('Hourly detail from 20 Oct 2026; earlier days are left out.');
-      expect(whole.table?.rows).toHaveLength(3);
+      expect(whole.table?.rows).toHaveLength(2);
+
+      const filtered = chart('cost-per-active-hour').build(
+        contextFor(report, { source: [0] }),
+        1300,
+      );
+      expect(filtered.table?.columns[1]?.label).toBe('Cost per agent hour');
+      expect(filtered.notes[0]).toContain('Agent time');
 
       const early = chart('cost-per-active-hour').build(
         contextFor(report, { since: '2025-12-29', until: '2026-01-31' }),
@@ -566,6 +575,7 @@ describe('empty views', () => {
       data.meta.window = { since: null, until: null };
       data.meta.initialView = { since: null, until: null, granularity: 'day' };
       data.dictionaries.periods = [];
+      data.cube.periodActiveMs = [];
       for (const key of Object.keys(data.cube) as (keyof typeof data.cube)[]) {
         if (key !== 'costs') {
           data.cube[key] = [];

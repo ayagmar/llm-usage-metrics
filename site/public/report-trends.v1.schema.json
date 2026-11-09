@@ -16,7 +16,7 @@
       "type": "object",
       "properties": {
         "metric": {
-          "description": "Metric charted: resolved cost, total tokens, or gap-capped active time (active-hours values are milliseconds).",
+          "description": "Metric charted: resolved cost, total tokens, or wall-clock active time, where gaps over 5 minutes count 0 and parallel sessions count once (active-hours values are milliseconds).",
           "type": "string",
           "enum": ["cost", "tokens", "active-hours"]
         },

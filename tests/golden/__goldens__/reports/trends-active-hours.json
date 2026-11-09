@@ -777,7 +777,7 @@
         },
         {
           "date": "2026-06-03",
-          "value": 300000,
+          "value": 0,
           "observed": true
         },
         {
@@ -917,10 +917,10 @@
         }
       ],
       "summary": {
-        "total": 900000,
-        "average": 4972.375690607735,
+        "total": 600000,
+        "average": 3314.917127071824,
         "peak": {
-          "date": "2026-06-03",
+          "date": "2026-06-15",
           "value": 300000
         },
         "incomplete": false,
