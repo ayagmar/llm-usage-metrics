@@ -25,6 +25,7 @@ import type {
 } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import type { FileLockAcquisition } from '../../src/utils/file-lock.js';
 import { logger, setLogLevel } from '../../src/utils/logger.js';
 import { readFrom } from '../helpers/fake-read.js';
 
@@ -337,6 +338,16 @@ describe('buildStatusline', () => {
   });
 });
 
+async function holdStatuslineLock(lockPath: string): Promise<() => Promise<void>> {
+  const lock = await acquireStatuslineLock(lockPath, 0);
+
+  if (lock.status !== 'held') {
+    throw new Error(`expected the lock to be held, got ${lock.status}`);
+  }
+
+  return lock.release;
+}
+
 describe('acquireStatuslineLock', () => {
   async function withLockPath(run: (lockPath: string) => Promise<void>): Promise<void> {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-lock-'));
@@ -350,36 +361,35 @@ describe('acquireStatuslineLock', () => {
 
   it('lets one tick hold the lock until it releases it', async () => {
     await withLockPath(async (lockPath) => {
-      const release = await acquireStatuslineLock(lockPath, 0);
-      expect(release).toBeTypeOf('function');
-      await expect(acquireStatuslineLock(lockPath, 100)).resolves.toBeUndefined();
+      const release = await holdStatuslineLock(lockPath);
+      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toMatchObject({ status: 'busy' });
+      await expect(acquireStatuslineLock(lockPath, 100)).resolves.toMatchObject({ status: 'busy' });
 
-      await release?.();
-      const next = await acquireStatuslineLock(lockPath, 0);
-      expect(next).toBeTypeOf('function');
-      await next?.();
+      await release();
+      await (
+        await holdStatuslineLock(lockPath)
+      )();
     });
   });
 
   it('takes over a lock left by an exited process or held too long', async () => {
     await withLockPath(async (lockPath) => {
       const exited = spawnSync(process.execPath, ['-e', '']);
-      await acquireStatuslineLock(lockPath, 0);
+      await holdStatuslineLock(lockPath);
       await writeFile(lockPath, String(exited.pid));
-      const afterExit = await acquireStatuslineLock(lockPath, 0);
-      expect(afterExit).toBeTypeOf('function');
+      await holdStatuslineLock(lockPath);
       await expect(readFile(lockPath, 'utf8')).resolves.toMatch(`${String(process.pid)} `);
 
       // Still this process's lock, but ten minutes old.
       const longAgo = new Date(Date.now() - 600_000);
       await utimes(lockPath, longAgo, longAgo);
-      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toBeTypeOf('function');
+      await holdStatuslineLock(lockPath);
     });
   });
 
   it('lets only one of two ticks reclaiming the same stale lock through', async () => {
     await withLockPath(async (lockPath) => {
-      await acquireStatuslineLock(lockPath, 0);
+      await holdStatuslineLock(lockPath);
       const longAgo = new Date(Date.now() - 600_000);
       await utimes(lockPath, longAgo, longAgo);
 
@@ -387,12 +397,12 @@ describe('acquireStatuslineLock', () => {
       // second acts on what it read.
       let first: (() => Promise<void>) | undefined;
       fsHooks.afterReadFile = async () => {
-        first = await acquireStatuslineLock(lockPath, 0);
+        first = await holdStatuslineLock(lockPath);
       };
       const second = await acquireStatuslineLock(lockPath, 0);
 
       expect(first).toBeTypeOf('function');
-      expect(second).toBeUndefined();
+      expect(second.status).toBe('busy');
       await first?.();
       await expect(readdir(path.dirname(lockPath))).resolves.toEqual([]);
     });
@@ -401,30 +411,31 @@ describe('acquireStatuslineLock', () => {
   it('keeps a lock another tick took over held while the old holder releases', async () => {
     await withLockPath(async (lockPath) => {
       // A held the lock past the stale age and B took it over while A still ran.
-      const releaseA = await acquireStatuslineLock(lockPath, 0);
+      const releaseA = await holdStatuslineLock(lockPath);
       const longAgo = new Date(Date.now() - 600_000);
       await utimes(lockPath, longAgo, longAgo);
-      const releaseB = await acquireStatuslineLock(lockPath, 0);
+      const releaseB = await holdStatuslineLock(lockPath);
       const lockB = await readFile(lockPath, 'utf8');
 
       // C starts while A releases.
-      let releaseC: (() => Promise<void>) | undefined;
+      let lockC: FileLockAcquisition | undefined;
       fsHooks.afterReadFile = async () => {
-        releaseC = await acquireStatuslineLock(lockPath, 0);
+        lockC = await acquireStatuslineLock(lockPath, 0);
       };
-      await releaseA?.();
+      await releaseA();
 
-      expect(releaseC).toBeUndefined();
+      expect(lockC?.status).toBe('busy');
       await expect(readFile(lockPath, 'utf8')).resolves.toBe(lockB);
-      await releaseB?.();
+      await releaseB();
     });
   });
 
   it('leaves no lock and no open handle when writing the token fails', async () => {
     await withLockPath(async (lockPath) => {
       fsHooks.failNextHandleWrite = true;
-      await acquireStatuslineLock(lockPath, 0);
+      const lock = await acquireStatuslineLock(lockPath, 0);
 
+      expect(lock.status).toBe('unavailable');
       expect(fsHooks.failedHandle?.fd).toBe(-1);
       await expect(readdir(path.dirname(lockPath))).resolves.toEqual([]);
     });
@@ -433,16 +444,16 @@ describe('acquireStatuslineLock', () => {
   it('leaves a lock another tick took over in place on release', async () => {
     await withLockPath(async (lockPath) => {
       // Held past the stale age, so another tick takes it over while this one still runs.
-      const release = await acquireStatuslineLock(lockPath, 0);
+      const release = await holdStatuslineLock(lockPath);
       const longAgo = new Date(Date.now() - 600_000);
       await utimes(lockPath, longAgo, longAgo);
-      const next = await acquireStatuslineLock(lockPath, 0);
+      const next = await holdStatuslineLock(lockPath);
       const nextLock = await readFile(lockPath, 'utf8');
 
-      await release?.();
+      await release();
       await expect(readFile(lockPath, 'utf8')).resolves.toBe(nextLock);
-      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toBeUndefined();
-      await next?.();
+      await expect(acquireStatuslineLock(lockPath, 0)).resolves.toMatchObject({ status: 'busy' });
+      await next();
     });
   });
 });
@@ -523,7 +534,7 @@ describe('runStatusline', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
     vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', storePath);
-    const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+    const release = await holdStatuslineLock(`${storePath}.statusline.lock`);
 
     try {
       await runStatusline(
@@ -533,7 +544,31 @@ describe('runStatusline', () => {
 
       expect(logSpy.mock.calls).toEqual([['$1.23 session · 42% context · warming up…']]);
     } finally {
-      await release?.();
+      await release();
+      vi.unstubAllEnvs();
+      setLogLevel('info');
+      logSpy.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('still prints the line when the lock cannot be created', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'statusline-unlocked-'));
+    const blocker = path.join(dir, 'not-a-directory');
+    await writeFile(blocker, '');
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(blocker, 'events.sqlite'));
+
+    try {
+      await runStatusline(
+        { source: 'codex', codexDir: dir, timezone: 'UTC' },
+        { stdin: Readable.from([]) },
+      );
+
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(String(logSpy.mock.calls[0]?.[0])).toMatch(/ today · .* this month$/u);
+    } finally {
       vi.unstubAllEnvs();
       setLogLevel('info');
       logSpy.mockRestore();
@@ -618,7 +653,7 @@ describe('runStatusline', () => {
     it('shows the stored line, without waiting, while another tick builds the next', async () => {
       await writeCodexSession('first');
       await runStatusline(options(), { stdin: noInput(), now: at(0) });
-      const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+      const release = await holdStatuslineLock(`${storePath}.statusline.lock`);
 
       try {
         const startedAt = Date.now();
@@ -627,7 +662,7 @@ describe('runStatusline', () => {
         expect(Date.now() - startedAt).toBeLessThan(1_000);
         expect(lines()[1]).toBe(lines()[0]);
       } finally {
-        await release?.();
+        await release();
       }
     });
 
@@ -637,14 +672,14 @@ describe('runStatusline', () => {
     ])('never shows a stored line for %s', async (_label, deps, overrides) => {
       await writeCodexSession('first');
       await runStatusline(options(), { stdin: noInput(), now: at(0) });
-      const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+      const release = await holdStatuslineLock(`${storePath}.statusline.lock`);
 
       try {
         await runStatusline({ ...options(), ...overrides }, { stdin: noInput(), ...deps });
 
         expect(lines()[1]).toBe('warming up…');
       } finally {
-        await release?.();
+        await release();
       }
     });
 
@@ -655,11 +690,11 @@ describe('runStatusline', () => {
       const storedLine = await readFile(cachePath, 'utf8');
       await rm(cachePath);
       await writeCodexSession('second');
-      const release = await acquireStatuslineLock(`${storePath}.statusline.lock`, 0);
+      const release = await holdStatuslineLock(`${storePath}.statusline.lock`);
 
       const waiting = runStatusline(options(), { stdin: noInput(), now: at(1) });
       await writeFile(cachePath, storedLine);
-      await release?.();
+      await release();
       await waiting;
 
       expect(lines()[1]).toBe(lines()[0]);
