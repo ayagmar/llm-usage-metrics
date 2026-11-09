@@ -103,6 +103,22 @@ function mayBeContended(error: unknown): boolean {
   );
 }
 
+/**
+ * Tells a Windows refusal caused by a lock being deleted, which is contention, from a directory
+ * that really cannot be written, by creating and removing a file of this call's own.
+ */
+async function canCreateFilesBeside(lockPath: string): Promise<boolean> {
+  const probePath = `${lockPath}.${randomUUID()}`;
+
+  try {
+    await (await open(probePath, 'wx')).close();
+    await rm(probePath, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function createLockFile(lockPath: string, content: string, mode?: number): Promise<void> {
   const handle = await open(lockPath, 'wx', mode);
 
@@ -164,8 +180,7 @@ export async function acquireFileLock(
       if (lock && staleAfterMs !== undefined && isStaleLock(lock, staleAfterMs, Date.now())) {
         await reclaimStaleLock(lockPath, lock);
       } else if (Date.now() >= deadline) {
-        // A Windows refusal that outlasts the wait is an unwritable directory, not a holder.
-        if (!hasErrorCode(cause, 'EEXIST')) {
+        if (!hasErrorCode(cause, 'EEXIST') && !(await canCreateFilesBeside(lockPath))) {
           throw cause;
         }
 
