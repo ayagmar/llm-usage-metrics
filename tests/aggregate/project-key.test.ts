@@ -1,3 +1,4 @@
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -5,6 +6,10 @@ import {
   buildProjectLabels,
   toProjectKey,
 } from '../../src/aggregate/project-key.js';
+
+/** Orders label map entries by label; the tests assert labels are distinct. */
+const byLabel = ([, left]: [unknown, string], [, right]: [unknown, string]): number =>
+  compareByCodePoint(left, right);
 
 function labelsOf(keys: (string | undefined)[]): Record<string, string> {
   return Object.fromEntries(
@@ -115,7 +120,7 @@ describe('buildProjectLabels', () => {
 
     expect(labels.size).toBe(6);
     expect(new Set(labels.values()).size).toBe(6);
-    expect([...reversed].sort()).toEqual([...labels].sort());
+    expect([...reversed].sort(byLabel)).toEqual([...labels].sort(byLabel));
   });
 
   it('never reuses a label already given, a fallback included', () => {
@@ -184,8 +189,8 @@ describe('project label properties', () => {
         expect(label === '(unattributed)', message).toBe(key === undefined);
       }
 
-      expect([...buildProjectLabels([...keys].reverse())].sort(), message).toEqual(
-        [...labels].sort(),
+      expect([...buildProjectLabels([...keys].reverse())].sort(byLabel), message).toEqual(
+        [...labels].sort(byLabel),
       );
     }
   });

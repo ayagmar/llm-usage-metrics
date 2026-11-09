@@ -93,6 +93,9 @@ export default tseslint.config(
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/no-unsafe-type-assertion': 'error',
       '@typescript-eslint/no-unnecessary-type-arguments': 'error',
+      // Default sort compares values as strings, which misorders numbers and tuples. String
+      // arrays may use it: their default order is already deterministic.
+      '@typescript-eslint/require-array-sort-compare': ['error', { ignoreStringArrays: true }],
       // A switch over a union without a default must name every member, so adding a member
       // fails lint where it is unhandled. A default branch still counts as handling the rest.
       '@typescript-eslint/switch-exhaustiveness-check': [

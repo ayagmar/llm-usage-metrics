@@ -1,4 +1,4 @@
-import { hasControlCharacters } from '@ayagmar/agent-sessions/internal';
+import { compareByCodePoint, hasControlCharacters } from '@ayagmar/agent-sessions/internal';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -529,7 +529,9 @@ describe('reports with other machines', () => {
   it('name the machine of each event from another machine', async () => {
     const dataset = await buildDataset({ timezone: 'UTC' });
 
-    expect(dataset.filteredEvents.map((event) => [event.source, event.machine]).sort()).toEqual([
+    const pairs = dataset.filteredEvents.map((event) => [event.source, event.machine]);
+
+    expect(pairs.sort((left, right) => compareByCodePoint(left.join(), right.join()))).toEqual([
       ['codex', 'laptop'],
       ['codex', 'laptop'],
       ['pi', undefined],

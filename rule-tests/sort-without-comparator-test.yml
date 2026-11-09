@@ -1,5 +1,0 @@
-id: sort-without-comparator
-valid:
-  - 'names.sort(compareByCodePoint);'
-invalid:
-  - 'names.sort();'

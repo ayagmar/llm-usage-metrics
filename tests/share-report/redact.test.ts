@@ -1,3 +1,4 @@
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { describe, expect, it } from 'vitest';
 
 import { buildProjectLabels } from '../../src/aggregate/project-key.js';
@@ -154,7 +155,7 @@ describe('buildRedactionMap', () => {
       KEPT_MACHINE_LABELS,
     );
 
-    expect([...map].sort()).toEqual([
+    expect([...map].sort(([left], [right]) => compareByCodePoint(left, right))).toEqual([
       ['aaa', 'machine-2'],
       ['desk', 'machine-1'],
       ['laptop', 'machine-3'],

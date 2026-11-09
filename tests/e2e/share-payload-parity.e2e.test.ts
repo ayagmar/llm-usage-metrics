@@ -203,7 +203,9 @@ function describeParity(fixture: Fixture) {
 
       // Every project, numbered ones included, by its totals.
       const byTotals = (totals: { totalTokens: number; events: number }[]) =>
-        totals.map(({ totalTokens, events }) => [totalTokens, events]).sort();
+        totals
+          .map(({ totalTokens, events }) => [totalTokens, events])
+          .sort((left, right) => left[0] - right[0] || left[1] - right[1]);
 
       expect(byTotals([...rolled.values()])).toEqual(byTotals(projects.projects));
     });
