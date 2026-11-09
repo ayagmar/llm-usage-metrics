@@ -16,7 +16,6 @@ vi.mock('../../src/pricing/cli-pricing-fetcher.js', () => {
   class FakeLiteLLMPricingFetcher {
     public async load() {
       mockLoadOrigin = mockLoadOrigin ?? (mockLoadedFromCache ? 'cache' : 'network');
-      return mockLoadedFromCache;
     }
     public getLoadOrigin() {
       return mockLoadOrigin;
