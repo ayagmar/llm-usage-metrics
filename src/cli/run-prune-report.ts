@@ -23,7 +23,7 @@ import {
 } from '../persistence/event-store-history.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { getRepeatingSourceIds, hasErrorCode } from '@ayagmar/agent-sessions/internal';
+import { appendAll, getRepeatingSourceIds, hasErrorCode } from '@ayagmar/agent-sessions/internal';
 import { getEventStoreFileFingerprint } from './parse/stored-session-events.js';
 import { renderPruneReportWithNotes } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
@@ -142,12 +142,9 @@ async function discoverLiveFiles(adapters: readonly SourceAdapter[]): Promise<{
       );
     }
 
-    discoveredFiles.push(
-      ...files.map((filePath) => ({
-        source: adapter.id,
-        filePath,
-        adapter,
-      })),
+    appendAll(
+      discoveredFiles,
+      files.map((filePath) => ({ source: adapter.id, filePath, adapter })),
     );
   }
 

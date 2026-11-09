@@ -116,7 +116,8 @@ The owners of `token-sum-owner`, `cost-incomplete-owner` and `time-constants-own
 `src/`, which `packages/core/src` cannot import, so those rules leave core alone.
 
 Warning rules print but never fail: `unbounded-push-spread` (`push(...array)` on input that
-can pass about 125k items) and `injected-clock-default` (`deps.now?.() ?? new Date()`
+can pass about 125k items; use `appendAll` from `packages/core/src/utils/append-all.ts`, and
+leave small bounded spreads such as warning lists alone) and `injected-clock-default` (`deps.now?.() ?? new Date()`
 repeated per command). Numeric and tuple `sort()` without a comparator is an ESLint error
 (`@typescript-eslint/require-array-sort-compare`).
 

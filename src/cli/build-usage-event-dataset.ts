@@ -71,6 +71,7 @@ import type {
 } from './usage-data-contracts.js';
 import { dedupeCopiedSessions, type SourceAdapter } from '@ayagmar/agent-sessions';
 import {
+  appendAll,
   getRepeatingSourceIds,
   getSessionCopyingSourceIds,
   pluralize,
@@ -542,7 +543,9 @@ export async function buildUsageEventDataset(
           parseResultsForFiltering,
           historyResult.events,
         );
-        ledger?.historyFiles.push(...historyResult.servedFiles);
+        if (ledger) {
+          appendAll(ledger.historyFiles, historyResult.servedFiles);
+        }
         // An explicit --history reports its totals; default history is detail for --verbose.
         if (historyRequested) {
           historyNotes.push(formatHistoryNote(historyResult));

@@ -1,7 +1,7 @@
 id: unbounded-push-spread
 language: TypeScript
 severity: warning
-message: Spreading an unbounded array into push overflows the stack past about 125k items
+message: Spreading an unbounded array into push overflows the stack past about 125k items; use appendAll
 files:
   - src/**
   - packages/core/src/**

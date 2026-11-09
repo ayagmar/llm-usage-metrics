@@ -5,7 +5,7 @@ import {
   getParserVersion,
   type SourceAdapter,
 } from '@ayagmar/agent-sessions';
-import { getRequestKey } from '@ayagmar/agent-sessions/internal';
+import { appendAll, getRequestKey } from '@ayagmar/agent-sessions/internal';
 import type { StoredSessionEvent } from '../persistence/event-store.js';
 
 /** Source id → the parser version a machine read it with (`getParserVersion`). */
@@ -272,7 +272,7 @@ function mergeByKeys<E extends MergedEvent>(
       if (!served) {
         servedBySession.set(sessionKey, [...events]);
         serverBySession.set(sessionKey, machine);
-        kept.push(...events);
+        appendAll(kept, events);
         continue;
       }
 
