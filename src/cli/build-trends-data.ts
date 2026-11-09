@@ -5,7 +5,11 @@ import { computeUnionActiveMs, getEventSessionKey } from '@ayagmar/agent-session
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
-import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '@ayagmar/agent-sessions/internal';
+import {
+  compareByCodePoint,
+  createPricingRunStats,
+  DEFAULT_PRICING_POLICY,
+} from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
@@ -18,6 +22,7 @@ import {
 } from './build-usage-event-dataset.js';
 import type {
   BuildTrendsDataDeps,
+  ReportNote,
   TrendsCommandOptions,
   TrendsDataResult,
 } from './usage-data-contracts.js';
@@ -280,6 +285,33 @@ function sumActiveMsByDay<Group>(
   return { rows, combinedByDay };
 }
 
+/** One note per source whose sessions all have a single event, so its active time reads 0. */
+function listSingleEventSourceNotes(events: readonly UsageEvent[]): ReportNote[] {
+  const eventsBySession = new Map<string, { source: string; count: number }>();
+
+  for (const event of events) {
+    const key = getEventSessionKey(event);
+    const session = eventsBySession.get(key) ?? { source: event.source, count: 0 };
+    session.count += 1;
+    eventsBySession.set(key, session);
+  }
+
+  const sources = new Map<string, boolean>();
+
+  for (const { source, count } of eventsBySession.values()) {
+    sources.set(source, (sources.get(source) ?? true) && count === 1);
+  }
+
+  return [...sources]
+    .filter(([, singleEventOnly]) => singleEventOnly)
+    .map(([source]) => source)
+    .sort(compareByCodePoint)
+    .map(
+      (source) =>
+        `${source} has only single-event sessions in this range, so its active time is 0: active time needs two events in a session.`,
+    );
+}
+
 function toActiveTimeValueRows(events: readonly UsageEvent[], timezone: string): TrendValueRow[] {
   const { rows, combinedByDay } = sumActiveMsByDay(events, timezone, (event) => event.source);
   const sourceRows: TrendValueRow[] = rows.map((row) => ({
@@ -463,11 +495,14 @@ export async function buildTrendsData(
   const diagnostics = buildDatasetDiagnostics(dataset, {
     pricing: pricingResult,
     // Only cost trends show `~`, and only for the days in the chart.
-    notes: withPricingNotes(
-      dataset.notes,
-      resolved.metric === 'cost' ? chartedEvents : [],
-      pricingResult,
-    ),
+    notes: [
+      ...withPricingNotes(
+        dataset.notes,
+        resolved.metric === 'cost' ? chartedEvents : [],
+        pricingResult,
+      ),
+      ...(resolved.metric === 'active-hours' ? listSingleEventSourceNotes(chartedEvents) : []),
+    ],
     runtimeProfile: deps.runtimeProfile,
   });
 

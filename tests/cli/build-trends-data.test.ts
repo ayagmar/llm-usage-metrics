@@ -281,6 +281,41 @@ describe('buildTrendsData', () => {
     ]);
   });
 
+  it('says when a source only has single-event sessions', async () => {
+    const result = await buildTrendsData(
+      { metric: 'active-hours', since: '2026-03-05', until: '2026-03-05', timezone: 'UTC' },
+      runtimeDeps({
+        now: () => new Date('2026-03-05T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              createBaseEvent({ sessionId: 'one', timestamp: '2026-03-05T10:00:00.000Z' }),
+              createBaseEvent({ sessionId: 'two', timestamp: '2026-03-05T11:00:00.000Z' }),
+            ],
+          }),
+          createAdapter('codex', {
+            '/tmp/b.jsonl': [
+              createBaseEvent({
+                source: 'codex',
+                sessionId: 'c',
+                timestamp: '2026-03-05T10:00:00.000Z',
+              }),
+              createBaseEvent({
+                source: 'codex',
+                sessionId: 'c',
+                timestamp: '2026-03-05T10:01:00.000Z',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.diagnostics.notes).toEqual([
+      'pi has only single-event sessions in this range, so its active time is 0: active time needs two events in a session.',
+    ]);
+  });
+
   it('agrees with wrapped, session and share on one fixture', async () => {
     const events = [
       ['a', '10:00'],
