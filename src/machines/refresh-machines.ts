@@ -1,5 +1,6 @@
 import type { MachineConfig } from '../config/user-config.js';
 import { closeEventStore } from '../persistence/event-store.js';
+import { MINUTE_MS } from '../utils/time-constants.js';
 import {
   claimMachineSync,
   isMachineSyncDue,
@@ -10,7 +11,7 @@ import type { SpawnSsh } from './machine-ssh.js';
 import { syncMachine, type MachineSyncOutcome } from './sync-machine.js';
 
 /** Reports refresh a machine whose last sync, or attempt, is at least this old. */
-const MACHINE_REFRESH_INTERVAL_MS = 10 * 60_000;
+const MACHINE_REFRESH_INTERVAL_MS = 10 * MINUTE_MS;
 /** A report waits this long for a machine before it uses the cached usage. */
 const MACHINE_REFRESH_TIMEOUT_MS = 30_000;
 

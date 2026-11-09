@@ -438,7 +438,7 @@ export function getPeriodKey(
 }
 
 /** Every UTC offset in use is a multiple of 15 minutes, so no period boundary falls inside a step. */
-const PERIOD_BOUNDARY_STEP_MS = 15 * 60 * 1000;
+const PERIOD_BOUNDARY_STEP_MS = 15 * MINUTE_MS;
 
 /** Splits a stretch of time at period boundaries and passes each part's period and length. */
 export function forEachPeriodPart(

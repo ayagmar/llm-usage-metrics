@@ -10,9 +10,10 @@ import {
 } from '@ayagmar/agent-sessions/internal';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
+import { HOUR_MS } from '../utils/time-constants.js';
 import { parseVersion } from './version-utils.js';
 
-const DEFAULT_UPDATE_CHECK_CACHE_TTL_MS = 60 * 60 * 1000;
+const DEFAULT_UPDATE_CHECK_CACHE_TTL_MS = HOUR_MS;
 const DEFAULT_UPDATE_CHECK_FETCH_TIMEOUT_MS = 1000;
 const DEFAULT_FETCH_RETRY_COUNT = 2;
 const DEFAULT_FETCH_RETRY_DELAY_MS = 200;

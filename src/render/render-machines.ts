@@ -4,6 +4,7 @@ import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
 import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { DAY_MS, MINUTE_MS } from '../utils/time-constants.js';
 import { formatInteger } from './format-number.js';
 import { padEndVisible, visibleWidth } from './table-text-layout.js';
 
@@ -15,7 +16,7 @@ function formatReason(error: string): string {
 }
 
 export function formatAge(ageMs: number): string {
-  const minutes = Math.floor(Math.max(0, ageMs) / 60_000);
+  const minutes = Math.floor(Math.max(0, ageMs) / MINUTE_MS);
 
   if (minutes < 1) {
     return 'just now';
@@ -176,7 +177,7 @@ export function formatMachinesNote(
 }
 
 /** Past this age a machine's cached usage is worth a warning when it cannot refresh. */
-const STALE_CACHE_MS = 24 * 60 * 60_000;
+const STALE_CACHE_MS = DAY_MS;
 
 /**
  * Describes a refresh a report could not do. A machine that is off is normal, so a
