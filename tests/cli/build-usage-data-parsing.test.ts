@@ -32,6 +32,7 @@ import {
 } from '@ayagmar/agent-sessions';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
+import { parseWithEventStore } from '../helpers/parse-with-event-store.js';
 
 const tempDirs: string[] = [];
 
@@ -424,28 +425,6 @@ describe('build-usage-data-parsing', () => {
     ]);
   });
 
-  it('does not open the event store when the runtime flag is disabled', async () => {
-    const openEventStore = vi.fn(
-      async () => ({ filePath: '/tmp/events.db' }) as unknown as EventStore,
-    );
-    const adapter = createStoreBackedAdapter('pi', ['/tmp/pi-event-store-disabled.jsonl']);
-
-    const result = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: false,
-        path: '/tmp/events.db',
-        disabledBy: 'environment',
-      },
-      eventStoreDeps: {
-        openEventStore,
-      },
-    });
-
-    expect(openEventStore).not.toHaveBeenCalled();
-    expect(result.warnings).toEqual([]);
-    expect(result.successfulParseResults[0]?.events).toHaveLength(1);
-  });
-
   it('writes parsed files to the event store and skips unchanged fingerprints', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-parse-writes-'));
     tempDirs.push(tempDir);
@@ -458,8 +437,6 @@ describe('build-usage-data-parsing', () => {
     const store = { filePath: path.join(tempDir, 'events.db') } as unknown as EventStore;
     const entries = new Map<string, EventStoreFileEntry>();
     const eventsByFile = new Map<string, ReturnType<typeof createUsageEvent>[]>();
-    const openEventStore = vi.fn(async () => store);
-    const closeEventStore = vi.fn();
     const getFileEntry = vi.fn((_store: EventStore, _source: string, filePath: string) =>
       entries.get(filePath),
     );
@@ -480,13 +457,8 @@ describe('build-usage-data-parsing', () => {
     );
     const adapter = createStoreBackedAdapter('pi', [fileA, fileB]);
     const options = {
-      eventStore: {
-        enabled: true as const,
-        path: store.filePath,
-      },
+      store,
       eventStoreDeps: {
-        openEventStore,
-        closeEventStore,
         getFileEntry,
         readFileEvents,
         replaceFilesEvents,
@@ -499,8 +471,6 @@ describe('build-usage-data-parsing', () => {
     await writeFingerprintFixture(fileB, '{"line":1}\n{"line":2}\n', 1_700_000_002);
     await parseSelectedAdapters([adapter], 1, options);
 
-    expect(openEventStore).toHaveBeenCalledTimes(3);
-    expect(closeEventStore).toHaveBeenCalledTimes(3);
     // One batched write per run that had misses: both files, then only the changed one.
     expect(replaceFilesEvents).toHaveBeenCalledTimes(2);
     expect(
@@ -541,10 +511,8 @@ describe('build-usage-data-parsing', () => {
     );
 
     await parseSelectedAdapters([adapter], 1, {
-      eventStore: { enabled: true, path: path.join(tempDir, 'events.db') },
+      store: {} as EventStore,
       eventStoreDeps: {
-        openEventStore: async () => ({}) as EventStore,
-        closeEventStore: vi.fn(),
         getFileEntry: () => undefined,
         replaceFilesEvents,
       },
@@ -600,10 +568,8 @@ describe('build-usage-data-parsing', () => {
     );
 
     await parseSelectedAdapters([adapter], 1, {
-      eventStore: { enabled: true, path: path.join(tempDir, 'events.db') },
+      store: {} as EventStore,
       eventStoreDeps: {
-        openEventStore: async () => ({}) as EventStore,
-        closeEventStore: vi.fn(),
         getFileEntry: () => undefined,
         replaceFilesEvents,
       },
@@ -633,13 +599,8 @@ describe('build-usage-data-parsing', () => {
       [createStoreBackedAdapter('pi', [fileA, fileB])],
       1,
       {
-        eventStore: {
-          enabled: true,
-          path: store.filePath,
-        },
+        store,
         eventStoreDeps: {
-          openEventStore: async () => store,
-          closeEventStore: vi.fn(),
           getFileEntry: () => {
             throw new Error('database locked');
           },
@@ -666,8 +627,7 @@ describe('build-usage-data-parsing', () => {
 
     const store = await openEventStore(path.join(tempDir, 'events.db'));
     const result = await parseSelectedAdapters([createStoreBackedAdapter('pi', [fileA])], 1, {
-      eventStore: { enabled: true, path: store.filePath },
-      openedStore: store,
+      store,
       eventStoreDeps: {
         claimOverrideOnlyFiles: () => {
           throw new Error('database is locked');
@@ -701,8 +661,7 @@ describe('build-usage-data-parsing', () => {
       [createStoreBackedAdapter('pi', [fileA]), createStoreBackedAdapter('codex', [fileB])],
       1,
       {
-        eventStore: { enabled: true, path: store.filePath },
-        openedStore: store,
+        store,
         eventStoreDeps: { getFileEntry, replaceFilesEvents },
       },
     );
@@ -731,13 +690,8 @@ describe('build-usage-data-parsing', () => {
     };
 
     const result = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: store.filePath,
-      },
+      store,
       eventStoreDeps: {
-        openEventStore: async () => store,
-        closeEventStore: vi.fn(),
         getFileEntry: () => {
           throw new Error('database locked');
         },
@@ -762,21 +716,15 @@ describe('build-usage-data-parsing', () => {
     const parseCalls = { count: 0 };
     const adapter = createCountingJsonlAdapter('pi', [filePath], parseCalls);
 
-    await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    await parseWithEventStore([adapter], 1, {
+      eventStorePath,
       now: () => 123,
     });
 
     const runtimeProfile = new RuntimeProfileCollector(() => 100);
 
-    const cachedRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const cachedRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
       runtimeProfile,
       now: () => 124,
     });
@@ -798,18 +746,12 @@ describe('build-usage-data-parsing', () => {
     const parseCalls = { count: 0 };
     const adapter = createCountingJsonlAdapter('pi', [filePath], parseCalls);
 
-    const firstRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const firstRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
     await writeFingerprintFixture(filePath, '{"line":1}\n{"line":2}\n', 1_700_000_002);
-    const secondRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const secondRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
 
     expect(firstRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
@@ -827,18 +769,18 @@ describe('build-usage-data-parsing', () => {
 
     const parseCalls = { count: 0 };
     const adapter = createCountingJsonlAdapter('pi', [filePath], parseCalls);
-    const eventStoreOptions = { eventStore: { enabled: true as const, path: eventStorePath } };
+    const eventStoreOptions = { eventStorePath };
 
-    await parseSelectedAdapters([adapter], 1, eventStoreOptions);
-    await parseSelectedAdapters([adapter], 1, eventStoreOptions);
+    await parseWithEventStore([adapter], 1, eventStoreOptions);
+    await parseWithEventStore([adapter], 1, eventStoreOptions);
     expect(parseCalls.count).toBe(1);
 
     const runtimeProfile = new RuntimeProfileCollector(() => 100);
-    await parseSelectedAdapters([{ ...adapter, parserVersion: 2 }], 1, {
+    await parseWithEventStore([{ ...adapter, parserVersion: 2 }], 1, {
       ...eventStoreOptions,
       runtimeProfile,
     });
-    await parseSelectedAdapters([{ ...adapter, parserVersion: 2 }], 1, eventStoreOptions);
+    await parseWithEventStore([{ ...adapter, parserVersion: 2 }], 1, eventStoreOptions);
 
     expect(parseCalls.count).toBe(2);
     expect(runtimeProfile.snapshot().eventStore).toEqual({ hits: 0, misses: 1 });
@@ -862,24 +804,15 @@ describe('build-usage-data-parsing', () => {
       () => dependencyPath,
     );
 
-    await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
-    const cachedRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const cachedRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
     await writeFingerprintFixture(dependencyPath, 'line-1\nline-2\n', 1_700_000_002);
-    const invalidatedRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const invalidatedRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
 
     expect(cachedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
@@ -904,25 +837,16 @@ describe('build-usage-data-parsing', () => {
       () => dependencyPath,
     );
 
-    const missingDependencyRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const missingDependencyRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
     await writeFingerprintFixture(dependencyPath, 'line-1\nline-2\n', 1_700_000_002);
-    const appearedDependencyRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const appearedDependencyRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
     await rm(dependencyPath);
-    const disappearedDependencyRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const disappearedDependencyRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
 
     expect(missingDependencyRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
@@ -943,11 +867,8 @@ describe('build-usage-data-parsing', () => {
     const parseCalls = { count: 0 };
     const adapter = createCountingJsonlAdapter('codex', [filePath], parseCalls);
 
-    await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
 
     const store = await openEventStore(eventStorePath);
@@ -961,11 +882,8 @@ describe('build-usage-data-parsing', () => {
       closeEventStore(store);
     }
 
-    const secondRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const secondRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
 
     expect(secondRun.sourceFailures).toEqual([]);
@@ -1009,18 +927,12 @@ describe('build-usage-data-parsing', () => {
       }),
     };
 
-    await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
     allowParse = false;
-    const cachedRun = await parseSelectedAdapters([adapter], 1, {
-      eventStore: {
-        enabled: true,
-        path: eventStorePath,
-      },
+    const cachedRun = await parseWithEventStore([adapter], 1, {
+      eventStorePath,
     });
 
     expect(parseCalls).toBe(1);
@@ -1144,13 +1056,8 @@ describe('build-usage-data-parsing', () => {
     const createPool = vi.fn(() => createInlineWorkerPool());
     const adapter = createCountingJsonlAdapter('codex', [fileA, fileB], parseCalls);
     const options = {
-      eventStore: {
-        enabled: true as const,
-        path: store.filePath,
-      },
+      store,
       eventStoreDeps: {
-        openEventStore: async () => store,
-        closeEventStore: vi.fn(),
         getFileEntry: (_store: EventStore, _source: string, filePath: string) =>
           entries.get(filePath),
         readFileEvents: (_store: EventStore, _source: string, filePath: string) =>
@@ -1452,9 +1359,9 @@ describe('build-usage-data-parsing', () => {
       const parseCalls = { count: 0 };
       const adapter = withMtimeSkip(createCountingJsonlAdapter('pi', [files.old], parseCalls));
       const eventStorePath = path.join(tempDir, 'events.db');
-      const options = { since, eventStore: { enabled: true as const, path: eventStorePath } };
+      const options = { since, eventStorePath };
 
-      const ingestRun = await parseSelectedAdapters([adapter], 1, options);
+      const ingestRun = await parseWithEventStore([adapter], 1, options);
       expect(parseCalls.count).toBe(1);
       // Counted for the ledger, but marked so live reads leave it out.
       expect(ingestRun.parsedFiles).toEqual([
@@ -1462,7 +1369,7 @@ describe('build-usage-data-parsing', () => {
       ]);
 
       const readFileEvents = vi.fn();
-      const skippedRun = await parseSelectedAdapters([adapter], 1, {
+      const skippedRun = await parseWithEventStore([adapter], 1, {
         ...options,
         eventStoreDeps: { readFileEvents },
       });
@@ -1486,16 +1393,16 @@ describe('build-usage-data-parsing', () => {
       });
       const parseCalls = { count: 0 };
       const adapter = withMtimeSkip(createCountingJsonlAdapter('pi', [files.old], parseCalls));
-      const eventStore = { enabled: true as const, path: path.join(tempDir, 'events.db') };
+      const eventStorePath = path.join(tempDir, 'events.db');
 
-      await parseSelectedAdapters([adapter], 1, { eventStore });
+      await parseWithEventStore([adapter], 1, { eventStorePath });
       await writeFingerprintFixture(
         files.old,
         '{"line":1}\n{"line":2}\n',
         beforeCutoffSeconds + 60,
       );
-      await parseSelectedAdapters([adapter], 1, { since, eventStore });
-      await parseSelectedAdapters([adapter], 1, { since, eventStore });
+      await parseWithEventStore([adapter], 1, { since, eventStorePath });
+      await parseWithEventStore([adapter], 1, { since, eventStorePath });
 
       expect(parseCalls.count).toBe(2);
     });

@@ -468,8 +468,7 @@ export async function buildUsageEventDataset(
       warnings,
     } = await measureRuntimeProfileStage(runtimeProfile, 'usage.dataset.parse_adapters', () =>
       parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
-        eventStore: store && eventStoreRuntimeConfig,
-        openedStore: store,
+        store,
         overrideSourceIds: cliDirectorySourceIds,
         since: request.lookbackSince ?? configuredOptions.since,
         parseWorkers: {
