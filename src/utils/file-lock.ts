@@ -91,6 +91,18 @@ async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<
   }
 }
 
+/**
+ * Whether a failed create may only mean another acquirer is at the lock. Windows refuses to
+ * create a file that a release is still deleting, with EPERM or EACCES instead of EEXIST.
+ */
+function mayBeContended(error: unknown): boolean {
+  return (
+    hasErrorCode(error, 'EEXIST') ||
+    (process.platform === 'win32' &&
+      (hasErrorCode(error, 'EPERM') || hasErrorCode(error, 'EACCES')))
+  );
+}
+
 async function createLockFile(lockPath: string, content: string, mode?: number): Promise<void> {
   const handle = await open(lockPath, 'wx', mode);
 
@@ -140,7 +152,7 @@ export async function acquireFileLock(
         await createLockFile(lockPath, token, fileMode);
         return { status: 'held', release };
       } catch (error) {
-        if (!hasErrorCode(error, 'EEXIST')) {
+        if (!mayBeContended(error)) {
           throw error;
         }
 
@@ -152,6 +164,11 @@ export async function acquireFileLock(
       if (lock && staleAfterMs !== undefined && isStaleLock(lock, staleAfterMs, Date.now())) {
         await reclaimStaleLock(lockPath, lock);
       } else if (Date.now() >= deadline) {
+        // A Windows refusal that outlasts the wait is an unwritable directory, not a holder.
+        if (!hasErrorCode(cause, 'EEXIST')) {
+          throw cause;
+        }
+
         return { status: 'busy', cause };
       } else {
         await sleep(retryMs);
