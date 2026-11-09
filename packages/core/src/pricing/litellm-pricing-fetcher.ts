@@ -690,6 +690,16 @@ export async function requestLiteLLMPricingPayload(
   return readPayloadWithByteLimit(response, request.maxResponseBytes);
 }
 
+/** Everything one successful load produced; replaced as a whole, never field by field. */
+type LoadedPricing = {
+  readonly table: PricingTable;
+  readonly loadOrigin: LiteLLMPricingLoadOrigin;
+  readonly dataOrigin: PricingDataOrigin;
+  readonly warning: string | undefined;
+};
+
+const EMPTY_PRICING_TABLE = new PricingTable(new Map());
+
 export class LiteLLMPricingFetcher implements PricingSource {
   private readonly sourceUrl: string;
   private readonly cacheFilePath: string;
@@ -704,10 +714,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
   private readonly now: () => number;
   private readonly sleep: (delayMs: number) => Promise<void>;
 
-  private table = new PricingTable(new Map());
-  private loadOrigin: LiteLLMPricingLoadOrigin | undefined;
-  private dataOrigin: PricingDataOrigin | undefined;
-  private pricingWarning: string | undefined;
+  private loaded: LoadedPricing | undefined;
 
   public constructor(options: LiteLLMPricingFetcherOptions) {
     this.sourceUrl = options.sourceUrl ?? DEFAULT_LITELLM_PRICING_URL;
@@ -731,65 +738,18 @@ export class LiteLLMPricingFetcher implements PricingSource {
   }
 
   /**
-   * Loads pricing data from cache, remote, or the bundled default snapshot.
-   * @returns Promise<boolean> True if loaded without a network fetch, false if from network
+   * Loads pricing data from cache, remote, or the bundled default snapshot. Starting a load
+   * clears the previous result, so until a load succeeds no prices are served and every origin
+   * is undefined. Overlapping loads share that result: the last to succeed wins, even if it
+   * started first, and a failure does not clear another load's result.
    */
-  public async load(): Promise<boolean> {
-    this.loadOrigin = undefined;
-    this.dataOrigin = undefined;
-    this.pricingWarning = undefined;
-
-    const cacheLoaded = await this.loadFromCache({ allowStale: false });
-
-    if (cacheLoaded) {
-      return true;
-    }
-
-    if (this.offline) {
-      const staleCacheLoaded = await this.loadFromCache({ allowStale: true });
-
-      if (!staleCacheLoaded) {
-        const bundledSnapshotLoaded = await this.loadFromBundledSnapshot();
-
-        if (!bundledSnapshotLoaded) {
-          throw new Error(
-            'Offline pricing mode enabled but no cached LiteLLM pricing is available',
-          );
-        }
-
-        return true;
-      }
-
-      return true;
-    }
-
-    try {
-      await this.loadFromRemote();
-      return false;
-    } catch (error) {
-      const staleCacheLoaded = await this.loadFromCache({
-        allowStale: true,
-        fetchError: error instanceof Error ? error.message : String(error),
-      });
-
-      if (!staleCacheLoaded) {
-        const bundledSnapshotLoaded = await this.loadFromBundledSnapshot();
-
-        if (!bundledSnapshotLoaded) {
-          throw new Error('Could not load LiteLLM pricing from network or cache', {
-            cause: error,
-          });
-        }
-
-        return true;
-      }
-
-      return true;
-    }
+  public async load(): Promise<void> {
+    this.loaded = undefined;
+    this.loaded = await this.resolvePricing();
   }
 
   public getLoadOrigin(): LiteLLMPricingLoadOrigin | undefined {
-    return this.loadOrigin;
+    return this.loaded?.loadOrigin;
   }
 
   /**
@@ -797,24 +757,24 @@ export class LiteLLMPricingFetcher implements PricingSource {
    * undefined after a fresh cache or a network load.
    */
   public getPricingWarning(): string | undefined {
-    return this.pricingWarning;
+    return this.loaded?.warning;
   }
 
-  /** Where the loaded prices came from and when they were fetched; undefined before a load. */
+  /** Where the loaded prices came from and when they were fetched; undefined without a successful load. */
   public getDataOrigin(): PricingDataOrigin | undefined {
-    return this.dataOrigin;
+    return this.loaded?.dataOrigin;
   }
 
   public explainModel(model: string): ModelPricingExplanation {
-    return this.table.explainModel(model);
+    return this.servedTable().explainModel(model);
   }
 
   public resolveModelAlias(model: string): string {
-    return this.table.resolveModelAlias(model);
+    return this.servedTable().resolveModelAlias(model);
   }
 
   public getPricing(model: string): ModelPricing | undefined {
-    return this.table.getPricing(model);
+    return this.servedTable().getPricing(model);
   }
 
   /**
@@ -822,10 +782,52 @@ export class LiteLLMPricingFetcher implements PricingSource {
    * on the bundled limits, which cover the snapshot and caches written before limits were kept.
    */
   public getMaxInputTokens(model: string): number | undefined {
-    return this.table.getMaxInputTokens(model);
+    return this.servedTable().getMaxInputTokens(model);
   }
 
-  private async loadFromRemote(): Promise<void> {
+  private servedTable(): PricingTable {
+    return this.loaded?.table ?? EMPTY_PRICING_TABLE;
+  }
+
+  private async resolvePricing(): Promise<LoadedPricing> {
+    const freshCache = await this.loadFromCache({ allowStale: false });
+
+    if (freshCache) {
+      return freshCache;
+    }
+
+    if (this.offline) {
+      return this.loadFallback(
+        new Error('Offline pricing mode enabled but no cached LiteLLM pricing is available'),
+      );
+    }
+
+    try {
+      return await this.loadFromRemote();
+    } catch (error) {
+      return this.loadFallback(
+        new Error('Could not load LiteLLM pricing from network or cache', { cause: error }),
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  /** A stale cache, else the bundled snapshot; throws `noPricingError` when neither loads. */
+  private async loadFallback(noPricingError: Error, fetchError?: string): Promise<LoadedPricing> {
+    const fallback =
+      (await this.loadFromCache({
+        allowStale: true,
+        ...(fetchError === undefined ? {} : { fetchError }),
+      })) ?? (await this.loadFromBundledSnapshot());
+
+    if (!fallback) {
+      throw noPricingError;
+    }
+
+    return fallback;
+  }
+
+  private async loadFromRemote(): Promise<LoadedPricing> {
     const payload = await requestLiteLLMPricingPayload({
       url: this.sourceUrl,
       fetchImpl: this.fetchImpl,
@@ -851,35 +853,37 @@ export class LiteLLMPricingFetcher implements PricingSource {
       // Cache writes are best-effort. A successful remote fetch must still be usable.
     }
 
-    this.table = await createLiteLLMPricingTable(pricingByModel, {
-      maxInputTokensByModel,
-      origin,
-      bundledPricing: this.defaultSourceBundledPricing(),
-    });
-    this.loadOrigin = 'network';
-    this.dataOrigin = origin;
-    this.pricingWarning = undefined;
+    return {
+      table: await createLiteLLMPricingTable(pricingByModel, {
+        maxInputTokensByModel,
+        origin,
+        bundledPricing: this.defaultSourceBundledPricing(),
+      }),
+      loadOrigin: 'network',
+      dataOrigin: origin,
+      warning: undefined,
+    };
   }
 
   private async loadFromCache(options: {
     allowStale: boolean;
     fetchError?: string;
-  }): Promise<boolean> {
+  }): Promise<LoadedPricing | undefined> {
     const cacheFileContent = await this.readCachePayload();
 
     if (!cacheFileContent) {
-      return false;
+      return undefined;
     }
 
     if (cacheFileContent.sourceUrl !== this.sourceUrl) {
-      return false;
+      return undefined;
     }
 
     const isCurrentFormat = cacheFileContent.formatVersion === CACHE_FORMAT_VERSION;
 
     // An older-format default-source cache lacks rates the bundled snapshot carries.
     if (!isCurrentFormat && this.sourceUrl === DEFAULT_LITELLM_PRICING_URL) {
-      return false;
+      return undefined;
     }
 
     const nowTimestamp = this.now();
@@ -889,13 +893,13 @@ export class LiteLLMPricingFetcher implements PricingSource {
       nowTimestamp - cacheFileContent.fetchedAt > this.cacheTtlMs;
 
     if (isStale && !options.allowStale) {
-      return false;
+      return undefined;
     }
 
     const pricingByModel = toPricingMap(cacheFileContent.pricingByModel);
 
     if (pricingByModel.size === 0) {
-      return false;
+      return undefined;
     }
 
     const origin: PricingDataOrigin = {
@@ -903,19 +907,20 @@ export class LiteLLMPricingFetcher implements PricingSource {
       fetchedAt: cacheFileContent.fetchedAt,
       url: cacheFileContent.sourceUrl,
     };
-    this.table = await createLiteLLMPricingTable(pricingByModel, {
-      ...(cacheFileContent.maxInputTokensByModel
-        ? { maxInputTokensByModel: cacheFileContent.maxInputTokensByModel }
-        : {}),
-      origin,
-      bundledPricing: this.defaultSourceBundledPricing(),
-    });
-    this.loadOrigin = 'cache';
-    this.dataOrigin = origin;
-    this.pricingWarning = isStale
-      ? formatStaleCacheWarning(cacheFileContent.fetchedAt, options.fetchError)
-      : undefined;
-    return true;
+    return {
+      table: await createLiteLLMPricingTable(pricingByModel, {
+        ...(cacheFileContent.maxInputTokensByModel
+          ? { maxInputTokensByModel: cacheFileContent.maxInputTokensByModel }
+          : {}),
+        origin,
+        bundledPricing: this.defaultSourceBundledPricing(),
+      }),
+      loadOrigin: 'cache',
+      dataOrigin: origin,
+      warning: isStale
+        ? formatStaleCacheWarning(cacheFileContent.fetchedAt, options.fetchError)
+        : undefined,
+    };
   }
 
   /** The bundled data for default-source pricing; a custom URL never mixes it in. */
@@ -923,21 +928,21 @@ export class LiteLLMPricingFetcher implements PricingSource {
     return this.sourceUrl === DEFAULT_LITELLM_PRICING_URL ? this.bundledPricing : undefined;
   }
 
-  private async loadFromBundledSnapshot(): Promise<boolean> {
+  private async loadFromBundledSnapshot(): Promise<LoadedPricing | undefined> {
     if (this.sourceUrl !== DEFAULT_LITELLM_PRICING_URL) {
-      return false;
+      return undefined;
     }
 
     const snapshot = await this.bundledPricing.snapshot();
 
     if (snapshot.sourceUrl !== this.sourceUrl) {
-      return false;
+      return undefined;
     }
 
     const pricingByModel = toPricingMap(snapshot.pricingByModel);
 
     if (pricingByModel.size === 0) {
-      return false;
+      return undefined;
     }
 
     const origin: PricingDataOrigin = {
@@ -945,14 +950,15 @@ export class LiteLLMPricingFetcher implements PricingSource {
       fetchedAt: snapshot.fetchedAt,
       url: snapshot.sourceUrl,
     };
-    this.table = await createLiteLLMPricingTable(pricingByModel, {
-      origin,
-      bundledPricing: this.bundledPricing,
-    });
-    this.loadOrigin = 'bundled-snapshot';
-    this.dataOrigin = origin;
-    this.pricingWarning = formatBundledSnapshotWarning(snapshot.fetchedAt);
-    return true;
+    return {
+      table: await createLiteLLMPricingTable(pricingByModel, {
+        origin,
+        bundledPricing: this.bundledPricing,
+      }),
+      loadOrigin: 'bundled-snapshot',
+      dataOrigin: origin,
+      warning: formatBundledSnapshotWarning(snapshot.fetchedAt),
+    };
   }
 
   private async readCachePayload(): Promise<

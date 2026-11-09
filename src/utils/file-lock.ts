@@ -67,16 +67,21 @@ function isStaleLock(lock: LockState, staleAfterMs: number, now: number): boolea
  * lock it does not own. Content and mtime both identify the lock: an empty lock left by a
  * crash reads the same as one just created and not yet written. With three or more
  * acquirers reclaiming at once, the put-back can replace a lock taken meanwhile: both
- * holders then proceed, as they would with no lock.
+ * holders then proceed, as they would with no lock. False when the lock could not be moved
+ * because another acquirer is at it; the caller then waits as for a held lock.
  */
-async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<void> {
+async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<boolean> {
   const claimPath = `${lockPath}.${randomUUID()}`;
 
   try {
     await rename(lockPath, claimPath);
   } catch (error) {
     if (hasErrorCode(error, 'ENOENT')) {
-      return;
+      return true;
+    }
+
+    if (mayBeContended(error) && (await canCreateFilesBeside(lockPath))) {
+      return false;
     }
 
     throw error;
@@ -89,6 +94,8 @@ async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<
   } else {
     await rename(claimPath, lockPath);
   }
+
+  return true;
 }
 
 /**
@@ -101,6 +108,24 @@ function mayBeContended(error: unknown): boolean {
     (process.platform === 'win32' &&
       (hasErrorCode(error, 'EPERM') || hasErrorCode(error, 'EACCES')))
   );
+}
+
+/**
+ * Tells a Windows refusal caused by a lock being deleted, which is contention, from a directory
+ * that really cannot be written, by creating and removing a file of this call's own.
+ */
+async function canCreateFilesBeside(lockPath: string): Promise<boolean> {
+  const probePath = `${lockPath}.${randomUUID()}`;
+
+  try {
+    await (await open(probePath, 'wx')).close();
+  } catch {
+    return false;
+  }
+
+  // The create already answered; a scanner holding the new file must not change that.
+  await rm(probePath, { force: true }).catch(() => undefined);
+  return true;
 }
 
 async function createLockFile(lockPath: string, content: string, mode?: number): Promise<void> {
@@ -152,7 +177,10 @@ export async function acquireFileLock(
         await createLockFile(lockPath, token, fileMode);
         return { status: 'held', release };
       } catch (error) {
-        if (!mayBeContended(error)) {
+        if (
+          !mayBeContended(error) ||
+          (!hasErrorCode(error, 'EEXIST') && !(await canCreateFilesBeside(lockPath)))
+        ) {
           throw error;
         }
 
@@ -161,18 +189,20 @@ export async function acquireFileLock(
 
       const lock = staleAfterMs === undefined ? undefined : await readLock(lockPath);
 
-      if (lock && staleAfterMs !== undefined && isStaleLock(lock, staleAfterMs, Date.now())) {
-        await reclaimStaleLock(lockPath, lock);
-      } else if (Date.now() >= deadline) {
-        // A Windows refusal that outlasts the wait is an unwritable directory, not a holder.
-        if (!hasErrorCode(cause, 'EEXIST')) {
-          throw cause;
-        }
-
-        return { status: 'busy', cause };
-      } else {
-        await sleep(retryMs);
+      if (
+        lock &&
+        staleAfterMs !== undefined &&
+        isStaleLock(lock, staleAfterMs, Date.now()) &&
+        (await reclaimStaleLock(lockPath, lock))
+      ) {
+        continue;
       }
+
+      if (Date.now() >= deadline) {
+        return { status: 'busy', cause };
+      }
+
+      await sleep(retryMs);
     }
   } catch (error) {
     return { status: 'unavailable', error };
