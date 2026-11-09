@@ -135,6 +135,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'isPathWithinRoots',
     'isPriceableEvent',
     'isReadReasonCode',
+    'isShortLivedWindowsRefusal',
     'loadNodeSqliteModule',
     'loadNodeSqliteModuleFromRequire',
     'matchesCanonicalProviderFilter',

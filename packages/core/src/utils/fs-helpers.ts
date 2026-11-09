@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Stats } from 'node:fs';
 import { access, constants, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+
+import { isShortLivedWindowsRefusal } from './error-code.js';
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -98,6 +101,28 @@ export async function readRegularTextFile(filePath: string): Promise<string> {
   return readFile(filePath, 'utf8');
 }
 
+// About 0.4 s in all: enough for a reader or scanner to close the file, short enough for the
+// callers that wait on a write they then ignore (the update-check claim, the statusline).
+const RENAME_RETRY_DELAYS_MS = [10, 30, 90, 270];
+
+/** Renames over `filePath`, retrying a short-lived Windows refusal (see the predicate). */
+async function renameReplacing(tempPath: string, filePath: string): Promise<void> {
+  for (const retryDelayMs of RENAME_RETRY_DELAYS_MS) {
+    try {
+      await rename(tempPath, filePath);
+      return;
+    } catch (error) {
+      if (!isShortLivedWindowsRefusal(error)) {
+        throw error;
+      }
+    }
+
+    await delay(retryDelayMs);
+  }
+
+  await rename(tempPath, filePath);
+}
+
 /**
  * Writes through a temp file and a rename, so a concurrent reader sees either
  * the old file or the complete new one, never a truncated write.
@@ -111,7 +136,7 @@ export async function writeFileAtomic(
 
   try {
     await writeFile(tempPath, content, { encoding: 'utf8', mode });
-    await rename(tempPath, filePath);
+    await renameReplacing(tempPath, filePath);
   } catch (error) {
     await rm(tempPath, { force: true });
     throw error;
