@@ -18,7 +18,7 @@ import { PiSourceAdapter } from '@ayagmar/agent-sessions/sources/pi';
 import { QwenSourceAdapter } from '@ayagmar/agent-sessions/sources/qwen';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { parseSelectedAdapters } from '../../src/cli/build-usage-data-parsing.js';
+import { parseWithEventStore } from '../helpers/parse-with-event-store.js';
 import {
   closeEventStore,
   getFileReadCursor,
@@ -215,8 +215,8 @@ function createIngest(adapter: SourceAdapter, storePath: string): Ingest {
     storePath,
     writes,
     run: async (deps) => {
-      const result = await parseSelectedAdapters([adapter], 1, {
-        eventStore: { enabled: true, path: storePath },
+      const result = await parseWithEventStore([adapter], 1, {
+        eventStorePath: storePath,
         eventStoreDeps: { replaceFilesEvents: spy, ...deps },
       });
       return {
