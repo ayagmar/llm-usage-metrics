@@ -1495,7 +1495,12 @@ describe('LiteLLMPricingFetcher', () => {
         now: () => nowMs,
       });
 
+      // Each load reads the cache before fetching, so start the second only once the first
+      // has taken the first response; otherwise either load can fetch first.
       const first = fetcher.load();
+      await vi.waitFor(() => {
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+      });
       const second = fetcher.load();
       await vi.waitFor(() => {
         expect(fetchImpl).toHaveBeenCalledTimes(2);
