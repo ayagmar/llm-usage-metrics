@@ -1,13 +1,10 @@
 import { collectFile, dedupeRepeatedAcrossFiles } from '@ayagmar/agent-sessions';
 
-import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import { withCostModes, type UsageEvent } from '../domain/usage-event.js';
 import {
   claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
-  closeEventStore as closeDefaultEventStore,
   getFileEntry as getDefaultEventStoreFileEntry,
   getFileReadCursor as getDefaultFileReadCursor,
-  openEventStore as openDefaultEventStore,
   readFileEvents as readDefaultEventStoreFileEvents,
   replaceFilesEvents as replaceDefaultFilesEvents,
   type EventStore,
@@ -24,7 +21,6 @@ import {
   readParsedFileFromEventStore,
   readFileGrowth,
   readStoredFileEntry,
-  recordEventStoreFailure,
   writeParsedFilesToEventStore,
   type EventStoreFailureState,
   type EventStoreParseContext,
@@ -104,11 +100,11 @@ export type ParsedAdaptersResult = {
 };
 
 export type ParseSelectedAdaptersOptions = {
-  eventStore?: EventStoreRuntimeConfig;
+  /** The run's store, opened and closed by the caller; none parses without one. */
+  store?: EventStore;
   /** The report's `--since` date; lets adapters skip files last modified before it. */
   since?: string;
   eventStoreDeps?: EventStoreParseDeps;
-  openedStore?: EventStore;
   /** Lowercase ids of the sources read from a custom directory (--claude-dir...). */
   overrideSourceIds?: ReadonlySet<string>;
   now?: () => number;
@@ -689,30 +685,18 @@ export async function parseSelectedAdapters(
 ): Promise<ParsedAdaptersResult> {
   const runWithParseBudget = createParseBudget(maxParallelFileParsing);
   const eventStoreFailureState: EventStoreFailureState = { disabled: false };
-  let eventStoreContext: EventStoreParseContext | undefined;
-  let ownsEventStore = false;
-
-  if (options.eventStore?.enabled) {
-    try {
-      const openEventStore = options.eventStoreDeps?.openEventStore ?? openDefaultEventStore;
-      const store = options.openedStore ?? (await openEventStore(options.eventStore.path));
-      ownsEventStore = options.openedStore === undefined;
-      eventStoreContext = {
-        store,
-        getFileEntry: options.eventStoreDeps?.getFileEntry ?? getDefaultEventStoreFileEntry,
-        readFileEvents: options.eventStoreDeps?.readFileEvents ?? readDefaultEventStoreFileEvents,
-        replaceFilesEvents: options.eventStoreDeps?.replaceFilesEvents ?? replaceDefaultFilesEvents,
-        claimOverrideOnlyFiles:
-          options.eventStoreDeps?.claimOverrideOnlyFiles ?? claimDefaultOverrideOnlyFiles,
-        getFileReadCursor: options.eventStoreDeps?.getFileReadCursor ?? getDefaultFileReadCursor,
-        now: options.now ?? Date.now,
-        failureState: eventStoreFailureState,
-        overrideSourceIds: options.overrideSourceIds ?? new Set(),
-      };
-    } catch (error) {
-      recordEventStoreFailure(eventStoreFailureState, error);
-    }
-  }
+  const eventStoreContext: EventStoreParseContext | undefined = options.store && {
+    store: options.store,
+    getFileEntry: options.eventStoreDeps?.getFileEntry ?? getDefaultEventStoreFileEntry,
+    readFileEvents: options.eventStoreDeps?.readFileEvents ?? readDefaultEventStoreFileEvents,
+    replaceFilesEvents: options.eventStoreDeps?.replaceFilesEvents ?? replaceDefaultFilesEvents,
+    claimOverrideOnlyFiles:
+      options.eventStoreDeps?.claimOverrideOnlyFiles ?? claimDefaultOverrideOnlyFiles,
+    getFileReadCursor: options.eventStoreDeps?.getFileReadCursor ?? getDefaultFileReadCursor,
+    now: options.now ?? Date.now,
+    failureState: eventStoreFailureState,
+    overrideSourceIds: options.overrideSourceIds ?? new Set(),
+  };
 
   let parseResults: Array<PromiseSettledResult<AdapterParseResultWithFiles>>;
   let claimWarning: string | undefined;
@@ -753,15 +737,6 @@ export async function parseSelectedAdapters(
       );
     }
   } finally {
-    if (eventStoreContext && ownsEventStore) {
-      try {
-        const closeEventStore = options.eventStoreDeps?.closeEventStore ?? closeDefaultEventStore;
-        closeEventStore(eventStoreContext.store);
-      } catch (error) {
-        recordEventStoreFailure(eventStoreFailureState, error);
-      }
-    }
-
     await sharedPool.terminate();
   }
 
@@ -796,7 +771,7 @@ export async function parseSelectedAdapters(
     discoveredFiles,
     parsedFiles,
     failedFiles,
-    eventStoreAvailable: Boolean(options.eventStore?.enabled) && !eventStoreFailureState.disabled,
+    eventStoreAvailable: options.store !== undefined && !eventStoreFailureState.disabled,
     sourceFailures,
     warnings: [eventStoreFailureState.warning, claimWarning].filter(
       (warning): warning is string => warning !== undefined,
