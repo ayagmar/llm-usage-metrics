@@ -4,7 +4,7 @@ import { formatUsd } from '../../../render/format-number.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
-/** Shown where a ratio has no denominator, such as cost per active hour with no active time. */
+/** Shown where a ratio has no denominator, such as cost per hour with no time. */
 export const NO_VALUE = '—';
 
 /**
@@ -68,9 +68,39 @@ export function getCacheHitRate(totals: {
   return promptTokens > 0 ? totals.cacheReadTokens / promptTokens : null;
 }
 
-/** Cost per active hour; null without active time or without a cost. */
-export function getCostPerActiveHour(costUsd: number | null, activeMs: number): number | null {
-  return activeMs > 0 && costUsd !== null ? costUsd / (activeMs / HOUR_MS) : null;
+/** Cost per hour of `timeMs`; null without time or without a cost. */
+export function getCostPerHour(costUsd: number | null, timeMs: number): number | null {
+  return timeMs > 0 && costUsd !== null ? costUsd / (timeMs / HOUR_MS) : null;
+}
+
+/**
+ * The time measure a view shows, worded once. Without label filters it is wall-clock Active
+ * time; a filter leaves only the per-cell sum, Agent time, which a union cannot come from.
+ */
+export type ShareTimeMetric = {
+  kind: 'active' | 'agent';
+  label: 'Active time' | 'Agent time';
+  costPerHourLabel: 'Cost per active hour' | 'Cost per agent hour';
+  /** What the figure counts, in one line. */
+  detail: string;
+};
+
+const ACTIVE_TIME_METRIC: ShareTimeMetric = {
+  kind: 'active',
+  label: 'Active time',
+  costPerHourLabel: 'Cost per active hour',
+  detail: 'Wall-clock; parallel sessions count once',
+};
+
+const AGENT_TIME_METRIC: ShareTimeMetric = {
+  kind: 'agent',
+  label: 'Agent time',
+  costPerHourLabel: 'Cost per agent hour',
+  detail: 'Summed across sessions; parallel sessions add up',
+};
+
+export function getTimeMetric(hasLabelFilters: boolean): ShareTimeMetric {
+  return hasLabelFilters ? AGENT_TIME_METRIC : ACTIVE_TIME_METRIC;
 }
 
 /** `$1.23`, or {@link NO_VALUE} for a missing value. */

@@ -11,7 +11,6 @@
       "cacheWriteTokens": 500,
       "totalTokens": 26100,
       "eventCount": 7,
-      "activeMs": 1140000,
       "costs": {
         "explicit": {
           "costUsd": 0.08,
@@ -25,7 +24,9 @@
           "costUsd": 0.28,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 1140000,
+      "activeMs": 900000
     },
     {
       "key": "2026-10-20 14:00",
@@ -36,7 +37,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 800,
       "eventCount": 1,
-      "activeMs": 60000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -50,7 +50,9 @@
           "costUsd": null,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 60000,
+      "activeMs": 60000
     },
     {
       "key": "2026-10-25 02:00",
@@ -61,7 +63,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 2500,
       "eventCount": 2,
-      "activeMs": 300000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -75,7 +76,9 @@
           "costUsd": 0.03,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 0,
+      "activeMs": 0
     },
     {
       "key": "2026-10-26 23:00",
@@ -86,7 +89,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 1700,
       "eventCount": 2,
-      "activeMs": 120000,
       "costs": {
         "explicit": {
           "costUsd": 0.05,
@@ -100,7 +102,9 @@
           "costUsd": 0.05,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 120000,
+      "activeMs": 120000
     }
   ],
   "day": [
@@ -113,7 +117,6 @@
       "cacheWriteTokens": 100,
       "totalTokens": 6300,
       "eventCount": 2,
-      "activeMs": 120000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -127,7 +130,9 @@
           "costUsd": 0.05,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 120000,
+      "activeMs": 120000
     },
     {
       "key": "2026-01-01",
@@ -138,7 +143,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 2500,
       "eventCount": 3,
-      "activeMs": 300000,
       "costs": {
         "explicit": {
           "costUsd": 0.12,
@@ -152,7 +156,9 @@
           "costUsd": 0.12,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 300000,
+      "activeMs": 300000
     },
     {
       "key": "2026-01-05",
@@ -163,7 +169,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 1600,
       "eventCount": 1,
-      "activeMs": 0,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -177,7 +182,9 @@
           "costUsd": 0.01,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 0,
+      "activeMs": 0
     },
     {
       "key": "2026-10-20",
@@ -188,7 +195,6 @@
       "cacheWriteTokens": 500,
       "totalTokens": 26900,
       "eventCount": 8,
-      "activeMs": 1200000,
       "costs": {
         "explicit": {
           "costUsd": 0.08,
@@ -202,7 +208,9 @@
           "costUsd": 0.28,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 1200000,
+      "activeMs": 960000
     },
     {
       "key": "2026-10-25",
@@ -213,7 +221,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 2500,
       "eventCount": 2,
-      "activeMs": 300000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -227,7 +234,9 @@
           "costUsd": 0.03,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 0,
+      "activeMs": 0
     },
     {
       "key": "2026-10-26",
@@ -238,7 +247,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 1700,
       "eventCount": 2,
-      "activeMs": 120000,
       "costs": {
         "explicit": {
           "costUsd": 0.05,
@@ -252,7 +260,9 @@
           "costUsd": 0.05,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 120000,
+      "activeMs": 120000
     }
   ],
   "week": [
@@ -265,7 +275,6 @@
       "cacheWriteTokens": 100,
       "totalTokens": 8800,
       "eventCount": 5,
-      "activeMs": 420000,
       "costs": {
         "explicit": {
           "costUsd": 0.12,
@@ -279,7 +288,9 @@
           "costUsd": 0.17,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 420000,
+      "activeMs": 420000
     },
     {
       "key": "2026-W02",
@@ -290,7 +301,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 1600,
       "eventCount": 1,
-      "activeMs": 0,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -304,7 +314,9 @@
           "costUsd": 0.01,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 0,
+      "activeMs": 0
     },
     {
       "key": "2026-W43",
@@ -315,7 +327,6 @@
       "cacheWriteTokens": 500,
       "totalTokens": 29400,
       "eventCount": 10,
-      "activeMs": 1500000,
       "costs": {
         "explicit": {
           "costUsd": 0.08,
@@ -329,7 +340,9 @@
           "costUsd": 0.31,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 1200000,
+      "activeMs": 960000
     },
     {
       "key": "2026-W44",
@@ -340,7 +353,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 1700,
       "eventCount": 2,
-      "activeMs": 120000,
       "costs": {
         "explicit": {
           "costUsd": 0.05,
@@ -354,7 +366,9 @@
           "costUsd": 0.05,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 120000,
+      "activeMs": 120000
     }
   ],
   "month": [
@@ -367,7 +381,6 @@
       "cacheWriteTokens": 100,
       "totalTokens": 6300,
       "eventCount": 2,
-      "activeMs": 120000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -381,7 +394,9 @@
           "costUsd": 0.05,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 120000,
+      "activeMs": 120000
     },
     {
       "key": "2026-01",
@@ -392,7 +407,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 4100,
       "eventCount": 4,
-      "activeMs": 300000,
       "costs": {
         "explicit": {
           "costUsd": 0.12,
@@ -406,7 +420,9 @@
           "costUsd": 0.13,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 300000,
+      "activeMs": 300000
     },
     {
       "key": "2026-10",
@@ -417,7 +433,6 @@
       "cacheWriteTokens": 500,
       "totalTokens": 31100,
       "eventCount": 12,
-      "activeMs": 1620000,
       "costs": {
         "explicit": {
           "costUsd": 0.13,
@@ -431,7 +446,9 @@
           "costUsd": 0.36,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 1320000,
+      "activeMs": 1080000
     }
   ],
   "bySource": [
@@ -444,7 +461,6 @@
       "cacheWriteTokens": 600,
       "totalTokens": 34700,
       "eventCount": 10,
-      "activeMs": 1320000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -458,7 +474,8 @@
           "costUsd": 0.29,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 1020000
     },
     {
       "key": "codex",
@@ -469,7 +486,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 6800,
       "eventCount": 8,
-      "activeMs": 720000,
       "costs": {
         "explicit": {
           "costUsd": 0.25,
@@ -483,7 +499,8 @@
           "costUsd": 0.25,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 720000
     }
   ],
   "byModel": [
@@ -496,7 +513,6 @@
       "cacheWriteTokens": 600,
       "totalTokens": 34700,
       "eventCount": 10,
-      "activeMs": 1320000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -510,7 +526,8 @@
           "costUsd": 0.29,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 1020000
     },
     {
       "key": "gpt-5-codex",
@@ -521,7 +538,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 6000,
       "eventCount": 7,
-      "activeMs": 660000,
       "costs": {
         "explicit": {
           "costUsd": 0.25,
@@ -535,7 +551,8 @@
           "costUsd": 0.25,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 660000
     },
     {
       "key": "local-model.gguf",
@@ -546,7 +563,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 800,
       "eventCount": 1,
-      "activeMs": 60000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -560,7 +576,8 @@
           "costUsd": null,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 60000
     }
   ],
   "byProject": [
@@ -573,7 +590,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 1800,
       "eventCount": 2,
-      "activeMs": 240000,
       "costs": {
         "explicit": {
           "costUsd": 0.08,
@@ -587,7 +603,8 @@
           "costUsd": 0.08,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 240000
     },
     {
       "key": "alpha",
@@ -598,7 +615,6 @@
       "cacheWriteTokens": 600,
       "totalTokens": 33900,
       "eventCount": 10,
-      "activeMs": 1140000,
       "costs": {
         "explicit": {
           "costUsd": 0.05,
@@ -612,7 +628,8 @@
           "costUsd": 0.31,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 1140000
     },
     {
       "key": "beta",
@@ -623,7 +640,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 5800,
       "eventCount": 6,
-      "activeMs": 660000,
       "costs": {
         "explicit": {
           "costUsd": 0.12,
@@ -637,7 +653,8 @@
           "costUsd": 0.15,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 360000
     }
   ],
   "byMachine": [
@@ -650,7 +667,6 @@
       "cacheWriteTokens": 0,
       "totalTokens": 2400,
       "eventCount": 2,
-      "activeMs": 60000,
       "costs": {
         "explicit": {
           "costUsd": null,
@@ -664,7 +680,8 @@
           "costUsd": 0.01,
           "incompleteEvents": 1
         }
-      }
+      },
+      "agentMs": 60000
     },
     {
       "key": "local",
@@ -675,7 +692,6 @@
       "cacheWriteTokens": 600,
       "totalTokens": 39100,
       "eventCount": 16,
-      "activeMs": 1980000,
       "costs": {
         "explicit": {
           "costUsd": 0.25,
@@ -689,7 +705,8 @@
           "costUsd": 0.53,
           "incompleteEvents": 0
         }
-      }
+      },
+      "agentMs": 1680000
     }
   ],
   "total": {
@@ -700,7 +717,6 @@
     "cacheWriteTokens": 600,
     "totalTokens": 41500,
     "eventCount": 18,
-    "activeMs": 2040000,
     "costs": {
       "explicit": {
         "costUsd": 0.25,
@@ -714,6 +730,7 @@
         "costUsd": 0.54,
         "incompleteEvents": 1
       }
-    }
+    },
+    "agentMs": 1740000
   }
 }

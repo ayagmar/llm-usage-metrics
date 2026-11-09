@@ -1,7 +1,11 @@
-import { IDLE_GAP_CAP_MS, getEventSessionKey } from '@ayagmar/agent-sessions';
+import { getEventSessionKey } from '@ayagmar/agent-sessions';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { findEventBlockKey, toBlockKey, type UsageBlock } from '../blocks/aggregate-blocks.js';
-import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import {
+  compareByCodePoint,
+  computeActiveIntervals,
+  getActiveGapMs,
+} from '@ayagmar/agent-sessions/internal';
 import { shiftDateKey } from '../utils/date-key.js';
 import { formatLocalDateTime } from '../render/format-local-date-time.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
@@ -92,7 +96,7 @@ type Cell = TokenAccumulator & {
   model: number;
   project: number;
   machine: number;
-  activeMs: number;
+  agentMs: number;
   costs: CostAccumulator;
 };
 
@@ -281,21 +285,47 @@ type SessionAccumulator = TokenAccumulator & {
   machines: Set<string>;
   models: Set<string>;
   costs: CostAccumulator;
-  /** Each event's time and cell, for active time. */
+  /** Each event's time and cell, for active and Agent time. */
   timeline: { timeMs: number; cell: Cell }[];
-  activeMs: number;
+  agentMs: number;
 };
 
 type CubeBuild = {
   periods: string[];
   cells: Cell[];
+  /** Wall-clock active time of each period, by the index in `periods`. */
+  periodActiveMs: number[];
   sessions: SessionAccumulator[];
 };
 
+/** Every UTC offset in use is a multiple of 15 minutes, so no period boundary falls inside a step. */
+const PERIOD_BOUNDARY_STEP_MS = 15 * 60 * 1000;
+
+/** Splits a stretch of time at period boundaries and passes each part's period and length. */
+function forEachPeriodPart(
+  startMs: number,
+  endMs: number,
+  periodKeyAt: (timestamp: string) => string,
+  add: (periodKey: string, ms: number) => void,
+): void {
+  let fromMs = startMs;
+
+  while (fromMs < endMs) {
+    const toMs = Math.min(
+      endMs,
+      (Math.floor(fromMs / PERIOD_BOUNDARY_STEP_MS) + 1) * PERIOD_BOUNDARY_STEP_MS,
+    );
+    add(periodKeyAt(new Date(fromMs).toISOString()), toMs - fromMs);
+    fromMs = toMs;
+  }
+}
+
 /**
  * Cells by (period, source, model, project, machine), and the sessions as `aggregate-sessions`
- * keys them. Each capped gap between a session's consecutive events counts in the cell of the
- * later one, so active time sums to the session's over any dimension.
+ * keys them. A session's active gap counts as Agent time in the cell of its later event, so
+ * Agent time sums to the session's over any dimension; a gap across a period boundary gives the
+ * part before it to the earlier event's cell, so a period only holds time inside it. Wall-clock
+ * active time is kept per period, split the same way, because a union cannot be summed from cells.
  */
 function buildCube(
   input: SharePayloadInput,
@@ -309,13 +339,16 @@ function buildCube(
   const sessions = new Map<string, SessionAccumulator>();
   const sessionRepoRoots = mapSessionRepoRoots(input.events);
 
+  const periodKeyAt = (timestamp: string): string => {
+    const dayKey = getPeriodKey(timestamp, 'daily', input.timezone);
+    return hourlyFrom !== null && dayKey < hourlyFrom
+      ? dayKey
+      : getPeriodKey(timestamp, 'hourly', input.timezone);
+  };
+
   input.events.forEach((event, index) => {
     const eventDims = dims[index];
-    const dayKey = getPeriodKey(event.timestamp, 'daily', input.timezone);
-    const periodKey =
-      hourlyFrom !== null && dayKey < hourlyFrom
-        ? dayKey
-        : getPeriodKey(event.timestamp, 'hourly', input.timezone);
+    const periodKey = periodKeyAt(event.timestamp);
     let period = periodIndex.get(periodKey);
 
     if (period === undefined) {
@@ -338,7 +371,7 @@ function buildCube(
         model,
         project,
         machine,
-        activeMs: 0,
+        agentMs: 0,
         costs: createCosts(modes),
       };
       cellsByKey.set(cellKey, cell);
@@ -363,7 +396,7 @@ function buildCube(
         models: new Set(),
         costs: createCosts(modes),
         timeline: [],
-        activeMs: 0,
+        agentMs: 0,
       };
       sessions.set(sessionKey, session);
     }
@@ -377,14 +410,27 @@ function buildCube(
     session.timeline.push({ timeMs, cell });
   });
 
+  const sessionTimes: number[][] = [];
+
   for (const session of sessions.values()) {
     session.timeline.sort((left, right) => left.timeMs - right.timeMs);
+    sessionTimes.push(session.timeline.map((entry) => entry.timeMs));
 
     for (let index = 1; index < session.timeline.length; index += 1) {
+      const earlier = session.timeline[index - 1];
       const later = session.timeline[index];
-      const gapMs = Math.min(later.timeMs - session.timeline[index - 1].timeMs, IDLE_GAP_CAP_MS);
-      later.cell.activeMs += gapMs;
-      session.activeMs += gapMs;
+      const gapMs = getActiveGapMs(earlier.timeMs, later.timeMs);
+      session.agentMs += gapMs;
+
+      if (gapMs === 0 || earlier.cell.period === later.cell.period) {
+        later.cell.agentMs += gapMs;
+        continue;
+      }
+
+      forEachPeriodPart(earlier.timeMs, later.timeMs, periodKeyAt, (periodKey, ms) => {
+        const cell = periodIndex.get(periodKey) === later.cell.period ? later.cell : earlier.cell;
+        cell.agentMs += ms;
+      });
     }
 
     session.timeline = [];
@@ -397,6 +443,13 @@ function buildCube(
     [...periodIndex.entries()].map(([key, index]) => [index, lookup(sortedIndex, key)]),
   );
   const cells = [...cellsByKey.values()];
+  const periodActiveMs = periods.map(() => 0);
+
+  for (const [startMs, endMs] of computeActiveIntervals(sessionTimes)) {
+    forEachPeriodPart(startMs, endMs, periodKeyAt, (periodKey, ms) => {
+      periodActiveMs[lookup(sortedIndex, periodKey)] += ms;
+    });
+  }
 
   for (const cell of cells) {
     cell.period = sortedPeriod.get(cell.period) ?? cell.period;
@@ -411,10 +464,14 @@ function buildCube(
       left.machine - right.machine,
   );
 
-  return { periods, cells, sessions: [...sessions.values()] };
+  return { periods, cells, periodActiveMs, sessions: [...sessions.values()] };
 }
 
-function toCube(cells: readonly Cell[], modes: readonly ShareCostMode[]): ShareCube {
+function toCube(
+  cells: readonly Cell[],
+  periodActiveMs: number[],
+  modes: readonly ShareCostMode[],
+): ShareCube {
   const cube: ShareCube = {
     period: [],
     source: [],
@@ -428,7 +485,8 @@ function toCube(cells: readonly Cell[], modes: readonly ShareCostMode[]): ShareC
     cacheWriteTokens: [],
     totalTokens: [],
     eventCount: [],
-    activeMs: [],
+    agentMs: [],
+    periodActiveMs,
     costs: {},
   };
 
@@ -449,7 +507,7 @@ function toCube(cells: readonly Cell[], modes: readonly ShareCostMode[]): ShareC
     cube.cacheWriteTokens.push(cell.cacheWriteTokens);
     cube.totalTokens.push(cell.totalTokens);
     cube.eventCount.push(cell.eventCount);
-    cube.activeMs.push(cell.activeMs);
+    cube.agentMs.push(cell.agentMs);
 
     for (const mode of modes) {
       const totals = cell.costs[mode];
@@ -525,7 +583,7 @@ function buildSessions(
     firstActivityAt: new Date(session.firstMs).toISOString(),
     lastActivityAt: new Date(session.lastMs).toISOString(),
     eventCount: session.eventCount,
-    activeMs: session.activeMs,
+    agentMs: session.agentMs,
     models: [...session.models]
       .map((model) => lookup(dictionaries.model, model))
       .sort((left, right) => left - right),
@@ -620,7 +678,7 @@ function assemble(
   const build = buildCube(input, dims, dictionaries, hourlyFrom, modes);
   const parts = {
     dictionaries: { periods: build.periods, ...dictionaries.labels },
-    cube: toCube(build.cells, modes),
+    cube: toCube(build.cells, build.periodActiveMs, modes),
     sessions: buildSessions(input, build.sessions, dictionaries),
     blocks,
   };

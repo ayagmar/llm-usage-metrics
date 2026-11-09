@@ -7,7 +7,7 @@ import {
   getCacheHitRate,
   getCost,
   getCostAmount,
-  getCostPerActiveHour,
+  getCostPerHour,
   getDefaultCostMode,
   getOmittedSessionCount,
   NO_VALUE,
@@ -67,10 +67,10 @@ describe('cost modes and derived metrics', () => {
   });
 
   it('shows cost per active hour, and a dash without active time', () => {
-    expect(getCostPerActiveHour(0.54, 2040000)).toBeCloseTo(0.952941, 6);
-    expect(formatUsdOrNone(getCostPerActiveHour(0.54, 2040000))).toBe('$0.95');
-    expect(formatUsdOrNone(getCostPerActiveHour(0.01, 0))).toBe(NO_VALUE);
-    expect(formatUsdOrNone(getCostPerActiveHour(null, 60000))).toBe('—');
+    expect(getCostPerHour(0.54, 2040000)).toBeCloseTo(0.952941, 6);
+    expect(formatUsdOrNone(getCostPerHour(0.54, 2040000))).toBe('$0.95');
+    expect(formatUsdOrNone(getCostPerHour(0.01, 0))).toBe(NO_VALUE);
+    expect(formatUsdOrNone(getCostPerHour(null, 60000))).toBe('—');
   });
 });
 
@@ -96,7 +96,7 @@ describe('table sort and pagination', () => {
       sortRows(projects, { key: 'label', direction: 'desc' }, valueOf).map((row) => row.key),
     ).toEqual(['beta', 'alpha', '(unattributed)']);
 
-    const noValue = sortRows(projects, { key: 'activeMs', direction: 'desc' }, valueOf);
+    const noValue = sortRows(projects, { key: 'agentMs', direction: 'desc' }, valueOf);
     expect(noValue.map((row) => row.key)).toEqual(['(unattributed)', 'alpha', 'beta']);
   });
 

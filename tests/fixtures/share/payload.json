@@ -56,7 +56,6 @@
       "cacheWriteTokens": [100, 0, 0, 500, 0, 0, 0, 0],
       "totalTokens": [6300, 2500, 1600, 24300, 1800, 800, 2500, 1700],
       "eventCount": [2, 3, 1, 5, 2, 1, 2, 2],
-      "activeMs": [120000, 300000, 0, 900000, 240000, 60000, 300000, 120000],
       "costs": {
         "explicit": {
           "costUsd": [null, 0.12, null, null, 0.08, null, null, 0.05],
@@ -70,7 +69,9 @@
           "costUsd": [0.05, 0.12, 0.01, 0.2, 0.08, null, 0.03, 0.05],
           "incompleteEvents": [0, 0, 0, 0, 0, 1, 0, 0]
         }
-      }
+      },
+      "agentMs": [120000, 300000, 0, 900000, 240000, 60000, 0, 120000],
+      "periodActiveMs": [120000, 300000, 0, 900000, 60000, 0, 120000]
     },
     "sessions": {
       "rows": [
@@ -82,7 +83,6 @@
           "firstActivityAt": "2026-10-26T22:05:00.000Z",
           "lastActivityAt": "2026-10-26T22:07:00.000Z",
           "eventCount": 2,
-          "activeMs": 120000,
           "models": [1],
           "inputTokens": 1000,
           "outputTokens": 400,
@@ -103,7 +103,8 @@
               "costUsd": 0.05,
               "incompleteEvents": 0
             }
-          }
+          },
+          "agentMs": 120000
         },
         {
           "label": "claude · 2026-10-25 02:30",
@@ -113,7 +114,6 @@
           "firstActivityAt": "2026-10-25T00:30:00.000Z",
           "lastActivityAt": "2026-10-25T01:30:00.000Z",
           "eventCount": 2,
-          "activeMs": 300000,
           "models": [0],
           "inputTokens": 400,
           "outputTokens": 100,
@@ -134,7 +134,8 @@
               "costUsd": 0.03,
               "incompleteEvents": 0
             }
-          }
+          },
+          "agentMs": 0
         },
         {
           "label": "claude · 2026-10-20 09:10",
@@ -144,7 +145,6 @@
           "firstActivityAt": "2026-10-20T07:10:00.000Z",
           "lastActivityAt": "2026-10-20T07:25:00.000Z",
           "eventCount": 5,
-          "activeMs": 900000,
           "models": [0],
           "inputTokens": 3000,
           "outputTokens": 800,
@@ -165,7 +165,8 @@
               "costUsd": 0.2,
               "incompleteEvents": 0
             }
-          }
+          },
+          "agentMs": 900000
         }
       ],
       "omitted": [

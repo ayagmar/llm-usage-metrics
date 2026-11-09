@@ -246,16 +246,16 @@ describe('summary', () => {
       ['tokens', '31.1K'],
       ['cost', '~$0.36'],
       ['events', '12'],
-      ['active', '27m'],
+      ['active', '18m'],
       ['cache-hit', '75.9%'],
-      ['cost-per-hour', '$0.80'],
+      ['cost-per-hour', '$1.20'],
     ]);
   });
 
   it('writes active time as the terminal does', () => {
     const payload = readFixturePayload();
-    // 3h 5m 40s on the largest cell of the opening view, none elsewhere.
-    payload.data.cube.activeMs = payload.data.cube.activeMs.map((_, index) =>
+    // 3h 5m 40s in one period of the opening view, none elsewhere.
+    payload.data.cube.periodActiveMs = payload.data.cube.periodActiveMs.map((_, index) =>
       index === 3 ? 11_140_000 : 0,
     );
     const active = buildSummary(contextFor(decodeOrThrow(payload))).find(
@@ -269,8 +269,19 @@ describe('summary', () => {
     const figures = buildSummary(contextFor(report, { since: null, until: null }));
     const perHour = figures.find((figure) => figure.id === 'cost-per-hour');
 
-    expect(perHour?.value).toBe('$0.80');
-    expect(perHour?.detail).toBe('Approximate; hourly detail from 20 Oct 2026');
+    expect(perHour?.value).toBe('$1.20');
+    expect(perHour?.detail).toBe('Hourly detail from 20 Oct 2026');
+  });
+
+  it('shows wall-clock Active time without label filters and Agent time with one', () => {
+    const open = buildSummary(contextFor(report));
+    const filtered = buildSummary(contextFor(report, { source: [0] }));
+    const pick = (figures: typeof open, id: string) => figures.find((figure) => figure.id === id);
+
+    expect(pick(open, 'active')).toMatchObject({ label: 'Active time', value: '18m' });
+    expect(pick(open, 'cost-per-hour')?.label).toBe('Cost per active hour');
+    expect(pick(filtered, 'active')?.label).toBe('Agent time');
+    expect(pick(filtered, 'cost-per-hour')?.label).toBe('Cost per agent hour');
   });
 
   it('leaves out cost figures with --no-cost', () => {
@@ -481,7 +492,7 @@ describe('tables', () => {
       'Cache read',
       'Cache hit',
       'Events',
-      'Active',
+      'Agent time',
       'Cost',
     ]);
     expect(table.columns.find((column) => column.key === 'cost')?.sort).toBe('descending');
@@ -500,7 +511,7 @@ describe('tables', () => {
       '22,300',
       '75.9%',
       '12',
-      '27m',
+      '22m',
       '~$0.36',
     ]);
   });
@@ -626,7 +637,7 @@ describe('tables', () => {
           'cacheWriteTokens',
           'totalTokens',
           'eventCount',
-          'activeMs',
+          'agentMs',
         ] as const) {
           cube[column].push(cube[column][3]);
         }

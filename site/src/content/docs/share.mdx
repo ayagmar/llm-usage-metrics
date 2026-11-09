@@ -54,17 +54,19 @@ Controls at the top:
 - **Hide names**: masks project and machine names on screen and in exported images.
 - **Save this view** writes a copy of the file, named `<file>-view.html`, that opens on the current filters.
 
-Below the controls, a row of totals (tokens, cost, events, active time, cache hit rate, cost per active hour) and these charts:
+Below the controls, a row of totals (tokens, cost, events, time, cache hit rate, cost per hour) and these charts:
 
 - cost over time and tokens over time, stacked by the split you chose
 - cost by project, and model mix (each model's share of tokens and of cost)
-- cache hit rate and cost per active hour over time
+- cache hit rate and cost per hour over time
 - an hour-of-day by weekday heatmap
 - a 5-hour blocks chart, shaded by tokens (see [5-hour blocks](/llm-usage-metrics/blocks/))
 - a sortable projects table; select a project to list its sessions
 
-<Image src={shareProjectsLight} alt="The projects table of the interactive report: tokens, input, output, cache read, cache hit rate, events, active time, and cost for each project, sorted by cost" class="share-shot dark:sl-hidden" />
-<Image src={shareProjectsDark} alt="The projects table of the interactive report: tokens, input, output, cache read, cache hit rate, events, active time, and cost for each project, sorted by cost" class="share-shot light:sl-hidden" />
+Time has two names. With no source, model, project or machine filter, the report shows **Active time**: wall-clock, parallel sessions counted once, a day no longer than the day itself. With any of those filters, and in the project and session tables, it shows **Agent time**: summed across sessions, so parallel sessions add up. Cost per hour follows the same rule and its label names the metric. A gap between events over 5 minutes counts as zero in both.
+
+<Image src={shareProjectsLight} alt="The projects table of the interactive report: tokens, input, output, cache read, cache hit rate, events, Agent time, and cost for each project, sorted by cost" class="share-shot dark:sl-hidden" />
+<Image src={shareProjectsDark} alt="The projects table of the interactive report: tokens, input, output, cache read, cache hit rate, events, Agent time, and cost for each project, sorted by cost" class="share-shot light:sl-hidden" />
 
 Each chart has PNG and SVG downloads, a **Copy image** button, and a **Show as a table** view of its numbers. Copying an image needs a browser that allows image clipboard writes; the downloads work everywhere.
 

@@ -175,13 +175,17 @@ function findCubeError(
     'cacheWriteTokens',
     'totalTokens',
     'eventCount',
-    'activeMs',
+    'agentMs',
   ] as const satisfies readonly (keyof ShareCube)[];
 
   for (const column of measureColumns) {
     if (!isNumberArray(cube[column], cellCount)) {
       return `cube.${column} does not hold a number for every cell`;
     }
+  }
+
+  if (!isNumberArray(cube.periodActiveMs, dictionaries.periods.length)) {
+    return 'cube.periodActiveMs does not hold a number for every period';
   }
 
   if (!isRecord(cube.costs)) {

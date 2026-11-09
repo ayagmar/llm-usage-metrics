@@ -1,4 +1,4 @@
-// Ratios over time as lines: the cache hit rate, and cost per active hour. A period without a
+// Ratios over time as lines: the cache hit rate, and cost per active or agent hour. A period without a
 // denominator leaves a gap in the line, never a zero; the whole view's ratio is a labelled
 // dashed line across.
 
@@ -6,17 +6,21 @@ import {
   formatUsdOrNone,
   getCacheHitRate,
   getCost,
-  getCostPerActiveHour,
+  getCostPerHour,
   getPeriodAxis,
+  getTimeMetric,
   rollupByPeriod,
   selectHourlyCells,
   sumCells,
+  sumPeriodActiveMs,
   type ShareDateSpan,
+  type SharePeriodRow,
   type ShareTotals,
 } from '../../core/index.js';
 import { formatDateRange, formatDay, formatPercent } from '../shell/format.js';
 import { COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareViewContext } from '../state/context.js';
+import { hasLabelFilters } from '../state/view.js';
 import {
   AXIS_SIZE,
   caption,
@@ -181,10 +185,10 @@ function buildLineChart(spec: LineSpec): ChartView {
   };
 }
 
-function valuesByAxis(
+function valuesByAxis<Row extends ShareTotals & { key: string }>(
   axis: readonly string[],
-  rows: readonly (ShareTotals & { key: string })[],
-  measure: (row: ShareTotals) => number | null,
+  rows: readonly Row[],
+  measure: (row: Row) => number | null,
 ): (number | null)[] {
   const byKey = new Map(rows.map((row) => [row.key, row]));
 
@@ -231,13 +235,14 @@ export function buildCacheHitChart(context: ShareViewContext, width: number): Ch
 }
 
 /**
- * Cost per active hour, per period, over the cells with hourly detail: active time is only
- * measured per hour, so earlier days are left out and the chart says so.
+ * Cost per hour of the view's time metric, per period, over the cells with hourly detail;
+ * earlier days are left out and the chart says so.
  */
 export function buildCostPerHourChart(context: ShareViewContext, width: number): ChartView {
   const { report, view, cells, span } = context;
   const mode = view.costMode;
-  const description = `Cost per active hour, per ${view.granularity}`;
+  const metric = getTimeMetric(hasLabelFilters(view));
+  const description = `${metric.costPerHourLabel}, per ${view.granularity}`;
 
   if (mode === null) {
     return {
@@ -261,7 +266,9 @@ export function buildCostPerHourChart(context: ShareViewContext, width: number):
 
   const { hourlyFrom } = report.data.meta;
   const notes = [
-    'Approximate: active time caps idle gaps at 5 minutes, so it can differ slightly from trends --metric active-hours.',
+    metric.kind === 'active'
+      ? 'Divides cost by Active time: wall-clock, parallel sessions counted once, gaps over 5 minutes not counted.'
+      : 'Divides cost by Agent time, because filters are on: summed across sessions, so parallel sessions add up. Gaps over 5 minutes are not counted.',
   ];
 
   if (hourlyFrom !== null && hourlyFrom > span.first) {
@@ -279,24 +286,31 @@ export function buildCostPerHourChart(context: ShareViewContext, width: number):
   const clipped: ShareDateSpan =
     hourlyFrom !== null && hourlyFrom > span.first ? { first: hourlyFrom, last: span.last } : span;
   const hourlyCells = selectHourlyCells(report, cells);
-  const perHour = (totals: ShareTotals) => {
+  const perHour = (totals: ShareTotals, timeMs: number) => {
     const cost = getCost(report, totals.costs, mode);
-    return cost.kind === 'value' ? getCostPerActiveHour(cost.costUsd, totals.activeMs) : null;
+    return cost.kind === 'value' ? getCostPerHour(cost.costUsd, timeMs) : null;
   };
+  const rowTime = (row: SharePeriodRow) => (metric.kind === 'active' ? row.activeMs : row.agentMs);
+  const hourlyTotals = sumCells(report, hourlyCells);
   const axis = getPeriodAxis(report, clipped, view.granularity);
-  const overall = perHour(sumCells(report, hourlyCells));
+  const overall = perHour(
+    hourlyTotals,
+    metric.kind === 'active' ? sumPeriodActiveMs(report, hourlyCells) : hourlyTotals.agentMs,
+  );
 
   return buildLineChart({
     description,
-    caption: `Cost (${COST_MODE_LABELS[mode].toLowerCase()}) per active hour · ${formatDateRange(clipped.first, clipped.last)} · ${formatUsdOrNone(overall)} overall`,
+    caption: `${metric.costPerHourLabel} (${COST_MODE_LABELS[mode].toLowerCase()}) · ${formatDateRange(clipped.first, clipped.last)} · ${formatUsdOrNone(overall)} overall`,
     axis,
-    values: valuesByAxis(axis, rollupByPeriod(report, hourlyCells, view.granularity).rows, perHour),
+    values: valuesByAxis(axis, rollupByPeriod(report, hourlyCells, view.granularity).rows, (row) =>
+      perHour(row, rowTime(row)),
+    ),
     overall,
     format: formatUsdOrNone,
     tickFormat: usdTickFormat,
     context,
     width,
     notes,
-    valueColumn: 'Cost per active hour',
+    valueColumn: metric.costPerHourLabel,
   });
 }

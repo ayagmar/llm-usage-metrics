@@ -127,9 +127,22 @@ describe('decodeShareReport', () => {
       },
     ],
     [
+      'a payload written before Agent time had its name',
+      (payload: Payload) => {
+        Object.assign(payload.data.cube, { activeMs: payload.data.cube.agentMs });
+        Reflect.deleteProperty(payload.data.cube, 'agentMs');
+      },
+    ],
+    [
+      'no wall-clock value for a period',
+      (payload: Payload) => {
+        payload.data.cube.periodActiveMs.pop();
+      },
+    ],
+    [
       'a non-finite measure',
       (payload: Payload) => {
-        payload.data.cube.activeMs[0] = Number.NaN;
+        payload.data.cube.agentMs[0] = Number.NaN;
       },
     ],
     [

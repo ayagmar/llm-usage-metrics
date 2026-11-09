@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
+import { aggregateSessions } from '../../src/session/aggregate-sessions.js';
+import { buildSharePayload } from '../../src/share-report/build-share-payload.js';
+import { aggregateWrapped } from '../../src/wrapped/aggregate-wrapped.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
@@ -276,6 +279,51 @@ describe('buildTrendsData', () => {
       4 * 60_000,
       4 * 60_000,
     ]);
+  });
+
+  it('agrees with wrapped, session and share on one fixture', async () => {
+    const events = [
+      ['a', '10:00'],
+      ['a', '10:04'],
+      ['a', '10:30'],
+      ['b', '10:02'],
+      ['b', '10:06'],
+    ].map(([sessionId, time]) =>
+      createBaseEvent({ sessionId, timestamp: `2026-03-05T${time}:00.000Z` }),
+    );
+    const wallClockMs = 6 * 60_000;
+    const agentMs = 8 * 60_000;
+    const trends = await buildTrendsData(
+      { metric: 'active-hours', since: '2026-03-05', until: '2026-03-05', timezone: 'UTC' },
+      runtimeDeps({
+        now: () => new Date('2026-03-05T12:00:00.000Z'),
+        adapters: [createAdapter('pi', { '/tmp/a.jsonl': events })],
+      }),
+    );
+    const wrapped = aggregateWrapped(events, { year: 2026, timezone: 'UTC' });
+    const sessions = aggregateSessions(events);
+    const share = buildSharePayload({
+      events,
+      costs: {},
+      timezone: 'UTC',
+      sourceOrder: ['pi'],
+      projectLabel: () => 'p',
+      machineLabel: (machine) => machine,
+      modelLabel: (model) => model ?? 'unknown',
+      blocks: [],
+      blockEvents: [],
+      blockCosts: {},
+      blockHours: 5,
+      windowEnd: '2026-03-05',
+    });
+    const total = (values: readonly number[]) => values.reduce((sum, value) => sum + value, 0);
+
+    expect(trends.totalSeries.buckets[0]?.value).toBe(wallClockMs);
+    expect(wrapped.activeMs).toBe(wallClockMs);
+    expect(total(share.cube.periodActiveMs)).toBe(wallClockMs);
+    expect(total(sessions.map((row) => row.activeMs))).toBe(agentMs);
+    expect(total(share.cube.agentMs)).toBe(agentMs);
+    expect(total(share.sessions.rows.map((row) => row.agentMs))).toBe(agentMs);
   });
 
   it('uses explicit trailing day ranges when --last is provided', async () => {

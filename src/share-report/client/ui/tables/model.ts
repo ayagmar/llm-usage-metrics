@@ -81,7 +81,7 @@ type Measured = Pick<
   | 'cacheReadTokens'
   | 'cacheWriteTokens'
   | 'eventCount'
-  | 'activeMs'
+  | 'agentMs'
   | 'costs'
 >;
 
@@ -110,10 +110,10 @@ function measureColumns<Row extends Measured>(context: ShareViewContext): Column
     },
     { key: 'eventCount', label: 'Events', numeric: true, cell: (row) => count(row.eventCount) },
     {
-      key: 'activeMs',
-      label: 'Active',
+      key: 'agentMs',
+      label: 'Agent time',
       numeric: true,
-      cell: (row) => ({ text: formatDuration(row.activeMs) }),
+      cell: (row) => ({ text: formatDuration(row.agentMs) }),
     },
   ];
 
@@ -142,7 +142,7 @@ function measureSortValue(
     case 'outputTokens':
     case 'cacheReadTokens':
     case 'eventCount':
-    case 'activeMs':
+    case 'agentMs':
       return row[key];
     case 'cacheHitRate':
       return getCacheHitRate(row);
