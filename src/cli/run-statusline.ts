@@ -389,8 +389,17 @@ export async function acquireStatuslineLock(
     for (;;) {
       try {
         const handle = await open(lockPath, 'wx', 0o600);
-        await handle.writeFile(token);
-        await handle.close();
+
+        try {
+          await handle.writeFile(token);
+        } catch (error) {
+          // An empty lock names no process, so it would block other ticks until it went stale.
+          await rm(lockPath, { force: true });
+          throw error;
+        } finally {
+          await handle.close();
+        }
+
         return release;
       } catch (error) {
         if (!hasErrorCode(error, 'EEXIST')) {

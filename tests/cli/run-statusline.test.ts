@@ -31,6 +31,9 @@ import { readFrom } from '../helpers/fake-read.js';
 const fsHooks = vi.hoisted(() => ({
   /** Runs once, after the next `readFile` call reads its file. */
   afterReadFile: undefined as (() => Promise<void>) | undefined,
+  /** Makes `writeFile` fail on the next handle `open` returns, and records that handle. */
+  failNextHandleWrite: false,
+  failedHandle: undefined as FsPromises.FileHandle | undefined,
 }));
 
 vi.mock('node:fs/promises', async () => {
@@ -43,7 +46,19 @@ vi.mock('node:fs/promises', async () => {
     return content;
   };
 
-  return { ...actual, readFile };
+  const open = async (...args: Parameters<typeof actual.open>) => {
+    const handle = await actual.open(...args);
+
+    if (fsHooks.failNextHandleWrite) {
+      fsHooks.failNextHandleWrite = false;
+      fsHooks.failedHandle = handle;
+      handle.writeFile = () => Promise.reject(new Error('no space left on device'));
+    }
+
+    return handle;
+  };
+
+  return { ...actual, open, readFile };
 });
 
 function totals(overrides: Partial<UsageWindowTotals> = {}): UsageWindowTotals {
@@ -402,6 +417,16 @@ describe('acquireStatuslineLock', () => {
       expect(releaseC).toBeUndefined();
       await expect(readFile(lockPath, 'utf8')).resolves.toBe(lockB);
       await releaseB?.();
+    });
+  });
+
+  it('leaves no lock and no open handle when writing the token fails', async () => {
+    await withLockPath(async (lockPath) => {
+      fsHooks.failNextHandleWrite = true;
+      await acquireStatuslineLock(lockPath, 0);
+
+      expect(fsHooks.failedHandle?.fd).toBe(-1);
+      await expect(readdir(path.dirname(lockPath))).resolves.toEqual([]);
     });
   });
 
