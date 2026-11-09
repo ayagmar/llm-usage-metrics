@@ -87,9 +87,9 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
 
     const codexPrefixPricing = fetcher.getPricing('openai/gpt-5.2-codex-2026-01-01');
     const genericPrefixPricing = fetcher.getPricing('gpt-5.2-2026-01-01');
@@ -130,9 +130,9 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
     expect(fetcher.getPricing('broken-model')).toBeUndefined();
     expect(fetcher.getPricing('gpt-5.2-codex')).toBeDefined();
   });
@@ -158,9 +158,9 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
     const pricing = fetcher.getPricing('gpt-5.2-codex');
     expect(pricing).toBeDefined();
     expect(pricing?.inputPer1MUsd).toBeCloseTo(1.5, 10);
@@ -191,9 +191,9 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
     expect(fetcher.getPricing('gpt-5.2-codex')?.cacheWritePer1MUsd).toBeCloseTo(0.4, 10);
     expect(fetcher.getPricing('gpt-5.2-codex')?.priorityFallback).toEqual(['cacheWrite']);
   });
@@ -327,9 +327,9 @@ describe('LiteLLMPricingFetcher', () => {
       fetchImpl: fetchSpy,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
     expect(fetchSpy).toHaveBeenCalledOnce();
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(3, 10);
   });
@@ -355,9 +355,9 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const onlineLoadedFromCache = await onlineFetcher.load();
+    await onlineFetcher.load();
 
-    expect(onlineLoadedFromCache).toBe(false);
+    expect(onlineFetcher.getLoadOrigin()).toBe('network');
 
     const offlineFetcher = createFetcher({
       cacheFilePath,
@@ -369,9 +369,8 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const offlineLoadedFromCache = await offlineFetcher.load();
+    await offlineFetcher.load();
 
-    expect(offlineLoadedFromCache).toBe(true);
     expect(offlineFetcher.getLoadOrigin()).toBe('cache');
     expect(offlineFetcher.getPricingWarning()).toMatch(
       /^Pricing: using cached LiteLLM pricing from \d{4}-\d{2}-\d{2}, past its refresh interval/u,
@@ -386,7 +385,8 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    await expect(freshCacheFetcher.load()).resolves.toBe(true);
+    await freshCacheFetcher.load();
+    expect(freshCacheFetcher.getLoadOrigin()).toBe('cache');
     expect(freshCacheFetcher.getPricingWarning()).toBeUndefined();
   });
 
@@ -404,9 +404,7 @@ describe('LiteLLMPricingFetcher', () => {
       fetchImpl: fetchSpy,
     });
 
-    const loadedWithoutNetwork = await fetcher.load();
-
-    expect(loadedWithoutNetwork).toBe(true);
+    await fetcher.load();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
     expect(fetcher.getPricingWarning()).toMatch(
@@ -437,9 +435,9 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const onlineLoadedFromCache = await onlineFetcher.load();
+    await onlineFetcher.load();
 
-    expect(onlineLoadedFromCache).toBe(false);
+    expect(onlineFetcher.getLoadOrigin()).toBe('network');
 
     const offlineFetcherWithDifferentSource = createFetcher({
       cacheFilePath,
@@ -475,8 +473,9 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    const fromCache = await fetcher.load();
-    expect(fromCache).toBe(false);
+    await fetcher.load();
+
+    expect(fetcher.getLoadOrigin()).toBe('network');
     expect(fetcher.getPricing('gpt-5.2-codex')).toBeDefined();
   });
 
@@ -508,9 +507,9 @@ describe('LiteLLMPricingFetcher', () => {
       sleep: sleepSpy,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
     expect(fetchSpy).toHaveBeenCalledTimes(3);
     expect(sleepSpy).toHaveBeenNthCalledWith(1, 10);
     expect(sleepSpy).toHaveBeenNthCalledWith(2, 20);
@@ -553,9 +552,8 @@ describe('LiteLLMPricingFetcher', () => {
       sleep: async () => undefined,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(true);
     expect(fetcher.getLoadOrigin()).toBe('cache');
     expect(fetcher.getPricingWarning()).toBe(
       'Pricing: the LiteLLM refresh failed (network timeout); using cached pricing from 1970-01-01.',
@@ -578,9 +576,7 @@ describe('LiteLLMPricingFetcher', () => {
       fetchRetryCount: 0,
     });
 
-    const loadedWithoutNetwork = await fetcher.load();
-
-    expect(loadedWithoutNetwork).toBe(true);
+    await fetcher.load();
     expect(fetchSpy).toHaveBeenCalledOnce();
     expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
     expect(fetcher.getPricingWarning()).toContain('Pricing: using the bundled LiteLLM snapshot');
@@ -664,7 +660,7 @@ describe('LiteLLMPricingFetcher', () => {
 
     const fetcher = createFetcher({ cacheFilePath, now: () => nowValue, offline: true });
 
-    await expect(fetcher.load()).resolves.toBe(true);
+    await fetcher.load();
     expect(fetcher.getLoadOrigin()).toBe('cache');
     expect(fetcher.getPricing('claude-opus-5-5')?.inputPer1MUsd).toBe(4);
   });
@@ -702,7 +698,7 @@ describe('LiteLLMPricingFetcher', () => {
         ...options,
       });
 
-      await expect(fetcher.load()).resolves.toBe(true);
+      await fetcher.load();
       expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
       expect(fetcher.getPricing('claude-haiku-5-5')?.tiers).toBeDefined();
     },
@@ -734,7 +730,7 @@ describe('LiteLLMPricingFetcher', () => {
       }),
     });
 
-    await expect(fetcher.load()).resolves.toBe(true);
+    await fetcher.load();
     expect(fetcher.getLoadOrigin()).toBe('cache');
     expect(fetcher.getPricingWarning()).toContain('the LiteLLM refresh failed');
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBe(1.5);
@@ -950,9 +946,9 @@ describe('LiteLLMPricingFetcher', () => {
       fetchRetryCount: 0,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(true);
+    expect(fetcher.getLoadOrigin()).toBe('cache');
     expect(fetchSpy).toHaveBeenCalledOnce();
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
   });
@@ -1025,9 +1021,9 @@ describe('LiteLLMPricingFetcher', () => {
       maxResponseBytes: 1024,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
   });
 
@@ -1068,9 +1064,9 @@ describe('LiteLLMPricingFetcher', () => {
       fetchRetryCount: 0,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(true);
+    expect(fetcher.getLoadOrigin()).toBe('cache');
     expect(fetcher.getPricing('invalid-missing-input')).toBeUndefined();
     expect(fetcher.getPricing('invalid-not-an-object')).toBeUndefined();
     const validPricing = fetcher.getPricing('valid-model');
@@ -1117,9 +1113,9 @@ describe('LiteLLMPricingFetcher', () => {
       fetchRetryCount: 0,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(true);
+    expect(fetcher.getLoadOrigin()).toBe('cache');
     expect(fetcher.getPricing('null-entry')).toBeUndefined();
     const validPricing = fetcher.getPricing('valid-model');
     expect(validPricing).toBeDefined();
@@ -1168,9 +1164,9 @@ describe('LiteLLMPricingFetcher', () => {
       fetchRetryCount: 0,
     });
 
-    const loadedFromCache = await fetcher.load();
+    await fetcher.load();
 
-    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getLoadOrigin()).toBe('network');
     expect(fetchSpy).toHaveBeenCalledOnce();
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(3, 10);
   });
@@ -1382,6 +1378,165 @@ describe('LiteLLMPricingFetcher', () => {
     expect(pricing).toBeDefined();
     expect(pricing?.inputPer1MUsd).toBeCloseTo(0.6, 10);
     expect(fetcher.resolveModelAlias('k2p5')).toBe('moonshotai.kimi-k2.5');
+  });
+
+  describe('reloading', () => {
+    const pricedAt = (inputCostPerToken: number) =>
+      new Response(
+        JSON.stringify({
+          'gpt-test': { input_cost_per_token: inputCostPerToken, output_cost_per_token: 0.00001 },
+        }),
+        { status: 200 },
+      );
+
+    function deferredResponse() {
+      let resolve!: (response: Response) => void;
+      let reject!: (reason: Error) => void;
+      const promise = new Promise<Response>((onResolve, onReject) => {
+        resolve = onResolve;
+        reject = onReject;
+      });
+      return { promise, resolve, reject };
+    }
+
+    async function createReloadFixture() {
+      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-'));
+      tempDirs.push(rootDir);
+      return { cacheFilePath: path.join(rootDir, 'cache.json') };
+    }
+
+    it('serves no prices and no origin after a reload that fails', async () => {
+      const { cacheFilePath } = await createReloadFixture();
+      const fetchError = new Error('network down');
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(pricedAt(0.000001))
+        .mockRejectedValue(fetchError);
+      const fetcher = createFetcher({ cacheFilePath, fetchImpl, fetchRetryCount: 0 });
+
+      await fetcher.load();
+      expect(fetcher.getPricing('gpt-test')).toBeDefined();
+      await rm(cacheFilePath);
+
+      const failure = await fetcher.load().catch((error: unknown) => error);
+
+      expect(failure).toMatchObject({
+        message: 'Could not load LiteLLM pricing from network or cache',
+        cause: fetchError,
+      });
+      expect(fetcher.getPricing('gpt-test')).toBeUndefined();
+      expect(fetcher.getLoadOrigin()).toBeUndefined();
+      expect(fetcher.getDataOrigin()).toBeUndefined();
+      expect(fetcher.getPricingWarning()).toBeUndefined();
+    });
+
+    it('recovers fully when a reload succeeds after a failure', async () => {
+      const { cacheFilePath } = await createReloadFixture();
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockResolvedValue(pricedAt(0.000002));
+      const fetcher = createFetcher({
+        cacheFilePath,
+        fetchImpl,
+        fetchRetryCount: 0,
+        now: () => 1_000,
+      });
+
+      await expect(fetcher.load()).rejects.toThrow('Could not load LiteLLM pricing');
+      await fetcher.load();
+
+      expect(fetcher.getPricing('gpt-test')?.inputPer1MUsd).toBeCloseTo(2, 10);
+      expect(fetcher.getLoadOrigin()).toBe('network');
+      expect(fetcher.getDataOrigin()).toMatchObject({ kind: 'network', fetchedAt: 1_000 });
+    });
+
+    it('replaces the warning of an earlier load', async () => {
+      const { cacheFilePath } = await createReloadFixture();
+      let nowMs = 1_000;
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(pricedAt(0.000001))
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockResolvedValue(pricedAt(0.000002));
+      const fetcher = createFetcher({
+        cacheFilePath,
+        fetchImpl,
+        fetchRetryCount: 0,
+        cacheTtlMs: 10,
+        now: () => nowMs,
+      });
+
+      await fetcher.load();
+      nowMs += 1_000;
+      await fetcher.load();
+      expect(fetcher.getLoadOrigin()).toBe('cache');
+      expect(fetcher.getPricingWarning()).toContain('network down');
+
+      await fetcher.load();
+      expect(fetcher.getLoadOrigin()).toBe('network');
+      expect(fetcher.getPricingWarning()).toBeUndefined();
+    });
+
+    it('keeps the prices and origin of one load when concurrent loads overlap', async () => {
+      const { cacheFilePath } = await createReloadFixture();
+      const firstResponse = deferredResponse();
+      const secondResponse = deferredResponse();
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockReturnValueOnce(firstResponse.promise)
+        .mockReturnValueOnce(secondResponse.promise);
+      let nowMs = 1_000;
+      const fetcher = createFetcher({
+        cacheFilePath,
+        fetchImpl,
+        fetchRetryCount: 0,
+        cacheTtlMs: 0,
+        now: () => nowMs,
+      });
+
+      const first = fetcher.load();
+      const second = fetcher.load();
+      await vi.waitFor(() => {
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+      });
+
+      secondResponse.resolve(pricedAt(0.000002));
+      await second;
+      nowMs = 2_000;
+      firstResponse.resolve(pricedAt(0.000001));
+      await first;
+
+      expect(fetcher.getPricing('gpt-test')?.inputPer1MUsd).toBeCloseTo(1, 10);
+      expect(fetcher.getDataOrigin()).toMatchObject({ kind: 'network', fetchedAt: 2_000 });
+    });
+
+    it('keeps a concurrent successful load when another load fails', async () => {
+      const { cacheFilePath } = await createReloadFixture();
+      const failing = deferredResponse();
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockReturnValueOnce(failing.promise)
+        .mockResolvedValueOnce(pricedAt(0.000002));
+      const fetcher = createFetcher({
+        cacheFilePath,
+        fetchImpl,
+        fetchRetryCount: 0,
+        cacheTtlMs: 0,
+      });
+
+      const first = fetcher.load();
+      await vi.waitFor(() => {
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+      });
+      await fetcher.load();
+      await rm(cacheFilePath);
+      failing.reject(new Error('network down'));
+      await expect(first).rejects.toThrow('Could not load LiteLLM pricing');
+
+      expect(fetcher.getPricing('gpt-test')?.inputPer1MUsd).toBeCloseTo(2, 10);
+      expect(fetcher.getLoadOrigin()).toBe('network');
+    });
   });
 
   it('throws in offline mode when cache is unavailable', async () => {

@@ -66,7 +66,7 @@ export async function resolvePricingSource(
   });
 
   try {
-    const fromCache = await litellmPricingFetcher.load();
+    await litellmPricingFetcher.load();
     const source = wrapWithPricingOverrides(pricingOverrides, litellmPricingFetcher);
     const loadOrigin = litellmPricingFetcher.getLoadOrigin();
 
@@ -82,7 +82,7 @@ export async function resolvePricingSource(
       return { source, origin: 'offline-cache' };
     }
 
-    return { source, origin: fromCache ? 'cache' : 'network' };
+    return { source, origin: loadOrigin === 'network' ? 'network' : 'cache' };
   } catch (error) {
     if (options.pricingOffline) {
       throw new Error('Offline pricing mode enabled but cached pricing is unavailable', {
