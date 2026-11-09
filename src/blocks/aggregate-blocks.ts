@@ -1,10 +1,9 @@
 import {
-  addEventToTotals,
-  createEmptyTotals,
   createSourceComparator,
   normalizeModelKey,
   toRankedModelUsage,
 } from '../aggregate/aggregate-usage.js';
+import { addEventToTotals, createEmptyTotals, getCostState } from '../aggregate/usage-totals.js';
 import type { ModelUsageBreakdown, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { roundUsd } from '../utils/usd-math.js';
@@ -263,9 +262,7 @@ export function resolveBlockRanking(
     return 'tokens';
   }
 
-  return blocks.some((block) => block.costIncomplete === true || block.costUsd === undefined)
-    ? 'tokens'
-    : 'cost';
+  return blocks.some((block) => getCostState(block) !== 'known') ? 'tokens' : 'cost';
 }
 
 /** The `top` blocks across sources by `ranking`, ties by start; keeps the input order otherwise. */

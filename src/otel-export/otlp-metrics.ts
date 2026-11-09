@@ -7,7 +7,7 @@ import {
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 import { getLocalDayStartMs } from '../blocks/local-day-start.js';
-import { addEventToTotals, createEmptyTotals } from '../aggregate/aggregate-usage.js';
+import { addEventToTotals, createEmptyTotals } from '../aggregate/usage-totals.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
 import { shiftDateKey } from '../utils/date-key.js';

@@ -9,17 +9,11 @@ import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getIsoDayOfWeekFromDateKey, getLocalHour, getPeriodKey } from '../utils/time-buckets.js';
 import type { WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
 import { compareCostDescending } from '../utils/compare-cost.js';
-import { addUsd } from '../utils/usd-math.js';
+import { addEventToTokenCostTotals, type TokenCostTotals } from '../aggregate/usage-totals.js';
 
 export type AggregateWrappedOptions = {
   year: number;
   timezone: string;
-};
-
-type TotalsAccumulator = {
-  totalTokens: number;
-  costUsd?: number;
-  costIncomplete?: boolean;
 };
 
 /** The first and last date keys of a calendar year. */
@@ -37,28 +31,17 @@ function createMonthKeys(year: number): string[] {
   });
 }
 
-function addEventTotals(accumulator: TotalsAccumulator, event: UsageEvent): void {
-  accumulator.totalTokens += event.totalTokens;
-
-  if (event.costUsd === undefined) {
-    accumulator.costIncomplete = true;
-    return;
-  }
-
-  accumulator.costUsd = addUsd(accumulator.costUsd ?? 0, event.costUsd);
-}
-
 function addGroupedEvent(
-  groups: Map<string, TotalsAccumulator>,
+  groups: Map<string, TokenCostTotals>,
   key: string,
   event: UsageEvent,
 ): void {
   const accumulator = groups.get(key) ?? { totalTokens: 0 };
-  addEventTotals(accumulator, event);
+  addEventToTokenCostTotals(accumulator, event);
   groups.set(key, accumulator);
 }
 
-function toWrappedTopItem([name, accumulator]: [string, TotalsAccumulator]): WrappedTopItem {
+function toWrappedTopItem([name, accumulator]: [string, TokenCostTotals]): WrappedTopItem {
   return {
     name,
     totalTokens: accumulator.totalTokens,
@@ -83,7 +66,7 @@ function compareTopItems(left: WrappedTopItem, right: WrappedTopItem): number {
 
 const TOP_ITEM_LIMIT = 5;
 
-function toTopItems(groups: Map<string, TotalsAccumulator>): WrappedTopItem[] {
+function toTopItems(groups: Map<string, TokenCostTotals>): WrappedTopItem[] {
   return [...groups.entries()].map(toWrappedTopItem).sort(compareTopItems).slice(0, TOP_ITEM_LIMIT);
 }
 
@@ -107,7 +90,7 @@ function toIntensityLevel(totalTokens: number, maxMonthlyTokens: number): Wrappe
 
 function buildMonthlyIntensity(
   monthKeys: readonly string[],
-  monthlyTotals: Map<string, TotalsAccumulator>,
+  monthlyTotals: Map<string, TokenCostTotals>,
 ): WrappedMonth[] {
   const maxMonthlyTokens = monthKeys.reduce(
     (maxTokens, month) => Math.max(maxTokens, monthlyTotals.get(month)?.totalTokens ?? 0),
@@ -139,13 +122,13 @@ export function aggregateWrapped(
   const monthKeys = createMonthKeys(options.year);
   const activeDateKeys = new Set<string>();
   const sessionTimestamps = new Map<string, number[]>();
-  const modelGroups = new Map<string, TotalsAccumulator>();
-  const sourceGroups = new Map<string, TotalsAccumulator>();
-  const monthlyTotals = new Map<string, TotalsAccumulator>();
-  const dailyTotals = new Map<string, TotalsAccumulator>();
+  const modelGroups = new Map<string, TokenCostTotals>();
+  const sourceGroups = new Map<string, TokenCostTotals>();
+  const monthlyTotals = new Map<string, TokenCostTotals>();
+  const dailyTotals = new Map<string, TokenCostTotals>();
   const weekendByDateKey = new Map<string, boolean>();
   const hourTokens: number[] = Array.from({ length: 24 }, () => 0);
-  const total: TotalsAccumulator = { totalTokens: 0 };
+  const total: TokenCostTotals = { totalTokens: 0 };
   let weekdayTokens = 0;
   let weekendTokens = 0;
   let eventCount = 0;
@@ -159,7 +142,7 @@ export function aggregateWrapped(
 
     eventCount += 1;
     activeDateKeys.add(dateKey);
-    addEventTotals(total, event);
+    addEventToTokenCostTotals(total, event);
     addGroupedEvent(sourceGroups, event.source, event);
     addGroupedEvent(monthlyTotals, dateKey.slice(0, 7), event);
     addGroupedEvent(dailyTotals, dateKey, event);

@@ -10,7 +10,8 @@ import {
   type PricingSource,
 } from '@ayagmar/agent-sessions/internal';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
-import { addUsd, roundUsd } from '../utils/usd-math.js';
+import { roundUsd } from '../utils/usd-math.js';
+import { addTotals } from '../aggregate/usage-totals.js';
 
 type BaselinePeriodTotals = {
   periodKey: string;
@@ -269,21 +270,9 @@ function resolveBaselinePeriods(
       continue;
     }
 
-    periodRows.set(row.periodKey, {
-      ...existingRow,
-      inputTokens: existingRow.inputTokens + row.inputTokens,
-      outputTokens: existingRow.outputTokens + row.outputTokens,
-      reasoningTokens: existingRow.reasoningTokens + row.reasoningTokens,
-      cacheReadTokens: existingRow.cacheReadTokens + row.cacheReadTokens,
-      cacheWriteTokens: existingRow.cacheWriteTokens + row.cacheWriteTokens,
-      totalTokens: existingRow.totalTokens + row.totalTokens,
-      costUsd:
-        row.costUsd !== undefined
-          ? addUsd(existingRow.costUsd ?? 0, row.costUsd)
-          : existingRow.costUsd,
-      costIncomplete:
-        existingRow.costIncomplete === true || row.costIncomplete === true ? true : undefined,
-    });
+    const merged = { ...existingRow };
+    addTotals(merged, row);
+    periodRows.set(row.periodKey, merged);
   }
 
   const sortedPeriodKeys = [...periodRows.keys()].sort(compareByCodePoint);

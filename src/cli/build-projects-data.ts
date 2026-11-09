@@ -1,9 +1,5 @@
-import {
-  addTotals,
-  aggregateUsage,
-  createEmptyTotals,
-  toRankedModelUsage,
-} from '../aggregate/aggregate-usage.js';
+import { aggregateUsage, toRankedModelUsage } from '../aggregate/aggregate-usage.js';
+import { addTotals, createEmptyTotals } from '../aggregate/usage-totals.js';
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type {

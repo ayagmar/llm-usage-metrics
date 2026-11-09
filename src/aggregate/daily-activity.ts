@@ -2,14 +2,10 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getDateKeyRange, shiftDateKey } from '../utils/date-key.js';
 import { getIsoDayOfWeekFromDateKey, getPeriodKey } from '../utils/time-buckets.js';
-import { addUsd } from '../utils/usd-math.js';
+import { addEventToTokenCostTotals, type TokenCostTotals } from './usage-totals.js';
 
 /** Totals of one local day. */
-export type DailyTotals = {
-  totalTokens: number;
-  costUsd?: number;
-  costIncomplete?: boolean;
-};
+export type DailyTotals = TokenCostTotals;
 
 type ActivityLevel = 0 | 1 | 2 | 3 | 4;
 
@@ -181,13 +177,7 @@ export function sumDailyTotals(
       dailyTotals.set(date, totals);
     }
 
-    totals.totalTokens += event.totalTokens;
-
-    if (event.costUsd === undefined) {
-      totals.costIncomplete = true;
-    } else {
-      totals.costUsd = addUsd(totals.costUsd ?? 0, event.costUsd);
-    }
+    addEventToTokenCostTotals(totals, event);
   }
 
   return dailyTotals;
