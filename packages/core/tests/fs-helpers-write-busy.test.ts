@@ -9,6 +9,9 @@ import { writeFileAtomic } from '../src/utils/fs-helpers.js';
 
 const fsHooks = vi.hoisted(() => ({ renameRefusals: 0 }));
 
+// The retry waits run at once.
+vi.mock('node:timers/promises', () => ({ setTimeout: () => Promise.resolve() }));
+
 // Windows refuses to replace a file while another process has it open (a reader, an
 // antivirus scan of the new temp file), with EPERM, for as long as that handle stays open.
 vi.mock('node:fs/promises', async () => {
@@ -47,6 +50,17 @@ describe('writeFileAtomic', () => {
     await writeFileAtomic(filePath, 'new');
 
     await expect(readFile(filePath, 'utf8')).resolves.toBe('new');
+    await expect(readdir(tempDir)).resolves.toEqual(['update-check.json']);
+  });
+
+  it('gives up on a refusal that does not clear, with that error and no temp file left', async () => {
+    const filePath = path.join(tempDir, 'update-check.json');
+    await writeFile(filePath, 'old', 'utf8');
+    fsHooks.renameRefusals = Number.POSITIVE_INFINITY;
+
+    await expect(writeFileAtomic(filePath, 'new')).rejects.toMatchObject({ code: 'EPERM' });
+
+    await expect(readFile(filePath, 'utf8')).resolves.toBe('old');
     await expect(readdir(tempDir)).resolves.toEqual(['update-check.json']);
   });
 });

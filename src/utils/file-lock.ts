@@ -3,7 +3,7 @@ import { mkdir, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { hasErrorCode } from '@ayagmar/agent-sessions/internal';
+import { hasErrorCode, isShortLivedWindowsRefusal } from '@ayagmar/agent-sessions/internal';
 
 export type FileLockOptions = {
   /** How long to retry a held lock before reporting it busy; 0 tries once. */
@@ -105,8 +105,7 @@ async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<
 function mayBeContended(error: unknown): boolean {
   return (
     hasErrorCode(error, 'EEXIST') ||
-    (process.platform === 'win32' &&
-      (hasErrorCode(error, 'EPERM') || hasErrorCode(error, 'EACCES')))
+    (process.platform === 'win32' && isShortLivedWindowsRefusal(error))
   );
 }
 

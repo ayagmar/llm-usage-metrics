@@ -4,7 +4,7 @@ import { access, constants, mkdir, readFile, rename, rm, stat, writeFile } from 
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { hasErrorCode } from './error-code.js';
+import { isShortLivedWindowsRefusal } from './error-code.js';
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -101,22 +101,18 @@ export async function readRegularTextFile(filePath: string): Promise<string> {
   return readFile(filePath, 'utf8');
 }
 
-const RENAME_RETRY_DELAYS_MS = [20, 40, 80, 160, 320, 640];
+// About 0.4 s in all: enough for a reader or scanner to close the file, short enough for the
+// callers that wait on a write they then ignore (the update-check claim, the statusline).
+const RENAME_RETRY_DELAYS_MS = [10, 30, 90, 270];
 
-/**
- * Windows refuses to replace a file while another process holds it or the new temp file
- * open (a reader of the same file, an antivirus scan), with EPERM, EACCES or EBUSY until
- * that handle closes. Those refusals last milliseconds, so retry them for about a second.
- * Elsewhere these codes almost never come from a rename within one directory; a lasting
- * one is only reported a second later.
- */
+/** Renames over `filePath`, retrying a short-lived Windows refusal (see the predicate). */
 async function renameReplacing(tempPath: string, filePath: string): Promise<void> {
   for (const retryDelayMs of RENAME_RETRY_DELAYS_MS) {
     try {
       await rename(tempPath, filePath);
       return;
     } catch (error) {
-      if (!hasErrorCode(error, 'EPERM', 'EACCES', 'EBUSY')) {
+      if (!isShortLivedWindowsRefusal(error)) {
         throw error;
       }
     }
