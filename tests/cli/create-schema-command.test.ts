@@ -68,9 +68,12 @@ describe('createSchemaCommand', () => {
       listedFiles.add(path.basename(String(id)));
     }
 
-    // report-common holds shared definitions that the report schemas embed.
+    // report-common holds shared definitions that the report schemas embed; share v1 stays
+    // published for older files, while the command prints the current version.
     const reportFiles = readdirSync(new URL('../../schema/', import.meta.url)).filter(
-      (file) => file.startsWith('report-') && file !== 'report-common.v1.schema.json',
+      (file) =>
+        file.startsWith('report-') &&
+        !['report-common.v1.schema.json', 'report-share.v1.schema.json'].includes(file),
     );
     expect(reportFiles.length).toBeGreaterThan(0);
     expect(reportFiles.filter((file) => !listedFiles.has(file))).toEqual([]);

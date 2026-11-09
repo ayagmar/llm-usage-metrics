@@ -43,9 +43,9 @@ describe('decodeShareReport', () => {
 
   it.each([
     [
-      'not a share report',
+      'a version 1 payload, from before Agent time had its name',
       (payload: Payload) => {
-        Object.assign(payload, { schemaVersion: 2 });
+        Object.assign(payload, { schemaVersion: 1 });
       },
     ],
     [
@@ -127,9 +127,15 @@ describe('decodeShareReport', () => {
       },
     ],
     [
+      'no wall-clock value for a period',
+      (payload: Payload) => {
+        payload.data.cube.periodActiveMs.pop();
+      },
+    ],
+    [
       'a non-finite measure',
       (payload: Payload) => {
-        payload.data.cube.activeMs[0] = Number.NaN;
+        payload.data.cube.agentMs[0] = Number.NaN;
       },
     ],
     [

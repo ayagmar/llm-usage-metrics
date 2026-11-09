@@ -107,7 +107,7 @@ Default `--json` returns an array of session rows under `data`, and `rowCount`, 
 }
 ```
 
-`durationMs` is the raw span: `lastActivity` minus `firstActivity`; it over-counts idle time by design. `activeMs` estimates activity from event timing: the sum of inter-event gaps, each capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. Single-event sessions get `activeMs: 0`. This is an event-gap estimate, not a measurement of human working time.
+`durationMs` is the raw span: `lastActivity` minus `firstActivity`; it over-counts idle time by design. `activeMs` estimates activity from event timing: the sum of inter-event gaps of at most 5 minutes; a longer gap counts 0, so a session left open overnight adds nothing for the night. Single-event sessions get `activeMs: 0`. This is an event-gap estimate, not a measurement of human working time.
 
 `repoRoot` is omitted when the session has no project.
 

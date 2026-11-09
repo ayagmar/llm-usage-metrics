@@ -19,7 +19,7 @@ const COST_MODES: readonly ShareCostMode[] = ['explicit', 'estimated', 'both'];
 type ExpectedTotals = ShareTokenBuckets & {
   key?: string;
   eventCount: number;
-  activeMs: number;
+  agentMs: number;
   costs: Record<ShareCostMode, { costUsd: number | null; incompleteEvents: number }>;
 };
 
@@ -36,7 +36,7 @@ const TOTAL_FIELDS = [
   'cacheWriteTokens',
   'totalTokens',
   'eventCount',
-  'activeMs',
+  'agentMs',
 ] as const;
 
 async function readFixture(name: string): Promise<unknown> {
@@ -56,7 +56,7 @@ function sumTotals(rows: readonly ExpectedTotals[]): ExpectedTotals {
     cacheWriteTokens: 0,
     totalTokens: 0,
     eventCount: 0,
-    activeMs: 0,
+    agentMs: 0,
     costs: {
       explicit: { costUsd: null, incompleteEvents: 0 },
       estimated: { costUsd: null, incompleteEvents: 0 },
@@ -146,7 +146,7 @@ describe('share fixture payload', () => {
       cacheWriteTokens: cube.cacheWriteTokens[cell] ?? 0,
       totalTokens: cube.totalTokens[cell] ?? 0,
       eventCount: cube.eventCount[cell] ?? 0,
-      activeMs: cube.activeMs[cell] ?? 0,
+      agentMs: cube.agentMs[cell] ?? 0,
       costs: {
         explicit: {
           costUsd: cube.costs.explicit?.costUsd[cell] ?? null,

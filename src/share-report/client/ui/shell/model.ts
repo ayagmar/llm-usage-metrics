@@ -8,10 +8,12 @@ import {
   formatUsdOrNone,
   getCacheHitRate,
   getCost,
-  getCostPerActiveHour,
+  getCostPerHour,
+  getTimeMetric,
   resolveUntil,
   selectHourlyCells,
   sumCells,
+  sumPeriodActiveMs,
   type ShareReport,
 } from '../../core/index.js';
 import type { ShareLabels, ShareViewContext } from '../state/context.js';
@@ -151,10 +153,13 @@ export type SummaryFigure = {
   detail: string;
 };
 
-/** The summary row over the view: tokens, cost, events, active time and the two ratios. */
+/** The summary row over the view: tokens, cost, events, active or Agent time and the two ratios. */
 export function buildSummary(context: ShareViewContext): SummaryFigure[] {
   const { report, view, cells } = context;
   const totals = sumCells(report, cells);
+  const metric = getTimeMetric(hasLabelFilters(view));
+  const timeOf = (selected: readonly number[], agentMs: number) =>
+    metric.kind === 'active' ? sumPeriodActiveMs(report, selected) : agentMs;
   const figures: SummaryFigure[] = [
     {
       id: 'tokens',
@@ -183,9 +188,9 @@ export function buildSummary(context: ShareViewContext): SummaryFigure[] {
     },
     {
       id: 'active',
-      label: 'Active time',
-      value: formatDuration(totals.activeMs),
-      detail: '5-minute gaps at most',
+      label: metric.label,
+      value: formatDuration(timeOf(cells, totals.agentMs)),
+      detail: metric.detail,
     },
     {
       id: 'cache-hit',
@@ -200,17 +205,17 @@ export function buildSummary(context: ShareViewContext): SummaryFigure[] {
     const hourly = sumCells(report, hourlyCells);
     const cost = getCost(report, hourly.costs, view.costMode);
     const perHour =
-      cost.kind === 'value' ? getCostPerActiveHour(cost.costUsd, hourly.activeMs) : null;
+      cost.kind === 'value'
+        ? getCostPerHour(cost.costUsd, timeOf(hourlyCells, hourly.agentMs))
+        : null;
     const { hourlyFrom } = report.data.meta;
     const clipped = hourlyCells.length < cells.length && hourlyFrom !== null;
 
     figures.push({
       id: 'cost-per-hour',
-      label: 'Cost per active hour',
+      label: metric.costPerHourLabel,
       value: formatUsdOrNone(perHour),
-      detail: clipped
-        ? `Approximate; hourly detail from ${formatDay(hourlyFrom)}`
-        : 'Approximate; can differ from trends',
+      detail: clipped ? `Hourly detail from ${formatDay(hourlyFrom)}` : metric.detail,
     });
   }
 

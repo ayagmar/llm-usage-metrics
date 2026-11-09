@@ -10,7 +10,7 @@
       "firstActivity": "2026-01-04T09:10:00.000Z",
       "lastActivity": "2026-02-01T10:10:00.000Z",
       "durationMs": 2422800000,
-      "activeMs": 300000,
+      "activeMs": 0,
       "eventCount": 2,
       "models": [
         "gpt-4.1"
@@ -96,7 +96,7 @@
       "firstActivity": "2026-01-05T08:00:02.000Z",
       "lastActivity": "2026-02-02T08:00:02.000Z",
       "durationMs": 2419200000,
-      "activeMs": 300000,
+      "activeMs": 0,
       "eventCount": 2,
       "models": [
         "gpt-5.2-codex"
@@ -166,7 +166,7 @@
       "firstActivity": "2026-06-03T10:05:00.000Z",
       "lastActivity": "2026-06-03T10:15:00.000Z",
       "durationMs": 600000,
-      "activeMs": 300000,
+      "activeMs": 0,
       "eventCount": 2,
       "models": [
         "gemini-2.5-pro"

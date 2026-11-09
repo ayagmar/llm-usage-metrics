@@ -172,13 +172,17 @@ function findCubeError(
     'cacheWriteTokens',
     'totalTokens',
     'eventCount',
-    'activeMs',
+    'agentMs',
   ] as const satisfies readonly (keyof ShareCube)[];
 
   for (const column of measureColumns) {
     if (!isNumberArray(cube[column], cellCount)) {
       return `cube.${column} does not hold a number for every cell`;
     }
+  }
+
+  if (!isNumberArray(cube.periodActiveMs, dictionaries.periods.length)) {
+    return 'cube.periodActiveMs does not hold a number for every period';
   }
 
   if (!isRecord(cube.costs)) {
@@ -208,8 +212,8 @@ function findCubeError(
  * fails with a message instead of drawing wrong numbers. It is not the full schema check.
  */
 export function decodeShareReport(value: unknown): DecodeResult {
-  if (!isRecord(value) || value.schemaVersion !== 1 || value.report !== 'share') {
-    return { ok: false, error: 'Not a version 1 share report' };
+  if (!isRecord(value) || value.schemaVersion !== 2 || value.report !== 'share') {
+    return { ok: false, error: 'Not a version 2 share report' };
   }
 
   const data = value.data;

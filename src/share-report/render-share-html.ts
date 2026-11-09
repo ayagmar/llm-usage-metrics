@@ -23,9 +23,9 @@ export type ShareHtmlOptions = {
   title?: string;
 };
 
-/** The envelope a share file embeds and `--share-json` prints (`report-share.v1`). */
+/** The envelope a share file embeds and `--share-json` prints (`report-share.v2`). */
 export function serializeShareEnvelope(data: ShareReportData): string {
-  return JSON.stringify({ schemaVersion: 1, report: 'share', data });
+  return JSON.stringify({ schemaVersion: 2, report: 'share', data });
 }
 
 export function renderShareHtml(options: ShareHtmlOptions): string {

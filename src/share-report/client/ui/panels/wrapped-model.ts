@@ -95,7 +95,7 @@ function buildFacts(data: Record<string, unknown>): PanelFact[] {
       label: 'Active time',
       // The terminal's Hours: whole hours, `<1h` under half an hour.
       value: formatHours(readNumber(data, 'activeMs') ?? 0),
-      detail: '5-minute gaps at most',
+      detail: 'Wall-clock; gaps over 5 minutes count 0',
     },
     { label: 'Longest streak', value: pluralize(readNumber(data, 'longestStreak') ?? 0, 'day') },
   ];

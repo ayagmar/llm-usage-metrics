@@ -1,4 +1,4 @@
-// The payload embedded in a --share report, `schema/report-share.v1.schema.json`.
+// The payload embedded in a --share report, `schema/report-share.v2.schema.json`.
 // Type-only: the CLI builds it and the page reads it, so neither side may hold
 // logic here.
 
@@ -110,8 +110,13 @@ export type ShareCube = {
   cacheWriteTokens: number[];
   totalTokens: number[];
   eventCount: number[];
-  /** Active time; sums over any dimension equal the per-session value (an approximation). */
-  activeMs: number[];
+  /** Agent time: summed across sessions, so parallel sessions add up. Sums over any dimension. */
+  agentMs: number[];
+  /**
+   * Wall-clock active time per period, aligned with `dictionaries.periods`: parallel sessions
+   * count once. Holds for the whole file only; a filtered view cannot derive it.
+   */
+  periodActiveMs: number[];
   /** Columns per available mode; empty with --no-cost. */
   costs: Partial<Record<ShareCostMode, ShareCubeCostColumns>>;
 };
@@ -130,7 +135,8 @@ export type ShareSession = ShareTokenBuckets & {
   firstActivityAt: string;
   lastActivityAt: string;
   eventCount: number;
-  activeMs: number;
+  /** The session's own active time; for one session, Agent time and active time are equal. */
+  agentMs: number;
   models: number[];
   costs: ShareCosts;
 };

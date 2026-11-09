@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { aggregateBlocks, BLOCK_HOURS } from '../../src/blocks/aggregate-blocks.js';
-import { computeActiveMs } from '@ayagmar/agent-sessions';
+import { computeActiveMs, computeUnionActiveMs } from '@ayagmar/agent-sessions';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   buildSharePayload,
@@ -62,8 +62,8 @@ function sum(values: readonly number[]): number {
 }
 
 describe('buildSharePayload active time', () => {
-  it('counts each capped gap in the cell of the later event', () => {
-    // One session over two hours and two models: gaps of 10 (capped to 5), 3 and 2 minutes.
+  it('counts each active gap in the cell of the later event, and none over the cap', () => {
+    // One session over two hours and two models: gaps of 10 (over the cap), 3 and 2 minutes.
     const events = [
       event({ timestamp: at(50) }),
       event({ timestamp: at(60), model: 'gpt-5' }),
@@ -78,9 +78,9 @@ describe('buildSharePayload active time', () => {
           dictionaries.models[cube.model[cell]] === model,
       );
 
-    expect(cube.activeMs[cellOf('2026-06-15 10:00', 'claude-sonnet-4-5')]).toBe(0);
-    expect(cube.activeMs[cellOf('2026-06-15 11:00', 'gpt-5')]).toBe(7 * MINUTE_MS);
-    expect(cube.activeMs[cellOf('2026-06-15 11:00', 'claude-sonnet-4-5')]).toBe(3 * MINUTE_MS);
+    expect(cube.agentMs[cellOf('2026-06-15 10:00', 'claude-sonnet-4-5')]).toBe(0);
+    expect(cube.agentMs[cellOf('2026-06-15 11:00', 'gpt-5')]).toBe(2 * MINUTE_MS);
+    expect(cube.agentMs[cellOf('2026-06-15 11:00', 'claude-sonnet-4-5')]).toBe(3 * MINUTE_MS);
   });
 
   it('sums over any dimension to each session’s active time', () => {
@@ -105,9 +105,120 @@ describe('buildSharePayload active time', () => {
 
     const expected = sum([...bySession.values()].map((times) => computeActiveMs(times)));
 
-    expect(sum(cube.activeMs)).toBe(expected);
-    expect(sum(sessions.rows.map((row) => row.activeMs))).toBe(expected);
+    expect(sum(cube.agentMs)).toBe(expected);
+    expect(sum(sessions.rows.map((row) => row.agentMs))).toBe(expected);
     expect(sessions.rows).toHaveLength(bySession.size);
+  });
+});
+
+describe('buildSharePayload wall-clock active time', () => {
+  const periodMs = (payload: ReturnType<typeof buildSharePayload>) =>
+    Object.fromEntries(
+      payload.dictionaries.periods.map((key, index) => [key, payload.cube.periodActiveMs[index]]),
+    );
+
+  it('counts parallel sessions once per period while Agent time adds them', () => {
+    const events = ['a', 'b'].flatMap((sessionId) => [
+      event({ sessionId, timestamp: at(0) }),
+      event({ sessionId, timestamp: at(4) }),
+    ]);
+    const payload = buildSharePayload(payloadInput(events));
+
+    expect(sum(payload.cube.periodActiveMs)).toBe(4 * MINUTE_MS);
+    expect(sum(payload.cube.agentMs)).toBe(8 * MINUTE_MS);
+  });
+
+  it('splits a gap across an hour boundary, in Agent time as well', () => {
+    const payload = buildSharePayload(
+      payloadInput([event({ timestamp: at(58) }), event({ timestamp: at(63), model: 'gpt-5' })]),
+    );
+
+    expect(periodMs(payload)).toEqual({
+      '2026-06-15 10:00': 2 * MINUTE_MS,
+      '2026-06-15 11:00': 3 * MINUTE_MS,
+    });
+    expect([...payload.cube.agentMs]).toEqual([2 * MINUTE_MS, 3 * MINUTE_MS]);
+  });
+
+  it('splits at local midnight in a half-hour timezone', () => {
+    // 18:30 UTC is midnight in Asia/Kolkata.
+    const payload = buildSharePayload(
+      payloadInput(
+        [
+          event({ timestamp: '2026-06-15T18:28:00.000Z' }),
+          event({ timestamp: '2026-06-15T18:32:00.000Z' }),
+        ],
+        { timezone: 'Asia/Kolkata' },
+      ),
+    );
+
+    expect(periodMs(payload)).toEqual({
+      '2026-06-15 23:00': 2 * MINUTE_MS,
+      '2026-06-16 00:00': 2 * MINUTE_MS,
+    });
+  });
+
+  it('splits a gap across hourlyFrom between the last daily and first hourly period', () => {
+    const payload = buildSharePayload(
+      payloadInput(
+        [
+          event({ timestamp: '2026-03-31T23:58:00.000Z' }),
+          event({ timestamp: '2026-04-01T00:03:00.000Z' }),
+        ],
+        { timezone: 'UTC', windowEnd: '2026-06-30', targetBytes: 1 },
+      ),
+    );
+
+    expect(payload.hourlyFrom).toBe('2026-04-01');
+    expect(periodMs(payload)).toEqual({
+      '2026-03-31': 2 * MINUTE_MS,
+      '2026-04-01 00:00': 3 * MINUTE_MS,
+    });
+    expect([...payload.cube.agentMs]).toEqual([2 * MINUTE_MS, 3 * MINUTE_MS]);
+  });
+
+  it('keeps every period within its Agent time and the file on the union', () => {
+    const random = mulberry32(11);
+    const events = Array.from({ length: 400 }, () =>
+      event({
+        source: pick(random, ['claude', 'codex']),
+        sessionId: `s${String(randomInt(random, 10))}`,
+        // Across the 2026-10-25 fall-back in Paris.
+        timestamp: new Date(
+          Date.UTC(2026, 9, 24, 12) + randomInt(random, 48 * 60) * MINUTE_MS,
+        ).toISOString(),
+        model: pick(random, ['claude-sonnet-4-5', 'gpt-5']),
+      }),
+    );
+    const payload = buildSharePayload(
+      payloadInput(events, { timezone: 'Europe/Paris', windowEnd: '2026-10-26' }),
+    );
+    const { cube, dictionaries } = payload;
+    const bySession = new Map<string, number[]>();
+
+    for (const item of events) {
+      const key = `${item.source}\0${item.sessionId}`;
+      bySession.set(key, [...(bySession.get(key) ?? []), Date.parse(item.timestamp)]);
+    }
+
+    expect(sum(cube.periodActiveMs)).toBe(computeUnionActiveMs(bySession.values()));
+
+    const agentByPeriod = dictionaries.periods.map(() => 0);
+    const activeByDay = new Map<string, number>();
+
+    cube.agentMs.forEach((ms, cell) => {
+      agentByPeriod[cube.period[cell]] += ms;
+    });
+    dictionaries.periods.forEach((key, index) => {
+      expect(cube.periodActiveMs[index]).toBeLessThanOrEqual(agentByPeriod[index]);
+      const day = key.slice(0, 10);
+      activeByDay.set(day, (activeByDay.get(day) ?? 0) + cube.periodActiveMs[index]);
+    });
+
+    for (const [day, ms] of activeByDay) {
+      // The fall-back day really lasts 25 hours.
+      expect(ms).toBeLessThanOrEqual((day === '2026-10-25' ? 25 : 24) * 60 * MINUTE_MS);
+    }
   });
 });
 

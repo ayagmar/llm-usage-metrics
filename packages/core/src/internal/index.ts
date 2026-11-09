@@ -1,3 +1,4 @@
+export { computeActiveIntervals, getActiveGapMs } from '../domain/active-time.js';
 export * from '../domain/provider-normalization.js';
 export {
   hasControlCharacters,
