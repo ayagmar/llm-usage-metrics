@@ -301,12 +301,7 @@ function createRepoAccumulator(repoRoot: string | undefined, event: UsageEvent):
     lastActivity: event.timestamp,
     sessionKeys: new Set(),
     sources: new Set(),
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
+    ...createEmptyTotals(),
   };
 }
 

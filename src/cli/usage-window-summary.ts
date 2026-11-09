@@ -1,5 +1,5 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
-import { addTotals } from '../aggregate/usage-totals.js';
+import { addTotals, createEmptyTotals } from '../aggregate/usage-totals.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
@@ -37,12 +37,7 @@ export function createWindowEventFilter(
 
 export function createEmptyWindowTotals(): UsageWindowTotals {
   return {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
+    ...createEmptyTotals(),
     events: 0,
     activeDays: 0,
   };
