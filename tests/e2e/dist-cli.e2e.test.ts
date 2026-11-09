@@ -381,12 +381,16 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 
       // A fake npm registry. The command's own request does not answer before it exits, as
       // when the registry is slower than the command; only the detached refresh process gets
-      // a version.
+      // a version, and it leaves a marker first so a failure shows whether it got that far.
       const registryPath = path.join(tempDir, 'fake-registry.mjs');
+      const refreshFetchedPath = path.join(tempDir, 'refresh-fetched');
       await writeFile(
         registryPath,
-        `globalThis.fetch = (url, init) => {
+        `import { writeFileSync } from 'node:fs';
+
+globalThis.fetch = (url, init) => {
   if (process.env.LLM_USAGE_UPDATE_CHECK_REFRESH) {
+    writeFileSync(${JSON.stringify(refreshFetchedPath)}, '');
     return Promise.resolve(new Response(JSON.stringify({ version: '99.0.0' })));
   }
   return new Promise((_resolve, reject) => {
@@ -444,7 +448,13 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
         ).latestVersion;
       }
 
-      expect(cachedVersion).toBe('99.0.0');
+      // No claim: the command never started a refresh. No fetch: the refresh process did not
+      // run or did not get that far. Both: the refresh fetched but did not write the cache.
+      expect(
+        cachedVersion,
+        `refresh claimed: ${String(existsSync(`${cacheFilePath}.refresh-attempt`))}, ` +
+          `refresh fetched: ${String(existsSync(refreshFetchedPath))}`,
+      ).toBe('99.0.0');
     } finally {
       // The detached refresh runs with the cache directory as its cwd and can outlive its
       // cache write by a moment; Windows refuses to remove that directory until it exits.
