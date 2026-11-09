@@ -215,8 +215,8 @@ function findCubeError(
  * fails with a message instead of drawing wrong numbers. It is not the full schema check.
  */
 export function decodeShareReport(value: unknown): DecodeResult {
-  if (!isRecord(value) || value.schemaVersion !== 1 || value.report !== 'share') {
-    return { ok: false, error: 'Not a version 1 share report' };
+  if (!isRecord(value) || value.schemaVersion !== 2 || value.report !== 'share') {
+    return { ok: false, error: 'Not a version 2 share report' };
   }
 
   const data = value.data;

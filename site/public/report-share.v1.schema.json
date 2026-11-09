@@ -444,16 +444,8 @@
             "minimum": 0
           }
         },
-        "agentMs": {
-          "description": "Agent time per cell, summed across sessions so parallel sessions add up; sums over any dimension equal the per-session value.",
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "periodActiveMs": {
-          "description": "Wall-clock active time per entry of dictionaries.periods: parallel sessions count once. Only meaningful for the whole file, not per filter.",
+        "activeMs": {
+          "description": "Approximate active time per cell; sums over any dimension equal the per-session value.",
           "type": "array",
           "items": {
             "type": "integer",
@@ -491,8 +483,7 @@
         "cacheWriteTokens",
         "totalTokens",
         "eventCount",
-        "agentMs",
-        "periodActiveMs",
+        "activeMs",
         "costs"
       ],
       "additionalProperties": false
@@ -538,8 +529,7 @@
           "type": "integer",
           "minimum": 1
         },
-        "agentMs": {
-          "description": "The session's own active time; for one session, Agent time and active time are equal.",
+        "activeMs": {
           "type": "integer",
           "minimum": 0
         },
@@ -563,7 +553,7 @@
         "firstActivityAt",
         "lastActivityAt",
         "eventCount",
-        "agentMs",
+        "activeMs",
         "models",
         "costs"
       ],

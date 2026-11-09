@@ -5,13 +5,13 @@ description: 'Breaking changes by version and how to update scripts and integrat
 
 This page lists the changes that can break a script or move a number you compare against, newest first. Additions that change nothing you already rely on are left out; the [CHANGELOG](https://github.com/ayagmar/llm-usage-metrics/blob/master/CHANGELOG.md) has the full list.
 
-Every report's `--json` output carries `schemaVersion: 1` since 0.8.0. New fields have been added to it since then. The only rename is in the share payload, listed under Unreleased; a script that reads the fields it knows in any other report keeps working.
+Every report's `--json` output carries `schemaVersion: 1` since 0.8.0. New fields have been added to it since then. The share payload moved to `schemaVersion: 2`, listed under Unreleased; a script that reads the fields it knows in any other report keeps working.
 
 ## Unreleased
 
 - **A gap over 5 minutes now counts as zero active time,** not as 5 minutes. `session`, `wrapped` and `trends --metric active-hours` read lower, and a session with only long gaps reads 0.
 - **The interactive report separates Active time from Agent time.** With no label filter it shows wall-clock Active time, so parallel sessions no longer add up and cost per hour rises. With a filter, and in the project and session tables, it shows Agent time.
-- **`--share-json` renamed a field.** `cube.activeMs` and `sessions.rows[].activeMs` are now `agentMs`, and `cube.periodActiveMs` is new. A script reading the old names needs updating.
+- **`--share-json` is now `schemaVersion: 2`.** `cube.activeMs` and `sessions.rows[].activeMs` are now `agentMs`, and `cube.periodActiveMs` is new. The contract is `report-share.v2.schema.json`; a script reading the old names or checking for version 1 needs updating. The embedded command envelope stays at version 1.
 
 ## 0.14.1 and 0.14.2
 

@@ -104,7 +104,7 @@ The file targets about 8 MB. When a long history would go past that, usage older
 
 ## Read the data back
 
-The page reads its data from a `<script type="application/json" id="report-data">` element: a versioned envelope with `"report": "share"`, holding name dictionaries, an hourly usage cube, sessions, and blocks. Its contract is [report-share.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-share.v1.schema.json), also printed by `llm-usage schema share`. For data to process in scripts, the `--json` output of the same command is simpler.
+The page reads its data from a `<script type="application/json" id="report-data">` element: a versioned envelope with `"report": "share"`, holding name dictionaries, an hourly usage cube, sessions, and blocks. Its contract is [report-share.v2.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-share.v2.schema.json), also printed by `llm-usage schema share`. Files from before the Agent time rename use [version 1](https://ayagmar.github.io/llm-usage-metrics/report-share.v1.schema.json). For data to process in scripts, the `--json` output of the same command is simpler.
 
 `--share-json` prints that envelope to `stdout` instead of writing the file, for a program that draws the report itself. The command's own report and the hints after it are left out, and diagnostics stay on `stderr`. `--redact` and `--no-cost` work with it as they do with `--share`.
 

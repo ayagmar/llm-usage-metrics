@@ -43,9 +43,9 @@ describe('decodeShareReport', () => {
 
   it.each([
     [
-      'not a share report',
+      'a version 1 payload, from before Agent time had its name',
       (payload: Payload) => {
-        Object.assign(payload, { schemaVersion: 2 });
+        Object.assign(payload, { schemaVersion: 1 });
       },
     ],
     [
@@ -124,13 +124,6 @@ describe('decodeShareReport', () => {
       'a missing period column',
       (payload: Payload) => {
         Reflect.deleteProperty(payload.data.cube, 'period');
-      },
-    ],
-    [
-      'a payload written before Agent time had its name',
-      (payload: Payload) => {
-        Object.assign(payload.data.cube, { activeMs: payload.data.cube.agentMs });
-        Reflect.deleteProperty(payload.data.cube, 'agentMs');
       },
     ],
     [

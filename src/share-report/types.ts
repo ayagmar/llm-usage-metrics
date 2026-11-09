@@ -1,4 +1,4 @@
-// The payload embedded in a --share report, `schema/report-share.v1.schema.json`.
+// The payload embedded in a --share report, `schema/report-share.v2.schema.json`.
 // Type-only: the CLI builds it and the page reads it, so neither side may hold
 // logic here.
 

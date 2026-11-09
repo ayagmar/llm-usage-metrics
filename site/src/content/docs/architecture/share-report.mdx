@@ -27,7 +27,7 @@ Pricing loads once and prices every event in each cost mode (`explicit`, `estima
 
 ## The payload
 
-The payload has `schemaVersion: 1` and `report: 'share'`; `schema/report-share.v1.schema.json` describes it. Its `data` holds:
+The payload has `schemaVersion: 2` and `report: 'share'`; `schema/report-share.v2.schema.json` describes it, and the embedded command envelope stays at version 1. Its `data` holds:
 
 - `meta`: the command, time zone, window, initial view, cost mode, the filters in use (the `--repo` value itself is never embedded), and whether names are redacted.
 - `dictionaries`: the periods, sources, models, projects, and machines that the other parts index into.
@@ -36,7 +36,7 @@ The payload has `schemaVersion: 1` and `report: 'share'`; `schema/report-share.v
 - `blocks`: estimated 5-hour blocks per source, across machines.
 - `envelope`: for `summary`, `compare`, `trends`, `efficiency`, `optimize`, and `wrapped`, the command's own `--json` output, so the page can show the command's panel.
 
-A gap between consecutive events in a session counts up to 5 minutes and not at all beyond that (`packages/core/src/domain/active-time.ts`). Agent time credits each gap to the later event's cell, and a gap across a period boundary gives the part before it to the earlier event's cell. `cube.periodActiveMs` holds wall-clock Active time per period, parallel sessions counted once and split at period boundaries. It holds for the whole file, so filtered views use Agent time. Nothing reads an older payload back: each HTML file carries the client that decodes it. Outside readers of `--share-json` must use `agentMs` and `periodActiveMs`.
+A gap between consecutive events in a session counts up to 5 minutes and not at all beyond that (`packages/core/src/domain/active-time.ts`). Agent time credits each gap to the later event's cell, and a gap across a period boundary gives the part before it to the earlier event's cell. `cube.periodActiveMs` holds wall-clock Active time per period, parallel sessions counted once and split at period boundaries. It holds for the whole file, so filtered views use Agent time. Nothing reads an older payload back: each HTML file carries the client that decodes it. Outside readers of `--share-json` must use `agentMs` and `periodActiveMs`, which arrived with `schemaVersion: 2`.
 
 ## Names and paths
 
