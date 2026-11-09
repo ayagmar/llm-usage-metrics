@@ -1,3 +1,4 @@
+import { isRecord } from '@ayagmar/agent-sessions/internal';
 import { toProjectKey } from '../aggregate/project-key.js';
 import { createNameReplacer } from './redact.js';
 import type { ShareEmbeddedEnvelope } from './types.js';
@@ -51,10 +52,6 @@ export type EnvelopeLabelMaps = {
 
 /** The maps while sanitizing: `scrubText` also replaces names, `scrub` only paths. */
 type SanitizeMaps = EnvelopeLabelMaps & { scrubText: (value: string) => string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function sanitizeValue(value: unknown, maps: SanitizeMaps): unknown {
   if (typeof value === 'string') {

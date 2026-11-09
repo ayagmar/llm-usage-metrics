@@ -248,6 +248,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'resolveCanonicalModelKey',
     'resolveCostMode',
     'resolveRatesForEvent',
+    'isRecord',
     'parseFiniteNumber',
     'toNonNegativeInteger',
     'toNonNegativeNumber',

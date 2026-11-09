@@ -1,6 +1,7 @@
 // The efficiency lead: cost and tokens against git outcomes, from the embedded
 // `efficiency --json` data. Fixed at generation: the page's filters do not change it.
 
+import { isRecord } from '../../../../../packages/core/src/utils/as-record.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import {
   figure,
@@ -8,7 +9,6 @@ import {
   formatCountOrNone,
   formatEnvelopeCost,
   getEnvelopeData,
-  isRecord,
   readNumber,
   readRecords,
   readString,
