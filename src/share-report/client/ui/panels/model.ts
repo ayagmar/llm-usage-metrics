@@ -1,6 +1,7 @@
 // What the panels share: reading an embedded envelope, which is untyped JSON, and the view
 // shapes the panel renderer lays out. Pure: no DOM, so Node tests cover every panel model.
 
+import { isRecord } from '../../../../../packages/core/src/utils/as-record.js';
 import type { ShareEmbeddedEnvelope } from '../../../types.js';
 import { formatUsdOrNone, NO_VALUE, type ShareReport } from '../../core/index.js';
 import { formatPercent } from '../shell/format.js';
@@ -77,10 +78,6 @@ export function getEnvelopeData(
 /** A panel's `appliesTo`: the file embeds that command's report. */
 export function embeds(kind: ShareEmbeddedEnvelope['report']): (report: ShareReport) => boolean {
   return (report) => report.data.envelope?.report === kind;
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** A finite number, else undefined: the CLI omits a value it could not compute. */

@@ -1,10 +1,7 @@
+import { toStrictNonNegativeInteger } from '@ayagmar/agent-sessions/internal';
 import type { ReadCursor, ReplacedEventCounts } from '@ayagmar/agent-sessions';
 
-import {
-  toNonNegativeInteger,
-  type EventStoreDatabase,
-  type EventStoreStatement,
-} from './event-store-database.js';
+import type { EventStoreDatabase, EventStoreStatement } from './event-store-database.js';
 
 // Incremental ingest. A file of an incremental source is stored with the cursor its read
 // ended at, so a later run that finds the file grown reads only the appended lines and
@@ -133,7 +130,7 @@ export function prepareFileAppend(
   append: EventStoreAppend,
 ): { fileId: number; nextEventIndex: number; nextSessionEventIndex: number } | undefined {
   const row = statements.selectFile.get(file.source, file.filePath);
-  const fileId = toNonNegativeInteger(row?.id);
+  const fileId = toStrictNonNegativeInteger(row?.id);
 
   if (
     fileId === undefined ||
@@ -150,8 +147,8 @@ export function prepareFileAppend(
 
   return {
     fileId,
-    nextEventIndex: toNonNegativeInteger(statements.nextEventIndex.get(fileId)?.next) ?? 0,
+    nextEventIndex: toStrictNonNegativeInteger(statements.nextEventIndex.get(fileId)?.next) ?? 0,
     nextSessionEventIndex:
-      toNonNegativeInteger(statements.nextSessionEventIndex.get(fileId, fileId)?.next) ?? 0,
+      toStrictNonNegativeInteger(statements.nextSessionEventIndex.get(fileId, fileId)?.next) ?? 0,
   };
 }

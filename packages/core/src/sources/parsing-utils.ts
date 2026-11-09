@@ -51,6 +51,34 @@ export function toFiniteNumber(value: NumberLike | undefined): number | undefine
   return parsed;
 }
 
+/** `toFiniteNumber` for untyped input: anything but a number or string is undefined. */
+export function parseFiniteNumber(value: unknown): number | undefined {
+  return toFiniteNumber(toNumberLike(value));
+}
+
+/** A finite number or numeric string at or above zero, fractions kept. */
+export function toNonNegativeNumber(value: unknown): number | undefined {
+  const parsed = parseFiniteNumber(value);
+  return parsed !== undefined && parsed >= 0 ? parsed : undefined;
+}
+
+/** `toNonNegativeNumber`, truncated. Invalid input is undefined; `toTokenCount` makes it 0. */
+export function toNonNegativeInteger(value: unknown): number | undefined {
+  const parsed = toNonNegativeNumber(value);
+  return parsed === undefined ? undefined : Math.trunc(parsed);
+}
+
+/** A finite number at or above zero. Numeric strings are rejected. */
+export function toStrictNonNegativeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' ? toNonNegativeNumber(value) : undefined;
+}
+
+/** `toStrictNonNegativeNumber`, truncated. */
+export function toStrictNonNegativeInteger(value: unknown): number | undefined {
+  const parsed = toStrictNonNegativeNumber(value);
+  return parsed === undefined ? undefined : Math.trunc(parsed);
+}
+
 export function hasPositiveUsageOrCostSignal(
   usageCandidates: ReadonlyArray<NumberLike | undefined>,
   costUsd: NumberLike | undefined,

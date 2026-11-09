@@ -1,8 +1,7 @@
 import type { ShareCostMode, ShareCosts } from '../../types.js';
 import { COST_MODES, type ShareReport } from './decode.js';
 import { formatUsd } from '../../../render/format-number.js';
-
-const HOUR_MS = 60 * 60 * 1000;
+import { HOUR_MS } from '../../../utils/time-constants.js';
 
 /** Shown where a ratio has no denominator, such as cost per active hour with no active time. */
 export const NO_VALUE = '—';

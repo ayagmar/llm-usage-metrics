@@ -12,6 +12,8 @@ import {
   hasErrorCode,
   isJsonlReadCursor,
   takeUncountedEvents,
+  toStrictNonNegativeInteger,
+  toStrictNonNegativeNumber,
 } from '@ayagmar/agent-sessions/internal';
 import {
   computeEventContentHash,
@@ -36,8 +38,6 @@ import {
   isEventStoreSqliteModule,
   type LoadEventStoreSqliteModule,
   runTransaction,
-  toNonNegativeInteger,
-  toNonNegativeNumber,
   toText,
 } from './event-store-database.js';
 import {
@@ -186,8 +186,8 @@ function normalizeDependencyFingerprint(
     };
   }
 
-  const size = toNonNegativeInteger(value.size);
-  const mtimeMs = toNonNegativeNumber(value.mtimeMs);
+  const size = toStrictNonNegativeInteger(value.size);
+  const mtimeMs = toStrictNonNegativeNumber(value.mtimeMs);
 
   if (size === undefined || mtimeMs === undefined) {
     return undefined;
@@ -491,7 +491,7 @@ export async function readEventStoreSummary(
   return withReadOnlyEventStore(filePath, loadSqliteModule, (database) => {
     const schemaVersion = readSchemaVersion(database);
     const countRows = (tableName: 'events' | 'tool_calls' | 'messages'): number =>
-      toNonNegativeInteger(
+      toStrictNonNegativeInteger(
         database.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get()?.count,
       ) ?? 0;
     const hasSessionEvents = hasSchemaVersion(schemaVersion, 5);
@@ -615,7 +615,7 @@ function isWideWindow(
   toTimestamp: string,
 ): boolean {
   // Not max(id): every sync rewrites changed files, leaving gaps in the ids.
-  const rowCount = toNonNegativeInteger(
+  const rowCount = toStrictNonNegativeInteger(
     database.prepare('SELECT count(*) AS count FROM events').get()?.count,
   );
   const threshold = Math.ceil((rowCount ?? 0) * WIDE_WINDOW_ROW_SHARE);
@@ -629,7 +629,7 @@ function isWideWindow(
     )
     .get(fromTimestamp, toTimestamp, threshold);
 
-  return (toNonNegativeInteger(row?.count) ?? 0) >= threshold;
+  return (toStrictNonNegativeInteger(row?.count) ?? 0) >= threshold;
 }
 
 function selectWindowEventsSql(wideWindow: boolean, hasIdColumns: boolean): string {
@@ -821,7 +821,7 @@ export function getFileEntry(
   }
 
   const fingerprint = toText(row.fingerprint);
-  const skippedRows = toNonNegativeInteger(row.skipped_rows);
+  const skippedRows = toStrictNonNegativeInteger(row.skipped_rows);
 
   if (!fingerprint || skippedRows === undefined) {
     deleteFileEntry(store, normalizedSource, normalizedFilePath);
@@ -1027,7 +1027,7 @@ export function countFileEvents(store: EventStore, source: string, filePath: str
       ].join('\n'),
     )
     .get(normalizeStoreSource(source), normalizeStoreFilePath(filePath));
-  return toNonNegativeInteger(row?.count) ?? 0;
+  return toStrictNonNegativeInteger(row?.count) ?? 0;
 }
 
 export function deleteStoredFiles(
@@ -1069,14 +1069,14 @@ export function deleteStoredFiles(
     for (const file of normalizedFiles) {
       deleteOverrideOnlyFile.run(file.source, file.filePath);
       const row = selectFile.get(file.source, file.filePath);
-      const fileId = toNonNegativeInteger(row?.id);
+      const fileId = toStrictNonNegativeInteger(row?.id);
 
       if (fileId === undefined) {
         continue;
       }
 
       result.deletedFileCount += 1;
-      result.deletedEventCount += toNonNegativeInteger(row?.row_count) ?? 0;
+      result.deletedEventCount += toStrictNonNegativeInteger(row?.row_count) ?? 0;
       deleteEvents.run(fileId);
       deleteFileSessionEvents(sessionEventStatements, fileId);
       readCursorStatements.delete.run(fileId);
@@ -1112,7 +1112,7 @@ export function replaceFilesEvents(
     source: normalizeStoreSource(input.source),
     filePath: normalizeStoreFilePath(input.filePath),
     fingerprint: serializeEventStoreFingerprint(input.fingerprint),
-    skippedRows: toNonNegativeInteger(input.skippedRows) ?? 0,
+    skippedRows: toStrictNonNegativeInteger(input.skippedRows) ?? 0,
     skippedRowReasons: stringifySkippedRowReasons(input.skippedRowReasons),
     ingestedAt: Math.max(0, Math.trunc(input.now)),
     events: input.events.map((event) => createUsageEvent(event)),
@@ -1187,7 +1187,7 @@ export function replaceFilesEvents(
         markOverrideOnlyFile.run(source, filePath, source, filePath);
       }
 
-      const fileId = toNonNegativeInteger(
+      const fileId = toStrictNonNegativeInteger(
         upsertFile.get(
           source,
           filePath,
@@ -1301,7 +1301,7 @@ export function claimOverrideOnlyFiles(
 
 export function countEvents(store: EventStore): number {
   const row = store.database.prepare('SELECT COUNT(*) AS count FROM events').get();
-  return toNonNegativeInteger(row?.count) ?? 0;
+  return toStrictNonNegativeInteger(row?.count) ?? 0;
 }
 
 export function closeEventStore(store: EventStore): void {

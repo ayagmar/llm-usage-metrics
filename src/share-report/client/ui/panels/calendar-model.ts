@@ -7,6 +7,7 @@ import { WEEKDAY_LABELS } from '../../core/index.js';
 import { formatDay } from '../shell/format.js';
 import { readNumber, readString, type PanelTable } from './model.js';
 import { formatInteger } from '../../../../render/format-number.js';
+import { DAY_MS } from '../../../../utils/time-constants.js';
 
 /** A day in the calendar: its week column, its weekday row (Monday 0) and its heat level. */
 type CalendarDay = {
@@ -32,8 +33,6 @@ export type CalendarView = {
 function clampLevel(level: number | undefined): number {
   return level === undefined ? 0 : Math.min(4, Math.max(0, Math.round(level)));
 }
-
-const DAY_MS = 86_400_000;
 
 /**
  * Weeks run Monday to Sunday, as the CLI's ISO weeks; the first column holds the first day.

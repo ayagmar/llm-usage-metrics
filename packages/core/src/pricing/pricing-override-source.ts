@@ -1,5 +1,4 @@
-import type { NumberLike } from '../domain/normalization.js';
-import { asTrimmedText, toNumberLike } from '../sources/parsing-utils.js';
+import { asTrimmedText, toNonNegativeNumber } from '../sources/parsing-utils.js';
 import { asRecord } from '../utils/as-record.js';
 import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { normalizeKey } from './litellm-model-matching.js';
@@ -36,20 +35,6 @@ const knownOverrideKeys = new Set<string>([
   'reasoningBilling',
 ]);
 
-function toFiniteUsdRate(value: NumberLike): number | undefined {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value === 'string' && value.trim() === '') {
-    return undefined;
-  }
-
-  const parsed = typeof value === 'number' ? value : Number(value);
-
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
-}
-
 function normalizeReasoningBilling(value: unknown): ReasoningBillingMode | undefined {
   if (value === 'included-in-output' || value === 'separate') {
     return value;
@@ -74,7 +59,7 @@ function readRate(
     return undefined;
   }
 
-  const rate = toFiniteUsdRate(toNumberLike(value));
+  const rate = toNonNegativeNumber(value);
 
   if (rate === undefined) {
     problems.push(`${key} must be a non-negative number`);

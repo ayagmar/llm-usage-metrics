@@ -2,6 +2,7 @@
 // then the command's tables, from the embedded `compare --json` data. Fixed at generation:
 // the page's filters do not change it.
 
+import { isRecord } from '../../../../../packages/core/src/utils/as-record.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
 import { formatDateRange } from '../shell/format.js';
@@ -13,7 +14,6 @@ import {
   formatSignedCount,
   formatSignedRatio,
   getEnvelopeData,
-  isRecord,
   readNumber,
   readRecords,
   readString,

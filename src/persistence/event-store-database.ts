@@ -49,22 +49,6 @@ export function isEventStoreSqliteModule(value: unknown): value is EventStoreSql
   return typeof moduleRecord?.DatabaseSync === 'function';
 }
 
-export function toNonNegativeInteger(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    return undefined;
-  }
-
-  return Math.trunc(value);
-}
-
-export function toNonNegativeNumber(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    return undefined;
-  }
-
-  return value;
-}
-
 export function toText(value: unknown): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
