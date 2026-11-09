@@ -1,5 +1,5 @@
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
-import { addEventToTotals } from '../aggregate/aggregate-usage.js';
+import { addEventToTotals, eitherCostIncomplete } from '../aggregate/usage-totals.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
@@ -240,9 +240,7 @@ function buildMetricRows(
       baselineCostIncomplete:
         definition.key === 'costUsd' && baseline.costIncomplete ? true : undefined,
       deltaCostIncomplete:
-        definition.key === 'costUsd' && (current.costIncomplete || baseline.costIncomplete)
-          ? true
-          : undefined,
+        definition.key === 'costUsd' ? eitherCostIncomplete(current, baseline) : undefined,
     };
   });
 }
@@ -259,7 +257,7 @@ function diffTotals(
     cacheWriteTokens: current.cacheWriteTokens - baseline.cacheWriteTokens,
     totalTokens: current.totalTokens - baseline.totalTokens,
     costUsd: subtractValues(current.costUsd, baseline.costUsd, 'usd'),
-    costIncomplete: current.costIncomplete || baseline.costIncomplete ? true : undefined,
+    costIncomplete: eitherCostIncomplete(current, baseline),
     events: current.events - baseline.events,
     activeDays: current.activeDays - baseline.activeDays,
   };

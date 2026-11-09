@@ -2,7 +2,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import type { MessageEvent, ToolCallEvent } from '@ayagmar/agent-sessions';
 import type { TokenBuckets } from '../domain/usage-report-row.js';
 import { compareByCodePoint, normalizeOptionalModel } from '@ayagmar/agent-sessions/internal';
-import { addUsd } from '../utils/usd-math.js';
+import { addEventToTokenCostTotals, type TokenCostTotals } from '../aggregate/usage-totals.js';
 
 /** One priced request, with the session's cost up to and including it. */
 export type TimelineUsageRow = TokenBuckets & {
@@ -33,15 +33,10 @@ const KIND_ORDER: Record<SessionTimelineRow['kind'], number> = {
 };
 
 function toUsageRows(events: readonly UsageEvent[]): TimelineUsageRow[] {
-  let runningCostUsd: number | undefined;
-  let runningCostIncomplete = false;
+  const running: TokenCostTotals = { totalTokens: 0 };
 
   return events.map((event) => {
-    if (event.costUsd === undefined) {
-      runningCostIncomplete = true;
-    } else {
-      runningCostUsd = addUsd(runningCostUsd ?? 0, event.costUsd);
-    }
+    addEventToTokenCostTotals(running, event);
 
     return {
       kind: 'usage',
@@ -54,8 +49,8 @@ function toUsageRows(events: readonly UsageEvent[]): TimelineUsageRow[] {
       cacheWriteTokens: event.cacheWriteTokens,
       totalTokens: event.totalTokens,
       costUsd: event.costUsd,
-      runningCostUsd,
-      runningCostIncomplete: runningCostIncomplete || undefined,
+      runningCostUsd: running.costUsd,
+      runningCostIncomplete: running.costIncomplete,
     };
   });
 }

@@ -1,4 +1,5 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { addTokenCostTotals, type TokenCostTotals } from '../aggregate/usage-totals.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { PeriodProjectRow } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
@@ -153,6 +154,16 @@ function compareProjectRows(left: ValueProjectRow, right: ValueProjectRow): numb
   );
 }
 
+function sumTokenCost(rows: readonly TokenCostTotals[]): Required<TokenCostTotals> {
+  const sum = { totalTokens: 0, costUsd: 0, costIncomplete: false };
+
+  for (const row of rows) {
+    addTokenCostTotals(sum, row);
+  }
+
+  return sum;
+}
+
 function toProjectRows(rows: readonly PeriodProjectRow[], monthCostUsd: number): ValueProjectRow[] {
   return rows
     .map((row) => {
@@ -178,15 +189,7 @@ function sumOtherProjects(
     return null;
   }
 
-  let totalTokens = 0;
-  let costUsd = 0;
-  let costIncomplete = false;
-
-  for (const row of rows) {
-    totalTokens += row.totalTokens;
-    costUsd = addUsd(costUsd, row.costUsd);
-    costIncomplete ||= row.costIncomplete;
-  }
+  const { totalTokens, costUsd, costIncomplete } = sumTokenCost(rows);
 
   return {
     projects: rows.length,
@@ -204,15 +207,12 @@ function toMonthRow(
   partial: boolean,
   projectLimit: number | undefined,
 ): ValueMonthRow {
-  let totalTokens = 0;
-  let apiCostUsd = 0;
-  let costIncomplete = false;
-
-  for (const row of rows) {
-    totalTokens += row.totalTokens;
-    apiCostUsd = addUsd(apiCostUsd, row.costUsd ?? 0);
-    costIncomplete ||= row.costIncomplete === true;
-  }
+  // The 0 is added on purpose: addUsd re-rounds, which moves large sums by a last-place bit.
+  const {
+    totalTokens,
+    costUsd: apiCostUsd,
+    costIncomplete,
+  } = sumTokenCost(rows.map((row) => ({ ...row, costUsd: row.costUsd ?? 0 })));
 
   const projects = toProjectRows(rows, apiCostUsd);
   const shownCount = projectLimit ?? projects.length;
@@ -232,17 +232,12 @@ function toMonthRow(
 }
 
 function toPlanTotal(months: readonly ValueMonthRow[]): ValuePlanReport['total'] {
-  let totalTokens = 0;
-  let apiCostUsd = 0;
-  let costIncomplete = false;
-  let planPriceUsd = 0;
-
-  for (const month of months) {
-    totalTokens += month.totalTokens;
-    apiCostUsd = addUsd(apiCostUsd, month.apiCostUsd);
-    costIncomplete ||= month.costIncomplete;
-    planPriceUsd = addUsd(planPriceUsd, month.planPriceUsd);
-  }
+  const {
+    totalTokens,
+    costUsd: apiCostUsd,
+    costIncomplete,
+  } = sumTokenCost(months.map((month) => ({ ...month, costUsd: month.apiCostUsd })));
+  const planPriceUsd = months.reduce((sum, month) => addUsd(sum, month.planPriceUsd), 0);
 
   return {
     totalTokens,
