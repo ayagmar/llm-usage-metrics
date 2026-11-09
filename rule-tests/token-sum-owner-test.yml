@@ -3,6 +3,8 @@ valid:
   - 'addTokenBuckets(target, event);'
   # A lone totalTokens counter on a non-UsageTotals shape (share payload days).
   - 'day.totalTokens += event.totalTokens;'
+  - 'target.totalTokens = target.totalTokens + event.totalTokens;'
 invalid:
   - 'target.inputTokens += event.inputTokens;'
   - 'row.totals.cacheReadTokens += source.cacheReadTokens;'
+  - 'target.outputTokens = target.outputTokens + event.outputTokens;'

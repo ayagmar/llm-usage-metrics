@@ -10,7 +10,12 @@ ignores:
   - packages/core/src/sources/parsing-utils.ts
   - '**/*.generated.ts'
 rule:
-  kind: function_declaration
-  has:
-    field: name
-    regex: ^(toNumberLike|toFiniteNumber|parseFiniteNumber|toNonNegativeNumber|toNonNegativeInteger|toStrictNonNegativeNumber|toStrictNonNegativeInteger|toTokenCount)$
+  any:
+    - kind: function_declaration
+      has:
+        field: name
+        regex: ^(toNumberLike|toFiniteNumber|parseFiniteNumber|toNonNegativeNumber|toNonNegativeInteger|toStrictNonNegativeNumber|toStrictNonNegativeInteger|toTokenCount)$
+    - kind: variable_declarator
+      has:
+        field: name
+        regex: ^(toNumberLike|toFiniteNumber|parseFiniteNumber|toNonNegativeNumber|toNonNegativeInteger|toStrictNonNegativeNumber|toStrictNonNegativeInteger|toTokenCount)$

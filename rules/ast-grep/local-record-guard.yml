@@ -10,7 +10,12 @@ ignores:
   - packages/core/src/utils/as-record.ts
   - '**/*.generated.ts'
 rule:
-  kind: function_declaration
-  has:
-    field: name
-    regex: ^(isRecord|asRecord)$
+  any:
+    - kind: function_declaration
+      has:
+        field: name
+        regex: ^(isRecord|asRecord)$
+    - kind: variable_declarator
+      has:
+        field: name
+        regex: ^(isRecord|asRecord)$

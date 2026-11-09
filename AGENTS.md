@@ -83,26 +83,53 @@ Keep source-specific parsing logic inside adapters. Keep pricing logic in `packa
 
 `pnpm run lint` runs ESLint, then `pnpm run lint:ast-grep`: `ast-grep test` over
 `rule-tests/`, then `ast-grep scan` with the rules in `rules/ast-grep/` (config:
-`sgconfig.yml`). The rules cover `src/`, `packages/core/src` and `scripts/`.
+`sgconfig.yml`). Each rule's `files` list sets its scope within `src/`, `packages/core/src`
+and `scripts/`.
 
-- Error rules fail lint. They keep one owner module for a fact: active time
-  (`packages/core/src/domain/active-time.ts`), token and cost totals
-  (`src/aggregate/usage-totals.ts`), numeric coercion
-  (`packages/core/src/sources/parsing-utils.ts`), the record guard
-  (`packages/core/src/utils/as-record.ts`), time constants (`src/utils/time-constants.ts`)
-  and file locks (`src/utils/file-lock.ts`). Import from the owner instead of writing a
-  second version.
-- Warning rules print but never fail. They point at implicit state machines (boolean flags
-  on classes, fields reset together, flags set in `catch`), `sort()` without a comparator,
-  `push(...array)` on unbounded input, and injected clocks resolved in several places.
-- To add a rule, put `<id>.yml` in `rules/ast-grep/` with the same `files` list as the
-  others, and `rule-tests/<id>-test.yml` with at least one `valid` and one `invalid` case,
-  plus each false positive you had to tighten the rule against. Exempt an owner module with
-  the rule's `ignores` list, not with comments.
+Error rules fail lint. Each one keeps a fact in one owner module:
+
+- `active-time-owner`: `IDLE_GAP_CAP_MS` in a comparison or `Math.min`/`Math.max`, or a
+  5-minute literal compared with a gap or idle value or stored under an idle/gap name.
+  Decide gaps with `getActiveGapMs` or `computeActiveIntervals`
+  (`packages/core/src/domain/active-time.ts`). Importing the constant and display
+  arithmetic such as `IDLE_GAP_CAP_MS / MINUTE_MS` are fine.
+- `token-sum-owner`: `+=` or `x = x + y` on `inputTokens`, `outputTokens`,
+  `reasoningTokens`, `cacheReadTokens` or `cacheWriteTokens`. A lone `totalTokens` counter
+  is fine. Use `src/aggregate/usage-totals.ts`. Scope: `src/`, `scripts/`.
+- `cost-incomplete-owner`: `x.costIncomplete = true`, `x.costIncomplete ||= ...` and
+  `a.costIncomplete || b.costIncomplete`. Use `mergeCostIncomplete`,
+  `eitherCostIncomplete` or the `add*` helpers in `src/aggregate/usage-totals.ts`. Scope:
+  `src/`, `scripts/`.
+- `local-number-coercion`: a function or `const` named like one of the coercers in
+  `packages/core/src/sources/parsing-utils.ts`.
+- `local-record-guard`: a function or `const` named `isRecord` or `asRecord` outside
+  `packages/core/src/utils/as-record.ts`.
+- `time-constants-owner`: a declaration named `SECOND_MS`, `MINUTE_MS`, `HOUR_MS` or
+  `DAY_MS`, and hand-written conversions: `n * 60 * 1000`, multiplying or dividing by
+  `60_000`, `3_600_000` or `86_400_000`. Bare timeouts such as `60_000` are fine. Use
+  `src/utils/time-constants.ts`. Scope: `src/`, `scripts/`.
+- `file-lock-owner`: `open`/`openSync` (any qualifier, such as `fs.promises.open`) with the
+  `'wx'` flag. Use `acquireFileLock` from `src/utils/file-lock.ts`. `writeFile` with
+  `flag: 'wx'` is not a lock and is not flagged.
+
+The owners of `token-sum-owner`, `cost-incomplete-owner` and `time-constants-owner` live in
+`src/`, which `packages/core/src` cannot import, so those rules leave core alone.
+
+Warning rules print but never fail: `unbounded-push-spread` (`push(...array)` on input that
+can pass about 125k items) and `injected-clock-default` (`deps.now?.() ?? new Date()`
+repeated per command). Numeric and tuple `sort()` without a comparator is an ESLint error
+(`@typescript-eslint/require-array-sort-compare`).
+
+- To add a rule, put `<id>.yml` in `rules/ast-grep/` and `rule-tests/<id>-test.yml` with at
+  least one `valid` and one `invalid` case, plus each false positive you had to tighten the
+  rule against. Do not use `constraints` inside an `any` of patterns: ast-grep checks them
+  after `any` has picked its first structural match, so later branches never run. Check
+  child fields with `has: { field: ..., regex: ... }` instead.
+- Exempt the owner module, and a file that cannot import it (a script run by plain `node`),
+  in the rule's `ignores` list, with a comment giving the reason.
 - To suppress one hit, put `// ast-grep-ignore: <rule-id>` on the line above it, with a
-  comment saying why. Do that only when the code cannot use the owner module, e.g. a script
-  run by plain `node` that cannot import TypeScript. If you need it more than once for the
-  same reason, tighten the rule instead.
+  comment saying why. Use it only for a one-off where the owner does not fit. If you need it
+  more than once for the same reason, tighten the rule instead.
 
 ## CLI and Output Rules
 

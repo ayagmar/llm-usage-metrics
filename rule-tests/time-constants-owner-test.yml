@@ -2,7 +2,17 @@ id: time-constants-owner
 valid:
   - "import { DAY_MS } from '../utils/time-constants.js';"
   - 'const TZ_GUARD_MS = 15 * HOUR_MS;'
+  # Bare millisecond timeouts are not unit conversions.
   - 'const MAX_RETRY_AFTER_MS = 60_000;'
+  - 'const MACHINE_REFRESH_TIMEOUT_MS = 30_000;'
+  - 'const seconds = elapsedMs / 1000;'
 invalid:
   - 'const DAY_MS = 24 * 60 * 60 * 1000;'
   - 'export const MINUTE_MS = 60_000;'
+  - 'const TTL_MS = 60 * 60 * 1000;'
+  - 'const STALE_MS = 24 * 60 * 60_000;'
+  - 'const INTERVAL_MS = 10 * 60_000;'
+  - 'const STEP_MS = 15 * 60 * 1000;'
+  - 'const minutes = Math.round(durationMs / 60_000);'
+  - 'const hours = Math.round(activeMs / 3_600_000);'
+  - 'const days = Math.floor(ageMs / 86400000);'

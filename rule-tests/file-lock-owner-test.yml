@@ -8,3 +8,5 @@ invalid:
   - "const handle = await open(lockPath, 'wx');"
   - "const handle = await open(lockPath, 'wx', 0o600);"
   - "const fd = fs.openSync(lockPath, 'wx');"
+  - "const handle = await fs.promises.open(lockPath, 'wx');"
+  - 'const handle = await open(lockPath, `wx`);'

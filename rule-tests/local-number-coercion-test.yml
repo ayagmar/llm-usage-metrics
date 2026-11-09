@@ -5,3 +5,4 @@ valid:
 invalid:
   - 'function toNonNegativeInteger(value) { return Number.isInteger(value) && value >= 0 ? value : undefined; }'
   - 'export function toFiniteNumber(value) { return Number.isFinite(value) ? value : undefined; }'
+  - "const toFiniteNumber = (value: unknown) => (typeof value === 'number' ? value : undefined);"
