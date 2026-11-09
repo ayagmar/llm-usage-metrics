@@ -23,8 +23,6 @@ import type { RuntimeProfileCollector } from '../runtime-profile.js';
 import { getErrorReason } from '../../utils/get-error-reason.js';
 
 export type EventStoreParseDeps = {
-  openEventStore?: (filePath: string) => Promise<EventStore>;
-  closeEventStore?: (store: EventStore) => void;
   getFileEntry?: (
     store: EventStore,
     source: string,
