@@ -5,8 +5,8 @@ import { aggregateSessions } from '../../src/session/aggregate-sessions.js';
 import { buildSharePayload } from '../../src/share-report/build-share-payload.js';
 import { aggregateWrapped } from '../../src/wrapped/aggregate-wrapped.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
-import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import { computeUnionActiveMs, type SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../../packages/core/tests/helpers/static-pricing-source.js';
 import { shiftDateKey } from '../../src/utils/date-key.js';
 import { readFrom } from '../helpers/fake-read.js';
@@ -70,6 +70,23 @@ function createBaseEvent(overrides: Partial<Parameters<typeof createUsageEvent>[
     totalTokens: 15,
     costMode: 'estimated',
     ...overrides,
+  });
+}
+
+function sharePayloadOf(events: UsageEvent[], timezone: string, windowEnd: string) {
+  return buildSharePayload({
+    events,
+    costs: {},
+    timezone,
+    sourceOrder: ['pi'],
+    projectLabel: () => 'p',
+    machineLabel: (machine) => machine,
+    modelLabel: (model) => model ?? 'unknown',
+    blocks: [],
+    blockEvents: [],
+    blockCosts: {},
+    blockHours: 5,
+    windowEnd,
   });
 }
 
@@ -221,7 +238,7 @@ describe('buildTrendsData', () => {
     expect(result.sourceSeries?.map((series) => minutes(series.buckets[0]?.value))).toEqual([8, 0]);
   });
 
-  it('splits a session at local midnight, on a DST change too', async () => {
+  it('splits a gap at local midnight, the day after a DST change', async () => {
     // New York fell back on 2026-11-01; local midnight on 2 Nov is 05:00 UTC.
     const result = await buildTrendsData(
       {
@@ -243,8 +260,8 @@ describe('buildTrendsData', () => {
     );
 
     expect(result.totalSeries.buckets.map((bucket) => bucket.value)).toEqual([
-      5 * 60_000,
-      2 * 60_000,
+      7 * 60_000,
+      4 * 60_000,
     ]);
   });
 
@@ -316,6 +333,97 @@ describe('buildTrendsData', () => {
     ]);
   });
 
+  it('counts a same-project run across midnight and no gap across a project switch', async () => {
+    const at = (timestamp: string, repoRoot: string) =>
+      createBaseEvent({ sessionId: 'a', repoRoot, timestamp });
+    const result = await buildTrendsData(
+      {
+        metric: 'active-hours',
+        since: '2026-03-05',
+        until: '2026-03-06',
+        timezone: 'UTC',
+        byRepo: true,
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              at('2026-03-05T23:58:00.000Z', '/w/one'),
+              at('2026-03-06T00:02:00.000Z', '/w/one'),
+              at('2026-03-06T00:04:00.000Z', '/w/two'),
+            ],
+          }),
+        ],
+      }),
+    );
+    const byProject = new Map(
+      result.projectSeries?.map((series) => [
+        series.project,
+        series.buckets.map((bucket) => bucket.value),
+      ]),
+    );
+
+    expect(byProject.get('one')).toEqual([2 * 60_000, 2 * 60_000]);
+    expect(byProject.get('two')).toEqual([0, 0]);
+    expect(result.totalSeries.buckets.map((bucket) => bucket.value)).toEqual([
+      2 * 60_000,
+      4 * 60_000,
+    ]);
+  });
+
+  it('agrees with share per day across midnight in a non-UTC timezone', async () => {
+    // 18:30 UTC is midnight in Asia/Kolkata; gaps of 4 minutes cross it.
+    const events = [
+      ['a', '18:20'],
+      ['a', '18:24'],
+      ['a', '18:28'],
+      ['a', '18:32'],
+      ['b', '18:26'],
+      ['b', '18:30'],
+      ['c', '20:00'],
+      ['c', '20:03'],
+    ].map(([sessionId, time]) =>
+      createBaseEvent({ sessionId, timestamp: `2026-06-15T${time}:00.000Z` }),
+    );
+    const trends = await buildTrendsData(
+      {
+        metric: 'active-hours',
+        since: '2026-06-15',
+        until: '2026-06-16',
+        timezone: 'Asia/Kolkata',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-06-16T20:00:00.000Z'),
+        adapters: [createAdapter('pi', { '/tmp/a.jsonl': events })],
+      }),
+    );
+    const share = sharePayloadOf(events, 'Asia/Kolkata', '2026-06-16');
+    const shareByDay = new Map<string, number>();
+
+    share.dictionaries.periods.forEach((key, index) => {
+      const day = key.slice(0, 10);
+      shareByDay.set(day, (shareByDay.get(day) ?? 0) + share.cube.periodActiveMs[index]);
+    });
+
+    expect(trends.totalSeries.buckets.map(({ date, value }) => [date, value])).toEqual([
+      ['2026-06-15', 10 * 60_000],
+      ['2026-06-16', 5 * 60_000],
+    ]);
+    expect(Object.fromEntries(shareByDay)).toEqual(
+      Object.fromEntries(trends.totalSeries.buckets.map(({ date, value }) => [date, value])),
+    );
+    expect(trends.totalSeries.summary.total).toBe(
+      computeUnionActiveMs(
+        ['a', 'b', 'c'].map((sessionId) =>
+          events
+            .filter((event) => event.sessionId === sessionId)
+            .map((event) => Date.parse(event.timestamp)),
+        ),
+      ),
+    );
+  });
+
   it('agrees with wrapped, session and share on one fixture', async () => {
     const events = [
       ['a', '10:00'],
@@ -337,20 +445,7 @@ describe('buildTrendsData', () => {
     );
     const wrapped = aggregateWrapped(events, { year: 2026, timezone: 'UTC' });
     const sessions = aggregateSessions(events);
-    const share = buildSharePayload({
-      events,
-      costs: {},
-      timezone: 'UTC',
-      sourceOrder: ['pi'],
-      projectLabel: () => 'p',
-      machineLabel: (machine) => machine,
-      modelLabel: (model) => model ?? 'unknown',
-      blocks: [],
-      blockEvents: [],
-      blockCosts: {},
-      blockHours: 5,
-      windowEnd: '2026-03-05',
-    });
+    const share = sharePayloadOf(events, 'UTC', '2026-03-05');
     const total = (values: readonly number[]) => values.reduce((sum, value) => sum + value, 0);
 
     expect(trends.totalSeries.buckets[0]?.value).toBe(wallClockMs);

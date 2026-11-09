@@ -75,7 +75,7 @@ In terminal output, chart labels, the peak, and the spike list name days as `Mar
 ### `--metric active-hours`
 
 - Charts per-day active time: each day's events are grouped by session, a gap between consecutive events counts in full up to 5 minutes and not at all beyond that, and time where sessions overlap counts once, so a day never exceeds its length (24h, or 25h when clocks go back). The total is wall-clock Active time; with `--by-source` or `--by-repo`, each series takes the union of its own sessions, so when sources or projects ran in parallel the series can add up to more than the total.
-- A session crossing midnight splits at the day boundary: each day counts only the gaps between that day's events, so a gap across midnight counts for neither day. The total over a range can therefore be slightly below `wrapped`'s `Hours`, which counts those gaps.
+- A gap across midnight splits at the day boundary, each day counting its part, so the total over a range equals `wrapped`'s `Hours` for the same events.
 - A source whose sessions all have one event in the range (Droid and Goose log this way) has an active time of 0, and a note says so.
 - Terminal and Markdown output format durations (`2h 14m`); JSON `value`, `total`, `average`, and `peak.value` are **milliseconds**, matching session `activeMs`.
 - Skips pricing loads entirely, like `tokens`.

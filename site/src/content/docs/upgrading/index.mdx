@@ -12,6 +12,7 @@ Every report's `--json` output carries `schemaVersion: 1` since 0.8.0. New field
 - **A gap over 5 minutes now counts as zero active time,** not as 5 minutes. `session`, `wrapped` and `trends --metric active-hours` read lower, and a session with only long gaps reads 0.
 - **The interactive report separates Active time from Agent time.** With no label filter it shows wall-clock Active time, so parallel sessions no longer add up and cost per hour rises. With a filter, and in the project and session tables, it shows Agent time.
 - **`--share-json` is now `schemaVersion: 2`.** `cube.activeMs` and `sessions.rows[].activeMs` are now `agentMs`, and `cube.periodActiveMs` is new. The contract is `report-share.v2.schema.json`; a script reading the old names or checking for version 1 needs updating. The embedded command envelope stays at version 1.
+- **`trends --metric active-hours` counts a gap across midnight,** split between the two days, so totals can read slightly higher and match `wrapped`.
 
 ## 0.14.1 and 0.14.2
 

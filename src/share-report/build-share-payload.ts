@@ -8,7 +8,7 @@ import {
 } from '@ayagmar/agent-sessions/internal';
 import { shiftDateKey } from '../utils/date-key.js';
 import { formatLocalDateTime } from '../render/format-local-date-time.js';
-import { getPeriodKey } from '../utils/time-buckets.js';
+import { forEachPeriodPart, getPeriodKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { mapSessionRepoRoots } from '../session/aggregate-sessions.js';
 import { escapeJsonForScript } from './client/ui/export/share-document.js';
@@ -297,28 +297,6 @@ type CubeBuild = {
   periodActiveMs: number[];
   sessions: SessionAccumulator[];
 };
-
-/** Every UTC offset in use is a multiple of 15 minutes, so no period boundary falls inside a step. */
-const PERIOD_BOUNDARY_STEP_MS = 15 * 60 * 1000;
-
-/** Splits a stretch of time at period boundaries and passes each part's period and length. */
-function forEachPeriodPart(
-  startMs: number,
-  endMs: number,
-  periodKeyAt: (timestamp: string) => string,
-  add: (periodKey: string, ms: number) => void,
-): void {
-  let fromMs = startMs;
-
-  while (fromMs < endMs) {
-    const toMs = Math.min(
-      endMs,
-      (Math.floor(fromMs / PERIOD_BOUNDARY_STEP_MS) + 1) * PERIOD_BOUNDARY_STEP_MS,
-    );
-    add(periodKeyAt(new Date(fromMs).toISOString()), toMs - fromMs);
-    fromMs = toMs;
-  }
-}
 
 /**
  * Cells by (period, source, model, project, machine), and the sessions as `aggregate-sessions`

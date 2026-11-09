@@ -440,6 +440,28 @@ export function getPeriodKey(
   return getIsoWeekKey(localDate);
 }
 
+/** Every UTC offset in use is a multiple of 15 minutes, so no period boundary falls inside a step. */
+const PERIOD_BOUNDARY_STEP_MS = 15 * 60 * 1000;
+
+/** Splits a stretch of time at period boundaries and passes each part's period and length. */
+export function forEachPeriodPart(
+  startMs: number,
+  endMs: number,
+  periodKeyAt: (timestamp: string) => string,
+  add: (periodKey: string, ms: number) => void,
+): void {
+  let fromMs = startMs;
+
+  while (fromMs < endMs) {
+    const toMs = Math.min(
+      endMs,
+      (Math.floor(fromMs / PERIOD_BOUNDARY_STEP_MS) + 1) * PERIOD_BOUNDARY_STEP_MS,
+    );
+    add(periodKeyAt(new Date(fromMs).toISOString()), toMs - fromMs);
+    fromMs = toMs;
+  }
+}
+
 export function getLocalHour(timestampIso: string, timezone: string): number {
   const timestampMs = new Date(timestampIso).getTime();
 

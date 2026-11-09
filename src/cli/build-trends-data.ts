@@ -1,16 +1,17 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { findSpendSpikes, resolveSpikeBaselineStart } from '../aggregate/spend-spikes.js';
-import { computeUnionActiveMs, getEventSessionKey } from '@ayagmar/agent-sessions';
+import { getEventSessionKey } from '@ayagmar/agent-sessions';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
 import {
   compareByCodePoint,
+  computeActiveIntervals,
   createPricingRunStats,
   DEFAULT_PRICING_POLICY,
 } from '@ayagmar/agent-sessions/internal';
-import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
+import { forEachPeriodPart, getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildDatasetDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveReportTimezone, validateDateRangeOptions } from './build-usage-data-inputs.js';
@@ -216,12 +217,12 @@ function toProjectTrendValueRows(
   );
 }
 
-// Per-day wall-clock active time: order a day's events by session, split each
-// session into runs of consecutive events in one group, and take the union of each
-// group's runs (computeUnionActiveMs), so parallel sessions count once. Each day also gets
-// a `combined` value: the union of the day's whole sessions across groups. A session
-// crossing midnight splits at the day boundary; with --by-repo, a session splits at each
-// project switch, so a return to a project is a new run.
+// Per-day wall-clock active time: split each session into runs of consecutive events in one
+// group and take the union of each group's runs, so parallel sessions count once. The
+// `combined` value is the union of whole sessions across groups. Stretches split at local
+// midnight, so a gap across it counts on both sides and a range sums to its union. With
+// --by-repo, a session splits at each project switch: that gap counts for neither project,
+// and a return to a project is a new run.
 function sumActiveMsByDay<Group>(
   events: readonly UsageEvent[],
   timezone: string,
@@ -230,7 +231,10 @@ function sumActiveMsByDay<Group>(
   rows: { periodKey: string; group: Group; value: number }[];
   combinedByDay: Map<string, number>;
 } {
-  const sessionsByDate = new Map<string, Map<string, { timestampMs: number; group: Group }[]>>();
+  const sessions = new Map<string, { timestampMs: number; group: Group }[]>();
+  // Every day and group with an event has a row, even at zero: the chart marks it observed.
+  const msByDayAndGroup = new Map<string, Map<Group, number>>();
+  const combinedByDay = new Map<string, number>();
 
   for (const event of events) {
     const timestampMs = Date.parse(event.timestamp);
@@ -239,48 +243,61 @@ function sumActiveMsByDay<Group>(
       continue;
     }
 
+    const group = groupOf(event);
     const dateKey = getPeriodKey(event.timestamp, 'daily', timezone);
-    const sessions =
-      sessionsByDate.get(dateKey) ?? new Map<string, { timestampMs: number; group: Group }[]>();
+    const groups = msByDayAndGroup.get(dateKey) ?? new Map<Group, number>();
+    groups.set(group, 0);
+    msByDayAndGroup.set(dateKey, groups);
+    combinedByDay.set(dateKey, 0);
+
     const sessionKey = getEventSessionKey(event);
     const sessionEvents = sessions.get(sessionKey) ?? [];
-    sessionEvents.push({ timestampMs, group: groupOf(event) });
+    sessionEvents.push({ timestampMs, group });
     sessions.set(sessionKey, sessionEvents);
-    sessionsByDate.set(dateKey, sessions);
   }
 
-  const rows: { periodKey: string; group: Group; value: number }[] = [];
-  const combinedByDay = new Map<string, number>();
+  const runsByGroup = new Map<Group, number[][]>();
+  const sessionTimestamps: number[][] = [];
 
-  for (const [periodKey, sessions] of sessionsByDate) {
-    const runsByGroup = new Map<Group, number[][]>();
-    const sessionTimestamps: number[][] = [];
+  for (const sessionEvents of sessions.values()) {
+    sessionEvents.sort((left, right) => left.timestampMs - right.timestampMs);
+    sessionTimestamps.push(sessionEvents.map((entry) => entry.timestampMs));
+    let runStart = 0;
 
-    for (const sessionEvents of sessions.values()) {
-      sessionEvents.sort((left, right) => left.timestampMs - right.timestampMs);
-      sessionTimestamps.push(sessionEvents.map((entry) => entry.timestampMs));
-      let runStart = 0;
+    for (let index = 1; index <= sessionEvents.length; index += 1) {
+      const group = sessionEvents[runStart].group;
 
-      for (let index = 1; index <= sessionEvents.length; index += 1) {
-        const group = sessionEvents[runStart].group;
-
-        if (index < sessionEvents.length && sessionEvents[index].group === group) {
-          continue;
-        }
-
-        const runs = runsByGroup.get(group) ?? [];
-        runs.push(sessionEvents.slice(runStart, index).map((entry) => entry.timestampMs));
-        runsByGroup.set(group, runs);
-        runStart = index;
+      if (index < sessionEvents.length && sessionEvents[index].group === group) {
+        continue;
       }
-    }
 
-    for (const [group, runs] of runsByGroup) {
-      rows.push({ periodKey, group, value: computeUnionActiveMs(runs) });
+      const runs = runsByGroup.get(group) ?? [];
+      runs.push(sessionEvents.slice(runStart, index).map((entry) => entry.timestampMs));
+      runsByGroup.set(group, runs);
+      runStart = index;
     }
-
-    combinedByDay.set(periodKey, computeUnionActiveMs(sessionTimestamps));
   }
+
+  const dayKeyAt = (timestamp: string) => getPeriodKey(timestamp, 'daily', timezone);
+
+  for (const [group, runs] of runsByGroup) {
+    for (const [startMs, endMs] of computeActiveIntervals(runs)) {
+      forEachPeriodPart(startMs, endMs, dayKeyAt, (dateKey, ms) => {
+        const groups = msByDayAndGroup.get(dateKey);
+        groups?.set(group, (groups.get(group) ?? 0) + ms);
+      });
+    }
+  }
+
+  for (const [startMs, endMs] of computeActiveIntervals(sessionTimestamps)) {
+    forEachPeriodPart(startMs, endMs, dayKeyAt, (dateKey, ms) => {
+      combinedByDay.set(dateKey, (combinedByDay.get(dateKey) ?? 0) + ms);
+    });
+  }
+
+  const rows = [...msByDayAndGroup].flatMap(([periodKey, groups]) =>
+    [...groups].map(([group, value]) => ({ periodKey, group, value })),
+  );
 
   return { rows, combinedByDay };
 }
