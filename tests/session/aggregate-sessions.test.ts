@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
 import {
   aggregateSessions,
@@ -75,8 +74,8 @@ describe('aggregateSessions', () => {
   });
 
   it('computes raw duration and gap-capped active time per session', () => {
-    // Events at 10:00, 10:30 (30m gap, capped to 5m), 12:00 (90m gap, capped
-    // to 5m): durationMs = 2h, activeMs = 2 * IDLE_GAP_CAP_MS.
+    // Events at 10:00, 10:30 and 12:00: both gaps are over the cap, so durationMs = 2h and
+    // activeMs = 0.
     const rows = aggregateSessions([
       event({
         source: 'codex',
@@ -113,13 +112,13 @@ describe('aggregateSessions', () => {
 
     expect(timedRow).toMatchObject({
       durationMs: 2 * 60 * 60 * 1000,
-      activeMs: 2 * IDLE_GAP_CAP_MS,
+      activeMs: 0,
     });
     expect(singleRow).toMatchObject({ durationMs: 0, activeMs: 0 });
   });
 
   it('sums short gaps as-is inside active time', () => {
-    // Gaps: 3m + 90m (capped to 5m) = 8m active over a 93m duration.
+    // Gaps: 3m counts, 90m is over the cap: 3m active over a 93m duration.
     const rows = aggregateSessions([
       event({
         source: 'codex',
@@ -146,7 +145,7 @@ describe('aggregateSessions', () => {
 
     expect(rows[0]).toMatchObject({
       durationMs: 93 * 60 * 1000,
-      activeMs: 3 * 60 * 1000 + IDLE_GAP_CAP_MS,
+      activeMs: 3 * 60 * 1000,
     });
   });
 

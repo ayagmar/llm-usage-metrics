@@ -999,7 +999,7 @@ describe('trends lead', () => {
     const cost = trendsOf('trends-by-repo');
 
     expect(ledeText(active)).toBe(
-      '15m active over 181 days, <1m a day on average, peaking at 5m on 3 Jun 2026.',
+      '10m active over 181 days, <1m a day on average, peaking at 5m on 15 Jun 2026.',
     );
     expect(ledeText(cost)).toBe(
       '$0.09 over 3 days, $0.03 a day on average, peaking at $0.09 on 15 Jun 2026.',

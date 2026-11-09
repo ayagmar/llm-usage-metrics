@@ -26,7 +26,7 @@ describe('aggregateWrapped', () => {
   it('computes active time, peak hour, weekday split, and busiest day', () => {
     const recap = aggregateWrapped(
       [
-        // Session s-a on Monday 2026-01-05: gaps 3m + 90m (capped at 5m) = 8m.
+        // Session s-a on Monday 2026-01-05: the 3m gap counts, the 90m gap does not.
         baseEvent({
           sessionId: 's-a',
           timestamp: '2026-01-05T10:00:00.000Z',
@@ -56,7 +56,7 @@ describe('aggregateWrapped', () => {
       { year: 2026, timezone: 'UTC' },
     );
 
-    expect(recap.activeMs).toBe(8 * 60 * 1000);
+    expect(recap.activeMs).toBe(3 * 60 * 1000);
     // Hours 10 and 22 tie at 150 tokens; the lowest hour wins.
     expect(recap.peakHour).toEqual({ hour: 10, totalTokens: 150 });
     expect(recap.weekdayTokens).toBe(250);
@@ -78,7 +78,7 @@ describe('aggregateWrapped', () => {
         at('pi', 'pi-1', '10:00'),
         at('pi', 'pi-1', '10:04'),
         at('pi', 'pi-1', '10:08'),
-        // codex session covers 10:02-10:11 (its 6m gap is capped at 5m).
+        // codex session covers 10:02-10:06 (its 6m gap is over the cap).
         at('codex', 'codex-1', '10:02'),
         at('codex', 'codex-1', '10:06'),
         at('codex', 'codex-1', '10:12'),
@@ -87,7 +87,7 @@ describe('aggregateWrapped', () => {
     );
 
     // Union 10:00-10:11, not the 8m + 9m per-session sum.
-    expect(recap.activeMs).toBe(11 * 60 * 1000);
+    expect(recap.activeMs).toBe(8 * 60 * 1000);
   });
 
   it('leaves time stats empty for an empty year', () => {

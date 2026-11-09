@@ -211,7 +211,7 @@ function toProjectTrendValueRows(
   );
 }
 
-// Per-day gap-capped wall-clock active time: order a day's events by session, split each
+// Per-day wall-clock active time: order a day's events by session, split each
 // session into runs of consecutive events in one group, and take the union of each
 // group's runs (computeUnionActiveMs), so parallel sessions count once. Each day also gets
 // a `combined` value: the union of the day's whole sessions across groups. A session

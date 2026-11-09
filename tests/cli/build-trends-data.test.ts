@@ -120,7 +120,7 @@ describe('buildTrendsData', () => {
     expect(result.diagnostics.pricingOrigin).toBe('none');
   });
 
-  it('computes gap-capped active time per day and source for active-hours trends', async () => {
+  it('computes active time per day and source, dropping gaps over the cap, for active-hours trends', async () => {
     const pricingLoaderSpy = vi.fn(async () => ({
       source: createDefaultOpenAiPricingSource(),
       origin: 'cache' as const,
@@ -139,8 +139,8 @@ describe('buildTrendsData', () => {
         adapters: [
           createAdapter('pi', {
             '/tmp/pi.jsonl': [
-              // One session with a 10-minute gap (capped to 5 minutes) plus a
-              // single-event session that contributes zero.
+              // One session with a 10-minute gap (over the cap, so zero) plus a
+              // single-event session that also contributes zero.
               createBaseEvent({ sessionId: 'gapped', timestamp: '2026-03-05T10:00:00.000Z' }),
               createBaseEvent({ sessionId: 'gapped', timestamp: '2026-03-05T10:10:00.000Z' }),
               createBaseEvent({ sessionId: 'solo', timestamp: '2026-03-05T11:00:00.000Z' }),
@@ -167,11 +167,11 @@ describe('buildTrendsData', () => {
 
     expect(result.metric).toBe('active-hours');
     expect(result.totalSeries.buckets).toEqual([
-      { date: '2026-03-05', value: 300_000, observed: true, incomplete: undefined },
+      { date: '2026-03-05', value: 0, observed: true, incomplete: undefined },
       { date: '2026-03-06', value: 120_000, observed: true, incomplete: undefined },
     ]);
     expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'codex']);
-    expect(result.sourceSeries?.[0]?.buckets.map((bucket) => bucket.value)).toEqual([300_000, 0]);
+    expect(result.sourceSeries?.[0]?.buckets.map((bucket) => bucket.value)).toEqual([0, 0]);
     expect(result.sourceSeries?.[1]?.buckets.map((bucket) => bucket.value)).toEqual([0, 120_000]);
     expect(pricingLoaderSpy).not.toHaveBeenCalled();
     expect(result.diagnostics.pricingOrigin).toBe('none');
@@ -194,7 +194,7 @@ describe('buildTrendsData', () => {
         adapters: [
           createAdapter('pi', {
             '/tmp/pi.jsonl': [
-              // Two parallel pi sessions: 10:00-10:08 and 10:04-10:09 (6m gap capped at 5m).
+              // Two parallel pi sessions: 10:00-10:08, and pi-b whose 6m gap is over the cap.
               at('pi', 'pi-a', '10:00'),
               at('pi', 'pi-a', '10:04'),
               at('pi', 'pi-a', '10:08'),
@@ -204,7 +204,7 @@ describe('buildTrendsData', () => {
           }),
           createAdapter('codex', {
             '/tmp/codex.jsonl': [
-              // codex 10:06-10:11, overlapping both pi sessions.
+              // codex with one 6m gap, over the cap, so it adds nothing.
               at('codex', 'codex-a', '10:06'),
               at('codex', 'codex-a', '10:12'),
             ],
@@ -214,9 +214,68 @@ describe('buildTrendsData', () => {
     );
 
     const minutes = (ms: number | undefined) => (ms ?? 0) / 60_000;
-    // Wall clock 10:00-10:11, not 8 + 5 + 5 summed.
-    expect(minutes(result.totalSeries.buckets[0]?.value)).toBe(11);
-    expect(result.sourceSeries?.map((series) => minutes(series.buckets[0]?.value))).toEqual([9, 5]);
+    expect(minutes(result.totalSeries.buckets[0]?.value)).toBe(8);
+    expect(result.sourceSeries?.map((series) => minutes(series.buckets[0]?.value))).toEqual([8, 0]);
+  });
+
+  it('splits a session at local midnight, on a DST change too', async () => {
+    // New York fell back on 2026-11-01; local midnight on 2 Nov is 05:00 UTC.
+    const result = await buildTrendsData(
+      {
+        metric: 'active-hours',
+        since: '2026-11-01',
+        until: '2026-11-02',
+        timezone: 'America/New_York',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-11-03T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': ['04:53', '04:58', '05:02', '05:04'].map((time) =>
+              createBaseEvent({ sessionId: 'night', timestamp: `2026-11-02T${time}:00.000Z` }),
+            ),
+          }),
+        ],
+      }),
+    );
+
+    expect(result.totalSeries.buckets.map((bucket) => bucket.value)).toEqual([
+      5 * 60_000,
+      2 * 60_000,
+    ]);
+  });
+
+  it('keeps a by-repo day from counting a parallel project twice in the combined total', async () => {
+    const at = (sessionId: string, time: string, repoRoot: string) =>
+      createBaseEvent({ sessionId, repoRoot, timestamp: `2026-03-05T${time}:00.000Z` });
+    const result = await buildTrendsData(
+      {
+        metric: 'active-hours',
+        since: '2026-03-05',
+        until: '2026-03-05',
+        timezone: 'UTC',
+        byRepo: true,
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-05T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              at('a', '10:00', '/w/one'),
+              at('a', '10:04', '/w/one'),
+              at('b', '10:00', '/w/two'),
+              at('b', '10:04', '/w/two'),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.totalSeries.buckets[0]?.value).toBe(4 * 60_000);
+    expect(result.projectSeries?.map((series) => series.buckets[0]?.value)).toEqual([
+      4 * 60_000,
+      4 * 60_000,
+    ]);
   });
 
   it('uses explicit trailing day ranges when --last is provided', async () => {

@@ -11,7 +11,7 @@
     "costIncomplete": true,
     "activeDays": 11,
     "longestStreak": 2,
-    "activeMs": 1501000,
+    "activeMs": 601000,
     "peakHour": {
       "hour": 14,
       "totalTokens": 2440
