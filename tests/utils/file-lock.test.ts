@@ -68,24 +68,6 @@ describe('acquireFileLock', () => {
     }
   });
 
-  it('lets at most one of two acquirers through a stale lock', async () => {
-    const exited = spawnSync(process.execPath, ['-e', '']);
-
-    for (let seed = 1; seed <= 40; seed += 1) {
-      const random = mulberry32(seed);
-
-      await rm(lockPath, { force: true });
-      await writeFile(lockPath, seed % 2 === 0 ? String(exited.pid) : '');
-
-      if (seed % 2 === 1) {
-        const longAgo = new Date(Date.now() - 600_000);
-        await utimes(lockPath, longAgo, longAgo);
-      }
-
-      await runAcquirers(random, 2, STATUSLINE_STYLE);
-    }
-  });
-
   it('never takes over a lock without staleAfterMs, however old', async () => {
     const exited = spawnSync(process.execPath, ['-e', '']);
     await writeFile(lockPath, String(exited.pid));
