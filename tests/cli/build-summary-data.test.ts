@@ -181,33 +181,77 @@ function monthToDate(
 }
 
 describe('resolveMonthEnd', () => {
-  it('scales month-to-date cost to the whole month from the third day', () => {
-    expect(resolveMonthEnd('2026-03-10', monthToDate(100), undefined)).toEqual({
-      daysElapsed: 10,
-      daysInMonth: 31,
-      projectedCostUsd: 310,
-    });
-    expect(resolveMonthEnd('2026-03-03', monthToDate(30, true), 50)).toEqual({
+  // A month-to-date cost of $1 per elapsed day projects to the whole month's days.
+  const runAt = async (now: string, timezone: string, timestamps: string[]) =>
+    (
+      await buildSummaryData(
+        { timezone, pricingOffline: true },
+        runtimeDeps(
+          [
+            createAdapter(
+              'codex',
+              timestamps.map((timestamp) => createEvent(timestamp)),
+            ),
+          ],
+          now,
+        ),
+      )
+    ).monthEnd;
+
+  it('divides by the part of today gone by, not by a whole day', async () => {
+    // Catches a pace that divides by today's day of month: at 06:00 on the 3rd only 2.25
+    // days have passed, so dividing $3 by 3 would project $31 instead of $41.33.
+    const march = ['2026-03-01T05:00:00.000Z', '2026-03-02T05:00:00.000Z'];
+    const early = await runAt('2026-03-03T06:00:00.000Z', 'UTC', [
+      ...march,
+      '2026-03-03T05:00:00.000Z',
+    ]);
+    const late = await runAt('2026-03-03T18:00:00.000Z', 'UTC', [
+      ...march,
+      '2026-03-03T05:00:00.000Z',
+    ]);
+
+    expect(early).toEqual({
       daysElapsed: 3,
       daysInMonth: 31,
-      projectedCostUsd: 310,
-      costIncomplete: true,
-      budgetUsd: 50,
+      projectedCostUsd: early.projectedCostUsd,
     });
+    expect(early.projectedCostUsd).toBeCloseTo((3 / 2.25) * 31, 9);
+    expect(late.projectedCostUsd).toBeCloseTo((3 / 2.75) * 31, 9);
+  });
+
+  it('measures a DST day between its real midnights in the report timezone', async () => {
+    // Paris skips 02:00-03:00 on Mar 29, a 23-hour day. Local midnight is 23:00 UTC on the
+    // 28th, so 10:00 UTC is 11 of its 23 hours. Catches 24-hour day arithmetic (11/24) and
+    // wall-clock hours (12/24), and a day read in UTC instead of the report timezone.
+    const monthEnd = await runAt('2026-03-29T10:00:00.000Z', 'Europe/Paris', [
+      '2026-03-10T12:00:00.000Z',
+    ]);
+
+    expect(monthEnd.daysElapsed).toBe(29);
+    expect(monthEnd.projectedCostUsd).toBeCloseTo((1 / (28 + 11 / 23)) * 31, 9);
+  });
+
+  it("paces the last day of the month against the next month's first midnight", async () => {
+    // Catches a day end taken from the wrong month: on Mar 31 the day ends on Apr 1.
+    const monthEnd = await runAt('2026-03-31T18:00:00.000Z', 'UTC', ['2026-03-31T09:00:00.000Z']);
+
+    expect(monthEnd).toMatchObject({ daysElapsed: 31, daysInMonth: 31 });
+    expect(monthEnd.projectedCostUsd).toBeCloseTo((1 / 30.75) * 31, 9);
   });
 
   it('skips the projection in the first two days or without a cost, keeping the budget', () => {
-    expect(resolveMonthEnd('2026-03-02', monthToDate(100), 50)).toEqual({
-      daysElapsed: 2,
-      daysInMonth: 31,
-      budgetUsd: 50,
-    });
-    expect(resolveMonthEnd('2026-03-10', monthToDate(undefined), undefined)).toEqual({
+    const at = new Date('2026-03-10T12:00:00.000Z');
+
+    expect(
+      resolveMonthEnd(new Date('2026-03-02T23:59:00.000Z'), 'UTC', monthToDate(100), 50),
+    ).toEqual({ daysElapsed: 2, daysInMonth: 31, budgetUsd: 50 });
+    expect(resolveMonthEnd(at, 'UTC', monthToDate(undefined), undefined)).toEqual({
       daysElapsed: 10,
       daysInMonth: 31,
     });
     // An empty month has a zero cost, not a $0.00 pace.
-    expect(resolveMonthEnd('2026-03-10', monthToDate(0, false, 0), 50)).toEqual({
+    expect(resolveMonthEnd(at, 'UTC', monthToDate(0, false, 0), 50)).toEqual({
       daysElapsed: 10,
       daysInMonth: 31,
       budgetUsd: 50,
@@ -215,11 +259,14 @@ describe('resolveMonthEnd', () => {
   });
 
   it('knows the length of February in leap and common years', () => {
-    expect(resolveMonthEnd('2028-02-14', monthToDate(14), undefined)).toMatchObject({
-      daysInMonth: 29,
-      projectedCostUsd: 29,
-    });
-    expect(resolveMonthEnd('2026-02-14', monthToDate(14), undefined).daysInMonth).toBe(28);
+    expect(
+      resolveMonthEnd(new Date('2028-02-14T12:00:00.000Z'), 'UTC', monthToDate(14), undefined)
+        .daysInMonth,
+    ).toBe(29);
+    expect(
+      resolveMonthEnd(new Date('2026-02-14T12:00:00.000Z'), 'UTC', monthToDate(14), undefined)
+        .daysInMonth,
+    ).toBe(28);
   });
 });
 
@@ -289,7 +336,8 @@ describe('buildSummaryData', () => {
     const monthToDateCost = result.periods[2]?.totals.costUsd ?? 0;
     expect(monthToDateCost).toBeGreaterThan(0);
     expect(result.monthEnd).toMatchObject({ daysElapsed: 10, daysInMonth: 31, budgetUsd: 25 });
-    expect(result.monthEnd.projectedCostUsd).toBeCloseTo(monthToDateCost * 3.1, 6);
+    // 18:00 on Mar 10: 9.75 days gone by.
+    expect(result.monthEnd.projectedCostUsd).toBeCloseTo((monthToDateCost / 9.75) * 31, 6);
     // gpt-4.1 bundled pricing: $2.00 input vs $0.50 cache read per 1M tokens.
     expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
   });

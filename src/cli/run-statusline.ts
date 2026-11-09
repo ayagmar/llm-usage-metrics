@@ -212,7 +212,7 @@ export async function buildStatuslineData(
 ): Promise<StatuslineData> {
   // A status line refreshes often: cached or bundled prices and other machines' cached
   // usage only, never a network fetch or an ssh connection.
-  const { userConfigResolution, timezone, windows, today, since, dataset } =
+  const { userConfigResolution, timezone, windows, now, today, since, dataset } =
     await buildSummaryDataset({ ...options, pricingOffline: true, sync: false }, deps);
   // Today, the last 7 days, then month to date (resolveSummaryWindows).
   const [todayWindow, , monthToDateWindow] = windows;
@@ -256,7 +256,12 @@ export async function buildStatuslineData(
 
   return {
     periods,
-    monthEnd: resolveMonthEnd(today, periods[1], resolveMonthlyBudgetUsd(userConfigResolution)),
+    monthEnd: resolveMonthEnd(
+      now,
+      timezone,
+      periods[1],
+      resolveMonthlyBudgetUsd(userConfigResolution),
+    ),
     activity: { currentStreak },
     foundNoUsage: dataset.parsedFiles.length === 0 && dataset.filteredEvents.length === 0,
     today,

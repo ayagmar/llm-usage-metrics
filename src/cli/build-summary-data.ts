@@ -9,7 +9,8 @@ import { findSpendSpikes, findSpikeDrivers } from '../aggregate/spend-spikes.js'
 import { mergeCostIncomplete } from '../aggregate/usage-totals.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint, estimateCacheSavingsUsd } from '@ayagmar/agent-sessions/internal';
-import { getDaysInMonth } from '../utils/date-key.js';
+import { getLocalDayStartMs } from '../blocks/local-day-start.js';
+import { getDaysInMonth, shiftDateKey } from '../utils/date-key.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import {
@@ -94,11 +95,31 @@ function findEarliestSince(windows: readonly UsageDateWindow[], today: string): 
 // Two days of usage are too few to scale to a month.
 const MIN_PROJECTION_DAYS = 3;
 
+/**
+ * Days of the month gone by at `now`: the whole days before today plus the part of today
+ * already past, measured between today's and tomorrow's local midnights, so a 23- or 25-hour
+ * DST day still counts as one.
+ */
+function getElapsedMonthDays(today: string, now: Date, timezone: string): number {
+  const dayStartMs = getLocalDayStartMs(today, timezone);
+  const nextDayStartMs = getLocalDayStartMs(shiftDateKey(today, 1), timezone);
+  const dayFraction = (now.getTime() - dayStartMs) / (nextDayStartMs - dayStartMs);
+
+  return Number(today.slice(8, 10)) - 1 + dayFraction;
+}
+
+/**
+ * The month-to-date cost scaled to the whole month at the pace so far. `daysElapsed` stays
+ * today's day of the month; the pace divides by the days actually gone by, today counted
+ * only as far as `now`.
+ */
 export function resolveMonthEnd(
-  today: string,
+  now: Date,
+  timezone: string,
   monthToDate: Pick<SummaryPeriod, 'totals'> | undefined,
   budgetUsd: number | undefined,
 ): SummaryMonthEnd {
+  const today = getCurrentLocalDateKey(timezone, now);
   const daysElapsed = Number(today.slice(8, 10));
   const daysInMonth = getDaysInMonth(Number(today.slice(0, 4)), Number(today.slice(5, 7)));
   const costUsd = monthToDate?.totals.costUsd;
@@ -106,7 +127,7 @@ export function resolveMonthEnd(
   const hasUsage = (monthToDate?.totals.events ?? 0) > 0;
 
   if (hasUsage && costUsd !== undefined && daysElapsed >= MIN_PROJECTION_DAYS) {
-    monthEnd.projectedCostUsd = (costUsd / daysElapsed) * daysInMonth;
+    monthEnd.projectedCostUsd = (costUsd / getElapsedMonthDays(today, now, timezone)) * daysInMonth;
 
     if (monthToDate) {
       mergeCostIncomplete(monthEnd, monthToDate.totals);
@@ -224,6 +245,8 @@ export type SummaryDataset = {
   userConfigResolution: UserConfigResolution;
   timezone: string;
   windows: SummaryWindow[];
+  /** The instant the windows were resolved at. */
+  now: Date;
   today: string;
   /** First day of the activity grid, a year back, which covers every summary window. */
   since: string;
@@ -241,7 +264,8 @@ export async function buildSummaryDataset(
     configuredOptions,
     userConfigResolution.cliOptions,
   );
-  const windows = resolveSummaryWindows(timezone, deps.now?.() ?? new Date());
+  const now = deps.now?.() ?? new Date();
+  const windows = resolveSummaryWindows(timezone, now);
   const today = windows[0].until;
   const since = resolveActivityStart(today);
   const datasetOptions = { ...configuredOptions, since, until: today, timezone };
@@ -255,14 +279,14 @@ export async function buildSummaryDataset(
       }),
   );
 
-  return { userConfigResolution, timezone, windows, today, since, dataset };
+  return { userConfigResolution, timezone, windows, now, today, since, dataset };
 }
 
 export async function buildSummaryData(
   options: SummaryCommandOptions,
   deps: BuildSummaryDataDeps = {},
 ): Promise<SummaryDataResult> {
-  const { userConfigResolution, timezone, windows, today, since, dataset } =
+  const { userConfigResolution, timezone, windows, now, today, since, dataset } =
     await buildSummaryDataset(options, deps);
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
   const { pricedEvents, pricingSource } = pricingResult;
@@ -353,7 +377,12 @@ export async function buildSummaryData(
   return {
     timezone,
     periods,
-    monthEnd: resolveMonthEnd(today, monthToDate, resolveMonthlyBudgetUsd(userConfigResolution)),
+    monthEnd: resolveMonthEnd(
+      now,
+      timezone,
+      monthToDate,
+      resolveMonthlyBudgetUsd(userConfigResolution),
+    ),
     monthToDateCacheSavingsUsd,
     activity,
     spike,

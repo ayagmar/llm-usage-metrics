@@ -486,6 +486,7 @@ type SummaryPreviousPeriod = {
 
 /** Month-to-date run rate and the configured budget. */
 export type SummaryMonthEnd = {
+  /** Today's day of the month. The projection divides by the time gone by, today only up to now. */
   daysElapsed: number;
   daysInMonth: number;
   /** Month-to-date cost scaled to the whole month; absent before day 3, without usage, or without a known cost. */
