@@ -103,4 +103,15 @@ describe('acquireFileLock when Windows refuses a create', () => {
       acquireFileLock(lockPath, { waitMs: 0, retryMs: 1, staleAfterMs: 1_000 }),
     ).resolves.toMatchObject({ status: 'busy' });
   });
+
+  it('is unavailable when a stale lock cannot be moved and the directory cannot be written', async () => {
+    await writeFile(lockPath, '');
+    await utimes(lockPath, new Date(0), new Date(0));
+    fsHooks.refuseRename = true;
+    fsHooks.refuseOpen = (filePath) => filePath !== lockPath;
+
+    await expect(
+      acquireFileLock(lockPath, { waitMs: 0, retryMs: 1, staleAfterMs: 1_000 }),
+    ).resolves.toMatchObject({ status: 'unavailable', error: { code: 'EPERM' } });
+  });
 });

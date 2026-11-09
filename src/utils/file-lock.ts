@@ -80,7 +80,7 @@ async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<
       return true;
     }
 
-    if (mayBeContended(error)) {
+    if (mayBeContended(error) && (await canCreateFilesBeside(lockPath))) {
       return false;
     }
 
