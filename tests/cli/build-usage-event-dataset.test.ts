@@ -406,7 +406,6 @@ describe('buildUsageEventDataset history', () => {
 
   it('stops a running machine refresh when --history cannot open the store', async () => {
     const dataHome = await mkdtemp(path.join(os.tmpdir(), 'usage-event-dataset-refresh-'));
-    tempDirs.push(dataHome);
     vi.stubEnv('XDG_DATA_HOME', dataHome);
     const remote = createInProcessRemote({
       configPath: path.join(dataHome, 'unused.toml'),
@@ -447,6 +446,8 @@ describe('buildUsageEventDataset history', () => {
       expect(remote.killed).toHaveLength(1);
     } finally {
       vi.unstubAllEnvs();
+      // The aborted sync can still hold its cache open, which Windows will not delete.
+      await rm(dataHome, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
     }
   });
 
@@ -545,6 +546,31 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.warnings).toEqual([
       'config warning',
       'Event store disabled after failure: database is locked',
+    ]);
+  });
+
+  it('puts a history load failure before the unmatched-filter warning', async () => {
+    const dataset = await buildUsageEventDataset(
+      { source: 'codex', model: 'no-such-model', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(await createEventStorePath()),
+        ...(await withSessionAdapter(createEvent())),
+        loadUserConfig: async () => ({
+          config: {},
+          path: '/tmp/config.toml',
+          exists: true,
+          warnings: ['config warning'],
+        }),
+        loadHistoryEvents: () => {
+          throw new Error('database is locked');
+        },
+      },
+    );
+
+    expect(dataset.warnings).toEqual([
+      'config warning',
+      'Event store disabled after failure: database is locked',
+      expect.stringContaining('no-such-model'),
     ]);
   });
 
