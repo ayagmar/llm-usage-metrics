@@ -9,13 +9,17 @@ import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.
 import {
   closeEventStore,
   openEventStore,
+  recordGitRoots,
   replaceFileEvents,
+  type EventStore,
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
 import { loadHistoryEvents } from '../../src/persistence/event-store-history.js';
 import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { readFrom } from '../helpers/fake-read.js';
+import { createInProcessRemote } from '../helpers/machine-remote.js';
 
 const tempDirs: string[] = [];
 
@@ -238,6 +242,7 @@ describe('buildUsageEventDataset history', () => {
 
   it('skips default history quietly when the event store is disabled', async () => {
     const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
+    const openEventStoreSpy = vi.fn(openEventStore);
 
     const dataset = await buildUsageEventDataset(
       { source: 'codex', timezone: 'UTC' },
@@ -250,9 +255,11 @@ describe('buildUsageEventDataset history', () => {
         }),
         createAdapters: () => [createAdapter('codex', {})],
         loadHistoryEvents: loadHistoryEventsSpy,
+        openEventStore: openEventStoreSpy,
       },
     );
 
+    expect(openEventStoreSpy).not.toHaveBeenCalled();
     expect(loadHistoryEventsSpy).not.toHaveBeenCalled();
     expect(dataset.warnings).toEqual([]);
   });
@@ -395,6 +402,198 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.warnings).toEqual([
       `Event store disabled after failure: EEXIST: file already exists, mkdir '${eventStore.parent}'`,
     ]);
+  });
+
+  it('stops a running machine refresh when --history cannot open the store', async () => {
+    const dataHome = await mkdtemp(path.join(os.tmpdir(), 'usage-event-dataset-refresh-'));
+    tempDirs.push(dataHome);
+    vi.stubEnv('XDG_DATA_HOME', dataHome);
+    const remote = createInProcessRemote({
+      configPath: path.join(dataHome, 'unused.toml'),
+      eventStorePath: path.join(dataHome, 'unused.db'),
+      hang: true,
+    });
+    let markRefreshRunning: () => void = () => undefined;
+    const refreshRunning = new Promise<void>((resolve) => {
+      markRefreshRunning = resolve;
+    });
+
+    try {
+      await expect(
+        buildUsageEventDataset(
+          { history: true, source: 'codex', timezone: 'UTC' },
+          {
+            ...createDatasetDeps(path.join(dataHome, 'events.db')),
+            createAdapters: () => [createAdapter('codex', {})],
+            loadUserConfig: async () => ({
+              config: { machines: { box: { ssh: 'box.invalid' } } },
+              path: path.join(dataHome, 'config.toml'),
+              exists: true,
+              warnings: [],
+            }),
+            spawnSsh: (args) => {
+              const child = remote.spawnSsh(args);
+              markRefreshRunning();
+              return child;
+            },
+            openEventStore: async () => {
+              await refreshRunning;
+              throw new Error('disk full');
+            },
+          },
+        ),
+      ).rejects.toThrow('--history could not open the event store');
+
+      expect(remote.killed).toHaveLength(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  async function createSessionFile(): Promise<string> {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-event-dataset-session-'));
+    tempDirs.push(tempDir);
+    const filePath = path.join(tempDir, 'session.jsonl');
+    await writeFile(filePath, '{}\n', 'utf8');
+    return filePath;
+  }
+
+  /** A real store whose file table is gone, so the first read of a parse fails. */
+  function openStoreThatFailsDuringParse() {
+    return vi.fn(async (filePath: string) => {
+      const store = await openEventStore(filePath);
+      store.database.exec('DROP TABLE files');
+      return store;
+    });
+  }
+
+  async function withSessionAdapter(event: UsageEvent) {
+    const adapter = createAdapter('codex', { [await createSessionFile()]: [event] });
+    return { createAdapters: () => [adapter] };
+  }
+
+  const parseFailureWarning = 'Event store disabled after failure: no such table: files';
+
+  it('warns without throwing, and closes once, when the store fails during a --history parse', async () => {
+    const event = createEvent();
+    const closeEventStoreSpy = vi.fn(closeEventStore);
+    const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
+
+    const dataset = await buildUsageEventDataset(
+      { history: true, source: 'codex', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(await createEventStorePath()),
+        ...(await withSessionAdapter(event)),
+        openEventStore: openStoreThatFailsDuringParse(),
+        closeEventStore: closeEventStoreSpy,
+        loadHistoryEvents: loadHistoryEventsSpy,
+      },
+    );
+
+    expect(dataset.filteredEvents).toEqual([event]);
+    expect(dataset.ledger).toBeUndefined();
+    expect(dataset.warnings).toEqual([parseFailureWarning]);
+    expect(dataset.notes).toEqual([]);
+    expect(loadHistoryEventsSpy).not.toHaveBeenCalled();
+    expect(closeEventStoreSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails machine export with its own error when the store fails during the parse', async () => {
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        runMachineExport(
+          {},
+          {
+            ...createDatasetDeps(await createEventStorePath()),
+            ...(await withSessionAdapter(createEvent())),
+            openEventStore: openStoreThatFailsDuringParse(),
+          },
+        ),
+      ).rejects.toThrow('machine export reads the event store, which is disabled or failed');
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
+  it('keeps the ledger and stored git roots when loading history fails, even with --history', async () => {
+    const eventStorePath = await createEventStorePath();
+    const store = await openEventStore(eventStorePath);
+    recordGitRoots(store, new Map([['/work/tree', '/work/repo']]));
+    closeEventStore(store);
+
+    const dataset = await buildUsageEventDataset(
+      { history: true, source: 'codex', model: 'gpt-4.1', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(eventStorePath),
+        ...(await withSessionAdapter(createEvent({ repoRoot: '/work/tree' }))),
+        loadUserConfig: async () => ({
+          config: {},
+          path: '/tmp/config.toml',
+          exists: true,
+          warnings: ['config warning'],
+        }),
+        loadHistoryEvents: () => {
+          throw new Error('database is locked');
+        },
+      },
+    );
+
+    expect(dataset.ledger).toBeDefined();
+    expect(dataset.filteredEvents.map((event) => event.repoRoot)).toEqual(['/work/repo']);
+    expect(dataset.warnings).toEqual([
+      'config warning',
+      'Event store disabled after failure: database is locked',
+    ]);
+  });
+
+  it('returns the dataset with the close failure as the last warning', async () => {
+    const closeEventStoreSpy = vi.fn((store: EventStore) => {
+      closeEventStore(store);
+      throw new Error('checkpoint failed');
+    });
+
+    const dataset = await buildUsageEventDataset(
+      { source: 'codex', model: 'no-such-model', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(await createEventStorePath()),
+        ...(await withSessionAdapter(createEvent())),
+        closeEventStore: closeEventStoreSpy,
+      },
+    );
+
+    expect(dataset.ledger).toBeDefined();
+    expect(dataset.warnings).toHaveLength(2);
+    expect(dataset.warnings[0]).toContain('no-such-model');
+    expect(dataset.warnings[1]).toBe('Event store disabled after failure: checkpoint failed');
+    expect(closeEventStoreSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the original error when closing also fails on a throwing run', async () => {
+    const closeEventStoreSpy = vi.fn((store: EventStore) => {
+      closeEventStore(store);
+      throw new Error('checkpoint failed');
+    });
+    const failingAdapter: SourceAdapter = {
+      id: 'codex',
+      discoverFiles: async () => {
+        throw new Error('codex discovery failed');
+      },
+      read: readFrom(async () => []),
+    };
+
+    await expect(
+      buildUsageEventDataset(
+        { source: 'codex', timezone: 'UTC' },
+        {
+          ...createDatasetDeps(await createEventStorePath()),
+          createAdapters: () => [failingAdapter],
+          closeEventStore: closeEventStoreSpy,
+        },
+      ),
+    ).rejects.toThrow('Failed to parse explicitly requested source(s): codex');
+    expect(closeEventStoreSpy).toHaveBeenCalledTimes(1);
   });
 
   it('excludes sources whose parse failed from history loading', async () => {

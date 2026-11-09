@@ -682,6 +682,38 @@ describe('build-usage-data-parsing', () => {
     ]);
   });
 
+  it('stops store access in every adapter after the first failure, with one warning', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-shared-failure-'));
+    tempDirs.push(tempDir);
+
+    const fileA = path.join(tempDir, 'a.jsonl');
+    const fileB = path.join(tempDir, 'b.jsonl');
+    await writeFingerprintFixture(fileA, '{"line":1}\n', 1_700_000_001);
+    await writeFingerprintFixture(fileB, '{"line":1}\n', 1_700_000_001);
+
+    const store = { filePath: path.join(tempDir, 'events.db') } as unknown as EventStore;
+    const getFileEntry = vi.fn(() => {
+      throw new Error('database locked');
+    });
+    const replaceFilesEvents = vi.fn();
+
+    const result = await parseSelectedAdapters(
+      [createStoreBackedAdapter('pi', [fileA]), createStoreBackedAdapter('codex', [fileB])],
+      1,
+      {
+        eventStore: { enabled: true, path: store.filePath },
+        openedStore: store,
+        eventStoreDeps: { getFileEntry, replaceFilesEvents },
+      },
+    );
+
+    expect(result.successfulParseResults.flatMap((parsed) => parsed.events)).toHaveLength(2);
+    expect(result.eventStoreAvailable).toBe(false);
+    expect(result.warnings).toEqual(['Event store disabled after failure: database locked']);
+    expect(getFileEntry).toHaveBeenCalledTimes(1);
+    expect(replaceFilesEvents).not.toHaveBeenCalled();
+  });
+
   it('skips fingerprint work for remaining files after the store is disabled', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-disabled-gate-'));
     tempDirs.push(tempDir);

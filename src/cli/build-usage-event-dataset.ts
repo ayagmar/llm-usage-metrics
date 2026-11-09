@@ -4,6 +4,7 @@ import {
   getEventStoreRuntimeConfig,
   getParsingRuntimeConfig,
   getPricingFetcherRuntimeConfig,
+  type EventStoreRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { truncateNames } from '../render/truncate-names.js';
@@ -275,6 +276,38 @@ function attributeMachinesToLocalRepositories(
   }));
 }
 
+/** Whether this run has a store to read and write, decided once when it opens. */
+type EventStoreOpenResult =
+  | { kind: 'disabled' }
+  | { kind: 'open-failed'; warning: string }
+  | { kind: 'open'; store: EventStore };
+
+async function openRunEventStore(
+  runtimeConfig: EventStoreRuntimeConfig,
+  historyRequested: boolean,
+  openStore: (filePath: string) => Promise<EventStore>,
+): Promise<EventStoreOpenResult> {
+  if (!runtimeConfig.enabled) {
+    return { kind: 'disabled' };
+  }
+
+  try {
+    return { kind: 'open', store: await openStore(runtimeConfig.path) };
+  } catch (error) {
+    if (historyRequested) {
+      throw new Error(
+        `--history could not open the event store at ${runtimeConfig.path}: ${getErrorReason(error)}`,
+        { cause: error },
+      );
+    }
+
+    return {
+      kind: 'open-failed',
+      warning: `Event store disabled after failure: ${getErrorReason(error)}`,
+    };
+  }
+}
+
 export type UsageEventDataset = {
   options: ReportCommandOptions;
   normalizedInputs: ReturnType<typeof normalizeBuildUsageInputs>;
@@ -407,11 +440,24 @@ export async function buildUsageEventDataset(
         );
   const includeHistory = configuredOptions.history !== false;
 
-  let openedEventStore: EventStore | undefined;
+  let storeToClose: EventStore | undefined;
   let dataset: UsageEventDataset | undefined;
 
   try {
-    let eventStoreOpenWarning: string | undefined;
+    // Stages of one name add up, so the open still counts toward parsing.
+    const eventStoreOpen = await measureRuntimeProfileStage(
+      runtimeProfile,
+      'usage.dataset.parse_adapters',
+      () =>
+        openRunEventStore(
+          eventStoreRuntimeConfig,
+          historyRequested,
+          deps.openEventStore ?? openEventStore,
+        ),
+    );
+    const store = eventStoreOpen.kind === 'open' ? eventStoreOpen.store : undefined;
+    storeToClose = store;
+
     const {
       successfulParseResults,
       discoveredFiles,
@@ -420,47 +466,21 @@ export async function buildUsageEventDataset(
       eventStoreAvailable,
       sourceFailures,
       warnings,
-    } = await measureRuntimeProfileStage(
-      runtimeProfile,
-      'usage.dataset.parse_adapters',
-      async () => {
-        let parseEventStoreRuntimeConfig = eventStoreRuntimeConfig;
-
-        if (eventStoreRuntimeConfig.enabled) {
-          try {
-            const openStore = deps.openEventStore ?? openEventStore;
-            openedEventStore = await openStore(eventStoreRuntimeConfig.path);
-          } catch (error) {
-            if (historyRequested) {
-              throw new Error(
-                `--history could not open the event store at ${eventStoreRuntimeConfig.path}: ${getErrorReason(error)}`,
-                { cause: error },
-              );
-            }
-
-            eventStoreOpenWarning = `Event store disabled after failure: ${getErrorReason(error)}`;
-            parseEventStoreRuntimeConfig = {
-              enabled: false,
-              path: eventStoreRuntimeConfig.path,
-              disabledBy: 'configuration',
-            };
-          }
-        }
-
-        return parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
-          eventStore: parseEventStoreRuntimeConfig,
-          openedStore: openedEventStore,
-          overrideSourceIds: cliDirectorySourceIds,
-          since: request.lookbackSince ?? configuredOptions.since,
-          parseWorkers: {
-            workerCount: parsingRuntimeConfig.parseWorkers,
-            minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
-          },
-          runtimeProfile,
-        });
-      },
+    } = await measureRuntimeProfileStage(runtimeProfile, 'usage.dataset.parse_adapters', () =>
+      parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
+        eventStore: store && eventStoreRuntimeConfig,
+        openedStore: store,
+        overrideSourceIds: cliDirectorySourceIds,
+        since: request.lookbackSince ?? configuredOptions.since,
+        parseWorkers: {
+          workerCount: parsingRuntimeConfig.parseWorkers,
+          minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
+        },
+        runtimeProfile,
+      }),
     );
-    const parseWarnings = eventStoreOpenWarning ? [eventStoreOpenWarning, ...warnings] : warnings;
+    const parseWarnings =
+      eventStoreOpen.kind === 'open-failed' ? [eventStoreOpen.warning, ...warnings] : warnings;
 
     throwOnExplicitSourceFailures(sourceFailures, normalizedInputs.explicitSourceIds);
 
@@ -476,7 +496,6 @@ export async function buildUsageEventDataset(
     const historyWarnings: string[] = [];
     const historyNotes: ReportNote[] = [];
 
-    const historyStore = openedEventStore;
     const failedFileKeys = new Set(failedFiles.map((file) => `${file.source}\0${file.filePath}`));
 
     // By default, a source pointed at a custom directory (e.g. an export) gets no history:
@@ -485,7 +504,7 @@ export async function buildUsageEventDataset(
       .map((result) => result.source)
       .filter((source) => historyRequested || !cliDirectorySourceIds.has(source.toLowerCase()));
 
-    if (includeHistory && eventStoreAvailable && historyStore && historySources.length > 0) {
+    if (includeHistory && eventStoreAvailable && store && historySources.length > 0) {
       const loadHistoryEvents = deps.loadHistoryEvents ?? loadDefaultHistoryEvents;
 
       try {
@@ -494,9 +513,9 @@ export async function buildUsageEventDataset(
           'usage.dataset.history',
           async () =>
             loadHistoryEvents(
-              historyStore,
+              store,
               await addStoredFilesStillOnDisk(
-                historyStore,
+                store,
                 {
                   // Only successfully parsed sources: a failed source has an empty
                   // discovered set, so all its stored files would look departed.
@@ -510,7 +529,7 @@ export async function buildUsageEventDataset(
                   // their source's usual location, so a run there leaves them out.
                   presentFiles: [
                     ...failedFiles,
-                    ...readOverrideOnlyFiles(historyStore).filter(
+                    ...readOverrideOnlyFiles(store).filter(
                       (file) => !cliDirectorySourceIds.has(file.source),
                     ),
                   ],
@@ -659,7 +678,7 @@ export async function buildUsageEventDataset(
         () =>
           attributeWorktreesToRepositories(
             parseResultsForFiltering,
-            eventStoreAvailable ? openedEventStore : undefined,
+            eventStoreAvailable ? store : undefined,
             repoFilter,
           ),
       );
@@ -753,10 +772,10 @@ export async function buildUsageEventDataset(
     // Settled already on success; stops a refresh the failed run no longer needs.
     machineRefreshAbort.abort();
 
-    if (openedEventStore) {
+    if (storeToClose) {
       try {
         const closeStore = deps.closeEventStore ?? closeEventStore;
-        closeStore(openedEventStore);
+        closeStore(storeToClose);
       } catch (error) {
         dataset?.warnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
       }
