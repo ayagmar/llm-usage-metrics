@@ -2,6 +2,7 @@
 // and the month so far, the month-end notes, the streaks and the year's calendar), from the
 // embedded `summary --json` data. Fixed at generation: the page's filters do not change it.
 
+import { isRecord } from '../../../../../packages/core/src/utils/as-record.js';
 import { computeDeltaRatio } from '../../../../utils/delta-ratio.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
@@ -13,7 +14,6 @@ import {
   formatEnvelopeCost,
   formatSignedRatio,
   getEnvelopeData,
-  isRecord,
   readNumber,
   readRecords,
   readString,

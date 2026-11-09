@@ -1,4 +1,4 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from '../../utils/time-constants.js';
 
 /**
  * Files whose newest mtime is before this instant cannot hold events on or after `since`

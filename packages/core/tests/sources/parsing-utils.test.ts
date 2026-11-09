@@ -5,11 +5,16 @@ import {
   hasPositiveUsageOrCostSignal,
   isBlankText,
   normalizeTimestampCandidate,
+  parseFiniteNumber,
   resolveTotalTokens,
   resolveUsageTotalTokens,
   splitPromptIncludingCachedTokens,
   toFiniteNumber,
+  toNonNegativeInteger,
+  toNonNegativeNumber,
   toNumberLike,
+  toStrictNonNegativeInteger,
+  toStrictNonNegativeNumber,
   toTokenCount,
 } from '../../src/sources/parsing-utils.js';
 
@@ -45,6 +50,38 @@ describe('source parsing helpers', () => {
     expect(toFiniteNumber(undefined)).toBeUndefined();
     expect(toFiniteNumber(Number.POSITIVE_INFINITY)).toBeUndefined();
     expect(toFiniteNumber(-5)).toBe(-5);
+  });
+
+  // Columns: parseFiniteNumber, toNonNegativeNumber, toNonNegativeInteger,
+  // toStrictNonNegativeNumber, toStrictNonNegativeInteger, toTokenCount.
+  const none = undefined;
+  it.each<[unknown, ...(number | undefined)[]]>([
+    [2.5, 2.5, 2.5, 2, 2.5, 2, 2],
+    ['2.5', 2.5, 2.5, 2, none, none, 2],
+    [' 7 ', 7, 7, 7, none, none, 7],
+    [0, 0, 0, 0, 0, 0, 0],
+    ['', none, none, none, none, none, 0],
+    ['   ', none, none, none, none, none, 0],
+    ['abc', none, none, none, none, none, 0],
+    [Number.NaN, none, none, none, none, none, 0],
+    ['NaN', none, none, none, none, none, 0],
+    [Number.POSITIVE_INFINITY, none, none, none, none, none, 0],
+    ['Infinity', none, none, none, none, none, 0],
+    [-3.5, -3.5, none, none, none, none, 0],
+    ['-3.5', -3.5, none, none, none, none, 0],
+    [null, none, none, none, none, none, 0],
+    [undefined, none, none, none, none, none, 0],
+    [true, none, none, none, none, none, 0],
+    [{}, none, none, none, none, none, 0],
+  ])('coerces %j per variant', (input, ...expected) => {
+    expect([
+      parseFiniteNumber(input),
+      toNonNegativeNumber(input),
+      toNonNegativeInteger(input),
+      toStrictNonNegativeNumber(input),
+      toStrictNonNegativeInteger(input),
+      toTokenCount(input),
+    ]).toEqual(expected);
   });
 
   it('detects positive usage or cost signal', () => {

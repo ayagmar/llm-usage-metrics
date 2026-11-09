@@ -6,7 +6,7 @@ import {
   asTrimmedText,
   normalizeTimestampCandidate,
   resolveTotalTokens,
-  toNumberLike,
+  toNonNegativeNumber,
   toTokenCount,
 } from '../parsing-utils.js';
 import { recordSkippedRow } from '../parse-diagnostics.js';
@@ -41,26 +41,6 @@ function resolveTimestamp(
   }
 
   return undefined;
-}
-
-function parseNonNegativeNumber(value: unknown): number | undefined {
-  const parsed = toNumberLike(value);
-
-  if (parsed === undefined || parsed === null) {
-    return undefined;
-  }
-
-  if (typeof parsed === 'string' && parsed.trim() === '') {
-    return undefined;
-  }
-
-  const numberValue = typeof parsed === 'number' ? parsed : Number(parsed);
-
-  if (!Number.isFinite(numberValue) || numberValue < 0) {
-    return undefined;
-  }
-
-  return numberValue;
 }
 
 function normalizeSessionIdCandidate(value: unknown): string | undefined {
@@ -183,7 +163,7 @@ function createRequestEvent(
     declaredTotalTokens,
     inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens,
   );
-  const explicitCost = parseNonNegativeNumber(request.cost);
+  const explicitCost = toNonNegativeNumber(request.cost);
 
   if (
     !hasUsageSignal(
@@ -224,7 +204,7 @@ function hasUsageSignal(usageFields: Array<unknown>, explicitCost: number | unde
   }
 
   return usageFields.some((value) => {
-    const parsed = parseNonNegativeNumber(value);
+    const parsed = toNonNegativeNumber(value);
     return parsed !== undefined && parsed > 0;
   });
 }

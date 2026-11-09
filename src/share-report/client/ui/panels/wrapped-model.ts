@@ -1,6 +1,7 @@
 // The wrapped recap: the year's figures, the daily calendar and the top lists, from the
 // embedded `wrapped --json` data. Fixed at generation: the page's filters do not change it.
 
+import { isRecord } from '../../../../../packages/core/src/utils/as-record.js';
 import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { formatHours } from '../../../../render/format-duration.js';
 import { getWindowEnd, NO_VALUE, type ShareReport } from '../../core/index.js';
@@ -9,7 +10,6 @@ import { buildCalendar, type CalendarView } from './calendar-model.js';
 import {
   formatEnvelopeCost,
   getEnvelopeData,
-  isRecord,
   readNumber,
   readRecords,
   readString,

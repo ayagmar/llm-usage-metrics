@@ -7,6 +7,7 @@ import {
   readDigits,
   type DateKeyGranularity,
 } from './date-key.js';
+import { DAY_MS, HOUR_MS, MINUTE_MS, SECOND_MS } from './time-constants.js';
 
 export type ReportGranularity = 'daily' | 'weekly' | 'monthly';
 
@@ -45,10 +46,6 @@ type LocalDateWindowCache = {
   byDayIndex: Map<number, LocalDateWindow>;
 };
 
-const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
-const SECOND_MS = 1000;
 const dateTimeFormatterCache = new Map<string, Intl.DateTimeFormat>();
 const localDateWindowCaches = new Map<string, LocalDateWindowCache>();
 

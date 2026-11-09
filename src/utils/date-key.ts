@@ -1,7 +1,9 @@
 // Calendar arithmetic on local `YYYY-MM-DD` date keys: weekdays, ISO weeks, months and key
-// ranges. Pure, with no imports and no module state, so the share report's browser client
+// ranges. Pure, with no Node imports and no module state, so the share report's browser client
 // bundles the same implementation the CLI uses (`time-buckets.ts`). Only UTC `Date` math:
 // a date key has no timezone left to apply.
+
+import { DAY_MS } from './time-constants.js';
 
 export type DateParts = {
   year: number;
@@ -11,8 +13,6 @@ export type DateParts = {
 
 /** Granularities whose keys derive from a date key alone. */
 export type DateKeyGranularity = 'day' | 'week' | 'month';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Days since 1970-01-01 for a calendar date. */
 function toDayNumber(parts: DateParts): number {

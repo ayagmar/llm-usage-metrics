@@ -1,6 +1,8 @@
 import {
   hasControlCharacters,
   normalizeProviderToBillingEntity,
+  toStrictNonNegativeInteger,
+  toStrictNonNegativeNumber,
 } from '@ayagmar/agent-sessions/internal';
 import { parseCanonicalTimestampMs } from '../utils/time-buckets.js';
 import {
@@ -9,7 +11,7 @@ import {
   type UsageEvent,
   type UsageEventInput,
 } from '../domain/usage-event.js';
-import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
+import { toText } from './event-store-database.js';
 
 const FAST_PATH_REJECT = Symbol('fast path reject');
 
@@ -87,14 +89,14 @@ function slowNormalizeStoredEvent(row: Record<string, unknown>): UsageEvent | un
     repoRoot: toText(row.repo_root),
     provider: toText(row.provider),
     model: toText(row.model),
-    inputTokens: toNonNegativeInteger(row.input_tokens),
-    outputTokens: toNonNegativeInteger(row.output_tokens),
-    reasoningTokens: toNonNegativeInteger(row.reasoning_tokens),
-    cacheReadTokens: toNonNegativeInteger(row.cache_read_tokens),
-    cacheWriteTokens: toNonNegativeInteger(row.cache_write_tokens),
-    cacheWrite1hTokens: toNonNegativeInteger(row.cache_write_1h_tokens),
-    totalTokens: toNonNegativeInteger(row.total_tokens),
-    costUsd: toNonNegativeNumber(row.cost_usd),
+    inputTokens: toStrictNonNegativeInteger(row.input_tokens),
+    outputTokens: toStrictNonNegativeInteger(row.output_tokens),
+    reasoningTokens: toStrictNonNegativeInteger(row.reasoning_tokens),
+    cacheReadTokens: toStrictNonNegativeInteger(row.cache_read_tokens),
+    cacheWriteTokens: toStrictNonNegativeInteger(row.cache_write_tokens),
+    cacheWrite1hTokens: toStrictNonNegativeInteger(row.cache_write_1h_tokens),
+    totalTokens: toStrictNonNegativeInteger(row.total_tokens),
+    costUsd: toStrictNonNegativeNumber(row.cost_usd),
     singleRequest: row.single_request === 1,
     costMode,
     messageId: toText(row.message_id),

@@ -48,7 +48,7 @@ describe('share client bundle', () => {
 });
 
 describe('repo modules in the share client', () => {
-  it('are only helpers that import nothing, so they hold no module state of the CLI', async () => {
+  it('are only helpers that import each other, so they hold no module state of the CLI', async () => {
     const result = await build({
       entryPoints: ['src/share-report/client/ui/main.ts'],
       bundle: true,
@@ -63,6 +63,7 @@ describe('repo modules in the share client', () => {
       .sort();
 
     expect(outside).toEqual([
+      'packages/core/src/utils/as-record.ts',
       'packages/core/src/utils/compare-by-code-point.ts',
       'packages/core/src/utils/pluralize.ts',
       'src/render/format-duration.ts',
@@ -72,11 +73,14 @@ describe('repo modules in the share client', () => {
       'src/render/truncate-names.ts',
       'src/utils/date-key.ts',
       'src/utils/delta-ratio.ts',
+      'src/utils/time-constants.ts',
       'src/utils/usd-math.ts',
     ]);
 
     for (const input of outside) {
-      expect(readFileSync(input, 'utf8'), input).not.toMatch(/^import /mu);
+      for (const { path } of result.metafile.inputs[input].imports) {
+        expect(outside, input).toContain(path);
+      }
     }
   });
 });

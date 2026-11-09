@@ -1,14 +1,10 @@
+import { toStrictNonNegativeInteger } from '@ayagmar/agent-sessions/internal';
 import { computeEventContentHash } from '@ayagmar/agent-sessions';
 
 import { createReadCursorsSql } from './event-store-append.js';
 import { normalizeStoredEvent, selectSingleRequestBeforeFlagSql } from './event-store-codec.js';
 import { createGitRootsSql } from './event-store-git-roots.js';
-import {
-  type EventStoreDatabase,
-  runTransaction,
-  toNonNegativeInteger,
-  toText,
-} from './event-store-database.js';
+import { type EventStoreDatabase, runTransaction, toText } from './event-store-database.js';
 
 export const EVENT_STORE_SCHEMA_VERSION = '5';
 
@@ -254,7 +250,7 @@ export function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
       }
 
       for (const row of rows) {
-        const id = toNonNegativeInteger(row.id);
+        const id = toStrictNonNegativeInteger(row.id);
 
         if (id === undefined) {
           throw new Error('Cannot migrate event store row without a valid row id');
@@ -309,7 +305,7 @@ export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
       }
 
       for (const row of rows) {
-        const id = toNonNegativeInteger(row.id);
+        const id = toStrictNonNegativeInteger(row.id);
 
         if (id === undefined) {
           throw new Error('Cannot migrate event store row without a valid row id');
