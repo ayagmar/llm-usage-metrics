@@ -2,13 +2,18 @@
 // come from the terminal's own formatters in src/render and packages/core, so the page and the
 // CLI print the same text. One fixed locale (en-US), and every date in the report's timezone.
 
+import { IDLE_GAP_CAP_MS } from '../../../../../packages/core/src/domain/active-time.js';
 import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { formatLocalDateTime } from '../../../../render/format-local-date-time.js';
 import { parseDateKey } from '../../../../utils/date-key.js';
+import { MINUTE_MS } from '../../../../utils/time-constants.js';
 import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
 import { formatUsdOrNone, NO_VALUE, type ShareCostValue } from '../../core/index.js';
 
 let percentFormatter: Intl.NumberFormat | undefined;
+
+/** The active-time gap cap in words, `5 minutes`: longer gaps between events count 0. */
+export const IDLE_GAP_CAP_TEXT = pluralize(IDLE_GAP_CAP_MS / MINUTE_MS, 'minute');
 
 /** `67.4%`, or {@link NO_VALUE} without a denominator. */
 export function formatPercent(rate: number | null): string {

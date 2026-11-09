@@ -1,0 +1,6 @@
+id: unbounded-push-spread
+valid:
+  - 'events.push(...(includeExtra ? [extra] : []));'
+  - 'events.push(event);'
+invalid:
+  - 'events.push(...fileEvents);'

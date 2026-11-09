@@ -32,6 +32,8 @@ pnpm run test
 pnpm run format:check
 ```
 
+`pnpm run lint` also runs ast-grep (`pnpm run lint:ast-grep`). Its npm package ships no binary for musl Linux (Alpine and similar), so install and lint need a glibc Linux, macOS or Windows.
+
 ## Project shape
 
 Main directories:

@@ -1,0 +1,26 @@
+id: file-lock-owner
+language: TypeScript
+severity: error
+message: Take file locks with acquireFileLock from src/utils/file-lock.ts
+note: Opening a file with the exclusive 'wx' flag is how a lock is taken; writeFile with flag 'wx' (create-only output) is not flagged.
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - src/utils/file-lock.ts
+  - '**/*.generated.ts'
+rule:
+  kind: call_expression
+  all:
+    - has:
+        field: function
+        regex: ^([\w.]+\.)?open(Sync)?$
+    - has:
+        field: arguments
+        has:
+          nthChild: 2
+          any:
+            - kind: string
+            - kind: template_string
+          regex: ^['"`]wx\+?['"`]$

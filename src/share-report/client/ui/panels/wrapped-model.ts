@@ -5,7 +5,7 @@ import { isRecord } from '../../../../../packages/core/src/utils/as-record.js';
 import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { formatHours } from '../../../../render/format-duration.js';
 import { getWindowEnd, NO_VALUE, type ShareReport } from '../../core/index.js';
-import { formatDay, formatPercent } from '../shell/format.js';
+import { formatDay, formatPercent, IDLE_GAP_CAP_TEXT } from '../shell/format.js';
 import { buildCalendar, type CalendarView } from './calendar-model.js';
 import {
   formatEnvelopeCost,
@@ -95,7 +95,7 @@ function buildFacts(data: Record<string, unknown>): PanelFact[] {
       label: 'Active time',
       // The terminal's Hours: whole hours, `<1h` under half an hour.
       value: formatHours(readNumber(data, 'activeMs') ?? 0),
-      detail: 'Wall-clock; gaps over 5 minutes count 0',
+      detail: `Wall-clock; gaps over ${IDLE_GAP_CAP_TEXT} count 0`,
     },
     { label: 'Longest streak', value: pluralize(readNumber(data, 'longestStreak') ?? 0, 'day') },
   ];

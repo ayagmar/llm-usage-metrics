@@ -1,0 +1,65 @@
+id: active-time-owner
+language: TypeScript
+severity: error
+message: Decide which gaps count as activity with getActiveGapMs or computeActiveIntervals from packages/core/src/domain/active-time.ts
+note: >-
+  Flags IDLE_GAP_CAP_MS where it decides a gap (a comparison or Math.min/Math.max), and a
+  5-minute literal compared with a gap or idle value or stored under an idle/gap name.
+  Imports and display arithmetic such as IDLE_GAP_CAP_MS / MINUTE_MS are fine.
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - packages/core/src/domain/active-time.ts
+  - '**/*.generated.ts'
+utils:
+  comparison:
+    any:
+      - pattern: $L < $R
+      - pattern: $L <= $R
+      - pattern: $L > $R
+      - pattern: $L >= $R
+  min-max-arguments:
+    kind: arguments
+    inside:
+      any:
+        - pattern: Math.min($$$)
+        - pattern: Math.max($$$)
+  gap-decision:
+    any:
+      - inside:
+          matches: comparison
+      - inside:
+          matches: min-max-arguments
+  cap-reference:
+    kind: identifier
+    regex: ^IDLE_GAP_CAP_MS$
+  five-minutes:
+    any:
+      - kind: number
+      - kind: binary_expression
+    regex: ^(300_?000|5 \* 60 \* 1_?000|5 \* 60_?000|5 \* MINUTE_MS|300 \* 1_?000|300 \* SECOND_MS)$
+rule:
+  any:
+    - all:
+        - matches: cap-reference
+        - matches: gap-decision
+    - all:
+        - matches: five-minutes
+        - any:
+            - inside:
+                matches: comparison
+                has:
+                  regex: (?i)gap|idle
+            - inside:
+                matches: min-max-arguments
+                has:
+                  regex: (?i)gap|idle
+    - all:
+        - matches: five-minutes
+        - inside:
+            kind: variable_declarator
+            has:
+              field: name
+              regex: (?i)idle|gap

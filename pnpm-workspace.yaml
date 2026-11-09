@@ -5,6 +5,7 @@ packages:
 saveExact: true
 
 allowBuilds:
+  '@ast-grep/cli': true
   esbuild: true
   sharp: true
 

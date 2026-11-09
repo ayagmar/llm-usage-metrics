@@ -1,0 +1,21 @@
+id: local-number-coercion
+language: TypeScript
+severity: error
+message: Import numeric coercion from packages/core/src/sources/parsing-utils.ts
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - packages/core/src/sources/parsing-utils.ts
+  - '**/*.generated.ts'
+rule:
+  any:
+    - kind: function_declaration
+      has:
+        field: name
+        regex: ^(toNumberLike|toFiniteNumber|parseFiniteNumber|toNonNegativeNumber|toNonNegativeInteger|toStrictNonNegativeNumber|toStrictNonNegativeInteger|toTokenCount)$
+    - kind: variable_declarator
+      has:
+        field: name
+        regex: ^(toNumberLike|toFiniteNumber|parseFiniteNumber|toNonNegativeNumber|toNonNegativeInteger|toStrictNonNegativeNumber|toStrictNonNegativeInteger|toTokenCount)$

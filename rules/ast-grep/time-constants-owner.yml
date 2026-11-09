@@ -1,0 +1,36 @@
+id: time-constants-owner
+language: TypeScript
+severity: error
+message: Use SECOND_MS, MINUTE_MS, HOUR_MS and DAY_MS from src/utils/time-constants.ts
+note: >-
+  Flags declarations of those names and hand-written minute, hour and day conversions
+  (60 * 60 * 1000, n * 60_000, x / 3_600_000, ...). A bare millisecond timeout such as
+  60_000 is fine. packages/core/src is out of scope: core cannot import from src/.
+files:
+  - src/**
+  - scripts/**
+ignores:
+  - src/utils/time-constants.ts
+  # Runs under plain node against two built dist trees (speed-check workflow), so it cannot import TypeScript.
+  - scripts/perf-regression-check.mjs
+  # Runs under plain node (bench:baseline) and imports only node builtins.
+  - scripts/benchmark-baseline.mjs
+  - '**/*.generated.ts'
+rule:
+  any:
+    - kind: variable_declarator
+      has:
+        field: name
+        regex: ^(SECOND|MINUTE|HOUR|DAY)_MS$
+    # n * 60 * 1000
+    - kind: binary_expression
+      regex: \*\s*60\s*\*\s*1_?000$
+      has:
+        field: right
+        regex: ^1_?000$
+    # n * 60_000, x / 3_600_000, ...
+    - kind: binary_expression
+      regex: '[*/]\s*(60_?000|3_?600_?000|86_?400_?000)$'
+      has:
+        field: right
+        regex: ^(60_?000|3_?600_?000|86_?400_?000)$

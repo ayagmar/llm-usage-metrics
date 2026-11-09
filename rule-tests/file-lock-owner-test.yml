@@ -1,0 +1,12 @@
+id: file-lock-owner
+valid:
+  - 'const lock = await acquireFileLock(lockPath, options);'
+  # Create-only output files are not locks.
+  - "await writeFile(outputPath, content, { flag: 'wx', mode: 0o600 });"
+  - "const handle = await open(filePath, 'r');"
+invalid:
+  - "const handle = await open(lockPath, 'wx');"
+  - "const handle = await open(lockPath, 'wx', 0o600);"
+  - "const fd = fs.openSync(lockPath, 'wx');"
+  - "const handle = await fs.promises.open(lockPath, 'wx');"
+  - 'const handle = await open(lockPath, `wx`);'

@@ -1,0 +1,23 @@
+id: unbounded-push-spread
+language: TypeScript
+severity: warning
+message: Spreading an unbounded array into push overflows the stack past about 125k items
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - '**/*.generated.ts'
+  - src/render/**
+  - src/share-report/client/**
+rule:
+  pattern: $A.push(...$B)
+  # A spread of a conditional literal, as in push(...(cond ? [x] : [])), is bounded.
+  not:
+    has:
+      stopBy: end
+      kind: spread_element
+      has:
+        kind: parenthesized_expression
+        has:
+          kind: ternary_expression

@@ -1,0 +1,16 @@
+id: active-time-owner
+valid:
+  - 'const gapMs = getActiveGapMs(earlier, later);'
+  - "export { computeActiveMs, IDLE_GAP_CAP_MS } from './domain/active-time.js';"
+  - "import { IDLE_GAP_CAP_MS } from '../domain/active-time.js';"
+  # Display arithmetic: the share client prints the cap in minutes.
+  - "export const IDLE_GAP_CAP_TEXT = pluralize(IDLE_GAP_CAP_MS / MINUTE_MS, 'minute');"
+  # A 5-minute timeout that has nothing to do with gaps.
+  - 'if (elapsedMs > 5 * 60 * 1000) abort();'
+  - 'const FETCH_TIMEOUT_MS = 300_000;'
+invalid:
+  - 'const counted = Math.min(later - earlier, IDLE_GAP_CAP_MS);'
+  - 'const counted = gap <= IDLE_GAP_CAP_MS ? gap : 0;'
+  - 'const counted = gapMs <= 5 * 60 * 1000 ? gapMs : 0;'
+  - 'const counted = Math.min(gapMs, 300_000);'
+  - 'const IDLE_CAP_MS = 5 * MINUTE_MS;'

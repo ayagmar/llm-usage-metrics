@@ -20,7 +20,8 @@
   "scripts": {
     "build": "tsup src/cli/index.ts src/cli/bin.ts --format esm --clean --sourcemap --minify",
     "cli": "tsx src/cli/index.ts",
-    "lint": "eslint .",
+    "lint": "eslint . && pnpm run lint:ast-grep",
+    "lint:ast-grep": "ast-grep test --skip-snapshot-tests && ast-grep scan --report-style short",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/share-report/client/tsconfig.json",
     "test": "vitest run --coverage",
     "test:watch": "vitest --coverage.enabled=false",
@@ -99,6 +100,7 @@
     "picocolors": "1.1.1"
   },
   "devDependencies": {
+    "@ast-grep/cli": "0.51.1",
     "@changesets/cli": "3.0.3",
     "@eslint/js": "10.0.1",
     "@release-it/conventional-changelog": "12.0.2",

@@ -1,0 +1,23 @@
+id: token-sum-owner
+language: TypeScript
+severity: error
+message: Add token buckets with addTokenBuckets, addEventToTotals or addTotals from src/aggregate/usage-totals.ts
+note: A lone totalTokens counter is fine; adding the per-bucket fields by hand is a second totals implementation.
+files:
+  - src/**
+  - scripts/**
+ignores:
+  - src/aggregate/usage-totals.ts
+  - '**/*.generated.ts'
+rule:
+  any:
+    - pattern: $A.inputTokens += $B
+    - pattern: $A.inputTokens = $A.inputTokens + $B
+    - pattern: $A.outputTokens += $B
+    - pattern: $A.outputTokens = $A.outputTokens + $B
+    - pattern: $A.reasoningTokens += $B
+    - pattern: $A.reasoningTokens = $A.reasoningTokens + $B
+    - pattern: $A.cacheReadTokens += $B
+    - pattern: $A.cacheReadTokens = $A.cacheReadTokens + $B
+    - pattern: $A.cacheWriteTokens += $B
+    - pattern: $A.cacheWriteTokens = $A.cacheWriteTokens + $B

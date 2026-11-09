@@ -1,0 +1,5 @@
+id: injected-clock-default
+valid:
+  - 'const now = resolveNow(deps);'
+invalid:
+  - 'const now = deps.now?.() ?? new Date();'

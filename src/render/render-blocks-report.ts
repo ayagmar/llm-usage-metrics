@@ -9,6 +9,7 @@ import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import { formatBulletedList } from './row-cells.js';
+import { MINUTE_MS } from '../utils/time-constants.js';
 import {
   resolveTtyColumns,
   splitCellLines,
@@ -204,7 +205,7 @@ function buildFooterLines(data: BlocksReportData, options: RenderBlocksReportOpt
   for (const row of data.activeBlocks) {
     if (row.active) {
       lines.push(
-        `Active block (estimated), ${row.source}: ends ${formatLocalDateTime(row.end, data.timezone)}, ${formatDuration(row.active.remainingMinutes * 60_000)} left, burn rate ${formatBurnRate(row.active, options)}.`,
+        `Active block (estimated), ${row.source}: ends ${formatLocalDateTime(row.end, data.timezone)}, ${formatDuration(row.active.remainingMinutes * MINUTE_MS)} left, burn rate ${formatBurnRate(row.active, options)}.`,
       );
     }
   }
