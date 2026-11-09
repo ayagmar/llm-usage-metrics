@@ -17,7 +17,7 @@ import {
   type SharePeriodRow,
   type ShareTotals,
 } from '../../core/index.js';
-import { formatDateRange, formatDay, formatPercent } from '../shell/format.js';
+import { formatDateRange, formatDay, formatPercent, IDLE_GAP_CAP_TEXT } from '../shell/format.js';
 import { COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareViewContext } from '../state/context.js';
 import { hasLabelFilters } from '../state/view.js';
@@ -267,8 +267,8 @@ export function buildCostPerHourChart(context: ShareViewContext, width: number):
   const { hourlyFrom } = report.data.meta;
   const notes = [
     metric.kind === 'active'
-      ? 'Divides cost by Active time: wall-clock, parallel sessions counted once, gaps over 5 minutes not counted.'
-      : 'Divides cost by Agent time, because filters are on: summed across sessions, so parallel sessions add up. Gaps over 5 minutes are not counted.',
+      ? `Divides cost by Active time: wall-clock, parallel sessions counted once, gaps over ${IDLE_GAP_CAP_TEXT} not counted.`
+      : `Divides cost by Agent time, because filters are on: summed across sessions, so parallel sessions add up. Gaps over ${IDLE_GAP_CAP_TEXT} are not counted.`,
   ];
 
   if (hourlyFrom !== null && hourlyFrom > span.first) {

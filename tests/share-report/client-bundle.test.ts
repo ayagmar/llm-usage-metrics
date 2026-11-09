@@ -63,6 +63,7 @@ describe('repo modules in the share client', () => {
       .sort();
 
     expect(outside).toEqual([
+      'packages/core/src/domain/active-time.ts',
       'packages/core/src/utils/as-record.ts',
       'packages/core/src/utils/compare-by-code-point.ts',
       'packages/core/src/utils/pluralize.ts',
