@@ -738,8 +738,10 @@ export class LiteLLMPricingFetcher implements PricingSource {
   }
 
   /**
-   * Loads pricing data from cache, remote, or the bundled default snapshot. While a load runs,
-   * and after one fails, no prices are served and every origin is undefined.
+   * Loads pricing data from cache, remote, or the bundled default snapshot. Starting a load
+   * clears the previous result, so until a load succeeds no prices are served and every origin
+   * is undefined. Overlapping loads share that result: the last to succeed wins, even if it
+   * started first, and a failure does not clear another load's result.
    */
   public async load(): Promise<void> {
     this.loaded = undefined;
