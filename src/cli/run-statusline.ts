@@ -1,8 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, rename, rm, stat } from 'node:fs/promises';
-import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
-
 import {
   calculateCurrentStreak,
   sumDailyTotals,
@@ -18,7 +13,8 @@ import {
   writeEventStoreMeta,
 } from '../persistence/event-store.js';
 import { formatApproxUsd, formatStatuslineCompact, formatUsd } from '../render/format-number.js';
-import { asRecord, hasErrorCode } from '@ayagmar/agent-sessions/internal';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
+import { acquireFileLock, type FileLockAcquisition } from '../utils/file-lock.js';
 import { setLogLevel } from '../utils/logger.js';
 import {
   buildSummaryDataset,
@@ -299,118 +295,21 @@ const STATUSLINE_LOCK_RETRY_MS = 50;
 /** A lock older than this is taken over, as is one whose process has exited. */
 const STATUSLINE_LOCK_STALE_MS = 120_000;
 
-function isRunningProcess(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // EPERM: the process exists but belongs to another user.
-    return hasErrorCode(error, 'EPERM');
-  }
-}
-
-/** A lock file's content and modification time, which together tell one lock from the next. */
-type LockState = { content: string; mtimeMs: number };
-
-async function readLock(lockPath: string): Promise<LockState | undefined> {
-  try {
-    const [content, stats] = await Promise.all([readFile(lockPath, 'utf8'), stat(lockPath)]);
-    return { content, mtimeMs: stats.mtimeMs };
-  } catch {
-    // Released while we looked: the next attempt takes it.
-    return undefined;
-  }
-}
-
-function isStaleLock(lock: LockState, now: number): boolean {
-  const pid = Number.parseInt(lock.content, 10);
-
-  return (
-    now - lock.mtimeMs > STATUSLINE_LOCK_STALE_MS ||
-    (Number.isInteger(pid) && pid > 0 && !isRunningProcess(pid))
-  );
-}
-
 /**
- * Removes a stale lock if it is still the one read as `expected`. The lock is first renamed
- * to a name only this call uses, so of several ticks reclaiming one lock only one gets it.
- * A tick that got a newer lock than the one it read puts it back, so no tick removes a
- * lock it does not own. Content and mtime both identify the lock: an empty lock left by a
- * crash reads the same as one just created and not yet written. With three or more ticks
- * reclaiming at once, the put-back can replace a lock taken meanwhile: both holders then
- * parse, as they would with no lock.
- */
-async function reclaimStaleLock(lockPath: string, expected: LockState): Promise<void> {
-  const claimPath = `${lockPath}.${randomUUID()}`;
-
-  try {
-    await rename(lockPath, claimPath);
-  } catch (error) {
-    if (hasErrorCode(error, 'ENOENT')) {
-      return;
-    }
-
-    throw error;
-  }
-
-  const claimed = await readLock(claimPath);
-
-  if (claimed?.content === expected.content && claimed.mtimeMs === expected.mtimeMs) {
-    await rm(claimPath, { force: true });
-  } else {
-    await rename(claimPath, lockPath);
-  }
-}
-
-/**
- * Takes the tick lock and returns its release, or `undefined` when another tick still
- * holds it after the wait. A lock that cannot be created (an unwritable directory) does
- * not stop the line: the tick runs unlocked, as it did before the lock existed.
+ * Takes the tick lock. `busy`: another tick still holds it after the wait. `unavailable`:
+ * it cannot be created (an unwritable directory), which does not stop the line.
  */
 export async function acquireStatuslineLock(
   lockPath: string,
   waitMs = STATUSLINE_LOCK_WAIT_MS,
-): Promise<(() => Promise<void>) | undefined> {
-  // The pid tells other ticks whether the holder still runs; the UUID makes the lock this
-  // tick's alone, also against another tick of the same process.
-  const token = `${String(process.pid)} ${randomUUID()}`;
-  const release = async () => {
-    // A lock taken over after it went stale is the other tick's to remove. Never renamed:
-    // that would leave the path free for a third tick while the other tick holds it.
-    if ((await readFile(lockPath, 'utf8').catch(() => undefined)) === token) {
-      await rm(lockPath, { force: true });
-    }
-  };
-  const deadline = Date.now() + waitMs;
-
-  try {
-    await mkdir(path.dirname(lockPath), { recursive: true, mode: 0o700 });
-
-    for (;;) {
-      try {
-        const handle = await open(lockPath, 'wx', 0o600);
-        await handle.writeFile(token);
-        await handle.close();
-        return release;
-      } catch (error) {
-        if (!hasErrorCode(error, 'EEXIST')) {
-          throw error;
-        }
-      }
-
-      const lock = await readLock(lockPath);
-
-      if (lock && isStaleLock(lock, Date.now())) {
-        await reclaimStaleLock(lockPath, lock);
-      } else if (Date.now() >= deadline) {
-        return undefined;
-      } else {
-        await sleep(STATUSLINE_LOCK_RETRY_MS);
-      }
-    }
-  } catch {
-    return async () => undefined;
-  }
+): Promise<FileLockAcquisition> {
+  return acquireFileLock(lockPath, {
+    waitMs,
+    retryMs: STATUSLINE_LOCK_RETRY_MS,
+    staleAfterMs: STATUSLINE_LOCK_STALE_MS,
+    fileMode: 0o600,
+    directoryMode: 0o700,
+  });
 }
 
 /** Printed once per event store, on `stderr`, when a tick finds no usage at all. */
@@ -474,16 +373,27 @@ export async function runStatusline(
 
   // A tick with a line to show has no reason to wait: it shows that line while the holder
   // builds the next one.
-  const releaseLock = eventStore.enabled
+  const lock = eventStore.enabled
     ? await acquireStatuslineLock(`${eventStore.path}.statusline.lock`, stored ? 0 : undefined)
-    : async () => undefined;
+    : ({ status: 'disabled' } as const);
+  let releaseLock: () => Promise<void>;
 
-  if (!releaseLock) {
-    const session = parseClaudeCodeSession(await input);
-    console.log(
-      stored ? formatStatusline(stored.summary, session) : formatWarmingUpStatusline(session),
-    );
-    return;
+  switch (lock.status) {
+    case 'held':
+      releaseLock = lock.release;
+      break;
+    case 'busy': {
+      const session = parseClaudeCodeSession(await input);
+      console.log(
+        stored ? formatStatusline(stored.summary, session) : formatWarmingUpStatusline(session),
+      );
+      return;
+    }
+    // No lock to hold: the tick runs unlocked.
+    case 'unavailable':
+    case 'disabled':
+      releaseLock = async () => undefined;
+      break;
   }
 
   let summary: StatuslineSummary;

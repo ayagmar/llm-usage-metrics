@@ -1,13 +1,13 @@
 import { isDeepStrictEqual } from 'node:util';
 import { randomUUID } from 'node:crypto';
-import { open, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 
 import { parse as parseToml } from 'smol-toml';
 
 import { loadUserConfig, type MachineConfig, type UserConfig } from '../config/user-config.js';
 import { asRecord, hasErrorCode } from '@ayagmar/agent-sessions/internal';
+import { acquireFileLock } from '../utils/file-lock.js';
 import { ensureDirectory } from '../utils/fs-helpers.js';
 
 async function readConfigText(configPath: string): Promise<string | undefined> {
@@ -54,32 +54,25 @@ async function resolveConfigTarget(configPath: string): Promise<string> {
 async function withConfigLock<T>(configPath: string, edit: () => Promise<T>): Promise<T> {
   await ensureDirectory(path.dirname(configPath));
   const lockPath = `${await resolveConfigTarget(configPath)}.lock`;
-  const deadline = Date.now() + CONFIG_LOCK_TIMEOUT_MS;
+  const lock = await acquireFileLock(lockPath, {
+    waitMs: CONFIG_LOCK_TIMEOUT_MS,
+    retryMs: CONFIG_LOCK_RETRY_MS,
+  });
 
-  for (;;) {
-    try {
-      await (await open(lockPath, 'wx')).close();
-      break;
-    } catch (error) {
-      if (!hasErrorCode(error, 'EEXIST')) {
-        throw error;
+  switch (lock.status) {
+    case 'busy':
+      throw new Error(
+        `Another llm-usage run is editing ${configPath}; try again, or delete ${lockPath} if no other run is (one that crashed leaves it behind)`,
+        { cause: lock.cause },
+      );
+    case 'unavailable':
+      throw lock.error;
+    case 'held':
+      try {
+        return await edit();
+      } finally {
+        await lock.release();
       }
-
-      if (Date.now() > deadline) {
-        throw new Error(
-          `Another llm-usage run is editing ${configPath}; try again, or delete ${lockPath} if no other run is (one that crashed leaves it behind)`,
-          { cause: error },
-        );
-      }
-
-      await sleep(CONFIG_LOCK_RETRY_MS);
-    }
-  }
-
-  try {
-    return await edit();
-  } finally {
-    await rm(lockPath, { force: true });
   }
 }
 

@@ -186,9 +186,18 @@ describe('concurrent config edits', () => {
     // temp dir is reached through a symlink (macOS) or a short name (Windows).
     const resolvedLockPath = `${await realpath(configPath)}.lock`;
     await expect(addMachineToConfigFile(configPath, 'laptop', { ssh: 'laptop' })).rejects.toThrow(
-      `delete ${resolvedLockPath} if no other run is`,
+      `Another llm-usage run is editing ${configPath}; try again, or delete ${resolvedLockPath} if no other run is (one that crashed leaves it behind)`,
     );
     expect(await readFile(configPath, 'utf8')).toBe('');
     await expect(lstat(lockPath)).resolves.toBeDefined();
   }, 15_000);
+
+  it('removes the lock when the edit fails', async () => {
+    await writeConfig('');
+
+    await expect(removeMachineFromConfigFile(configPath, 'absent')).rejects.toThrow(
+      'Could not remove machine absent',
+    );
+    expect(await readdir(path.dirname(configPath))).toEqual(['config.toml']);
+  });
 });
