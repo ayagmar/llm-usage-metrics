@@ -230,6 +230,15 @@ describe('resolveMonthEnd', () => {
 
     expect(monthEnd.daysElapsed).toBe(29);
     expect(monthEnd.projectedCostUsd).toBeCloseTo((1 / (28 + 11 / 23)) * 31, 9);
+
+    // Paris repeats 02:00-03:00 on Oct 25, a 25-hour day starting at 22:00 UTC on the 24th,
+    // so 00:30 UTC is 2.5 of its 25 hours.
+    const fallBack = await runAt('2026-10-25T00:30:00.000Z', 'Europe/Paris', [
+      '2026-10-10T12:00:00.000Z',
+    ]);
+
+    expect(fallBack.daysElapsed).toBe(25);
+    expect(fallBack.projectedCostUsd).toBeCloseTo((1 / (24 + 2.5 / 25)) * 31, 9);
   });
 
   it("paces the last day of the month against the next month's first midnight", async () => {
