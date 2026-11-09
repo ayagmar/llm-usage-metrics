@@ -158,6 +158,25 @@ describe('buildSharePayload wall-clock active time', () => {
     });
   });
 
+  it('splits a gap across hourlyFrom between the last daily and first hourly period', () => {
+    const payload = buildSharePayload(
+      payloadInput(
+        [
+          event({ timestamp: '2026-03-31T23:58:00.000Z' }),
+          event({ timestamp: '2026-04-01T00:03:00.000Z' }),
+        ],
+        { timezone: 'UTC', windowEnd: '2026-06-30', targetBytes: 1 },
+      ),
+    );
+
+    expect(payload.hourlyFrom).toBe('2026-04-01');
+    expect(periodMs(payload)).toEqual({
+      '2026-03-31': 2 * MINUTE_MS,
+      '2026-04-01 00:00': 3 * MINUTE_MS,
+    });
+    expect([...payload.cube.agentMs]).toEqual([2 * MINUTE_MS, 3 * MINUTE_MS]);
+  });
+
   it('keeps every period within its Agent time and the file on the union', () => {
     const random = mulberry32(11);
     const events = Array.from({ length: 400 }, () =>
