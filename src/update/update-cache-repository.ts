@@ -6,6 +6,7 @@ import {
   isRetryableFetchFailure,
   isRetryableHttpStatus,
   RetryableFetchError,
+  toStrictNonNegativeNumber,
 } from '@ayagmar/agent-sessions/internal';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
@@ -83,18 +84,6 @@ export function getSessionScopedCachePath(
   return path.join(parsedPath.dir, `${parsedPath.name}.${sessionKey}${parsedPath.ext}`);
 }
 
-function toNonNegativeNumber(value: unknown): number | undefined {
-  if (typeof value !== 'number') {
-    return undefined;
-  }
-
-  if (!Number.isFinite(value) || value < 0) {
-    return undefined;
-  }
-
-  return value;
-}
-
 function isValidVersion(value: string): boolean {
   return parseVersion(value) !== undefined;
 }
@@ -138,7 +127,7 @@ export async function readUpdateCheckCachePayload(
     return undefined;
   }
 
-  const checkedAt = toNonNegativeNumber(record.checkedAt);
+  const checkedAt = toStrictNonNegativeNumber(record.checkedAt);
   const latestVersion = typeof record.latestVersion === 'string' ? record.latestVersion.trim() : '';
 
   if (checkedAt === undefined || !latestVersion || !isValidVersion(latestVersion)) {
@@ -178,7 +167,7 @@ export async function claimBackgroundRefresh(
   let attemptedAt: number | undefined;
 
   try {
-    attemptedAt = toNonNegativeNumber(Number(await readRegularTextFile(attemptPath)));
+    attemptedAt = toStrictNonNegativeNumber(Number(await readRegularTextFile(attemptPath)));
   } catch {
     attemptedAt = undefined;
   }
