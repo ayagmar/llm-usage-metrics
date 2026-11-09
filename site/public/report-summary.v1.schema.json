@@ -303,7 +303,7 @@
       "type": "object",
       "properties": {
         "daysElapsed": {
-          "description": "Days of the month so far, today included.",
+          "description": "Today's day of the month. The projection divides by the time gone by instead, counting today only up to now.",
           "type": "integer",
           "minimum": 1
         },
@@ -314,7 +314,7 @@
           "maximum": 31
         },
         "projectedCostUsd": {
-          "description": "Month-to-date cost scaled to the whole month. Absent before the third day of the month or without a known cost.",
+          "description": "Month-to-date cost divided by the days gone by (today counted up to now) and times the days in the month. Absent before the third day of the month or without a known cost.",
           "type": "number",
           "minimum": 0
         },
