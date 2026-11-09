@@ -32,7 +32,7 @@ function event(overrides: Partial<UsageEventInput>) {
 const events = [
   event({ costUsd: 0.1, costMode: 'explicit' }),
   event({ costUsd: 0.2, timestamp: '2026-01-05T11:00:00.000Z' }),
-  event({ costUsd: 0.7, sessionId: 'session-2', timestamp: '2026-03-02T09:00:00.000Z' }),
+  event({ costUsd: 0.4, sessionId: 'session-2', timestamp: '2026-03-02T09:00:00.000Z' }),
   event({ sessionId: 'session-2', timestamp: '2026-03-02T09:10:00.000Z', inputTokens: 7 }),
 ];
 
@@ -46,7 +46,7 @@ describe('usage totals', () => {
     events.forEach((usageEvent) => {
       addEventToTotals(expected, usageEvent);
     });
-    expect(pick(expected)).toEqual({ totalTokens: 60, costUsd: 1, costIncomplete: true });
+    expect(pick(expected)).toEqual({ totalTokens: 60, costUsd: 0.7, costIncomplete: true });
 
     const grandTotal = aggregateUsage(events, {
       granularity: 'monthly',
