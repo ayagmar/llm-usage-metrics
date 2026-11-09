@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Stats } from 'node:fs';
 import { access, constants, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+
+import { hasErrorCode } from './error-code.js';
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -98,6 +101,32 @@ export async function readRegularTextFile(filePath: string): Promise<string> {
   return readFile(filePath, 'utf8');
 }
 
+const RENAME_RETRY_DELAYS_MS = [20, 40, 80, 160, 320, 640];
+
+/**
+ * Windows refuses to replace a file while another process holds it or the new temp file
+ * open (a reader of the same file, an antivirus scan), with EPERM, EACCES or EBUSY until
+ * that handle closes. Those refusals last milliseconds, so retry them for about a second.
+ * Elsewhere these codes almost never come from a rename within one directory; a lasting
+ * one is only reported a second later.
+ */
+async function renameReplacing(tempPath: string, filePath: string): Promise<void> {
+  for (const retryDelayMs of RENAME_RETRY_DELAYS_MS) {
+    try {
+      await rename(tempPath, filePath);
+      return;
+    } catch (error) {
+      if (!hasErrorCode(error, 'EPERM', 'EACCES', 'EBUSY')) {
+        throw error;
+      }
+    }
+
+    await delay(retryDelayMs);
+  }
+
+  await rename(tempPath, filePath);
+}
+
 /**
  * Writes through a temp file and a rename, so a concurrent reader sees either
  * the old file or the complete new one, never a truncated write.
@@ -111,7 +140,7 @@ export async function writeFileAtomic(
 
   try {
     await writeFile(tempPath, content, { encoding: 'utf8', mode });
-    await rename(tempPath, filePath);
+    await renameReplacing(tempPath, filePath);
   } catch (error) {
     await rm(tempPath, { force: true });
     throw error;
