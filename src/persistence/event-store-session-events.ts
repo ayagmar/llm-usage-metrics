@@ -1,3 +1,4 @@
+import { toStrictNonNegativeInteger } from '@ayagmar/agent-sessions/internal';
 import {
   createMessageEvent,
   createToolCallEvent,
@@ -6,7 +7,6 @@ import {
 } from '@ayagmar/agent-sessions';
 
 import {
-  toNonNegativeInteger,
   toText,
   type EventStoreDatabase,
   type EventStoreStatement,
@@ -168,7 +168,7 @@ function decodeStoredSessionEvent(
 
   try {
     if (row.kind === 'tool_call') {
-      const durationMs = toNonNegativeInteger(row.duration_ms);
+      const durationMs = toStrictNonNegativeInteger(row.duration_ms);
       const status = toText(row.status) ?? '';
 
       return createToolCallEvent({
@@ -193,7 +193,7 @@ function decodeStoredSessionEvent(
       role: role as MessageEvent['role'],
       messageId: toText(row.message_id),
       model: toText(row.model),
-      textLength: toNonNegativeInteger(row.text_length) ?? 0,
+      textLength: toStrictNonNegativeInteger(row.text_length) ?? 0,
     });
   } catch {
     return undefined;

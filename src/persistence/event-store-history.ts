@@ -2,12 +2,13 @@ import {
   addHashCount,
   takeUncountedEvents,
   compareByCodePoint,
+  toStrictNonNegativeInteger,
 } from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '@ayagmar/agent-sessions';
 import { normalizeStoredEvent, STORED_EVENT_COLUMNS } from './event-store-codec.js';
-import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
+import { toText, type EventStore } from './event-store-database.js';
 import { sessionEventCountSql } from './event-store-session-events.js';
 
 export type EventStoreHistoryDiscoveredFile = {
@@ -63,7 +64,7 @@ type FileContentHashMultiset = {
 };
 
 function toPositiveCount(value: unknown): number {
-  return toNonNegativeInteger(value) ?? 0;
+  return toStrictNonNegativeInteger(value) ?? 0;
 }
 
 function normalizeHistorySource(source: string): string | undefined {
@@ -335,8 +336,8 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
   for (const row of rows) {
     const source = toText(row.source);
     const filePath = toText(row.file_path);
-    const ingestedAt = toNonNegativeInteger(row.ingested_at);
-    const eventCount = toNonNegativeInteger(row.event_count);
+    const ingestedAt = toStrictNonNegativeInteger(row.ingested_at);
+    const eventCount = toStrictNonNegativeInteger(row.event_count);
     const newestTimestamp = toText(row.newest_timestamp);
 
     if (!source || !filePath || ingestedAt === undefined || eventCount === undefined) {
@@ -502,7 +503,7 @@ function loadServedEvents(
 
   for (const row of rows) {
     const event = normalizeStoredEvent(row);
-    const ordinal = toNonNegativeInteger(row.ordinal);
+    const ordinal = toStrictNonNegativeInteger(row.ordinal);
 
     if (!event || ordinal === undefined) {
       continue;

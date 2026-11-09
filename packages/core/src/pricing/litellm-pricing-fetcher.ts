@@ -9,8 +9,9 @@ import {
   RetryableFetchError,
 } from '../utils/fetch-retry.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
+import { toNonNegativeNumber } from '../sources/parsing-utils.js';
 import { normalizeKey } from './litellm-model-matching.js';
-import { PricingTable, toNonNegativeNumber } from './pricing-table.js';
+import { PricingTable } from './pricing-table.js';
 import type {
   ModelPricing,
   ModelPricingExplanation,

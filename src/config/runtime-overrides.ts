@@ -3,10 +3,7 @@ import { availableParallelism } from 'node:os';
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
 import { parseBooleanToken } from '../utils/env-flags.js';
 import type { UserConfig } from './user-config.js';
-
-const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS, HOUR_MS, MINUTE_MS } from '../utils/time-constants.js';
 
 export const UPDATE_CACHE_TTL_DEFAULT_MS = HOUR_MS;
 export const UPDATE_FETCH_TIMEOUT_DEFAULT_MS = 1_000;

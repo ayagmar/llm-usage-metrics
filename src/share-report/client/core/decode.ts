@@ -1,3 +1,4 @@
+import { isRecord } from '../../../../packages/core/src/utils/as-record.js';
 import {
   getIsoDayOfWeek,
   getIsoWeekKey,
@@ -54,10 +55,6 @@ export function parseReportData(text: string | null | undefined): unknown {
 }
 
 type Json = Record<string, unknown>;
-
-function isRecord(value: unknown): value is Json {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');

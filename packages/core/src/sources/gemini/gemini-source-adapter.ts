@@ -12,6 +12,7 @@ import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import {
   asTrimmedText,
   isBlankText,
+  parseFiniteNumber,
   normalizeTimestampCandidate,
   resolveTotalTokens,
   splitPromptIncludingCachedTokens,
@@ -157,30 +158,6 @@ function resolveRepoRoot(
   return projectMapping.get(projectIdentifier);
 }
 
-function toFiniteNumber(value: unknown): number | undefined {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : undefined;
-  }
-
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const parsed = Number(trimmed);
-
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-}
-
 function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
   inputTokens: number;
   outputTokens: number;
@@ -192,11 +169,11 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
     return null;
   }
 
-  const input = Math.max(0, toFiniteNumber(tokens.input) ?? 0);
-  const tool = Math.max(0, toFiniteNumber(tokens.tool) ?? 0);
-  const output = Math.max(0, toFiniteNumber(tokens.output) ?? 0);
-  const thoughts = Math.max(0, toFiniteNumber(tokens.thoughts) ?? 0);
-  const cached = Math.max(0, toFiniteNumber(tokens.cached) ?? 0);
+  const input = Math.max(0, parseFiniteNumber(tokens.input) ?? 0);
+  const tool = Math.max(0, parseFiniteNumber(tokens.tool) ?? 0);
+  const output = Math.max(0, parseFiniteNumber(tokens.output) ?? 0);
+  const thoughts = Math.max(0, parseFiniteNumber(tokens.thoughts) ?? 0);
+  const cached = Math.max(0, parseFiniteNumber(tokens.cached) ?? 0);
 
   // Gemini CLI records the API usage metadata: `input` already includes `cached`, and
   // `output` excludes `thoughts` (total = input + output + thoughts + tool). Thinking
@@ -208,7 +185,7 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
   const reasoningTokens = thoughts;
   const cacheReadTokens = splitInput.cacheReadTokens;
 
-  const declaredTotal = Math.max(0, toFiniteNumber(tokens.total) ?? 0);
+  const declaredTotal = Math.max(0, parseFiniteNumber(tokens.total) ?? 0);
   const componentTotal = inputTokens + outputTokens + cacheReadTokens;
   const totalTokens = resolveTotalTokens(declaredTotal, componentTotal);
 

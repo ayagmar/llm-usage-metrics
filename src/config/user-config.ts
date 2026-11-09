@@ -13,9 +13,7 @@ import {
   toParentProjectKey,
   toProjectKey,
 } from '../aggregate/project-key.js';
-
-const MINUTE_MS = 60_000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS, MINUTE_MS } from '../utils/time-constants.js';
 
 const PRICING_CACHE_TTL_MIN_MS = MINUTE_MS;
 const PRICING_CACHE_TTL_MAX_MS = 30 * DAY_MS;

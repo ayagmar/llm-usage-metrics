@@ -1,3 +1,4 @@
+import { toNonNegativeNumber } from '../sources/parsing-utils.js';
 import {
   explainCanonicalModelKey,
   normalizeKey,
@@ -9,32 +10,6 @@ import type {
   PricingDataOrigin,
   PricingSource,
 } from './types.js';
-
-export function toNonNegativeNumber(value: unknown): number | undefined {
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value < 0) {
-      return undefined;
-    }
-
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    if (value.trim() === '') {
-      return undefined;
-    }
-
-    const parsedValue = Number(value);
-
-    if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-      return undefined;
-    }
-
-    return parsedValue;
-  }
-
-  return undefined;
-}
 
 /**
  * One key's positive limit from a record of limits keyed by normalized pricing key. Read one

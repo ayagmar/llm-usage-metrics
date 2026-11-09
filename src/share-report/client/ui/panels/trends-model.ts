@@ -3,6 +3,7 @@
 // totals, from the embedded `trends --json` data. Fixed at generation: the page's filters do
 // not change it.
 
+import { isRecord } from '../../../../../packages/core/src/utils/as-record.js';
 import { formatDuration } from '../../../../render/format-duration.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
@@ -12,7 +13,6 @@ import {
   FIXED_NOTE,
   formatEnvelopeCost,
   getEnvelopeData,
-  isRecord,
   readNumber,
   readRecords,
   readString,

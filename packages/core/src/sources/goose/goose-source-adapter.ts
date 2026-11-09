@@ -1,7 +1,12 @@
 import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
-import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  isBlankText,
+  normalizeTimestampCandidate,
+  toNonNegativeInteger,
+} from '../parsing-utils.js';
 import type { SourceAdapter, SourceReadOptions } from '../source-adapter.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
@@ -49,30 +54,6 @@ const gooseSessionsQuery = `
   FROM sessions
   WHERE model_config_json IS NOT NULL AND TRIM(model_config_json) != ''
 `;
-
-function toNonNegativeInteger(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
-    return Math.trunc(value);
-  }
-
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-
-  if (!normalized) {
-    return undefined;
-  }
-
-  const parsed = Number(normalized);
-
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return undefined;
-  }
-
-  return Math.trunc(parsed);
-}
 
 function resolveTokenValue(primary: unknown, fallback: unknown): number | undefined {
   return toNonNegativeInteger(primary) ?? toNonNegativeInteger(fallback);

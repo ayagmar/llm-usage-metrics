@@ -12,8 +12,10 @@ import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js
 import {
   asTrimmedText,
   normalizeTimestampCandidate,
+  parseFiniteNumber,
   resolveUsageTotalTokens,
   splitPromptIncludingCachedTokens,
+  toTokenCount,
 } from '../parsing-utils.js';
 import type {
   SourceAdapter,
@@ -59,30 +61,6 @@ function toText(value: unknown): string | undefined {
   return asTrimmedText(valueRecord?.stringValue) ?? asTrimmedText(valueRecord?.value);
 }
 
-function toFiniteNumber(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-
-  if (!normalized) {
-    return undefined;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function toNonNegativeInteger(value: unknown): number {
-  const parsed = toFiniteNumber(value);
-  return parsed === undefined ? 0 : Math.max(0, Math.trunc(parsed));
-}
-
 function getAttribute(attributes: Record<string, unknown>, keys: readonly string[]): unknown {
   for (const key of keys) {
     const value = attributes[key];
@@ -103,7 +81,7 @@ function getAttributeText(
 }
 
 function getAttributeTokens(attributes: Record<string, unknown>, keys: readonly string[]): number {
-  return toNonNegativeInteger(getAttribute(attributes, keys));
+  return toTokenCount(getAttribute(attributes, keys));
 }
 
 function normalizeHrTime(candidate: unknown): string | undefined {
@@ -111,8 +89,8 @@ function normalizeHrTime(candidate: unknown): string | undefined {
     return undefined;
   }
 
-  const seconds = toFiniteNumber(candidate[0]);
-  const nanos = toFiniteNumber(candidate[1]);
+  const seconds = parseFiniteNumber(candidate[0]);
+  const nanos = parseFiniteNumber(candidate[1]);
 
   if (seconds === undefined || nanos === undefined) {
     return undefined;
@@ -124,7 +102,7 @@ function normalizeHrTime(candidate: unknown): string | undefined {
 }
 
 function normalizeUnixNanos(candidate: unknown): string | undefined {
-  const nanos = toFiniteNumber(candidate);
+  const nanos = parseFiniteNumber(candidate);
 
   if (nanos === undefined) {
     return undefined;
