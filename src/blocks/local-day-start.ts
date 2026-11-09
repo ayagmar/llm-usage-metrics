@@ -1,6 +1,5 @@
 import { getCurrentLocalDateKey, resolveOffsetMs } from '../utils/time-buckets.js';
-
-const HOUR_MS = 60 * 60 * 1000;
+import { HOUR_MS } from '../utils/time-constants.js';
 
 /**
  * The first instant whose local date in `timezone` is `dateKey` (YYYY-MM-DD): local

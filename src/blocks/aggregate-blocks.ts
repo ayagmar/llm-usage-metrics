@@ -8,9 +8,7 @@ import {
 import type { ModelUsageBreakdown, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { roundUsd } from '../utils/usd-math.js';
-
-const HOUR_MS = 60 * 60 * 1000;
-const MINUTE_MS = 60 * 1000;
+import { HOUR_MS, MINUTE_MS } from '../utils/time-constants.js';
 
 /** Length of an estimated usage block. */
 export const BLOCK_HOURS = 5;
