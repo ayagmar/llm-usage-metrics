@@ -1,0 +1,7 @@
+id: class-boolean-flag
+valid:
+  - 'class Reader { private readonly strict: boolean; }'
+  - "class Reader { private state: 'idle' | 'done' = 'idle'; }"
+invalid:
+  - 'class Reader { private done = false; }'
+  - 'class Reader { finished?: boolean; }'

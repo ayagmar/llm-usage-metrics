@@ -1,0 +1,18 @@
+id: active-time-owner
+language: TypeScript
+severity: error
+message: Compute active time with getActiveGapMs or computeActiveIntervals from core/domain/active-time.ts
+note: Reading IDLE_GAP_CAP_MS outside its owner means a second definition of which gaps count as activity.
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - packages/core/src/domain/active-time.ts
+  - '**/*.generated.ts'
+rule:
+  kind: identifier
+  regex: ^IDLE_GAP_CAP_MS$
+  not:
+    inside:
+      kind: export_specifier

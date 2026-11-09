@@ -1,0 +1,12 @@
+id: injected-clock-default
+language: TypeScript
+severity: warning
+message: Resolve the injected clock in one place
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - '**/*.generated.ts'
+rule:
+  pattern: $D.now?.() ?? new Date()

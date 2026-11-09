@@ -1,0 +1,16 @@
+id: cost-incomplete-owner
+language: TypeScript
+severity: error
+message: Merge costIncomplete with mergeCostIncomplete, eitherCostIncomplete or the add* helpers in src/aggregate/usage-totals.ts
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - src/aggregate/usage-totals.ts
+  - '**/*.generated.ts'
+rule:
+  any:
+    - pattern: $A.costIncomplete = true
+    - pattern: $A.costIncomplete ||= $B
+    - pattern: $A.costIncomplete || $B.costIncomplete

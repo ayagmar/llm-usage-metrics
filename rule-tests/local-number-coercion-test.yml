@@ -1,0 +1,7 @@
+id: local-number-coercion
+valid:
+  - "import { toFiniteNumber } from '../parsing-utils.js';"
+  - 'function toFiniteNumberOrZero(value) { return toFiniteNumber(value) ?? 0; }'
+invalid:
+  - 'function toNonNegativeInteger(value) { return Number.isInteger(value) && value >= 0 ? value : undefined; }'
+  - 'export function toFiniteNumber(value) { return Number.isFinite(value) ? value : undefined; }'

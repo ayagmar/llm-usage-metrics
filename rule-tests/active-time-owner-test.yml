@@ -1,0 +1,7 @@
+id: active-time-owner
+valid:
+  - 'const gapMs = getActiveGapMs(earlier, later);'
+  - "export { computeActiveMs, IDLE_GAP_CAP_MS } from './domain/active-time.js';"
+invalid:
+  - 'const counted = Math.min(later - earlier, IDLE_GAP_CAP_MS);'
+  - 'const counted = gap <= IDLE_GAP_CAP_MS ? gap : 0;'

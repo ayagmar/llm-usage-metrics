@@ -1,0 +1,19 @@
+id: time-constants-owner
+language: TypeScript
+severity: error
+message: Import SECOND_MS, MINUTE_MS, HOUR_MS and DAY_MS from src/utils/time-constants.ts
+note: Code under packages/core/src cannot import from src/; move the constants to core before declaring them there.
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - src/utils/time-constants.ts
+  # Runs under plain node against two built dist trees (speed-check workflow), so it cannot import TypeScript.
+  - scripts/perf-regression-check.mjs
+  - '**/*.generated.ts'
+rule:
+  kind: variable_declarator
+  has:
+    field: name
+    regex: ^(SECOND|MINUTE|HOUR|DAY)_MS$

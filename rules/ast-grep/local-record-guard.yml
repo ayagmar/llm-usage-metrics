@@ -1,0 +1,16 @@
+id: local-record-guard
+language: TypeScript
+severity: error
+message: Import isRecord or asRecord from packages/core/src/utils/as-record.ts
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - packages/core/src/utils/as-record.ts
+  - '**/*.generated.ts'
+rule:
+  kind: function_declaration
+  has:
+    field: name
+    regex: ^(isRecord|asRecord)$

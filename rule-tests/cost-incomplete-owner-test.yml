@@ -1,0 +1,9 @@
+id: cost-incomplete-owner
+valid:
+  - 'mergeCostIncomplete(target, source);'
+  - 'const approximate = row.costIncomplete === true;'
+  - 'const next = { costIncomplete: eitherCostIncomplete(left, right) };'
+invalid:
+  - 'target.costIncomplete = true;'
+  - 'target.costIncomplete ||= source.costIncomplete === true;'
+  - 'const incomplete = left.costIncomplete || right.costIncomplete;'

@@ -1,0 +1,15 @@
+id: flag-set-in-catch
+language: TypeScript
+severity: warning
+message: A flag set in catch encodes an outcome; return a discriminated result
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  - '**/*.generated.ts'
+rule:
+  pattern: $X = true
+  inside:
+    kind: catch_clause
+    stopBy: end

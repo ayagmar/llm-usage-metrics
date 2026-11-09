@@ -1,0 +1,5 @@
+id: flag-set-in-catch
+valid:
+  - 'try { run(); failed = true; } catch { log(); }'
+invalid:
+  - 'try { run(); } catch { failed = true; }'

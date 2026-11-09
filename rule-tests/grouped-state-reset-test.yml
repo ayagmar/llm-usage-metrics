@@ -1,0 +1,5 @@
+id: grouped-state-reset
+valid:
+  - "this.state = { status: 'idle' };"
+invalid:
+  - 'this.pending = undefined;'
