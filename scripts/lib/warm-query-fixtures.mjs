@@ -9,8 +9,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
+import { DAY_MS, HOUR_MS, MINUTE_MS } from '../../src/utils/time-constants.ts';
+
 const EVENTS_PER_FILE = 50;
 const REPO_ROOT = '/repo/warm-query-bench';
 
@@ -84,7 +84,7 @@ function buildSpecialTimestamps(count, kind, rng) {
     // on a different local date than their UTC date.
     for (let i = 0; i < count; i += 1) {
       const base = i % 3 === 0 ? Date.UTC(2026, 5, 14, 23, 30, 0) : Date.UTC(2026, 5, 15, 12, 0, 0);
-      stamps.push(base + (i % 30) * 60_000);
+      stamps.push(base + (i % 30) * MINUTE_MS);
     }
     return stamps;
   }
@@ -113,7 +113,7 @@ function buildTimestamps(mainCount, specialCount, rng) {
 
   for (let i = 0; i < mainCount; i += 1) {
     const day = Math.floor((i * MAIN_BAND_DAYS) / mainCount);
-    timestamps.push(MAIN_BAND_START_MS + day * DAY_MS + (i % EVENTS_PER_FILE) * 60_000);
+    timestamps.push(MAIN_BAND_START_MS + day * DAY_MS + (i % EVENTS_PER_FILE) * MINUTE_MS);
   }
 
   // Split the special files across the four timezone categories.

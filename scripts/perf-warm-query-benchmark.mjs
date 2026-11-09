@@ -28,6 +28,7 @@ import { filterUsageEvents } from '../src/cli/parse/usage-event-filters.ts';
 import { buildUsageEventDataset } from '../src/cli/build-usage-event-dataset.ts';
 import { RuntimeProfileCollector } from '../src/cli/runtime-profile.ts';
 import { getUserCacheRootDir } from '../src/utils/cache-root-dir.ts';
+import { DAY_MS, HOUR_MS } from '../src/utils/time-constants.ts';
 import {
   closeEventStore,
   normalizeStoredEvent,
@@ -38,8 +39,7 @@ import {
 import { buildScenarios, computeExpected, generateFixtures } from './lib/warm-query-fixtures.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
-const DAY_MS = 24 * 60 * 60 * 1000;
-const TZ_GUARD_MS = 15 * 60 * 60 * 1000; // > max timezone offset magnitude
+const TZ_GUARD_MS = 15 * HOUR_MS; // > max timezone offset magnitude
 const CANDIDATES = ['C1', 'C2', 'C3', 'C5'];
 const SAMPLE_RUNS = 5; // fresh child processes per measured cell
 const INNER_WARMUP = 3; // in-child warmup iterations (cold JIT / SQLite pages)
