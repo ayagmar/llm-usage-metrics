@@ -8,7 +8,7 @@ import {
   getParseWorkerRoots,
 } from '@ayagmar/agent-sessions/registry';
 import { collectFile, type SourceAdapter } from '@ayagmar/agent-sessions';
-import { asRecord } from '@ayagmar/agent-sessions/internal';
+import { appendAll, asRecord } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import {
   collectFileForEventStore,
@@ -217,7 +217,7 @@ export function createParseWorkerPool(options: {
     const pendingTasks = queue.splice(0);
 
     for (const slot of slots) {
-      pendingTasks.push(...slot.tasks.splice(0));
+      appendAll(pendingTasks, slot.tasks.splice(0));
     }
 
     return pendingTasks;

@@ -106,6 +106,30 @@ describe('Codex forks', () => {
     expect(events.every((event) => event.sessionId === FORK_ID)).toBe(true);
     expect(events.filter((event) => event.kind === 'usage')).toHaveLength(3);
   });
+
+  it('yields every unanswered call of a fork without the closing event, however many', async () => {
+    // Past about 125k, spreading them into one push call overflowed the stack.
+    const callCount = 150_000;
+    const [sessionMeta] = (await readFile(path.join(FORK_DIR, 'fork-legacy.jsonl'), 'utf8')).split(
+      '\n',
+    );
+    const calls = Array.from(
+      { length: callCount },
+      (_, index) =>
+        `{"timestamp":"2026-01-02T09:00:01.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{}","call_id":"call-${index}"}}`,
+    );
+    const dir = await mkdtemp(path.join(canonicalTmpdir(), 'codex-fork-calls-'));
+
+    try {
+      const forkPath = path.join(dir, 'fork.jsonl');
+      await writeFile(forkPath, `${[sessionMeta, ...calls].join('\n')}\n`);
+      const events = await collect(readEvents(new CodexSourceAdapter({ dir }), forkPath));
+
+      expect(events.filter((event) => event.kind === 'tool_call')).toHaveLength(callCount);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // Forks written by Codex 0.140, which marks no end to the copied lines. The parent has two

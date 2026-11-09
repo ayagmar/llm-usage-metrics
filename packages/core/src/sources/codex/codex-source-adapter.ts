@@ -9,6 +9,7 @@ import {
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
+import { appendAll } from '../../utils/append-all.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
@@ -1033,8 +1034,9 @@ export class CodexSourceAdapter implements SourceAdapter {
     const files = await discoverRollouts(sessionsDir);
 
     if (path.basename(sessionsDir) === 'sessions') {
-      files.push(
-        ...(await discoverRollouts(path.join(path.dirname(sessionsDir), 'archived_sessions'))),
+      appendAll(
+        files,
+        await discoverRollouts(path.join(path.dirname(sessionsDir), 'archived_sessions')),
       );
     }
 
@@ -1337,7 +1339,7 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
 
       if (held && heldKindReader) {
-        held.push(...heldKindReader.finish());
+        appendAll(held, heldKindReader.finish());
       }
     }
 

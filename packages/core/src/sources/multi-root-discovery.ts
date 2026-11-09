@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { appendAll } from '../utils/append-all.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { pathIsDirectory, pathReadable } from '../utils/fs-helpers.js';
 import { isBlankText } from './parsing-utils.js';
@@ -59,7 +60,7 @@ export async function discoverFilesAcrossRoots(
       throw new Error(`${options.directoryLabel} is not a directory: ${normalizedRootDir}`);
     }
 
-    discoveredFiles.push(...(await options.discoverInRoot(normalizedRootDir)));
+    appendAll(discoveredFiles, await options.discoverInRoot(normalizedRootDir));
   }
 
   // Nested or equivalent roots (`dir`, `dir/`, `dir/project`) find the same files.

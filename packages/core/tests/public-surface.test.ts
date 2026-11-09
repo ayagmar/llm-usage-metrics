@@ -106,6 +106,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'SqliteModule',
     'UsageTotalTokenBuckets',
     'addHashCount',
+    'appendAll',
     'asRecord',
     'asTrimmedText',
     'collectCanonicalProviderRoots',

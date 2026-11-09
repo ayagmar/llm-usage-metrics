@@ -37,6 +37,7 @@ import {
   type ParsedFileForEventStore,
 } from './parse/stored-session-events.js';
 import {
+  appendAll,
   compareByCodePoint,
   getNewestFingerprintMtimeMs,
   getParseByteSize,
@@ -757,9 +758,18 @@ export async function parseSelectedAdapters(
         ...parseResultWithoutFiles
       } = parseResult.value;
       successfulParseResults.push(parseResultWithoutFiles);
-      discoveredFiles.push(...filePaths.map((filePath) => ({ source, filePath })));
-      parsedFiles.push(...sourceParsedFiles.map((file) => ({ source, ...file })));
-      failedFiles.push(...failedFilePaths.map((filePath) => ({ source, filePath })));
+      appendAll(
+        discoveredFiles,
+        filePaths.map((filePath) => ({ source, filePath })),
+      );
+      appendAll(
+        parsedFiles,
+        sourceParsedFiles.map((file) => ({ source, ...file })),
+      );
+      appendAll(
+        failedFiles,
+        failedFilePaths.map((filePath) => ({ source, filePath })),
+      );
       continue;
     }
 

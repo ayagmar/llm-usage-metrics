@@ -57,6 +57,18 @@ describe('mergeMachineEvents', () => {
     expect(laptop.duplicateCount).toBe(1);
   });
 
+  it('keeps every event of a session no other machine served, however many', () => {
+    // Past about 125k, spreading them into one push call overflowed the stack.
+    const events = Array.from({ length: 150_000 }, () => event('s1', 0));
+    const [laptop] = mergeMachineEvents(
+      [],
+      [{ name: 'laptop', events, parserVersions: versions }],
+      versions,
+    );
+
+    expect(laptop.events).toHaveLength(events.length);
+  });
+
   it('checks each machine against everything counted before it', () => {
     const [laptop, vps] = mergeMachineEvents(
       [event('local', 0)],

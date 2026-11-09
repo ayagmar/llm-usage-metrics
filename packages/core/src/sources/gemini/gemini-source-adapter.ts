@@ -5,6 +5,7 @@ import type { Dirent } from 'node:fs';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
+import { appendAll } from '../../utils/append-all.js';
 import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
@@ -129,7 +130,7 @@ async function discoverSessionFiles(geminiDir: string): Promise<string[]> {
 
     const chatsDir = path.join(tmpDir, projectEntry.name, 'chats');
     const discoveredChatFiles = await discoverFiles(chatsDir, { extension: '.json' });
-    allSessionFiles.push(...discoveredChatFiles);
+    appendAll(allSessionFiles, discoveredChatFiles);
   }
 
   // A symlinked project alias resolves to files another project entry already found.
