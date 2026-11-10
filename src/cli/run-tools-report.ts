@@ -13,10 +13,16 @@ import {
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import { getDefaultWindowHint } from './run-usage-report.js';
 import type { BuildUsageDataDeps, ToolsCommandOptions } from './usage-data-contracts.js';
+import { withRunClock } from './run-clock.js';
 
 const toolsReportFormats = STANDARD_REPORT_FORMATS satisfies readonly ToolsReportFormat[];
 
-async function prepareToolsReport(options: ToolsCommandOptions, deps: BuildUsageDataDeps = {}) {
+async function prepareToolsReport(
+  options: ToolsCommandOptions,
+  commandDeps: BuildUsageDataDeps = {},
+) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: toolsReportFormats,

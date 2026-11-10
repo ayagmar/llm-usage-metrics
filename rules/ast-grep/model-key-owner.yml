@@ -1,0 +1,23 @@
+id: model-key-owner
+language: TypeScript
+severity: error
+message: Import normalizeOptionalModel from @ayagmar/agent-sessions/internal (packages/core/src/domain/usage-event.ts)
+note: A second model-key normalizer drifts from core's (control characters, the 256-character cap) and splits one model into two keys across reports.
+files:
+  - src/**
+  - packages/core/src/**
+  - scripts/**
+ignores:
+  # The owner module.
+  - packages/core/src/domain/usage-event.ts
+  - '**/*.generated.ts'
+rule:
+  any:
+    - kind: function_declaration
+      has:
+        field: name
+        regex: ^(normalizeModelKey|normalizeOptionalModel)$
+    - kind: variable_declarator
+      has:
+        field: name
+        regex: ^(normalizeModelKey|normalizeOptionalModel)$

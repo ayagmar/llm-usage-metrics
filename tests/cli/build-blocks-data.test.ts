@@ -8,6 +8,7 @@ import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.
 import { readFrom } from '../helpers/fake-read.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
+import { DAY_MS } from '../../src/utils/time-constants.js';
 
 const NOW = new Date('2026-06-21T12:00:00.000Z');
 
@@ -100,6 +101,29 @@ describe('buildBlocksData', () => {
       remainingMinutes: 180,
       tokensPerHour: 550,
     });
+  });
+
+  it('reads the clock once per report, so its window and active block agree across midnight', async () => {
+    // Each read is a day later: a report that read the clock twice would take its window
+    // from today and decide the active block tomorrow, when 10:15 has long ended.
+    let reads = 0;
+    const output = await buildBlocksReport(
+      { json: true, timezone: 'UTC', pricingOffline: true },
+      {
+        now: () => new Date(NOW.getTime() + reads++ * DAY_MS),
+        createAdapters: adaptersFor([event('2026-06-21T10:15:00.000Z')]),
+        getEventStoreRuntimeConfig: () => ({
+          enabled: false,
+          path: '',
+          disabledBy: 'configuration',
+        }),
+      },
+    );
+    const { data } = JSON.parse(output) as { data: { since: string; activeBlocks: unknown[] } };
+
+    expect(reads).toBe(1);
+    expect(data.since).toBe('2026-06-15');
+    expect(data.activeBlocks).toHaveLength(1);
   });
 
   it('has no active block when --until is in the past, even one still running', async () => {

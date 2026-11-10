@@ -14,10 +14,15 @@ import {
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import { getDefaultWindowHint } from './run-usage-report.js';
 import type { BlocksCommandOptions, BuildUsageDataDeps } from './usage-data-contracts.js';
+import { withRunClock } from './run-clock.js';
 
 const blocksReportFormats = STANDARD_REPORT_FORMATS satisfies readonly BlocksReportFormat[];
 
-async function prepareBlocksReport(options: BlocksCommandOptions, deps: BuildUsageDataDeps = {}) {
+async function prepareBlocksReport(
+  options: BlocksCommandOptions,
+  commandDeps: BuildUsageDataDeps = {},
+) {
+  const deps = withRunClock(commandDeps);
   const hideCost = options.cost === false;
 
   return prepareReport({

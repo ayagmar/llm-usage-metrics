@@ -26,6 +26,7 @@ import { applyPricingToUsageEventDataset, withPricingNotes } from './build-usage
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { readNow, withRunClock } from './run-clock.js';
 import type {
   BuildSummaryDataDeps,
   StatuslineCommandOptions,
@@ -359,7 +360,7 @@ export async function runStatusline(
   const input = readPipedInput(deps.stdin ?? process.stdin);
   const loadedConfig = await loadUserConfig();
   const eventStore = getEventStoreRuntimeConfig(process.env, loadedConfig.config);
-  const now = deps.now ?? (() => new Date());
+  const now = () => readNow(deps);
   const cachePath = `${eventStore.path}.statusline.json`;
   const cacheKey = resolveStatuslineCacheKey(options, loadedConfig.config);
   // --verbose is how to debug a line, so it always builds one.
@@ -411,10 +412,10 @@ export async function runStatusline(
     if (justBuilt && isRecent(justBuilt)) {
       summary = justBuilt.summary;
     } else {
-      const built = await buildStatuslineData(options, {
-        loadUserConfig: async () => loadedConfig,
-        now,
-      });
+      const built = await buildStatuslineData(
+        options,
+        withRunClock({ loadUserConfig: async () => loadedConfig, now }),
+      );
       summary = built;
       diagnostics = built.diagnostics;
 

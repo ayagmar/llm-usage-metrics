@@ -77,6 +77,12 @@ describe('date keys', () => {
   });
 
   it('lists every week and month key between two keys', () => {
+    expect(getPeriodKeyRange('2025-W51', '2026-W02', 'week')).toEqual([
+      '2025-W51',
+      '2025-W52',
+      '2026-W01',
+      '2026-W02',
+    ]);
     expect(getPeriodKeyRange('2026-W52', '2027-W02', 'week')).toEqual([
       '2026-W52',
       '2026-W53',
@@ -89,6 +95,7 @@ describe('date keys', () => {
       '2026-01',
       '2026-02',
     ]);
+    expect(getPeriodKeyRange('2026-03', '2026-03', 'month')).toEqual(['2026-03']);
   });
 
   it('finds month ends and counts days across months and leap years', () => {

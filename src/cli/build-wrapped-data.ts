@@ -15,6 +15,7 @@ import type {
   WrappedCommandOptions,
   WrappedDataResult,
 } from './usage-data-contracts.js';
+import { readNow } from './run-clock.js';
 
 export function parseWrappedYearOption(year: string | undefined): number | undefined {
   if (year === undefined) {
@@ -47,7 +48,7 @@ export async function buildWrappedData(
 ): Promise<WrappedDataResult> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options as WrappedCommandOptions;
-  const now = deps.now?.() ?? new Date();
+  const now = readNow(deps);
   const timezone = resolveReportTimezone(configuredOptions.timezone);
   const year = resolveWrappedYear(configuredOptions.year, timezone, now);
   const range = getYearDateRange(year);

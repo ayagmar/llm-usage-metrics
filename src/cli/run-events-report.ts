@@ -28,6 +28,7 @@ import {
 } from './read-live-session-events.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import type { BuildUsageDataDeps, EventsCommandOptions } from './usage-data-contracts.js';
+import { readNow, withRunClock } from './run-clock.js';
 
 const eventsExportFormats = ['jsonl', 'csv', 'otlp-traces', 'otlp-metrics'] as const;
 type EventsExportFormat = (typeof eventsExportFormats)[number];
@@ -145,7 +146,11 @@ export async function runEventsReport(
   const format = resolveEventsFormat(commandOptions);
   const pushTarget = resolveOtlpPushTarget(commandOptions);
   // Full history by default; `--last N` covers the last N days, counting today, as on daily.
-  const { options, deps } = await resolveLastPeriodsRequest('daily', commandOptions, commandDeps);
+  const { options, deps } = await resolveLastPeriodsRequest(
+    'daily',
+    commandOptions,
+    withRunClock(commandDeps),
+  );
   // The logged directory, not the session's project: events exports what was recorded.
   const dataset = await buildUsageEventDataset(options, deps, { recordedRepoRoots: true });
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
@@ -181,7 +186,7 @@ export async function runEventsReport(
       usageEvents: sortedEvents,
       toolCalls: dedupeToolCalls(toolCalls.events),
       timezone: dataset.normalizedInputs.timezone,
-      nowMs: (deps.now?.() ?? new Date()).getTime(),
+      nowMs: readNow(deps).getTime(),
     });
     await writeOtlp({ kind: 'metrics', lines }, pushTarget, commandDeps);
     return;

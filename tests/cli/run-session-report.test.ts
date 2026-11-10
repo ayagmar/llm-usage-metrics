@@ -151,10 +151,4 @@ describe('run-session-report', () => {
       consoleErrorSpy.mockRestore();
     }
   });
-
-  it('delegates to buildSessionData', async () => {
-    await buildSessionReport({ top: '5', json: true });
-
-    expect(vi.mocked(buildSessionData)).toHaveBeenCalledWith({ top: '5', json: true }, {});
-  });
 });

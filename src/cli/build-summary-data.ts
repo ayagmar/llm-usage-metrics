@@ -44,6 +44,7 @@ import {
   summarizeUsageWindow,
   type UsageDateWindow,
 } from './usage-window-summary.js';
+import { readNow } from './run-clock.js';
 
 export type SummaryWindow = UsageDateWindow & {
   key: SummaryPeriodKey;
@@ -264,7 +265,7 @@ export async function buildSummaryDataset(
     configuredOptions,
     userConfigResolution.cliOptions,
   );
-  const now = deps.now?.() ?? new Date();
+  const now = readNow(deps);
   const windows = resolveSummaryWindows(timezone, now);
   const today = windows[0].until;
   const since = resolveActivityStart(today);

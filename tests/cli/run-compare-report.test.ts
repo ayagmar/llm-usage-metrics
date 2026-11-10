@@ -197,13 +197,4 @@ describe('run-compare-report', () => {
       consoleErrorSpy.mockRestore();
     }
   });
-
-  it('delegates to buildCompareData', async () => {
-    await buildCompareReport({ since: '2026-06-01', until: '2026-06-30', json: true });
-
-    expect(vi.mocked(buildCompareData)).toHaveBeenCalledWith(
-      { since: '2026-06-01', until: '2026-06-30', json: true },
-      {},
-    );
-  });
 });

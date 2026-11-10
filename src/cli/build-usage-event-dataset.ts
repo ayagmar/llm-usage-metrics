@@ -92,6 +92,7 @@ import {
   moveMachineEventsToLocalRepositories,
 } from '../session/git-remotes.js';
 import { toProjectKey } from '../aggregate/project-key.js';
+import { readNow } from './run-clock.js';
 
 function withNormalizedPricingUrl(
   options: ReportCommandOptions,
@@ -427,7 +428,7 @@ export async function buildUsageEventDataset(
     modelFilter: normalizedInputs.modelFilter,
   });
 
-  const nowMs = () => (deps.now?.() ?? new Date()).getTime();
+  const nowMs = () => readNow(deps).getTime();
   // Refreshing other machines runs alongside the local parse; a failed run stops it.
   const machineRefreshAbort = new AbortController();
   const machineRefresh =

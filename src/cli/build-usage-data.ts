@@ -28,6 +28,7 @@ import type {
   ReportCommandOptions,
   UsageDataResult,
 } from './usage-data-contracts.js';
+import { readNow } from './run-clock.js';
 
 type ReportPeriodName = 'day' | 'week' | 'month';
 
@@ -177,7 +178,7 @@ export async function resolveUsageDataRequest(
     userConfigResolution.options,
     userConfigResolution.cliOptions,
   );
-  const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
+  const today = getCurrentLocalDateKey(timezone, readNow(deps));
   const since = resolvePeriodsSince(granularity, today, periods);
   // `--last` and hourly's default window also end today, so events dated later (a clock
   // set ahead) stay out. The other default windows keep no upper bound.

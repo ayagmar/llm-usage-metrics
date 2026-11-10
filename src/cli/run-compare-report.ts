@@ -14,13 +14,16 @@ import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildCompareDataDeps, CompareCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
+import { withRunClock } from './run-clock.js';
 
 const compareReportFormats = STANDARD_REPORT_FORMATS satisfies readonly CompareReportFormat[];
 
 async function prepareCompareReport(
   options: CompareCommandOptions,
-  deps: BuildCompareDataDeps = {},
+  commandDeps: BuildCompareDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: compareReportFormats,

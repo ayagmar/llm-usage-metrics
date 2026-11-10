@@ -12,6 +12,7 @@ import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import {
   costUnderPolicy,
   createModelPricingLookup,
+  normalizeOptionalModel,
   type PricingPolicy,
 } from '@ayagmar/agent-sessions/internal';
 import type { PricingSource } from '@ayagmar/agent-sessions/internal';
@@ -60,6 +61,7 @@ import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { getSourceOverrideOptions } from './source-cli-options.js';
 import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
+import { readNow } from './run-clock.js';
 
 /** What a command passes to build its share report. */
 export type ShareReportRequest = {
@@ -260,7 +262,7 @@ function createHiddenModelCheck(
     let isHidden = hidden.get(model);
 
     if (isHidden === undefined) {
-      isHidden = isPathShapedModel(model.trim().toLowerCase()) || !isListed(model);
+      isHidden = isPathShapedModel(normalizeOptionalModel(model) ?? '') || !isListed(model);
       hidden.set(model, isHidden);
     }
 
@@ -302,7 +304,7 @@ export async function buildShareReport(
     configuredOptions,
     userConfigResolution.cliOptions,
   );
-  const now = deps.now?.() ?? new Date();
+  const now = readNow(deps);
   const { since, until } = request.window;
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,

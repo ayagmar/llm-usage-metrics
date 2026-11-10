@@ -9,7 +9,7 @@ import type {
   UsageReportRow,
   UsageTotals,
 } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { compareByCodePoint, normalizeOptionalModel } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type UsageGranularity } from '../utils/time-buckets.js';
 import { formatInteger } from '../render/format-number.js';
 import { toProjectKey } from './project-key.js';
@@ -75,15 +75,6 @@ function createRowAccumulator(group: RowGroup, includeModelBreakdown: boolean): 
   };
 }
 
-export function normalizeModelKey(model: string | undefined): string | undefined {
-  if (!model) {
-    return undefined;
-  }
-
-  const normalized = model.trim().toLowerCase();
-  return normalized || undefined;
-}
-
 function addEventToAccumulator(
   accumulator: RowAccumulator,
   event: UsageEvent,
@@ -99,7 +90,7 @@ function addEventToAccumulator(
     return;
   }
 
-  const normalizedModel = normalizeModelKey(event.model);
+  const normalizedModel = normalizeOptionalModel(event.model);
 
   if (!normalizedModel) {
     return;

@@ -27,6 +27,7 @@ import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
 import { getRepeatingSourceIds, pluralize } from '@ayagmar/agent-sessions/internal';
 import type { BuildUsageDataDeps } from './usage-data-contracts.js';
+import { readNow } from './run-clock.js';
 
 export type MachineExportCommandOptions = {
   /** A file, or `-` for stdin, listing the files the reader already holds. */
@@ -134,7 +135,7 @@ export async function runMachineExport(
     {
       cliVersion: loadPackageMetadataFromRuntime().packageVersion,
       hostname: os.hostname(),
-      exportedAt: (deps.now?.() ?? new Date()).toISOString(),
+      exportedAt: readNow(deps).toISOString(),
       parserVersions: getParserVersions(dataset.adaptersToParse),
       gitRemotes,
     },

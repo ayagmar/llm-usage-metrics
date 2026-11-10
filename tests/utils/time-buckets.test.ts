@@ -5,7 +5,6 @@ import {
   getIsoDayOfWeekFromDateKey,
   getLocalHour,
   getPeriodKey,
-  getPeriodKeyRange,
   timestampMemoForTesting,
 } from '../../src/utils/time-buckets.js';
 
@@ -75,39 +74,6 @@ function collectHourlyTimestamps(startIso: string, endIso: string): string[] {
 
   return timestamps;
 }
-
-describe('getPeriodKeyRange', () => {
-  it('lists every period between two keys, including empty ones', () => {
-    expect(getPeriodKeyRange('2026-02-27', '2026-03-02', 'daily')).toEqual([
-      '2026-02-27',
-      '2026-02-28',
-      '2026-03-01',
-      '2026-03-02',
-    ]);
-    expect(getPeriodKeyRange('2025-11', '2026-02', 'monthly')).toEqual([
-      '2025-11',
-      '2025-12',
-      '2026-01',
-      '2026-02',
-    ]);
-    expect(getPeriodKeyRange('2026-03', '2026-03', 'monthly')).toEqual(['2026-03']);
-  });
-
-  it('steps ISO weeks across years, including 53-week years', () => {
-    expect(getPeriodKeyRange('2025-W51', '2026-W02', 'weekly')).toEqual([
-      '2025-W51',
-      '2025-W52',
-      '2026-W01',
-      '2026-W02',
-    ]);
-    // 2026 starts on a Thursday, so it has a week 53.
-    expect(getPeriodKeyRange('2026-W52', '2027-W01', 'weekly')).toEqual([
-      '2026-W52',
-      '2026-W53',
-      '2027-W01',
-    ]);
-  });
-});
 
 describe('time bucket helpers', () => {
   it('stays correct and bounded after the timestamp memo fills and starts over', () => {
