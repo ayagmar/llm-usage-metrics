@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.14.4](https://github.com/ayagmar/llm-usage-metrics/compare/v0.14.3...v0.14.4) (2026-11-10)
+
+### Features
+
+* **cli:** note sources with only single-event sessions in active-hours trends ([60f0642](https://github.com/ayagmar/llm-usage-metrics/commit/60f0642fcfa7b0e0c5e84ef3270942003bcf0ceb))
+
+### Bug Fixes
+
+* append event- and file-sized arrays without spreading into push ([9e223b6](https://github.com/ayagmar/llm-usage-metrics/commit/9e223b695e6860fc0835a86044f1c27312345b84))
+* **cli:** decide a Windows lock refusal at once and keep stale reclaim contended ([b00299e](https://github.com/ayagmar/llm-usage-metrics/commit/b00299e7174a697922282af092b707c2ac750dfe))
+* **cli:** pace the month-end projection by the time gone by, not whole days ([967129e](https://github.com/ayagmar/llm-usage-metrics/commit/967129ede19096556d7ed6dfafd042250b32d89d))
+* **cli:** remove the statusline lock when writing its token fails ([bcbf111](https://github.com/ayagmar/llm-usage-metrics/commit/bcbf11133d9cbc8c814e9a9eb4f1963301faeffc))
+* **cli:** report a lock Windows is deleting as busy, not unavailable ([8da4bfb](https://github.com/ayagmar/llm-usage-metrics/commit/8da4bfb67281b0e33c0798fea0908efe093bd710))
+* **cli:** report an immovable stale lock in an unwritable directory as unavailable ([6e534c4](https://github.com/ayagmar/llm-usage-metrics/commit/6e534c4d960a4a530f5e20e148dd2cc35bb2e2d7))
+* **cli:** retry a lock Windows is still deleting ([35ce743](https://github.com/ayagmar/llm-usage-metrics/commit/35ce743c7e020a12511110594f36fb7e7718dbb9))
+* **core:** count a gap over the idle cap as zero active time ([265c527](https://github.com/ayagmar/llm-usage-metrics/commit/265c5275538b6b6360753476e09af6d0ec797978))
+* **core:** name short-lived Windows refusals once and retry them for 0.4 s ([5fc0832](https://github.com/ayagmar/llm-usage-metrics/commit/5fc0832d4f4667b98ccd4733a38b9f0c273435b6))
+* **core:** retry a rename Windows refuses while the file is open ([59c32c8](https://github.com/ayagmar/llm-usage-metrics/commit/59c32c837c4774eb945f3246670920a95f0dd5fe))
+* **lint:** narrow the token-signal and first-timestamp owner rules ([0e5b874](https://github.com/ayagmar/llm-usage-metrics/commit/0e5b874c26879a3037f946c5e9066cd187ab3546))
+* **share:** publish the renamed payload as schemaVersion 2 ([d04b2d1](https://github.com/ayagmar/llm-usage-metrics/commit/d04b2d134b411cd65d138e93b7dad60ed2fde5ed))
+* **share:** show wall-clock Active time and name summed Agent time ([e071c19](https://github.com/ayagmar/llm-usage-metrics/commit/e071c19761cc8e78f730a2e35eac4366a7068f36))
+* **trends:** count active gaps across midnight on both days ([1886b9a](https://github.com/ayagmar/llm-usage-metrics/commit/1886b9a2a0dd19d1d9aaf53ca9f46c4c842efc87))
+
 ## [0.14.3](https://github.com/ayagmar/llm-usage-metrics/compare/v0.14.2...v0.14.3) (2026-11-06)
 
 ### Bug Fixes
