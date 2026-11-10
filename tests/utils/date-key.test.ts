@@ -77,6 +77,12 @@ describe('date keys', () => {
   });
 
   it('lists every week and month key between two keys', () => {
+    expect(getPeriodKeyRange('2025-W51', '2026-W02', 'week')).toEqual([
+      '2025-W51',
+      '2025-W52',
+      '2026-W01',
+      '2026-W02',
+    ]);
     expect(getPeriodKeyRange('2026-W52', '2027-W02', 'week')).toEqual([
       '2026-W52',
       '2026-W53',
