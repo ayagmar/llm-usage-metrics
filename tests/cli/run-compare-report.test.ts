@@ -203,7 +203,7 @@ describe('run-compare-report', () => {
 
     expect(vi.mocked(buildCompareData)).toHaveBeenCalledWith(
       { since: '2026-06-01', until: '2026-06-30', json: true },
-      {},
+      { now: expect.any(Function) as unknown },
     );
   });
 });

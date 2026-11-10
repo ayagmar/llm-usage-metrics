@@ -108,6 +108,10 @@ Error rules fail lint. Each one keeps a fact in one owner module:
   `DAY_MS`, and hand-written conversions: `n * 60 * 1000`, multiplying or dividing by
   `60_000`, `3_600_000` or `86_400_000`. Bare timeouts such as `60_000` are fine. Use
   `src/utils/time-constants.ts`. Scope: `src/`, `scripts/`.
+- `injected-clock-default`: `deps.now?.() ?? new Date()`. Read the clock with `readNow`,
+  and call `withRunClock` where a run builds its deps (each `prepare*Report`,
+  `runEventsReport`, the statusline build), so one run reads the time once. Owner:
+  `src/cli/run-clock.ts`. Scope: `src/`.
 - `file-lock-owner`: `open`/`openSync` (any qualifier, such as `fs.promises.open`) with the
   `'wx'` flag. Use `acquireFileLock` from `src/utils/file-lock.ts`. `writeFile` with
   `flag: 'wx'` is not a lock and is not flagged.
@@ -115,10 +119,10 @@ Error rules fail lint. Each one keeps a fact in one owner module:
 The owners of `token-sum-owner`, `cost-incomplete-owner` and `time-constants-owner` live in
 `src/`, which `packages/core/src` cannot import, so those rules leave core alone.
 
-Warning rules print but never fail: `unbounded-push-spread` (`push(...array)` on input that
-can pass about 125k items; use `appendAll` from `packages/core/src/utils/append-all.ts`, and
-leave small bounded spreads such as warning lists alone) and `injected-clock-default` (`deps.now?.() ?? new Date()`
-repeated per command). Numeric and tuple `sort()` without a comparator is an ESLint error
+The warning rule `unbounded-push-spread` prints but never fails: it flags `push(...array)` on
+input that can pass about 125k items; use `appendAll` from
+`packages/core/src/utils/append-all.ts`, and leave small bounded spreads such as warning lists
+alone. Numeric and tuple `sort()` without a comparator is an ESLint error
 (`@typescript-eslint/require-array-sort-compare`).
 
 - To add a rule, put `<id>.yml` in `rules/ast-grep/` and `rule-tests/<id>-test.yml` with at

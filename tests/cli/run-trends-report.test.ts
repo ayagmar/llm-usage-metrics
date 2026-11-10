@@ -152,6 +152,9 @@ describe('run-trends-report', () => {
   it('delegates to buildTrendsData', async () => {
     await buildTrendsReport({ json: true });
 
-    expect(vi.mocked(buildTrendsData)).toHaveBeenCalledWith({ json: true }, {});
+    expect(vi.mocked(buildTrendsData)).toHaveBeenCalledWith(
+      { json: true },
+      { now: expect.any(Function) as unknown },
+    );
   });
 });

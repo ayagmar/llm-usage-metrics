@@ -10,11 +10,14 @@ import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildWrappedDataDeps, WrappedCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
+import { withRunClock } from './run-clock.js';
 
 async function prepareWrappedReport(
   options: WrappedCommandOptions,
-  deps: BuildWrappedDataDeps = {},
+  commandDeps: BuildWrappedDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: wrappedReportFormats,

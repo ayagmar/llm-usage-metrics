@@ -155,6 +155,9 @@ describe('run-session-report', () => {
   it('delegates to buildSessionData', async () => {
     await buildSessionReport({ top: '5', json: true });
 
-    expect(vi.mocked(buildSessionData)).toHaveBeenCalledWith({ top: '5', json: true }, {});
+    expect(vi.mocked(buildSessionData)).toHaveBeenCalledWith(
+      { top: '5', json: true },
+      { now: expect.any(Function) as unknown },
+    );
   });
 });

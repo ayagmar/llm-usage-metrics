@@ -26,14 +26,17 @@ import {
 } from './share-report-artifact.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import type { BuildEfficiencyDataDeps } from './build-efficiency-data.js';
+import { withRunClock } from './run-clock.js';
 
 const efficiencyReportFormats = STANDARD_REPORT_FORMATS satisfies readonly EfficiencyReportFormat[];
 
 async function prepareEfficiencyReport(
   granularity: ReportGranularity,
   options: EfficiencyCommandOptions,
-  deps: BuildEfficiencyDataDeps = {},
+  commandDeps: BuildEfficiencyDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: efficiencyReportFormats,

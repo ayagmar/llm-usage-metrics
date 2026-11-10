@@ -1,12 +1,14 @@
 id: injected-clock-default
 language: TypeScript
-severity: warning
-message: Resolve the injected clock in one place
+severity: error
+message: Read the injected clock with readNow, or withRunClock at a run's entry, from src/cli/run-clock.ts
+note: >-
+  A run reads the clock once (withRunClock), so its windows, dataset and share page agree
+  on the time. packages/core/src and scripts/ are out of scope: they cannot import src/cli.
 files:
   - src/**
-  - packages/core/src/**
-  - scripts/**
 ignores:
+  - src/cli/run-clock.ts
   - '**/*.generated.ts'
 rule:
   pattern: $D.now?.() ?? new Date()

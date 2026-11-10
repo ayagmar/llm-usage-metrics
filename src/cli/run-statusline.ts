@@ -26,6 +26,7 @@ import { applyPricingToUsageEventDataset, withPricingNotes } from './build-usage
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { withRunClock } from './run-clock.js';
 import type {
   BuildSummaryDataDeps,
   StatuslineCommandOptions,
@@ -411,10 +412,10 @@ export async function runStatusline(
     if (justBuilt && isRecent(justBuilt)) {
       summary = justBuilt.summary;
     } else {
-      const built = await buildStatuslineData(options, {
-        loadUserConfig: async () => loadedConfig,
-        now,
-      });
+      const built = await buildStatuslineData(
+        options,
+        withRunClock({ loadUserConfig: async () => loadedConfig, now }),
+      );
       summary = built;
       diagnostics = built.diagnostics;
 

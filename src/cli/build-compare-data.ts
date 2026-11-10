@@ -34,6 +34,7 @@ import {
   summarizeUsageWindow,
   type UsageWindowSummary,
 } from './usage-window-summary.js';
+import { readNow } from './run-clock.js';
 
 /** One project's totals in both windows (`--by-repo`), or the projects past --top folded. */
 export type CompareProjectRow = Omit<CompareSourceRow, 'source'> &
@@ -441,7 +442,7 @@ export async function buildCompareData(
   const windows = resolveCompareWindows(
     configuredOptions,
     normalizedInputs.timezone,
-    deps.now?.() ?? new Date(),
+    readNow(deps),
   );
   const datasetOptions = {
     ...configuredOptions,

@@ -14,13 +14,16 @@ import {
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildUsageDataDeps, ProjectsCommandOptions } from './usage-data-contracts.js';
+import { withRunClock } from './run-clock.js';
 
 const projectsReportFormats = STANDARD_REPORT_FORMATS satisfies readonly ProjectsReportFormat[];
 
 async function prepareProjectsReport(
   options: ProjectsCommandOptions,
-  deps: BuildUsageDataDeps = {},
+  commandDeps: BuildUsageDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: projectsReportFormats,

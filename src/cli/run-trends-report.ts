@@ -8,10 +8,16 @@ import {
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
 import type { BuildTrendsDataDeps, TrendsCommandOptions } from './usage-data-contracts.js';
+import { withRunClock } from './run-clock.js';
 
 const trendsReportFormats = STANDARD_REPORT_FORMATS satisfies readonly TrendsReportFormat[];
 
-async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTrendsDataDeps = {}) {
+async function prepareTrendsReport(
+  options: TrendsCommandOptions,
+  commandDeps: BuildTrendsDataDeps = {},
+) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: trendsReportFormats,

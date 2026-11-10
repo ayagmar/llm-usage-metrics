@@ -30,6 +30,7 @@ import type {
   UsageDiagnostics,
   ValueCommandOptions,
 } from './usage-data-contracts.js';
+import { readNow } from './run-clock.js';
 
 export type ValueDataResult = {
   data: ValueReportData;
@@ -119,7 +120,7 @@ export async function buildValueData(
     plans,
     sourceFilterLabel,
   );
-  const today = getCurrentLocalDateKey(timezone, commandDeps.now?.() ?? new Date());
+  const today = getCurrentLocalDateKey(timezone, readNow(commandDeps));
   const window = resolveWindowDates(userConfigResolution.options, today);
   const options = {
     ...userConfigResolution.options,

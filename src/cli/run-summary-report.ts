@@ -13,6 +13,7 @@ import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildSummaryDataDeps, SummaryCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
+import { withRunClock } from './run-clock.js';
 
 const summaryReportFormats = STANDARD_REPORT_FORMATS satisfies readonly SummaryReportFormat[];
 
@@ -21,8 +22,10 @@ export const SUMMARY_NEXT_STEPS_HINT =
 
 async function prepareSummaryReport(
   options: SummaryCommandOptions,
-  deps: BuildSummaryDataDeps = {},
+  commandDeps: BuildSummaryDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: summaryReportFormats,
