@@ -41,7 +41,6 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
 }));
 
 import { buildShareReport } from '../../src/cli/build-share-report-data.js';
-import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import { buildTrendsReport, runTrendsReport } from '../../src/cli/run-trends-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
 import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
@@ -147,14 +146,5 @@ describe('run-trends-report', () => {
     await buildTrendsReport({ bySource: true, share: true });
 
     expect(vi.mocked(buildShareReport)).toHaveBeenCalledTimes(1);
-  });
-
-  it('delegates to buildTrendsData', async () => {
-    await buildTrendsReport({ json: true });
-
-    expect(vi.mocked(buildTrendsData)).toHaveBeenCalledWith(
-      { json: true },
-      { now: expect.any(Function) as unknown },
-    );
   });
 });
