@@ -1,8 +1,5 @@
-import {
-  createSourceComparator,
-  normalizeModelKey,
-  toRankedModelUsage,
-} from '../aggregate/aggregate-usage.js';
+import { normalizeOptionalModel } from '@ayagmar/agent-sessions/internal';
+import { createSourceComparator, toRankedModelUsage } from '../aggregate/aggregate-usage.js';
 import { addEventToTotals, createEmptyTotals, getCostState } from '../aggregate/usage-totals.js';
 import type { ModelUsageBreakdown, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
@@ -176,7 +173,7 @@ function toUsageBlock(block: BlockAccumulator): UsageBlock {
 
   for (const { event } of block.events) {
     addEventToTotals(totals, event);
-    const model = normalizeModelKey(event.model);
+    const model = normalizeOptionalModel(event.model);
 
     if (model) {
       const totalsForModel = modelTotals.get(model) ?? createEmptyTotals();
