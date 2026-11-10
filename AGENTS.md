@@ -107,10 +107,11 @@ Error rules fail lint. Each one keeps a fact in one owner module:
 - `jsonl-stem-owner`: `basename(x, '.jsonl')`, the stem sources fall back to as a session
   id. Use `getJsonlFileStem` (`packages/core/src/sources/parsing-utils.ts`). Scope:
   `packages/core/src`.
-- `first-timestamp-owner`: a `for...of` loop that passes its loop variable (or `record[key]`)
-  to `normalizeTimestampCandidate`. Use `firstTimestamp`
+- `first-timestamp-owner`: a `for...of` loop that normalizes its loop variable (or
+  `record[key]`) with `normalizeTimestampCandidate` and returns the result. Use `firstTimestamp`
   (`packages/core/src/sources/parsing-utils.ts`). Scope: `packages/core/src`.
-- `token-signal-owner`: an `||` chain of `x.<bucket>Tokens > 0` checks in a source. Use
+- `token-signal-owner`: an `||` chain in a source that compares both `x.inputTokens > 0` and
+  `x.outputTokens > 0`, reported once per chain. Use
   `hasBillableTokenBuckets` (`packages/core/src/domain/usage-event.ts`), or
   `hasPositiveTokenCount` (`packages/core/src/sources/parsing-utils.ts`) when a declared total
   counts too. Scope: `packages/core/src/sources`.

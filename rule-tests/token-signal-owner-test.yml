@@ -3,6 +3,9 @@ valid:
   - 'if (!hasPositiveTokenCount(usage)) return undefined;'
   - 'const hasOutput = usage.outputTokens > 0;'
   - 'const ok = usage.costUsd > 0 || usage.requestCount > 0;'
+  - 'const keep = u.outputTokens > 0 || hasToolCalls;'
+  - 'const keep = u.reasoningTokens > 0 || u.costUsd > 0;'
+  - 'const keep = u.totalTokens > 0 || u.costUsd !== undefined;'
 invalid:
   - 'return usage.inputTokens > 0 || usage.outputTokens > 0 || usage.cacheReadTokens > 0;'
-  - 'return usage.cacheReadTokens > 0 || usage.totalTokens > 0;'
+  - 'return cost > 0 || usage.inputTokens > 0 || usage.outputTokens > 0 || usage.totalTokens > 0;'

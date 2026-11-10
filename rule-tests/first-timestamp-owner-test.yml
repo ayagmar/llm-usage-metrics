@@ -10,6 +10,10 @@ valid:
     for (const line of lines) {
       const timestamp = normalizeTimestampCandidate(line.timestamp);
     }
+  - |
+    for (const row of rows) {
+      out.push(normalizeTimestampCandidate(row));
+    }
 invalid:
   - |
     function resolveTimestamp(candidates) {

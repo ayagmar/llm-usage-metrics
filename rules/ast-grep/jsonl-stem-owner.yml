@@ -16,5 +16,7 @@ rule:
     - has:
         field: arguments
         has:
-          kind: string
-          regex: ^['"]\.jsonl['"]$
+          any:
+            - kind: string
+            - kind: template_string
+          regex: ^['"`]\.jsonl['"`]$

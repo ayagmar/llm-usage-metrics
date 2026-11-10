@@ -7,12 +7,17 @@ files:
   - packages/core/src/**
 ignores:
   - packages/core/src/sources/parsing-utils.ts
-# A loop over timestamp candidates: the loop variable itself, or a key into a record, is
-# the argument. A loop over lines that normalizes `line.timestamp` is not flagged.
+# A loop over timestamp candidates that returns the first one normalized: the loop variable
+# itself, or a key into a record, is the argument. A loop over lines that normalizes
+# `line.timestamp`, or one that collects every normalized value, is not flagged.
 rule:
   pattern: for (const $C of $LIST) { $$$ }
-  has:
-    stopBy: end
-    any:
-      - pattern: normalizeTimestampCandidate($C)
-      - pattern: normalizeTimestampCandidate($R[$C])
+  all:
+    - has:
+        stopBy: end
+        any:
+          - pattern: const $T = normalizeTimestampCandidate($C)
+          - pattern: const $T = normalizeTimestampCandidate($R[$C])
+    - has:
+        stopBy: end
+        pattern: return $T
