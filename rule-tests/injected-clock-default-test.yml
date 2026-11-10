@@ -2,6 +2,17 @@ id: injected-clock-default
 valid:
   - 'const now = readNow(deps);'
   - 'const runDeps = withRunClock(deps);'
+  - 'const now = () => readNow(deps);'
+  - 'const label = deps.label ?? "none";'
 invalid:
   - 'const now = deps.now?.() ?? new Date();'
   - 'const nowMs = (commandDeps.now?.() ?? new Date()).getTime();'
+  - 'const now = ctx.deps.now?.() ?? new Date();'
+  - 'const now = deps?.now?.() ?? new Date();'
+  - "const now = deps['now']?.() ?? new Date();"
+  - 'const { now } = deps; const at = now?.() ?? new Date();'
+  - 'const now = deps.now?.() || new Date();'
+  - 'const now = deps.now ? deps.now() : new Date();'
+  - 'const now = (deps.now ?? (() => new Date()))();'
+  - 'const now = deps.now ?? (() => new Date());'
+  - 'const now = deps.now || (() => new Date());'

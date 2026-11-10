@@ -95,7 +95,6 @@ async function prepareUsageReport(
   commandDeps: BuildUsageDataDeps = {},
 ) {
   const deps = withRunClock(commandDeps);
-
   const tableLayout = resolveTableLayout(options);
   const hideCost = options.cost === false;
 

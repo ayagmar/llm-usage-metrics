@@ -23,7 +23,6 @@ async function prepareBlocksReport(
   commandDeps: BuildUsageDataDeps = {},
 ) {
   const deps = withRunClock(commandDeps);
-
   const hideCost = options.cost === false;
 
   return prepareReport({

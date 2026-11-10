@@ -108,7 +108,9 @@ Error rules fail lint. Each one keeps a fact in one owner module:
   `DAY_MS`, and hand-written conversions: `n * 60 * 1000`, multiplying or dividing by
   `60_000`, `3_600_000` or `86_400_000`. Bare timeouts such as `60_000` are fine. Use
   `src/utils/time-constants.ts`. Scope: `src/`, `scripts/`.
-- `injected-clock-default`: `deps.now?.() ?? new Date()`. Read the clock with `readNow`,
+- `injected-clock-default`: an optional clock defaulting to `new Date()`: `now?.() ?? new Date()`,
+  `now?.() || new Date()`, `now ? now() : new Date()`, `now ?? (() => new Date())` and
+  `now || (() => new Date())`. Read the clock with `readNow` (a moving clock is `() => readNow(deps)`),
   and call `withRunClock` where a run builds its deps (each `prepare*Report`,
   `runEventsReport`, the statusline build), so one run reads the time once. Owner:
   `src/cli/run-clock.ts`. Scope: `src/`.
