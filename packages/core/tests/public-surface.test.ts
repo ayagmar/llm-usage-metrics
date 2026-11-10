@@ -86,6 +86,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
   ],
   './internal': [
     // Source helpers shared by the adapters.
+    'firstTimestamp',
     'getJsonlFileStem',
     // Fetch retry classification, shared by the pricing fetcher and the update check.
     'RetryableFetchError',

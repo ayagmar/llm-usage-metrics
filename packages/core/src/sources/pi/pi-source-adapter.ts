@@ -37,6 +37,7 @@ import {
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  firstTimestamp,
   getJsonlFileStem,
   hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
@@ -120,17 +121,7 @@ function resolveTimestamp(
   message: Record<string, unknown> | undefined,
   state: PiSessionState,
 ): string | undefined {
-  const candidates = [line.timestamp, message?.timestamp, state.sessionTimestamp];
-
-  for (const candidate of candidates) {
-    const normalizedTimestamp = normalizeTimestampCandidate(candidate);
-
-    if (normalizedTimestamp) {
-      return normalizedTimestamp;
-    }
-  }
-
-  return undefined;
+  return firstTimestamp(line.timestamp, message?.timestamp, state.sessionTimestamp);
 }
 
 function resolveParentSessionPath(

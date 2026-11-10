@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   asTrimmedText,
+  firstTimestamp,
   hasPositiveUsageOrCostSignal,
   isBlankText,
   normalizeTimestampCandidate,
@@ -107,6 +108,13 @@ describe('source parsing helpers', () => {
     expect(normalizeTimestampCandidate('1707768000')).toBe('2024-02-12T20:00:00.000Z');
     expect(normalizeTimestampCandidate('1707768000000')).toBe('2024-02-12T20:00:00.000Z');
     expect(normalizeTimestampCandidate('not-a-timestamp')).toBeUndefined();
+  });
+
+  it('takes the first candidate that is a valid timestamp, skipping invalid ones', () => {
+    expect(firstTimestamp(undefined, 'not-a-timestamp', 2026, 1_707_768_000, '2026-02-12')).toBe(
+      '2024-02-12T20:00:00.000Z',
+    );
+    expect(firstTimestamp(undefined, '  ')).toBeUndefined();
   });
 
   it('reads an ISO date and time with no offset as UTC whatever the machine zone', () => {

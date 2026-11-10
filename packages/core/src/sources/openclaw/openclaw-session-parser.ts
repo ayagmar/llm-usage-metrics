@@ -6,6 +6,7 @@ import { readJsonlObjectBatches } from '../../utils/read-jsonl-objects.js';
 import { recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  firstTimestamp,
   getJsonlFileStem,
   hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
@@ -221,17 +222,7 @@ function resolveTimestamp(
   state: OpenClawSessionState,
 ): string | undefined {
   // Never fall back to the file mtime: it moves every time the session is appended.
-  const candidates = [line.timestamp, message.timestamp, state.sessionTimestamp];
-
-  for (const candidate of candidates) {
-    const normalizedTimestamp = normalizeTimestampCandidate(candidate);
-
-    if (normalizedTimestamp) {
-      return normalizedTimestamp;
-    }
-  }
-
-  return undefined;
+  return firstTimestamp(line.timestamp, message.timestamp, state.sessionTimestamp);
 }
 
 function updateRuntimeStateFromRecord(

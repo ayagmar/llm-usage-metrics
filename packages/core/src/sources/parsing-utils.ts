@@ -157,6 +157,19 @@ export function toTokenCount(value: unknown): number {
   return normalizeNonNegativeInteger(toNumberLike(value));
 }
 
+/** The first candidate that `normalizeTimestampCandidate` accepts, normalized. */
+export function firstTimestamp(...candidates: unknown[]): string | undefined {
+  for (const candidate of candidates) {
+    const timestamp = normalizeTimestampCandidate(candidate);
+
+    if (timestamp) {
+      return timestamp;
+    }
+  }
+
+  return undefined;
+}
+
 export function normalizeTimestampCandidate(candidate: unknown): string | undefined {
   if (candidate instanceof Date) {
     return Number.isNaN(candidate.getTime()) ? undefined : candidate.toISOString();

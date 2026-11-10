@@ -11,8 +11,8 @@ import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  firstTimestamp,
   getJsonlFileStem,
-  normalizeTimestampCandidate,
   parseFiniteNumber,
   resolveUsageTotalTokens,
   splitPromptIncludingCachedTokens,
@@ -122,15 +122,10 @@ function resolveTimestamp(record: Record<string, unknown>): string | undefined {
     }
   }
 
-  for (const key of ['timestamp', 'observedTimestamp']) {
-    const timestamp = normalizeTimestampCandidate(record[key]);
-
-    if (timestamp) {
-      return timestamp;
-    }
-  }
-
-  return normalizeUnixNanos(record.timeUnixNano);
+  return (
+    firstTimestamp(record.timestamp, record.observedTimestamp) ??
+    normalizeUnixNanos(record.timeUnixNano)
+  );
 }
 
 function getBodyText(record: Record<string, unknown>): string | undefined {
