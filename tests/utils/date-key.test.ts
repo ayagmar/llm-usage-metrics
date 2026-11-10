@@ -89,6 +89,7 @@ describe('date keys', () => {
       '2026-01',
       '2026-02',
     ]);
+    expect(getPeriodKeyRange('2026-03', '2026-03', 'month')).toEqual(['2026-03']);
   });
 
   it('finds month ends and counts days across months and leap years', () => {
