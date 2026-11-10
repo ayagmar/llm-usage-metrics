@@ -85,6 +85,8 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'dedupeToolCalls',
   ],
   './internal': [
+    // Source helpers shared by the adapters.
+    'getJsonlFileStem',
     // Fetch retry classification, shared by the pricing fetcher and the update check.
     'RetryableFetchError',
     'isRetryableFetchFailure',

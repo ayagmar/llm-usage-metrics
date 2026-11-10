@@ -1,0 +1,20 @@
+id: jsonl-stem-owner
+language: TypeScript
+severity: error
+message: Use getJsonlFileStem from packages/core/src/sources/parsing-utils.ts
+note: Sources fall back to a .jsonl file's stem as the session id; keep that in one helper.
+files:
+  - packages/core/src/**
+ignores:
+  - packages/core/src/sources/parsing-utils.ts
+rule:
+  kind: call_expression
+  all:
+    - has:
+        field: function
+        regex: (^|\.)basename$
+    - has:
+        field: arguments
+        has:
+          kind: string
+          regex: ^['"]\.jsonl['"]$

@@ -24,6 +24,7 @@ import {
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  getJsonlFileStem,
   isBlankText,
   normalizeTimestampCandidate,
   splitPromptIncludingCachedTokens,
@@ -372,7 +373,7 @@ const COMPRESSED_ROLLOUT_SUFFIX = '.zst';
 
 /** A rollout's file name without `.jsonl` or `.jsonl.zst`. */
 function getRolloutStem(filePath: string): string {
-  return path.basename(path.basename(filePath, COMPRESSED_ROLLOUT_SUFFIX), '.jsonl');
+  return getJsonlFileStem(path.basename(filePath, COMPRESSED_ROLLOUT_SUFFIX));
 }
 
 /**

@@ -11,6 +11,7 @@ import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  getJsonlFileStem,
   normalizeTimestampCandidate,
   parseFiniteNumber,
   resolveUsageTotalTokens,
@@ -200,10 +201,6 @@ function hasTokenUsage(candidate: CopilotCandidate): boolean {
   );
 }
 
-function getFallbackSessionId(filePath: string): string {
-  return path.basename(filePath, '.jsonl');
-}
-
 function extractCandidate(
   record: Record<string, unknown>,
   filePath: string,
@@ -245,7 +242,7 @@ function extractCandidate(
     getAttributeText(attributes, ['github.copilot.interaction_id']) ??
     responseId ??
     traceId ??
-    getFallbackSessionId(filePath);
+    getJsonlFileStem(filePath);
 
   return {
     priority,

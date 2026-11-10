@@ -45,7 +45,12 @@ import {
   shouldParseClaudeSessionLineBytes,
 } from './claude-session-events.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
-import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  getJsonlFileStem,
+  normalizeTimestampCandidate,
+  toNumberLike,
+} from '../parsing-utils.js';
 import {
   finishResumableSessionEvents,
   recordMalformedLine,
@@ -111,10 +116,6 @@ export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> &
 
 function shouldParseClaudeJsonlLineBytes(lineBytes: Buffer): boolean {
   return lineBytes.includes(CLAUDE_ASSISTANT_BYTES) && lineBytes.includes(CLAUDE_USAGE_BYTES);
-}
-
-function getFallbackSessionId(filePath: string): string {
-  return path.basename(filePath, '.jsonl');
 }
 
 function resolveProvider(
@@ -281,7 +282,7 @@ class ClaudeUsageRows {
       throw new ResumeConflict();
     }
 
-    const sessionId = asTrimmedText(line.sessionId) ?? getFallbackSessionId(this.filePath);
+    const sessionId = asTrimmedText(line.sessionId) ?? getJsonlFileStem(this.filePath);
     const repoRoot = asTrimmedText(line.cwd);
     const provider = resolveProvider(message, model);
 
@@ -578,7 +579,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     }
 
     const sessionEvents = new ClaudeSessionEvents({
-      fallbackSessionId: getFallbackSessionId(filePath),
+      fallbackSessionId: getJsonlFileStem(filePath),
       kinds,
       text: plan.text,
       raw: plan.raw,

@@ -37,6 +37,7 @@ import {
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  getJsonlFileStem,
   hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
   resolveUsageTotalTokens,
@@ -159,7 +160,7 @@ async function readParentSessionPath(filePath: string): Promise<string | undefin
 
 /** pi names a session file `<timestamp>_<session id>.jsonl`; other names give nothing. */
 function getSessionIdFromPath(filePath: string): string | undefined {
-  const baseName = path.basename(filePath, '.jsonl');
+  const baseName = getJsonlFileStem(filePath);
   const separator = baseName.lastIndexOf('_');
   const sessionId = separator === -1 ? '' : baseName.slice(separator + 1).trim();
   return sessionId || undefined;
@@ -268,10 +269,6 @@ function resolveRecordSessionId(state: PiSessionState, timestamp: string): strin
   }
 
   return copiedFrom?.parentSessionId ?? state.sessionId;
-}
-
-function getFallbackSessionId(filePath: string): string {
-  return path.basename(filePath, '.jsonl');
 }
 
 function resolveRepoRootFromRecord(
@@ -793,7 +790,7 @@ export class PiSourceAdapter implements SourceAdapter {
     const from = resumable?.from;
     const state: PiSessionState = from
       ? { ...from.session }
-      : { sessionId: getFallbackSessionId(filePath) };
+      : { sessionId: getJsonlFileStem(filePath) };
     const position = resumable?.position;
 
     if (!request || !hasNonUsageKind(request.kinds)) {

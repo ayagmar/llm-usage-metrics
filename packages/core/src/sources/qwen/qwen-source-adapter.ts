@@ -10,6 +10,7 @@ import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  getJsonlFileStem,
   isBlankText,
   normalizeTimestampCandidate,
   resolveTotalTokens,
@@ -116,7 +117,7 @@ function getFallbackSessionId(filePath: string): string {
   const chatsDir = path.dirname(filePath);
   const projectDir = path.dirname(chatsDir);
   const projectName = path.basename(projectDir);
-  const fileStem = path.basename(filePath, '.jsonl');
+  const fileStem = getJsonlFileStem(filePath);
 
   return `${projectName}-${fileStem}`;
 }

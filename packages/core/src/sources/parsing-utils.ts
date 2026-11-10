@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import {
   normalizeNonNegativeInteger,
   parseTimestampText,
@@ -14,6 +16,11 @@ export function asTrimmedText(value: unknown): string | undefined {
 
   const normalized = value.trim();
   return normalized || undefined;
+}
+
+/** A `.jsonl` file's name without the extension, the session id sources fall back to. */
+export function getJsonlFileStem(filePath: string): string {
+  return path.basename(filePath, '.jsonl');
 }
 
 export function isBlankText(value: string): boolean {
