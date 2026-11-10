@@ -5,7 +5,7 @@ import {
   UNATTRIBUTED_PROJECT_LABEL,
 } from '../aggregate/project-key.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
-import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { compareByCodePoint, normalizeOptionalModel } from '@ayagmar/agent-sessions/internal';
 
 /** The model label of usage that names no model. */
 export const UNKNOWN_MODEL_LABEL = '(unknown)';
@@ -54,7 +54,7 @@ export function isPathShapedModel(model: string): boolean {
 
 /** A model as the share report shows it: a path-shaped name becomes its basename. */
 export function toShareModelLabel(model: string | undefined): string {
-  const normalized = model?.trim().toLowerCase();
+  const normalized = normalizeOptionalModel(model);
 
   if (!normalized) {
     return UNKNOWN_MODEL_LABEL;

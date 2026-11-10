@@ -2,10 +2,8 @@ import {
   getDaysInMonth,
   getIsoDayOfWeek,
   getIsoWeekKey,
-  getPeriodKeyRange as getDateKeyPeriodRange,
   parseDateKey,
   readDigits,
-  type DateKeyGranularity,
 } from './date-key.js';
 import { DAY_MS, HOUR_MS, MINUTE_MS, SECOND_MS } from './time-constants.js';
 
@@ -482,19 +480,4 @@ export function getIsoDayOfWeekFromDateKey(localDateKey: string): number {
 
 export function getCurrentLocalDateKey(timezone: string, now: Date = new Date()): string {
   return extractLocalDateParts(now.toISOString(), timezone).dateKey;
-}
-
-const DATE_KEY_GRANULARITY = {
-  daily: 'day',
-  weekly: 'week',
-  monthly: 'month',
-} as const satisfies Record<ReportGranularity, DateKeyGranularity>;
-
-/** Every period key from `first` to `last` (inclusive), including periods without data. */
-export function getPeriodKeyRange(
-  first: string,
-  last: string,
-  granularity: ReportGranularity,
-): string[] {
-  return getDateKeyPeriodRange(first, last, DATE_KEY_GRANULARITY[granularity]);
 }

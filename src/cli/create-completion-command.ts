@@ -111,11 +111,6 @@ function words(values: readonly string[]): string {
   return [...new Set(values)].join(' ');
 }
 
-/** Flags with declared choices, in a stable order. */
-function choiceEntries(values: ValueCompletions): [string, string[]][] {
-  return Object.entries(values.choiceFlags).sort(([left], [right]) => left.localeCompare(right));
-}
-
 /** A command's subcommands, argument values, and own options. */
 function commandWords(command: CompletionCommand): string[] {
   return [...command.words, ...command.options.map((option) => option.flag)];
@@ -141,6 +136,32 @@ function rootWords(commands: readonly CompletionCommand[]): string {
   return words([...commands.map((command) => command.name), '--help', '--version']);
 }
 
+/** A `case "$prev"` arm: completes `words`, or file paths when `words` is undefined. */
+type FlagValueArm = { pattern: string; words: string | undefined };
+
+/** The flag-value arms bash and zsh share: --source ids, path flags, then declared choices. */
+function flagValueArms(values: ValueCompletions): FlagValueArm[] {
+  const choiceArms = Object.entries(values.choiceFlags)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([flag, choices]) => ({ pattern: flag, words: words(choices) }));
+
+  return [
+    { pattern: values.sourceFlags.join('|') || '--source', words: words(values.sourceIds) },
+    { pattern: values.pathFlags.join('|') || '--repo-dir', words: undefined },
+    ...choiceArms,
+  ];
+}
+
+/** The `case` arms keyed by the command words typed, with `complete` rendering each word list. */
+function commandKeyArms(
+  commands: readonly CompletionCommand[],
+  complete: (words: string) => string,
+): string {
+  return completionCases(commands)
+    .map((entry) => `    "${entry.key}"|"${entry.key} "*) ${complete(words(entry.words))} ;;`)
+    .join('\n');
+}
+
 // Shell code shared by bash and zsh: the first two non-option words typed so far.
 const COLLECT_COMMAND_KEY = `  local key="" word count=0
   for word in "$@"; do
@@ -150,11 +171,20 @@ const COLLECT_COMMAND_KEY = `  local key="" word count=0
     esac
   done`;
 
-function renderBash(commands: readonly CompletionCommand[], values: ValueCompletions): string {
-  const cases = completionCases(commands)
-    .map((entry) => `    "${entry.key}"|"${entry.key} "*) words="${words(entry.words)}" ;;`)
-    .join('\n');
+function renderBashFlagValueArm(arm: FlagValueArm): string {
+  if (arm.words === undefined) {
+    return `    ${arm.pattern})
+      # One entry per line keeps paths with spaces whole; -o filenames quotes them.
+      compopt -o filenames 2>/dev/null
+      mapfile -t COMPREPLY < <(compgen -f -- "$cur")
+      return ;;
+`;
+  }
 
+  return `    ${arm.pattern}) COMPREPLY=($(compgen -W "${arm.words}" -- "$cur")); return ;;\n`;
+}
+
+function renderBash(commands: readonly CompletionCommand[], values: ValueCompletions): string {
   return `# llm-usage bash completion. Load it with:
 #   source <(llm-usage completion bash)
 _llm_usage_key() {
@@ -175,22 +205,11 @@ _llm_usage() {
   fi
 
   case "$prev" in
-    ${values.sourceFlags.join('|') || '--source'}) COMPREPLY=($(compgen -W "${words(values.sourceIds)}" -- "$cur")); return ;;
-    ${values.pathFlags.join('|') || '--repo-dir'})
-      # One entry per line keeps paths with spaces whole; -o filenames quotes them.
-      compopt -o filenames 2>/dev/null
-      mapfile -t COMPREPLY < <(compgen -f -- "$cur")
-      return ;;
-${choiceEntries(values)
-  .map(
-    ([flag, choices]) =>
-      `    ${flag}) COMPREPLY=($(compgen -W "${words(choices)}" -- "$cur")); return ;;\n`,
-  )
-  .join('')}  esac
+${flagValueArms(values).map(renderBashFlagValueArm).join('')}  esac
 
   case "$(_llm_usage_key "\${COMP_WORDS[@]:1:COMP_CWORD-1}")" in
     "") words="${rootWords(commands)}" ;;
-${cases}
+${commandKeyArms(commands, (list) => `words="${list}"`)}
     *) words="" ;;
   esac
 
@@ -200,11 +219,12 @@ complete -F _llm_usage ${PROGRAM_NAMES.join(' ')}
 `;
 }
 
-function renderZsh(commands: readonly CompletionCommand[], values: ValueCompletions): string {
-  const cases = completionCases(commands)
-    .map((entry) => `    "${entry.key}"|"${entry.key} "*) compadd -- ${words(entry.words)} ;;`)
-    .join('\n');
+function renderZshFlagValueArm(arm: FlagValueArm): string {
+  const action = arm.words === undefined ? '_files' : `compadd -- ${arm.words}`;
+  return `    ${arm.pattern}) ${action}; return ;;\n`;
+}
 
+function renderZsh(commands: readonly CompletionCommand[], values: ValueCompletions): string {
   return `# llm-usage zsh completion. Load it with (after compinit):
 #   source <(llm-usage completion zsh)
 _llm_usage_key() {
@@ -216,15 +236,11 @@ _llm_usage() {
   local prev="\${words[CURRENT-1]}"
 
   case "$prev" in
-    ${values.sourceFlags.join('|') || '--source'}) compadd -- ${words(values.sourceIds)}; return ;;
-    ${values.pathFlags.join('|') || '--repo-dir'}) _files; return ;;
-${choiceEntries(values)
-  .map(([flag, choices]) => `    ${flag}) compadd -- ${words(choices)}; return ;;\n`)
-  .join('')}  esac
+${flagValueArms(values).map(renderZshFlagValueArm).join('')}  esac
 
   case "$(_llm_usage_key "\${(@)words[2,CURRENT-1]}")" in
     "") compadd -- ${rootWords(commands)} ;;
-${cases}
+${commandKeyArms(commands, (list) => `compadd -- ${list}`)}
   esac
 }
 compdef _llm_usage ${PROGRAM_NAMES.join(' ')}

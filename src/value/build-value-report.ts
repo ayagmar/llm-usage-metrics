@@ -3,8 +3,7 @@ import { addTokenCostTotals, type TokenCostTotals } from '../aggregate/usage-tot
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { PeriodProjectRow } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
-import { getPeriodKeyRange } from '../utils/time-buckets.js';
-import { getMonthEndDateKey } from '../utils/date-key.js';
+import { getMonthEndDateKey, getPeriodKeyRange } from '../utils/date-key.js';
 import { addUsd } from '../utils/usd-math.js';
 import { PLANS_AS_OF, type SelectedPlan } from './plans.js';
 
@@ -293,7 +292,7 @@ export function buildValueReport(
     .sort(compareByCodePoint);
   const since = options.since ?? (usageMonths.length > 0 ? `${usageMonths[0]}-01` : undefined);
   const months =
-    since === undefined ? [] : getPeriodKeyRange(getMonthKey(since), lastMonth, 'monthly');
+    since === undefined ? [] : getPeriodKeyRange(getMonthKey(since), lastMonth, 'month');
   const isPartial = (month: string): boolean => {
     const firstDay = `${month}-01`;
     const lastDay = getMonthEndDateKey(firstDay);

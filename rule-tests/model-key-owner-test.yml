@@ -1,0 +1,9 @@
+id: model-key-owner
+valid:
+  - "import { normalizeOptionalModel } from '@ayagmar/agent-sessions/internal';"
+  - 'const model = normalizeOptionalModel(event.model);'
+  - "function normalizeModelFilter(model) { return model?.split(','); }"
+invalid:
+  - 'export function normalizeModelKey(model: string | undefined) { return model?.trim().toLowerCase() || undefined; }'
+  - 'function normalizeOptionalModel(value) { return value?.toLowerCase(); }'
+  - 'const normalizeModelKey = (model: string) => model.trim().toLowerCase();'

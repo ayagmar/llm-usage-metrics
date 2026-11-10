@@ -12,6 +12,7 @@ import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import {
   costUnderPolicy,
   createModelPricingLookup,
+  normalizeOptionalModel,
   type PricingPolicy,
 } from '@ayagmar/agent-sessions/internal';
 import type { PricingSource } from '@ayagmar/agent-sessions/internal';
@@ -260,7 +261,7 @@ function createHiddenModelCheck(
     let isHidden = hidden.get(model);
 
     if (isHidden === undefined) {
-      isHidden = isPathShapedModel(model.trim().toLowerCase()) || !isListed(model);
+      isHidden = isPathShapedModel(normalizeOptionalModel(model) ?? '') || !isListed(model);
       hidden.set(model, isHidden);
     }
 

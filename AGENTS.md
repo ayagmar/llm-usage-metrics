@@ -104,6 +104,9 @@ Error rules fail lint. Each one keeps a fact in one owner module:
   `packages/core/src/sources/parsing-utils.ts`.
 - `local-record-guard`: a function or `const` named `isRecord` or `asRecord` outside
   `packages/core/src/utils/as-record.ts`.
+- `model-key-owner`: a function or `const` named `normalizeModelKey` or
+  `normalizeOptionalModel` outside `packages/core/src/domain/usage-event.ts`. Key models
+  with `normalizeOptionalModel` from `@ayagmar/agent-sessions/internal`.
 - `time-constants-owner`: a declaration named `SECOND_MS`, `MINUTE_MS`, `HOUR_MS` or
   `DAY_MS`, and hand-written conversions: `n * 60 * 1000`, multiplying or dividing by
   `60_000`, `3_600_000` or `86_400_000`. Bare timeouts such as `60_000` are fine. Use
