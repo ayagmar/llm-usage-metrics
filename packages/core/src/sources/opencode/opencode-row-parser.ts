@@ -4,6 +4,7 @@ import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import {
   asTrimmedText,
+  firstTimestamp,
   normalizeTimestampCandidate,
   resolveTotalTokens,
   toNonNegativeNumber,
@@ -25,22 +26,12 @@ function resolveTimestamp(
   rowTimestamp: unknown,
   messagePayload: Record<string, unknown>,
 ): string | undefined {
-  const timestampCandidates = [
+  return firstTimestamp(
     rowTimestamp,
     messagePayload.timestamp,
     messagePayload.timeCreated,
     messagePayload.time_created,
-  ];
-
-  for (const candidate of timestampCandidates) {
-    const resolved = normalizeTimestampCandidate(candidate);
-
-    if (resolved) {
-      return resolved;
-    }
-  }
-
-  return undefined;
+  );
 }
 
 function normalizeSessionIdCandidate(value: unknown): string | undefined {

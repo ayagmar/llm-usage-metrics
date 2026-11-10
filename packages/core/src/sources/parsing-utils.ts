@@ -1,8 +1,15 @@
+import path from 'node:path';
+
 import {
   normalizeNonNegativeInteger,
   parseTimestampText,
   type NumberLike,
 } from '../domain/normalization.js';
+import {
+  hasBillableTokenBuckets,
+  type BillableTokenUsage,
+  type UsageEvent,
+} from '../domain/usage-event.js';
 
 const MIN_PLAUSIBLE_UNIX_SECONDS_ABS = 100_000_000;
 const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
@@ -14,6 +21,11 @@ export function asTrimmedText(value: unknown): string | undefined {
 
   const normalized = value.trim();
   return normalized || undefined;
+}
+
+/** A `.jsonl` file's name without the extension, the session id sources fall back to. */
+export function getJsonlFileStem(filePath: string): string {
+  return path.basename(filePath, '.jsonl');
 }
 
 export function isBlankText(value: string): boolean {
@@ -93,6 +105,16 @@ export function hasPositiveUsageOrCostSignal(
   return hasPositiveUsageSignal || hasPositiveCostSignal;
 }
 
+/**
+ * `hasBillableTokenBuckets`, or a declared total above zero, for sources that can report a
+ * total without its buckets.
+ */
+export function hasPositiveTokenCount(
+  usage: BillableTokenUsage & Pick<UsageEvent, 'totalTokens'>,
+): boolean {
+  return hasBillableTokenBuckets(usage) || usage.totalTokens > 0;
+}
+
 export type SplitPromptTokens = {
   inputTokens: number;
   cacheReadTokens: number;
@@ -148,6 +170,19 @@ export function resolveUsageTotalTokens(usage: UsageTotalTokenBuckets): number {
 
 export function toTokenCount(value: unknown): number {
   return normalizeNonNegativeInteger(toNumberLike(value));
+}
+
+/** The first candidate that `normalizeTimestampCandidate` accepts, normalized. */
+export function firstTimestamp(...candidates: unknown[]): string | undefined {
+  for (const candidate of candidates) {
+    const timestamp = normalizeTimestampCandidate(candidate);
+
+    if (timestamp) {
+      return timestamp;
+    }
+  }
+
+  return undefined;
 }
 
 export function normalizeTimestampCandidate(candidate: unknown): string | undefined {

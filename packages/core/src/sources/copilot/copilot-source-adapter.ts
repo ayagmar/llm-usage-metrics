@@ -11,7 +11,8 @@ import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
-  normalizeTimestampCandidate,
+  firstTimestamp,
+  getJsonlFileStem,
   parseFiniteNumber,
   resolveUsageTotalTokens,
   splitPromptIncludingCachedTokens,
@@ -121,15 +122,10 @@ function resolveTimestamp(record: Record<string, unknown>): string | undefined {
     }
   }
 
-  for (const key of ['timestamp', 'observedTimestamp']) {
-    const timestamp = normalizeTimestampCandidate(record[key]);
-
-    if (timestamp) {
-      return timestamp;
-    }
-  }
-
-  return normalizeUnixNanos(record.timeUnixNano);
+  return (
+    firstTimestamp(record.timestamp, record.observedTimestamp) ??
+    normalizeUnixNanos(record.timeUnixNano)
+  );
 }
 
 function getBodyText(record: Record<string, unknown>): string | undefined {
@@ -200,10 +196,6 @@ function hasTokenUsage(candidate: CopilotCandidate): boolean {
   );
 }
 
-function getFallbackSessionId(filePath: string): string {
-  return path.basename(filePath, '.jsonl');
-}
-
 function extractCandidate(
   record: Record<string, unknown>,
   filePath: string,
@@ -245,7 +237,7 @@ function extractCandidate(
     getAttributeText(attributes, ['github.copilot.interaction_id']) ??
     responseId ??
     traceId ??
-    getFallbackSessionId(filePath);
+    getJsonlFileStem(filePath);
 
   return {
     priority,

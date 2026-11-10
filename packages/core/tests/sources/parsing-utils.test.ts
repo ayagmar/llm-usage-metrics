@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   asTrimmedText,
+  firstTimestamp,
+  hasPositiveTokenCount,
   hasPositiveUsageOrCostSignal,
   isBlankText,
   normalizeTimestampCandidate,
@@ -107,6 +109,28 @@ describe('source parsing helpers', () => {
     expect(normalizeTimestampCandidate('1707768000')).toBe('2024-02-12T20:00:00.000Z');
     expect(normalizeTimestampCandidate('1707768000000')).toBe('2024-02-12T20:00:00.000Z');
     expect(normalizeTimestampCandidate('not-a-timestamp')).toBeUndefined();
+  });
+
+  it('counts a declared total or any token bucket above zero as usage', () => {
+    const none = {
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 0,
+    };
+
+    expect(hasPositiveTokenCount(none)).toBe(false);
+    expect(hasPositiveTokenCount({ ...none, totalTokens: 12 })).toBe(true);
+    expect(hasPositiveTokenCount({ ...none, cacheWriteTokens: 3 })).toBe(true);
+  });
+
+  it('takes the first candidate that is a valid timestamp, skipping invalid ones', () => {
+    expect(firstTimestamp(undefined, 'not-a-timestamp', 2026, 1_707_768_000, '2026-02-12')).toBe(
+      '2024-02-12T20:00:00.000Z',
+    );
+    expect(firstTimestamp(undefined, '  ')).toBeUndefined();
   });
 
   it('reads an ISO date and time with no offset as UTC whatever the machine zone', () => {

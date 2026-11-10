@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
@@ -8,6 +6,8 @@ import { readJsonlObjectBatches } from '../../utils/read-jsonl-objects.js';
 import { recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  firstTimestamp,
+  getJsonlFileStem,
   hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
   resolveUsageTotalTokens,
@@ -51,10 +51,6 @@ function shouldParseOpenClawJsonlLine(lineText: string): boolean {
     MODEL_LINE_PATTERN.test(lineText) ||
     PROVIDER_LINE_PATTERN.test(lineText)
   );
-}
-
-function getFallbackSessionId(filePath: string): string {
-  return path.basename(filePath, '.jsonl');
 }
 
 function resolveRepoRootFromRecord(
@@ -226,17 +222,7 @@ function resolveTimestamp(
   state: OpenClawSessionState,
 ): string | undefined {
   // Never fall back to the file mtime: it moves every time the session is appended.
-  const candidates = [line.timestamp, message.timestamp, state.sessionTimestamp];
-
-  for (const candidate of candidates) {
-    const normalizedTimestamp = normalizeTimestampCandidate(candidate);
-
-    if (normalizedTimestamp) {
-      return normalizedTimestamp;
-    }
-  }
-
-  return undefined;
+  return firstTimestamp(line.timestamp, message.timestamp, state.sessionTimestamp);
 }
 
 function updateRuntimeStateFromRecord(
@@ -272,7 +258,7 @@ export async function* readOpenClawSessionFile(
   diagnostics: SourceReadDiagnostics,
 ): AsyncGenerator<UsageEvent> {
   const state: OpenClawSessionState = {
-    sessionId: getFallbackSessionId(filePath),
+    sessionId: getJsonlFileStem(filePath),
   };
 
   for await (const lines of readJsonlObjectBatches(filePath, {

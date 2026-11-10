@@ -1,0 +1,10 @@
+id: jsonl-stem-owner
+valid:
+  - 'const sessionId = getJsonlFileStem(filePath);'
+  - "const isWire = path.basename(filePath) === 'wire.jsonl';"
+  - "const stem = path.basename(filePath, '.json');"
+invalid:
+  - "const sessionId = path.basename(filePath, '.jsonl');"
+  - 'const sessionId = basename(filePath, ".jsonl");'
+  - "return path.basename(path.basename(filePath, '.zst'), '.jsonl');"
+  - 'const sessionId = path.basename(filePath, `.jsonl`);'

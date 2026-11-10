@@ -1,0 +1,32 @@
+id: first-timestamp-owner
+valid:
+  - 'const timestamp = firstTimestamp(line.timestamp, message.timestamp);'
+  - 'const timestamp = normalizeTimestampCandidate(line.timestamp) ?? state.sessionTimestamp;'
+  - |
+    for (const line of lines) {
+      handle(() => normalizeTimestampCandidate(line.timestamp));
+    }
+  - |
+    for (const line of lines) {
+      const timestamp = normalizeTimestampCandidate(line.timestamp);
+    }
+  - |
+    for (const row of rows) {
+      out.push(normalizeTimestampCandidate(row));
+    }
+invalid:
+  - |
+    function resolveTimestamp(candidates) {
+      for (const candidate of candidates) {
+        const timestamp = normalizeTimestampCandidate(candidate);
+        if (timestamp) {
+          return timestamp;
+        }
+      }
+      return undefined;
+    }
+  - |
+    for (const key of ['timestamp', 'observedTimestamp']) {
+      const timestamp = normalizeTimestampCandidate(record[key]);
+      if (timestamp) return timestamp;
+    }

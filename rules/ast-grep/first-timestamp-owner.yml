@@ -1,0 +1,23 @@
+id: first-timestamp-owner
+language: TypeScript
+severity: error
+message: Use firstTimestamp from packages/core/src/sources/parsing-utils.ts
+note: A loop that returns the first candidate normalizeTimestampCandidate accepts is firstTimestamp.
+files:
+  - packages/core/src/**
+ignores:
+  - packages/core/src/sources/parsing-utils.ts
+# A loop over timestamp candidates that returns the first one normalized: the loop variable
+# itself, or a key into a record, is the argument. A loop over lines that normalizes
+# `line.timestamp`, or one that collects every normalized value, is not flagged.
+rule:
+  pattern: for (const $C of $LIST) { $$$ }
+  all:
+    - has:
+        stopBy: end
+        any:
+          - pattern: const $T = normalizeTimestampCandidate($C)
+          - pattern: const $T = normalizeTimestampCandidate($R[$C])
+    - has:
+        stopBy: end
+        pattern: return $T

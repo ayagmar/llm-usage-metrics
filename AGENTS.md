@@ -104,6 +104,17 @@ Error rules fail lint. Each one keeps a fact in one owner module:
   `packages/core/src/sources/parsing-utils.ts`.
 - `local-record-guard`: a function or `const` named `isRecord` or `asRecord` outside
   `packages/core/src/utils/as-record.ts`.
+- `jsonl-stem-owner`: `basename(x, '.jsonl')`, the stem sources fall back to as a session
+  id. Use `getJsonlFileStem` (`packages/core/src/sources/parsing-utils.ts`). Scope:
+  `packages/core/src`.
+- `first-timestamp-owner`: a `for...of` loop that normalizes its loop variable (or
+  `record[key]`) with `normalizeTimestampCandidate` and returns the result. Use `firstTimestamp`
+  (`packages/core/src/sources/parsing-utils.ts`). Scope: `packages/core/src`.
+- `token-signal-owner`: an `||` chain in a source that compares both `x.inputTokens > 0` and
+  `x.outputTokens > 0`, reported once per chain. Use
+  `hasBillableTokenBuckets` (`packages/core/src/domain/usage-event.ts`), or
+  `hasPositiveTokenCount` (`packages/core/src/sources/parsing-utils.ts`) when a declared total
+  counts too. Scope: `packages/core/src/sources`.
 - `model-key-owner`: a function or `const` named `normalizeModelKey` or
   `normalizeOptionalModel` outside `packages/core/src/domain/usage-event.ts`. Key models
   with `normalizeOptionalModel` from `@ayagmar/agent-sessions/internal`.
