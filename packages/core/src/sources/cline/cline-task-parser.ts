@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { normalizeUsdCost } from '../../domain/normalization.js';
-import { createUsageEvent } from '../../domain/usage-event.js';
+import { createUsageEvent, hasBillableTokenBuckets } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { readJsonArrayElements } from '../read-json-array-elements.js';
@@ -82,12 +82,7 @@ function extractUsage(
     cacheWriteTokens,
   };
   const costUsd = normalizeUsdCost(toNumberLike(payload.cost));
-  const hasTokenSignal =
-    usage.inputTokens > 0 ||
-    usage.outputTokens > 0 ||
-    usage.reasoningTokens > 0 ||
-    usage.cacheReadTokens > 0 ||
-    usage.cacheWriteTokens > 0;
+  const hasTokenSignal = hasBillableTokenBuckets(usage);
   const hasCostSignal = costUsd !== undefined && costUsd > 0;
 
   return {

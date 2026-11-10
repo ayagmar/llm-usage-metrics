@@ -25,6 +25,7 @@ import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js
 import {
   asTrimmedText,
   getJsonlFileStem,
+  hasPositiveTokenCount,
   isBlankText,
   normalizeTimestampCandidate,
   splitPromptIncludingCachedTokens,
@@ -259,17 +260,6 @@ function addUsage(left: CodexUsage, right: CodexUsage): CodexUsage {
   };
 }
 
-function hasUsageSignal(usage: CodexUsage): boolean {
-  return (
-    usage.inputTokens > 0 ||
-    usage.cacheReadTokens > 0 ||
-    usage.cacheWriteTokens > 0 ||
-    usage.outputTokens > 0 ||
-    usage.reasoningTokens > 0 ||
-    usage.totalTokens > 0
-  );
-}
-
 function hasUsageRollback(current: CodexUsage, previous: CodexUsage): boolean {
   return (
     current.inputTokens < previous.inputTokens ||
@@ -318,19 +308,19 @@ function deriveDeltaFromTotals(
 
   if (totalUsage && previousTotalUsage) {
     if (hasUsageRollback(totalUsage, previousTotalUsage)) {
-      if (lastUsage && hasUsageSignal(lastUsage)) {
+      if (lastUsage && hasPositiveTokenCount(lastUsage)) {
         return { deltaUsage: lastUsage, latestTotalUsage: totalUsage };
       }
 
       return {
-        deltaUsage: hasUsageSignal(totalUsage) ? totalUsage : undefined,
+        deltaUsage: hasPositiveTokenCount(totalUsage) ? totalUsage : undefined,
         latestTotalUsage: totalUsage,
       };
     }
 
     const deltaFromTotals = subtractUsage(totalUsage, previousTotalUsage);
 
-    if (hasUsageSignal(deltaFromTotals)) {
+    if (hasPositiveTokenCount(deltaFromTotals)) {
       return { deltaUsage: deltaFromTotals, latestTotalUsage: totalUsage };
     }
 
@@ -464,7 +454,7 @@ function parseUsageRecord(
   const payload = asRecord(line.payload);
   const usage = toUsage(payload?.usage);
 
-  if (!usage || !hasUsageSignal(usage)) {
+  if (!usage || !hasPositiveTokenCount(usage)) {
     return {};
   }
 
@@ -839,7 +829,7 @@ function takeUsageLine(
     state.previousTotalUsage,
   );
 
-  if (!deltaUsage || !hasUsageSignal(deltaUsage)) {
+  if (!deltaUsage || !hasPositiveTokenCount(deltaUsage)) {
     if (!fromLastUsageOnly) {
       state.previousLastUsageOnlyKey = undefined;
     }

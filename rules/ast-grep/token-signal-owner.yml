@@ -1,0 +1,18 @@
+id: token-signal-owner
+language: TypeScript
+severity: error
+message: Use hasBillableTokenBuckets (domain/usage-event.ts) or hasPositiveTokenCount (sources/parsing-utils.ts)
+note: An `a.inputTokens > 0 || a.outputTokens > 0 || ...` chain repeats one of those helpers.
+# Sources only: domain/usage-event.ts owns hasBillableTokenBuckets, and pricing's
+# hasNonReasoningPricedBuckets deliberately leaves reasoning out.
+files:
+  - packages/core/src/sources/**
+ignores:
+  - packages/core/src/sources/parsing-utils.ts
+rule:
+  pattern: $U.$F > 0
+  inside:
+    pattern: $L || $R
+constraints:
+  F:
+    regex: ^(input|output|reasoning|cacheRead|cacheWrite|total)Tokens$

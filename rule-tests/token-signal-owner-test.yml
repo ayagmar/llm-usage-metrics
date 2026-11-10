@@ -1,0 +1,8 @@
+id: token-signal-owner
+valid:
+  - 'if (!hasPositiveTokenCount(usage)) return undefined;'
+  - 'const hasOutput = usage.outputTokens > 0;'
+  - 'const ok = usage.costUsd > 0 || usage.requestCount > 0;'
+invalid:
+  - 'return usage.inputTokens > 0 || usage.outputTokens > 0 || usage.cacheReadTokens > 0;'
+  - 'return usage.cacheReadTokens > 0 || usage.totalTokens > 0;'

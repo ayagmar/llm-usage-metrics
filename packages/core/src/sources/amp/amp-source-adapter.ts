@@ -7,6 +7,7 @@ import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import {
   asTrimmedText,
+  hasPositiveTokenCount,
   isBlankText,
   normalizeTimestampCandidate,
   resolveTotalTokens,
@@ -93,17 +94,6 @@ function extractUsageFromMessageUsage(usage: Record<string, unknown>): AmpTokenU
     cacheWriteTokens,
     totalTokens,
   };
-}
-
-function hasUsageSignal(usage: AmpTokenUsage): boolean {
-  return (
-    usage.inputTokens > 0 ||
-    usage.outputTokens > 0 ||
-    usage.reasoningTokens > 0 ||
-    usage.cacheReadTokens > 0 ||
-    usage.cacheWriteTokens > 0 ||
-    usage.totalTokens > 0
-  );
 }
 
 function getThreadMessages(thread: Record<string, unknown>): Record<string, unknown>[] {
@@ -222,7 +212,7 @@ function* parseLedgerEvents(
       totalTokens: usage.totalTokens > 0 ? usage.totalTokens : componentTotal,
     };
 
-    if (!hasUsageSignal(usageWithCache)) {
+    if (!hasPositiveTokenCount(usageWithCache)) {
       recordSkippedRow(context.diagnostics, 'no_token_usage');
       continue;
     }
@@ -272,7 +262,7 @@ function* parseMessageUsage(context: AmpParseContext): Generator<UsageEvent, voi
 
     const usage = extractUsageFromMessageUsage(usageRecord);
 
-    if (!hasUsageSignal(usage)) {
+    if (!hasPositiveTokenCount(usage)) {
       recordSkippedRow(context.diagnostics, 'no_token_usage');
       continue;
     }

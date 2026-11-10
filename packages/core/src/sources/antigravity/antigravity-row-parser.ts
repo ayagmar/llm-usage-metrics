@@ -1,4 +1,9 @@
-import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
+import {
+  createUsageEvent,
+  hasBillableTokenBuckets,
+  type BillableTokenUsage,
+  type UsageEvent,
+} from '../../domain/usage-event.js';
 import { asTrimmedText } from '../parsing-utils.js';
 import {
   getFirstProtoLengthDelimitedField,
@@ -34,11 +39,7 @@ export type AntigravityParsedRow = {
   skippedReason?: AntigravitySkippedRowReason;
 };
 
-type AntigravityUsage = {
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
+type AntigravityUsage = BillableTokenUsage & {
   responseId?: string;
 };
 
@@ -112,17 +113,10 @@ function readUsage(usageBytes: Uint8Array | undefined): AntigravityUsage | undef
     cacheReadTokens: getFirstProtoVarintField(fields, USAGE_CACHE_READ_FIELD) ?? 0,
     outputTokens,
     reasoningTokens,
+    // Antigravity reports no cache writes.
+    cacheWriteTokens: 0,
     responseId: asTrimmedText(getFirstProtoStringField(fields, USAGE_RESPONSE_ID_FIELD)),
   };
-}
-
-function hasUsageSignal(usage: AntigravityUsage): boolean {
-  return (
-    usage.inputTokens > 0 ||
-    usage.outputTokens > 0 ||
-    usage.reasoningTokens > 0 ||
-    usage.cacheReadTokens > 0
-  );
 }
 
 export function parseAntigravitySessionCreatedAt(value: unknown): string | undefined {
@@ -170,7 +164,7 @@ export function parseAntigravityMetadataBlob(
     const chatFields = readFieldsFromBytes(chatModelBytes);
     const usage = readUsage(getFirstProtoLengthDelimitedField(chatFields, CHAT_MODEL_USAGE_FIELD));
 
-    if (!usage || !hasUsageSignal(usage)) {
+    if (!usage || !hasBillableTokenBuckets(usage)) {
       return { skippedReason: 'no_token_usage' };
     }
 
@@ -198,7 +192,7 @@ export function parseAntigravityMetadataBlob(
         outputTokens: usage.outputTokens,
         reasoningTokens: usage.reasoningTokens,
         cacheReadTokens: usage.cacheReadTokens,
-        cacheWriteTokens: 0,
+        cacheWriteTokens: usage.cacheWriteTokens,
         // Reasoning is already inside output, so it must not be added to the total again.
         totalTokens: usage.inputTokens + usage.outputTokens + usage.cacheReadTokens,
         singleRequest: true,

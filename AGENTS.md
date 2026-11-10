@@ -110,6 +110,10 @@ Error rules fail lint. Each one keeps a fact in one owner module:
 - `first-timestamp-owner`: a `for...of` loop that passes its loop variable (or `record[key]`)
   to `normalizeTimestampCandidate`. Use `firstTimestamp`
   (`packages/core/src/sources/parsing-utils.ts`). Scope: `packages/core/src`.
+- `token-signal-owner`: an `||` chain of `x.<bucket>Tokens > 0` checks in a source. Use
+  `hasBillableTokenBuckets` (`packages/core/src/domain/usage-event.ts`), or
+  `hasPositiveTokenCount` (`packages/core/src/sources/parsing-utils.ts`) when a declared total
+  counts too. Scope: `packages/core/src/sources`.
 - `time-constants-owner`: a declaration named `SECOND_MS`, `MINUTE_MS`, `HOUR_MS` or
   `DAY_MS`, and hand-written conversions: `n * 60 * 1000`, multiplying or dividing by
   `60_000`, `3_600_000` or `86_400_000`. Bare timeouts such as `60_000` are fine. Use

@@ -5,6 +5,11 @@ import {
   parseTimestampText,
   type NumberLike,
 } from '../domain/normalization.js';
+import {
+  hasBillableTokenBuckets,
+  type BillableTokenUsage,
+  type UsageEvent,
+} from '../domain/usage-event.js';
 
 const MIN_PLAUSIBLE_UNIX_SECONDS_ABS = 100_000_000;
 const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
@@ -98,6 +103,16 @@ export function hasPositiveUsageOrCostSignal(
   const hasPositiveCostSignal = explicitCost !== undefined && explicitCost > 0;
 
   return hasPositiveUsageSignal || hasPositiveCostSignal;
+}
+
+/**
+ * `hasBillableTokenBuckets`, or a declared total above zero, for sources that can report a
+ * total without its buckets.
+ */
+export function hasPositiveTokenCount(
+  usage: BillableTokenUsage & Pick<UsageEvent, 'totalTokens'>,
+): boolean {
+  return hasBillableTokenBuckets(usage) || usage.totalTokens > 0;
 }
 
 export type SplitPromptTokens = {
