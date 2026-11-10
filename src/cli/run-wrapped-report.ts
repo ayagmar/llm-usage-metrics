@@ -56,8 +56,11 @@ async function prepareWrappedReport(
   });
 }
 
-export async function buildWrappedReport(options: WrappedCommandOptions): Promise<string> {
-  const preparedReport = await prepareWrappedReport(options);
+export async function buildWrappedReport(
+  options: WrappedCommandOptions,
+  deps: BuildWrappedDataDeps = {},
+): Promise<string> {
+  const preparedReport = await prepareWrappedReport(options, deps);
   return preparedReport.output;
 }
 
