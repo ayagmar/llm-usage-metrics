@@ -14,10 +14,15 @@ import {
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildUsageDataDeps, ValueCommandOptions } from './usage-data-contracts.js';
+import { withRunClock } from './run-clock.js';
 
 const valueReportFormats = STANDARD_REPORT_FORMATS satisfies readonly ValueReportFormat[];
 
-async function prepareValueReport(options: ValueCommandOptions, deps: BuildUsageDataDeps = {}) {
+async function prepareValueReport(
+  options: ValueCommandOptions,
+  commandDeps: BuildUsageDataDeps = {},
+) {
+  const deps = withRunClock(commandDeps);
   const hideCost = options.cost === false;
 
   return prepareReport({

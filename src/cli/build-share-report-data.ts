@@ -61,6 +61,7 @@ import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { getSourceOverrideOptions } from './source-cli-options.js';
 import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
+import { readNow } from './run-clock.js';
 
 /** What a command passes to build its share report. */
 export type ShareReportRequest = {
@@ -303,7 +304,7 @@ export async function buildShareReport(
     configuredOptions,
     userConfigResolution.cliOptions,
   );
-  const now = deps.now?.() ?? new Date();
+  const now = readNow(deps);
   const { since, until } = request.window;
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,

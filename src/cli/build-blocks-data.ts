@@ -34,6 +34,7 @@ import type {
   UsageDiagnostics,
 } from './usage-data-contracts.js';
 import { parseTopRowsOption } from './top-option.js';
+import { readNow } from './run-clock.js';
 
 /** Days read before `since` to find where the chain of blocks running into it started. */
 const BLOCKS_LOOKBACK_DAYS = 7;
@@ -195,7 +196,7 @@ export async function buildBlocksData(
   const top = parseTopRowsOption(options.top);
   const { defaultWindowSince, userConfigResolution, configuredOptions, window, timezone } =
     await resolveDailyWindowRequest(options, deps);
-  const now = deps.now?.() ?? new Date();
+  const now = readNow(deps);
   const today = getCurrentLocalDateKey(timezone, now);
   const hideCost = options.cost === false;
   const { dataset, lookbackSince, events, wholeStreams } = await readBlocksDataset(

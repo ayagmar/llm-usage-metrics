@@ -35,6 +35,7 @@ import type {
   TrendValueRow,
 } from '../trends/trends-series.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { readNow } from './run-clock.js';
 
 /** Trends data, with one series per project under `--by-repo`. */
 export type TrendsReportData = TrendsDataResult & {
@@ -399,7 +400,7 @@ export async function buildTrendsData(
 ): Promise<TrendsReportData> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options as TrendsCommandOptions;
-  const now = deps.now?.() ?? new Date();
+  const now = readNow(deps);
   const timezone = resolveReportTimezone(configuredOptions.timezone);
   const resolved = resolveTrendsOptions(configuredOptions, timezone, now);
   const datasetOptions = {

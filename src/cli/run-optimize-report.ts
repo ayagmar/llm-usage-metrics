@@ -21,14 +21,17 @@ import {
 } from './share-report-artifact.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 import type { BuildOptimizeDataDeps } from './build-optimize-data.js';
+import { withRunClock } from './run-clock.js';
 
 const optimizeReportFormats = STANDARD_REPORT_FORMATS satisfies readonly OptimizeReportFormat[];
 
 async function prepareOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
-  deps: BuildOptimizeDataDeps = {},
+  commandDeps: BuildOptimizeDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: optimizeReportFormats,

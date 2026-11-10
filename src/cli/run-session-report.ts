@@ -10,13 +10,16 @@ import {
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildSessionDataDeps, SessionCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
+import { withRunClock } from './run-clock.js';
 
 const sessionReportFormats = STANDARD_REPORT_FORMATS satisfies readonly SessionReportFormat[];
 
 async function prepareSessionReport(
   options: SessionCommandOptions,
-  deps: BuildSessionDataDeps = {},
+  commandDeps: BuildSessionDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: sessionReportFormats,

@@ -11,10 +11,16 @@ import {
 import { getDefaultWindowHint } from './run-usage-report.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildUsageDataDeps, ContextCommandOptions } from './usage-data-contracts.js';
+import { withRunClock } from './run-clock.js';
 
 const contextReportFormats = STANDARD_REPORT_FORMATS satisfies readonly ContextReportFormat[];
 
-async function prepareContextReport(options: ContextCommandOptions, deps: BuildUsageDataDeps = {}) {
+async function prepareContextReport(
+  options: ContextCommandOptions,
+  commandDeps: BuildUsageDataDeps = {},
+) {
+  const deps = withRunClock(commandDeps);
+
   return prepareReport({
     commandOptions: options,
     supportedFormats: contextReportFormats,

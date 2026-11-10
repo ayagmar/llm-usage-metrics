@@ -29,6 +29,7 @@ import {
   toShareDateRange,
   toShareGranularity,
 } from './share-report-artifact.js';
+import { withRunClock } from './run-clock.js';
 
 const usageReportFormats = STANDARD_REPORT_FORMATS satisfies readonly UsageReportFormat[];
 
@@ -91,8 +92,9 @@ function getHintsAfterOutput(granularity: UsageGranularity, usageData: UsageData
 async function prepareUsageReport(
   granularity: UsageGranularity,
   options: ReportCommandOptions,
-  deps: BuildUsageDataDeps = {},
+  commandDeps: BuildUsageDataDeps = {},
 ) {
+  const deps = withRunClock(commandDeps);
   const tableLayout = resolveTableLayout(options);
   const hideCost = options.cost === false;
 
