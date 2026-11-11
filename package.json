@@ -95,8 +95,8 @@
   },
   "homepage": "https://ayagmar.github.io/llm-usage-metrics/",
   "dependencies": {
-    "commander": "15.0.0",
-    "markdown-table": "3.0.4",
+    "commander": "15.1.0",
+    "markdown-table": "3.1.0",
     "picocolors": "1.1.1"
   },
   "devDependencies": {
